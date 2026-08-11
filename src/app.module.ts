@@ -6,6 +6,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { VersionesModule } from './modules/versiones/versiones.module';
+import { PersonasModule } from './modules/personas/personas.module';
+import { CatalogosModule } from './modules/catalogos/catalogos.module';
+import { UnidadesModule } from './modules/unidades/unidades.module';
+import { CargosModule } from './modules/cargos/cargos.module';
 
 @Module({
   imports: [
@@ -13,7 +17,6 @@ import { VersionesModule } from './modules/versiones/versiones.module';
       isGlobal: true,
     }),
     ScheduleModule.forRoot(),
-    AuthModule,
     TypeOrmModule.forRootAsync({
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
@@ -21,13 +24,18 @@ import { VersionesModule } from './modules/versiones/versiones.module';
         port: configService.get<number>('DB_PORT', 5432),
         username: configService.get<string>('DB_USERNAME', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', 'postgres'),
-        database: configService.get<string>('DB_DATABASE', 'mpp_db'),
+        database: configService.get<string>('DB_DATABASE', 'mof_db'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: false,
       }),
       inject: [ConfigService],
       imports: [ConfigModule],
     }),
+    AuthModule,
+    PersonasModule,
+    CatalogosModule,
+    UnidadesModule,
+    CargosModule,
     VersionesModule,
   ],
   controllers: [AppController],
