@@ -5,15 +5,12 @@ import { join } from 'path';
 
 config();
 
-async function run() {
-  const seederPath = process.argv[2];
+const DEFAULT_SEEDER = 'src/database/seed-1/etl-data.seeder.ts';
 
-  if (!seederPath) {
-    console.error(
-      'Error: Debes proporcionar la ruta del seeder. Ejemplo: src/database/seed-1/initial.seeder.ts',
-    );
-    process.exit(1);
-  }
+async function run() {
+  const seederPath =
+    process.argv.slice(2).find((arg) => !arg.startsWith('--')) ||
+    DEFAULT_SEEDER;
 
   const options: DataSourceOptions & SeederOptions = {
     type: 'postgres',
@@ -31,7 +28,7 @@ async function run() {
 
   try {
     await dataSource.initialize();
-    console.log('DataSource inicializado correctamente.');
+    console.log(`DataSource inicializado. Seeder: ${seederPath}`);
 
     await runSeeders(dataSource);
     console.log('Seed ejecutado con éxito.');

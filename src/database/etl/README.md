@@ -1,22 +1,36 @@
-# ETL: umsa_db → esquema MOF
+# ETL: dump umsa_db → esquema MOF (Nest)
 
-Migra datos del dump antiguo (`backendSpringSMAU/database/umsa_db.sql`, schema `umsa`) hacia la BD nueva `mof_db`.
+Migra datos de [`backendSpringSMAU/database/umsa_db.sql`](../../../backendSpringSMAU/database/umsa_db.sql) hacia la BD nueva `mof_db`.
+
+## Fuente según el dump
+
+El script detecta automáticamente de dónde leer el organigrama:
+
+| Si hay filas en… | Lee catálogos / unidades / hijas de |
+|------------------|-------------------------------------|
+| `mof.unidad`     | schema **`mof`** (`clase`, `tipo`, `nivel`, `relacion`, `unidad_*`) |
+| si no            | schema **`umsa`** (dump anterior) |
+
+Personas, cargos y `asignacion_personal` siempre salen de **`umsa`**.
+
+En el dump actual (2026-08-12) `umsa.unidad` está vacío; el organigrama real (~159 unidades) está en `mof.*`.
 
 ## 1. Restaurar el dump en una BD temporal
 
 ```bash
 # Desde la raíz del monorepo o con ruta absoluta al dump
+dropdb -U postgres --if-exists umsa_legacy
 createdb -U postgres umsa_legacy
 
-# El dump es grande y puede pedir roles/schemas; si falla por OWNER, usa:
+# El dump puede pedir roles/schemas (root); si falla por OWNER, usa:
 psql -U postgres -d umsa_legacy -v ON_ERROR_STOP=0 -f backendSpringSMAU/database/umsa_db.sql
 ```
 
-Verifica que exista el schema:
+Verifica:
 
 ```bash
-psql -U postgres -d umsa_legacy -c "\dn umsa"
-psql -U postgres -d umsa_legacy -c "SELECT COUNT(*) FROM umsa.unidad;"
+psql -U postgres -d umsa_legacy -c "SELECT COUNT(*) FROM mof.unidad;"
+psql -U postgres -d umsa_legacy -c "SELECT COUNT(*) FROM umsa.cargo;"
 ```
 
 ## 2. Configurar `.env` en backend-MOF
@@ -57,29 +71,29 @@ npm run etl:umsa
 
 ## Qué migra / qué no
 
-| Origen `umsa` | Destino |
-|---------------|---------|
-| (seed) catálogos A/B/C, D/E/O, L/S | `catalogo_tipo`, `catalogo_nivel`, `catalogo_relacion` |
-| `tipo_unidad` | `tipo_unidad` (genera `codigo`) |
-| `persona` | `persona` |
-| `cargo` | `cargo` |
-| `unidad` | `unidad` (2 pases parent; genera `sigla`) |
-| `unidad_funcion` | `unidad_funcion` |
-| `unidad_dependencia` | `unidad_dependencia_funcional` |
-| `unidad_relexterno` / `unidad_relinterno` | relaciones |
-| `unidad_parent` | `unidad_jerarquia_hist` |
-| `asignacion_personal` | `cargo_unidad` + `asignacion_cargo` (si hay datos) |
+| Origen | Destino |
+|--------|---------|
+| seed + `mof.tipo/nivel/relacion` | `catalogo_tipo` A/B/C (+N/Z), `catalogo_nivel` D/E/O, `catalogo_relacion` L/S/F/X |
+| `mof.clase` (o `umsa.tipo_unidad`) | `tipo_unidad` (genera `codigo`) |
+| `umsa.persona` | `persona` |
+| `umsa.cargo` | `cargo` |
+| `mof.unidad` (o `umsa.unidad`) | `unidad` (2 pases parent; genera `sigla`) |
+| `*.unidad_funcion` | `unidad_funcion` |
+| `*.unidad_dependencia` | `unidad_dependencia_funcional` |
+| `*.unidad_relexterno` / `_relinterno` | relaciones |
+| `umsa.unidad_parent` | `unidad_jerarquia_hist` (si hay filas) |
+| `umsa.asignacion_personal` | `cargo_unidad` + `asignacion_cargo` (si hay persona) |
 
-**No migra:** `public.*`, usuarios/roles MOF, auditoría.
+**No migra:** `public.*`, usuarios/roles MOF, auditoría, `mof.mof` (versión Spring).
 
 ## Checklist de verificación
 
 Tras `--truncate`, comparar counts impresos al final del script:
 
-- `umsa.unidad` ≈ `unidad`
-- `umsa.tipo_unidad` ≈ `tipo_unidad`
+- `mof.unidad` ≈ `unidad`
+- `mof.clase` ≈ `tipo_unidad`
 - `umsa.cargo` ≈ `cargo`
-- `umsa.unidad_funcion` ≈ `unidad_funcion`
+- `mof.unidad_funcion` ≈ `unidad_funcion`
 - Spot-check:
 
 ```sql
@@ -93,6 +107,14 @@ JOIN catalogo_nivel cn ON cn.id = u.nivel_id;
 
 ## Notas
 
-- Solo se lee schema **`umsa`** (no el organigrama plano de `public.unidad`).
-- IDs de origen se preservan (`unidad_id` → `unidad.id`, etc.) y se reajustan secuencias.
-- Si el dump no tiene `asignacion_personal`, la fase 9 es no-op.
+- IDs de origen se preservan (`unidad.id`, `clase.id` → `tipo_unidad.id`, etc.).
+- Catálogos MOF Spring (enteros) se mapean a códigos de 1 letra del esquema nuevo.
+- Si `asignacion_personal.administrativo` es NULL, solo se crea `cargo_unidad`.
+
+Tras un ETL exitoso, regenera el seed que viaja con el repo:
+
+```bash
+npm run seed:export   # escribe src/database/seed-1/etl-snapshot.sql
+```
+
+Quien clone `backend-MOF` no necesita el dump ni `umsa_legacy`: `npm run migration:run && npm run seed`.

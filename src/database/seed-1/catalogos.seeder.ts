@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { Seeder } from 'typeorm-extension';
+import type { Seeder } from 'typeorm-extension';
 import { CatalogoTipo } from '../../modules/catalogos/entities/catalogo-tipo.entity';
 import { CatalogoNivel } from '../../modules/catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../../modules/catalogos/entities/catalogo-relacion.entity';

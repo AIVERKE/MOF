@@ -1,5 +1,11 @@
 import { Pool } from 'pg';
-import { emptyStats, logStats, PhaseStats, EtlOptions } from '../legacy-client';
+import {
+  emptyStats,
+  logStats,
+  PhaseStats,
+  EtlOptions,
+  columnExists,
+} from '../legacy-client';
 
 export async function migrateCargo(
   legacy: Pool,
@@ -7,14 +13,25 @@ export async function migrateCargo(
   options: EtlOptions,
 ): Promise<PhaseStats> {
   const stats = emptyStats('3-cargo');
+  const idCol = (await columnExists(legacy, 'umsa', 'cargo', 'cargo_id'))
+    ? 'cargo_id'
+    : 'id';
+  const activoExpr = (await columnExists(legacy, 'umsa', 'cargo', 'estado'))
+    ? 'estado'
+    : 'activo';
   const src = await legacy.query<{
     cargo_id: string;
     descripcion: string | null;
     estado: boolean | null;
-  }>(`SELECT cargo_id, descripcion, estado FROM umsa.cargo`);
+  }>(
+    `SELECT ${idCol} AS cargo_id, descripcion, ${activoExpr} AS estado FROM umsa.cargo`,
+  );
 
   for (const row of src.rows) {
     const nombre = (row.descripcion || `Cargo ${row.cargo_id}`).slice(0, 255);
+    const descripcion = row.descripcion
+      ? row.descripcion.slice(0, 512)
+      : null;
     const activo = row.estado === null || row.estado === undefined ? true : !!row.estado;
 
     if (options.dryRun) {
@@ -34,7 +51,7 @@ export async function migrateCargo(
            activo = EXCLUDED.activo,
            updated_at = now(),
            deleted_at = NULL`,
-        [row.cargo_id, nombre, row.descripcion, activo],
+        [row.cargo_id, nombre, descripcion, activo],
       );
       stats.inserted += 1;
     } catch (e) {

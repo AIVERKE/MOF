@@ -58,7 +58,7 @@ export async function migratePersona(
           row.nombres || 'SIN NOMBRE',
           row.primer_apellido,
           row.segundo_apellido,
-          row.celular,
+          row.celular ? row.celular.slice(0, 32) : null,
           row.correo,
           row.registro,
           deletedAt,

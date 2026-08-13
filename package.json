@@ -24,7 +24,9 @@
     "migration:revert": "npm run typeorm -- migration:revert -d src/data-source.ts",
     "migration:run:prod": "typeorm migration:run -d dist/data-source.js",
     "migration:revert:prod": "typeorm migration:revert -d dist/data-source.js",
-    "seed": "ts-node -r tsconfig-paths/register src/database/run-seeder.ts",
+    "seed": "ts-node -r tsconfig-paths/register src/database/run-seeder.ts src/database/seed-1/etl-data.seeder.ts",
+    "seed:catalogos": "ts-node -r tsconfig-paths/register src/database/run-seeder.ts src/database/seed-1/catalogos.seeder.ts",
+    "seed:export": "ts-node -r tsconfig-paths/register src/database/seed-1/export-snapshot.ts",
     "etl:umsa": "ts-node -r tsconfig-paths/register src/database/etl/migrate-from-umsa.ts"
   },
   "dependencies": {

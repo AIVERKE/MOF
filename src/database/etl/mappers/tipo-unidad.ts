@@ -4,6 +4,7 @@ import {
   logStats,
   PhaseStats,
   EtlOptions,
+  OrganigramaSource,
   slugCodigo,
 } from '../legacy-client';
 
@@ -11,14 +12,31 @@ export async function migrateTipoUnidad(
   legacy: Pool,
   target: Pool,
   options: EtlOptions,
+  organigrama: OrganigramaSource,
 ): Promise<PhaseStats> {
   const stats = emptyStats('1-tipo_unidad');
-  const src = await legacy.query<{
-    tipo_unidad_id: number;
-    descripcion: string | null;
-    peso: number | null;
-    color: string | null;
-  }>(`SELECT tipo_unidad_id, descripcion, peso, color FROM umsa.tipo_unidad`);
+  const src =
+    organigrama === 'mof'
+      ? await legacy.query<{
+          tipo_unidad_id: number;
+          descripcion: string | null;
+          peso: number | null;
+          color: string | null;
+          activo: boolean | null;
+        }>(
+          `SELECT id AS tipo_unidad_id, descripcion, orden AS peso, color, activo
+           FROM mof.clase`,
+        )
+      : await legacy.query<{
+          tipo_unidad_id: number;
+          descripcion: string | null;
+          peso: number | null;
+          color: string | null;
+          activo: boolean | null;
+        }>(
+          `SELECT tipo_unidad_id, descripcion, peso, color, true AS activo
+           FROM umsa.tipo_unidad`,
+        );
 
   const usedCodigos = new Set<string>();
 
@@ -37,13 +55,13 @@ export async function migrateTipoUnidad(
     try {
       await target.query(
         `INSERT INTO tipo_unidad (id, codigo, descripcion, peso, color, activo, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, true, now(), now())
+         VALUES ($1, $2, $3, $4, $5, $6, now(), now())
          ON CONFLICT (id) DO UPDATE SET
            codigo = EXCLUDED.codigo,
            descripcion = EXCLUDED.descripcion,
            peso = EXCLUDED.peso,
            color = EXCLUDED.color,
-           activo = true,
+           activo = EXCLUDED.activo,
            updated_at = now(),
            deleted_at = NULL`,
         [
@@ -52,6 +70,7 @@ export async function migrateTipoUnidad(
           row.descripcion || `Tipo ${row.tipo_unidad_id}`,
           row.peso ?? 0,
           row.color,
+          row.activo !== false,
         ],
       );
       stats.inserted += 1;

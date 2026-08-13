@@ -1,6 +1,7 @@
 import {
   createLegacyPool,
   createTargetPool,
+  detectOrganigramaSource,
   parseCliArgs,
   PhaseStats,
 } from './legacy-client';
@@ -71,14 +72,32 @@ async function main(): Promise<void> {
       console.log('[dry-run] omitiendo TRUNCATE');
     }
 
-    const catalogs = await migrateCatalogs(target, options);
-    allStats.push(await migrateTipoUnidad(legacy, target, options));
+    const organigrama = await detectOrganigramaSource(legacy);
+    console.log(`Fuente organigrama: ${organigrama}.*`);
+
+    const catalogs = await migrateCatalogs(
+      legacy,
+      target,
+      options,
+      organigrama,
+    );
+    allStats.push(
+      await migrateTipoUnidad(legacy, target, options, organigrama),
+    );
     allStats.push(await migratePersona(legacy, target, options));
     allStats.push(await migrateCargo(legacy, target, options));
-    allStats.push(await migrateUnidad(legacy, target, catalogs, options));
-    allStats.push(await migrateUnidadFuncion(legacy, target, options));
-    allStats.push(await migrateUnidadDependencia(legacy, target, options));
-    allStats.push(await migrateRelaciones(legacy, target, options));
+    allStats.push(
+      await migrateUnidad(legacy, target, catalogs, options, organigrama),
+    );
+    allStats.push(
+      await migrateUnidadFuncion(legacy, target, options, organigrama),
+    );
+    allStats.push(
+      await migrateUnidadDependencia(legacy, target, options, organigrama),
+    );
+    allStats.push(
+      await migrateRelaciones(legacy, target, options, organigrama),
+    );
     allStats.push(await migrateUnidadParentHist(legacy, target, options));
     allStats.push(await migrateAsignaciones(legacy, target, options));
 
@@ -117,20 +136,35 @@ async function main(): Promise<void> {
         console.log(`  ${t}: ${r.rows[0].c}`);
       }
 
-      console.log('\n=== Counts origen (umsa) ===');
-      const legacyTables = [
-        'tipo_unidad',
-        'persona',
-        'cargo',
-        'unidad',
-        'unidad_funcion',
-        'unidad_dependencia',
-        'unidad_relexterno',
-        'unidad_relinterno',
-        'unidad_parent',
-        'asignacion_personal',
-      ];
-      for (const t of legacyTables) {
+      console.log(
+        `\n=== Counts origen (${organigrama} organigrama + umsa personas/cargos) ===`,
+      );
+      const orgTables =
+        organigrama === 'mof'
+          ? [
+              'mof.clase',
+              'mof.unidad',
+              'mof.unidad_funcion',
+              'mof.unidad_dependencia',
+              'mof.unidad_relexterno',
+              'mof.unidad_relinterno',
+            ]
+          : [
+              'umsa.tipo_unidad',
+              'umsa.unidad',
+              'umsa.unidad_funcion',
+              'umsa.unidad_dependencia',
+              'umsa.unidad_relexterno',
+              'umsa.unidad_relinterno',
+              'umsa.unidad_parent',
+            ];
+      for (const fq of orgTables) {
+        const r = await legacy.query<{ c: string }>(
+          `SELECT COUNT(*)::text AS c FROM ${fq}`,
+        );
+        console.log(`  ${fq}: ${r.rows[0].c}`);
+      }
+      for (const t of ['persona', 'cargo', 'asignacion_personal']) {
         const r = await legacy.query<{ c: string }>(
           `SELECT COUNT(*)::text AS c FROM umsa.${t}`,
         );

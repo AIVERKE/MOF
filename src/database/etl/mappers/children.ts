@@ -1,19 +1,31 @@
 import { Pool } from 'pg';
-import { emptyStats, logStats, PhaseStats, EtlOptions } from '../legacy-client';
+import {
+  emptyStats,
+  logStats,
+  PhaseStats,
+  EtlOptions,
+  OrganigramaSource,
+  columnExists,
+  tableExists,
+} from '../legacy-client';
 
 export async function migrateUnidadFuncion(
   legacy: Pool,
   target: Pool,
   options: EtlOptions,
+  organigrama: OrganigramaSource,
 ): Promise<PhaseStats> {
   const stats = emptyStats('5-unidad_funcion');
+  const schema = organigrama;
+  const idCol = schema === 'mof' ? 'id' : 'unidad_funcion_id';
   const src = await legacy.query<{
     unidad_funcion_id: string;
     unidad: string | null;
     funcion: string | null;
     base_legal: string | null;
   }>(
-    `SELECT unidad_funcion_id, unidad, funcion, base_legal FROM umsa.unidad_funcion`,
+    `SELECT ${idCol} AS unidad_funcion_id, unidad, funcion, base_legal
+     FROM ${schema}.unidad_funcion`,
   );
 
   const ordenByUnidad = new Map<string, number>();
@@ -49,7 +61,13 @@ export async function migrateUnidadFuncion(
            base_legal = EXCLUDED.base_legal,
            updated_at = now(),
            deleted_at = NULL`,
-        [row.unidad_funcion_id, row.unidad, orden, row.funcion, row.base_legal],
+        [
+          row.unidad_funcion_id,
+          row.unidad,
+          orden,
+          row.funcion.slice(0, 1024),
+          row.base_legal ? row.base_legal.slice(0, 1024) : null,
+        ],
       );
       stats.inserted += 1;
     } catch (e) {
@@ -73,12 +91,13 @@ export async function migrateUnidadDependencia(
   legacy: Pool,
   target: Pool,
   options: EtlOptions,
+  organigrama: OrganigramaSource,
 ): Promise<PhaseStats> {
   const stats = emptyStats('6-unidad_dependencia');
   const src = await legacy.query<{
     unidad: string | null;
     dependencia: string | null;
-  }>(`SELECT unidad, dependencia FROM umsa.unidad_dependencia`);
+  }>(`SELECT unidad, dependencia FROM ${organigrama}.unidad_dependencia`);
 
   for (const row of src.rows) {
     if (!row.unidad || !row.dependencia || row.unidad === row.dependencia) {
@@ -90,6 +109,14 @@ export async function migrateUnidadDependencia(
       continue;
     }
     try {
+      const both = await target.query(
+        `SELECT COUNT(*)::int AS c FROM unidad WHERE id IN ($1, $2)`,
+        [row.unidad, row.dependencia],
+      );
+      if (Number(both.rows[0]?.c) < 2) {
+        stats.skipped += 1;
+        continue;
+      }
       await target.query(
         `INSERT INTO unidad_dependencia_funcional (unidad_id, dependencia_id, created_at, updated_at)
          VALUES ($1,$2, now(), now())
@@ -113,15 +140,19 @@ export async function migrateRelaciones(
   legacy: Pool,
   target: Pool,
   options: EtlOptions,
+  organigrama: OrganigramaSource,
 ): Promise<PhaseStats> {
   const stats = emptyStats('7-relaciones');
+  const extId = organigrama === 'mof' ? 'id' : 'unidad_relexterno_id';
+  const intId = organigrama === 'mof' ? 'id' : 'unidad_relinterno_id';
 
   const externos = await legacy.query<{
     unidad_relexterno_id: string;
     unidad: string | null;
     descripcion: string | null;
   }>(
-    `SELECT unidad_relexterno_id, unidad, descripcion FROM umsa.unidad_relexterno`,
+    `SELECT ${extId} AS unidad_relexterno_id, unidad, descripcion
+     FROM ${organigrama}.unidad_relexterno`,
   );
 
   for (const row of externos.rows) {
@@ -142,7 +173,7 @@ export async function migrateRelaciones(
            descripcion = EXCLUDED.descripcion,
            updated_at = now(),
            deleted_at = NULL`,
-        [row.unidad_relexterno_id, row.unidad, row.descripcion],
+        [row.unidad_relexterno_id, row.unidad, row.descripcion.slice(0, 1024)],
       );
       stats.inserted += 1;
     } catch (e) {
@@ -157,7 +188,8 @@ export async function migrateRelaciones(
     unidad: string | null;
     relacion: string | null;
   }>(
-    `SELECT unidad_relinterno_id, unidad, relacion FROM umsa.unidad_relinterno`,
+    `SELECT ${intId} AS unidad_relinterno_id, unidad, relacion
+     FROM ${organigrama}.unidad_relinterno`,
   );
 
   for (const row of internos.rows) {
@@ -207,6 +239,12 @@ export async function migrateUnidadParentHist(
   options: EtlOptions,
 ): Promise<PhaseStats> {
   const stats = emptyStats('8-unidad_jerarquia_hist');
+  if (!(await tableExists(legacy, 'umsa', 'unidad_parent'))) {
+    console.log('[8-unidad_jerarquia_hist] tabla umsa.unidad_parent no existe (no-op)');
+    logStats(stats);
+    return stats;
+  }
+
   const src = await legacy.query<{
     unidad_parent_id: string;
     unidad: string;
@@ -216,6 +254,12 @@ export async function migrateUnidadParentHist(
   }>(
     `SELECT unidad_parent_id, unidad, parent, razon, registro FROM umsa.unidad_parent`,
   );
+
+  if (src.rows.length === 0) {
+    console.log('[8-unidad_jerarquia_hist] sin filas (no-op)');
+    logStats(stats);
+    return stats;
+  }
 
   for (const row of src.rows) {
     if (options.dryRun) {
@@ -264,6 +308,14 @@ export async function migrateAsignaciones(
   options: EtlOptions,
 ): Promise<PhaseStats> {
   const stats = emptyStats('9-asignaciones');
+  const idCol = (await columnExists(
+    legacy,
+    'umsa',
+    'asignacion_personal',
+    'asignacion_personal_id',
+  ))
+    ? 'asignacion_personal_id'
+    : 'id';
   const src = await legacy.query<{
     asignacion_personal_id: string;
     administrativo: string | null;
@@ -271,7 +323,7 @@ export async function migrateAsignaciones(
     fecha_asignacion: Date | null;
     cargo: string | null;
   }>(
-    `SELECT asignacion_personal_id, administrativo, unidad, fecha_asignacion, cargo
+    `SELECT ${idCol} AS asignacion_personal_id, administrativo, unidad, fecha_asignacion, cargo
      FROM umsa.asignacion_personal`,
   );
 
@@ -281,7 +333,6 @@ export async function migrateAsignaciones(
     return stats;
   }
 
-  // ensure default cargo_nivel
   let cargoNivelId = 1;
   if (!options.dryRun) {
     const nivel = await target.query<{ id: number }>(
@@ -292,6 +343,15 @@ export async function migrateAsignaciones(
     );
     cargoNivelId = Number(nivel.rows[0].id);
   }
+
+  const admIdCol = (await columnExists(
+    legacy,
+    'umsa',
+    'administrativo',
+    'administrativo_id',
+  ))
+    ? 'administrativo_id'
+    : 'id';
 
   const seenCargoUnidad = new Set<string>();
 
@@ -307,6 +367,17 @@ export async function migrateAsignaciones(
     }
 
     try {
+      const unidadOk = await target.query(`SELECT 1 FROM unidad WHERE id = $1`, [
+        row.unidad,
+      ]);
+      const cargoOk = await target.query(`SELECT 1 FROM cargo WHERE id = $1`, [
+        row.cargo,
+      ]);
+      if (!unidadOk.rowCount || !cargoOk.rowCount) {
+        stats.skipped += 1;
+        continue;
+      }
+
       if (!seenCargoUnidad.has(key)) {
         await target.query(
           `INSERT INTO cargo_unidad (cargo_id, unidad_id, activo, created_at, updated_at)
@@ -319,7 +390,7 @@ export async function migrateAsignaciones(
       let idPersona: string | null = null;
       if (row.administrativo) {
         const adm = await legacy.query<{ persona: string | null }>(
-          `SELECT persona FROM umsa.administrativo WHERE administrativo_id = $1`,
+          `SELECT persona FROM umsa.administrativo WHERE ${admIdCol} = $1`,
           [row.administrativo],
         );
         idPersona = adm.rows[0]?.persona ?? null;
