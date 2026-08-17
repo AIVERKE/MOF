@@ -1,135 +1,230 @@
-# backend-MOF
+# MOF - Instalación y ejecución
 
-Backend NestJS del Manual de Organización y Funciones (MOF): catálogos, organigrama, cargos y API alineada al frontend MPP.
+Guía rápida para levantar el Manual de Organización y Funciones en dos modos:
 
-## Stack
+- **Con Docker (recomendado)**: levanta `frontend + backend + postgres` con un solo comando.
+- **Sin Docker (manual)**: útil para desarrollo local sin contenedores.
 
-- NestJS 11
-- TypeORM + PostgreSQL (`synchronize: false`)
-- Passport JWT / Local
-- Swagger en `/api`
-- Jest (unit + e2e)
+```bash
+git clone https://github.com/AIVERKE/MOF.git
+cd MOF
+```
+
+## Quickstart (30 segundos)
+
+Desde la raíz del proyecto:
+
+```bash
+docker compose up --build -d
+docker compose run --rm backend npm run migration:run:prod
+docker compose --profile cli run --rm backend-cli npm run seed
+docker compose up -d backend frontend
+```
+
+Abrir:
+
+- Frontend: `http://localhost:5173`
+- Swagger: `http://localhost:3000/api`
+
+## Qué incluye el repositorio
+
+- `backend/`: API en NestJS + TypeORM.
+- `frontend/`: cliente web en Vue + Vite + Vuetify.
+- `docker-compose.yml`: orquestación completa del stack.
 
 ## Requisitos
 
-- Node.js 20+
-- PostgreSQL
-- npm
+### Opción A - Docker
 
-## Arranque (clonar el proyecto)
+- Docker Desktop (o Docker Engine).
+- Docker Compose v2 (`docker compose`).
 
-No hace falta el dump legacy ni correr el ScriptETL. El organigrama migrado viaja en el repo como snapshot SQL.
+Verifica con:
 
 ```bash
-cd backend-MOF
-cp .env.example .env          # ajustar DB_PASSWORD si tu Postgres no usa 123456
-createdb -U postgres mof_db   # omitir si la BD ya existe
+docker --version
+docker compose version
+```
+
+### Opción B - Manual (sin Docker)
+
+- Node.js 20 recomendado (18+ compatible).
+- npm.
+- PostgreSQL (16 recomendado, 14+ compatible).
+
+Verifica con los siguientes comandos:
+
+```bash
+node -v
+npm -v
+psql --version
+```
+
+## 1) Levantar todo con Docker (orden recomendado)
+
+Desde la raíz del proyecto:
+
+```bash
+docker compose up --build -d
+```
+
+Luego ejecuta migraciones (obligatorio la primera vez o con BD vacía):
+
+```bash
+docker compose run --rm backend npm run migration:run:prod
+```
+
+Carga el snapshot del organigrama (el servicio `backend-cli` usa el stage de build, que incluye `ts-node`):
+
+```bash
+docker compose --profile cli run --rm backend-cli npm run seed
+```
+
+Finalmente, asegura backend y frontend activos:
+
+```bash
+docker compose up -d backend frontend
+```
+
+Cuando termine, tendrás disponibles:
+
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:3000`
+- Swagger: `http://localhost:3000/api`
+- PostgreSQL: disponible solo dentro de la red Docker (no expuesto al host)
+
+### Comandos útiles Docker
+
+Detener servicios:
+
+```bash
+docker compose down
+```
+
+Detener y borrar volumen de PostgreSQL (reinicio limpio):
+
+```bash
+docker compose down -v
+```
+
+Ver logs:
+
+```bash
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f db
+```
+
+Conectarte a PostgreSQL desde tu máquina host no está habilitado en este modo para evitar conflictos de puerto. Si necesitas acceso externo, puedes mapear puertos temporalmente en `docker-compose.yml`.
+
+## 2) Migraciones TypeORM (modo Docker)
+
+Comandos disponibles:
+
+```bash
+docker compose run --rm backend npm run migration:run:prod
+docker compose run --rm backend npm run migration:revert:prod
+```
+
+Usa `run --rm` en lugar de `exec` si `backend` está en restart-loop.
+
+Nota: `migration:generate` se recomienda en modo manual/local (con devDependencies), no en el contenedor runtime de producción.
+
+Para recargar el seed:
+
+```bash
+docker compose --profile cli run --rm backend-cli npm run seed -- --force
+```
+
+## 3) Levantar proyecto sin Docker (manual)
+
+### Paso A - Backend
+
+1. Entra a la carpeta:
+
+```bash
+cd backend
+```
+
+2. Instala dependencias:
+
+```bash
 npm install
-npm run migration:run         # crea el esquema
-npm run seed                  # carga organigrama, cargos y personas
+```
+
+3. Crea tu archivo de entorno:
+
+```bash
+cp .env.example .env
+```
+
+Si estás en PowerShell y no tienes `cp`:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+4. Asegura que PostgreSQL esté encendido y crea la base configurada en `.env` (por defecto `mof_db`).
+
+5. Ejecuta migraciones y el seed:
+
+```bash
+npm run migration:run
+npm run seed
+```
+
+6. Inicia backend:
+
+```bash
 npm run start:dev
 ```
 
-- API: `http://localhost:3000`
-- Swagger: `http://localhost:3000/api`
+Detalle de seeders y ETL: [backend/README.md](backend/README.md).
 
-Para Docker, usa `.env.docker.example` (`DB_HOST=db`).
+### Paso B - Frontend
 
-## Seed de datos
-
-`npm run seed` ejecuta [`src/database/seed-1/etl-data.seeder.ts`](src/database/seed-1/etl-data.seeder.ts) e inserta el snapshot [`src/database/seed-1/etl-snapshot.sql`](src/database/seed-1/etl-snapshot.sql) (salida del ScriptETL).
-
-Si `unidad` ya tiene filas, el seed **no pisa** nada. Para recargar desde cero:
+En otra terminal:
 
 ```bash
-npm run seed -- --force
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
 ```
 
-### Qué inserta
+Accede al frontend en la URL que muestre Vite (por defecto `http://localhost:5173`).
 
-| Tabla | Filas (snapshot actual) |
-|-------|------------------------:|
-| `unidad` | 159 (158 con `parent_id`) |
-| `tipo_unidad` | 21 |
-| `unidad_funcion` | 1889 |
-| `unidad_dependencia_funcional` | 158 |
-| `cargo` | 23 |
-| `persona` | 3 |
-| `cargo_unidad` | 197 |
-| `catalogo_tipo` / `catalogo_nivel` / `catalogo_relacion` | A/B/C/N/Z, D/E/O, L/S/F/X |
+Detalle del cliente: [frontend/README.md](frontend/README.md).
 
-### Otros seeders
+## 4) Validación rápida
 
-| Script | Uso |
-|--------|-----|
-| `npm run seed` | Snapshot ETL (recomendado al clonar) |
-| `npm run seed -- --force` | Trunca tablas de dominio y recarga el snapshot |
-| `npm run seed:catalogos` | Solo catálogos mínimos (A/B/C, D/E/O, L/S), sin organigrama |
-| `npm run seed:export` | Regenera `etl-snapshot.sql` desde la BD actual (`mof_db`) |
+Checklist mínimo después de levantar:
 
-Tras un ETL nuevo, actualiza el seed del repo así:
+- `http://localhost:5173` carga el frontend.
+- `http://localhost:3000/api` abre Swagger.
+- El backend responde sin errores de conexión a DB.
+- `npm run build` funciona en `backend` y `frontend`.
 
-```bash
-npm run etl:umsa -- --truncate
-npm run seed:export
-```
+## 5) CI (GitHub Actions)
 
-El flujo completo dump → `umsa_legacy` → `mof_db` está en [`src/database/etl/README.md`](src/database/etl/README.md). Quien solo clone este backend **no lo necesita**.
+Workflows en la raíz del repo:
 
-## Configuración
+- Backend: `.github/workflows/backend-ci.yml`
+- Frontend: `.github/workflows/frontend-ci.yml`
 
-Variables en `.env` (ver `.env.example`):
+Ambos se ejecutan en `push` y `pull_request` a `main`, con filtros `paths` para correr solo cuando cambian archivos de su área.
 
-| Variable | Descripción |
-|----------|-------------|
-| `PORT` | Puerto HTTP (3000) |
-| `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | PostgreSQL destino (`mof_db`) |
-| `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT |
-| `LEGACY_DB_*` | Solo para ScriptETL (BD temporal `umsa_legacy`) |
+## 6) Problemas comunes
 
-## Estructura
-
-```
-backend-MOF/
-├── src/
-│   ├── main.ts
-│   ├── data-source.ts              # CLI TypeORM (migraciones)
-│   ├── database/
-│   │   ├── run-seeder.ts
-│   │   ├── seed-1/
-│   │   │   ├── etl-data.seeder.ts  # seed por defecto
-│   │   │   ├── etl-snapshot.sql    # datos del ETL (commit al repo)
-│   │   │   ├── export-snapshot.ts  # npm run seed:export
-│   │   │   └── catalogos.seeder.ts
-│   │   └── etl/                    # ScriptETL opcional (dump → mof_db)
-│   ├── migrations/
-│   └── modules/
-│       ├── auth/
-│       ├── catalogos/
-│       ├── unidades/
-│       ├── cargos/
-│       ├── personas/
-│       └── versiones/
-├── Dockerfile
-├── .env.example
-└── package.json
-```
-
-## Scripts útiles
-
-| Script | Descripción |
-|--------|-------------|
-| `npm run build` | Compila a `dist/` |
-| `npm run start:dev` | Desarrollo con watch |
-| `npm run start:prod` | Producción (`node dist/main`) |
-| `npm run lint` | ESLint |
-| `npm run test` | Tests unitarios |
-| `npm run test:e2e` | Tests e2e |
-| `npm run migration:generate` | Genera migración (TypeORM) |
-| `npm run migration:run` | Ejecuta migraciones |
-| `npm run migration:revert` | Revierte última migración |
-| `npm run seed` | Carga el snapshot ETL |
-| `npm run seed -- --force` | Trunca y recarga el snapshot |
-| `npm run seed:catalogos` | Solo catálogos mínimos |
-| `npm run seed:export` | Regenera `seed-1/etl-snapshot.sql` desde `mof_db` |
-| `npm run etl:umsa` | ScriptETL (requiere `umsa_legacy`; ver `src/database/etl/README.md`) |
+- `docker: command not found`
+  - Instala Docker Desktop y reinicia terminal.
+- `Container ... is restarting` al correr `docker compose exec backend ...`
+  - El backend está en crash-loop. Corre migraciones con:
+  - `docker compose run --rm backend npm run migration:run:prod`
+  - Luego el seed: `docker compose --profile cli run --rm backend-cli npm run seed`
+  - Luego: `docker compose up -d backend frontend`.
+- Error de conexión a PostgreSQL en backend manual
+  - Revisa `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` en `backend/.env`.
+- Frontend sin datos
+  - Verifica que backend esté activo en `http://localhost:3000`.
+  - Revisa `VITE_API_BASE_URL` en `frontend/.env`.

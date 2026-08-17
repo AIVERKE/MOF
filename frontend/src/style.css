@@ -1,0 +1,118 @@
+/* Fuente global Inter */
+:root, body, .v-application {
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* para que los submenues esten al mismo nivel del menu */
+.no-indent .v-list-group__items .v-list-item {
+  padding-inline-start: 36px !important;
+}
+
+/* Clases de colores de texto Slate (Gris) y sus overrides para modo oscuro */
+.text-slate-800 {
+  color: #1e293b !important;
+}
+.text-slate-700 {
+  color: #334155 !important;
+}
+.text-slate-600 {
+  color: #475569 !important;
+}
+.text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Overrides para Modo Oscuro de Vuetify (.v-theme--dark) */
+.v-theme--dark .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+.v-theme--dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+.v-theme--dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+.v-theme--dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Clases de colores de fondo Slate y bordes con soporte para modo oscuro */
+.bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+.border-b-thin {
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.v-theme--dark .bg-slate-50 {
+  background-color: #030712 !important; /* Slate 950 - Fondo más oscuro para distinguir filas no oficiales */
+}
+.v-theme--dark .border-b-thin {
+  border-bottom: 1px solid #1e293b !important; /* Slate 800 - Borde oscuro */
+}
+
+/* Adaptación de bg-indigo-lighten-5 para Modo Oscuro (usado en cabeceras de tablas) */
+.bg-indigo-lighten-5 {
+  background-color: #e8eaf6 !important;
+}
+.v-theme--dark .bg-indigo-lighten-5 {
+  background-color: #1a227e5b !important; /* Indigo oscuro */
+  color: #e8eaf6 !important;
+}
+.v-theme--dark .bg-indigo-lighten-5 th {
+  color: #e8eaf6 !important;
+}
+
+/* Mejorar la visibilidad de los v-btn-toggle en Modo Oscuro */
+.v-theme--dark .v-btn-toggle {
+  border: 1px solid #475569 !important;
+  background-color: #1e293b !important;
+}
+.v-theme--dark .v-btn-toggle .v-btn {
+  color: #94a3b8 !important;
+}
+.v-theme--dark .v-btn-toggle .v-btn--active {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+/* Definición de la clase grayscale (escala de grises) */
+.grayscale {
+  /* Desactivado para conservar los colores originales de los nodos (barras de color y chips) */
+  filter: none !important;
+}
+
+/* Ajustes para filas no oficiales / atenuadas (aplica a modo claro y oscuro) */
+.opacity-60 .v-chip {
+  color: #1e293b !important; /* Letras oscuras para contrastar sobre el fondo de color del chip */
+}
+
+/* Ajustes para filas no oficiales / atenuadas en modo oscuro para garantizar legibilidad y clara diferenciación */
+.v-theme--dark .opacity-60 {
+  opacity: 0.45 !important; /* Reducir opacidad para notar claramente la diferencia de oficialidad */
+}
+.v-theme--dark .opacity-60 .v-chip {
+  opacity: 1 !important; /* Opacidad completa para el chip en modo oscuro */
+}
+
+/* Ajustes de contraste para los chips de Nivel en Modo Oscuro */
+.v-theme--dark .chip-nivel[class*="teal"] {
+  color: #80cbc4 !important; /* Teal claro */
+  background-color: rgba(128, 203, 196, 0.15) !important;
+}
+.v-theme--dark .chip-nivel[class*="indigo"] {
+  color: #9fa8da !important; /* Indigo claro */
+  background-color: rgba(159, 168, 218, 0.15) !important;
+}
+
+/* Ajustes de contraste para los chips de Relación en Modo Oscuro */
+.v-theme--dark .chip-relacion[class*="purple"] {
+  color: #b39ddb !important; /* Purple claro */
+  border-color: #b39ddb !important;
+  background-color: rgba(179, 157, 219, 0.1) !important;
+}
+
+/* Tarjetas métricas del dashboard en modo oscuro (letras y números blancos) */
+.v-theme--dark .card-metrica div {
+  color: #FFFFFF !important;
+}

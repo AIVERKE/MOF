@@ -1,0 +1,39 @@
+name: Backend CI MOF
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Revisar estilo de codigo
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Verificar tipos y sintaxis
+        run: npx tsc --noEmit
+
+      - name: Compilar proyecto (Build)
+        run: npm run build
