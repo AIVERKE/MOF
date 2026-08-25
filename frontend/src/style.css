@@ -40,15 +40,58 @@
 .bg-slate-50 {
   background-color: #f8fafc !important;
 }
+.bg-slate-100 {
+  background-color: #f1f5f9 !important;
+}
 .border-b-thin {
   border-bottom: 1px solid #f1f5f9 !important;
+}
+.border-slate-200,
+.v-card.border-slate-200 {
+  border: 2px solid #cbd5e1 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Divisores reforzados y uniformes para tablas (Función / Base Legal) */
+.border-r-slate,
+.v-table td.border-r-slate,
+.v-table th.border-r-slate {
+  border-right: 2px solid #cbd5e1 !important; /* slate-300 emparejado */
+}
+
+.border-b-slate,
+.v-table tr.border-b-slate > td,
+.v-table tr.border-b-slate > th {
+  border-bottom: 2px solid #cbd5e1 !important; /* slate-300 emparejado */
+}
+
+.v-table tbody tr:last-child.border-b-slate > td {
+  border-bottom: none !important;
 }
 
 .v-theme--dark .bg-slate-50 {
   background-color: #030712 !important; /* Slate 950 - Fondo más oscuro para distinguir filas no oficiales */
 }
+.v-theme--dark .bg-slate-100 {
+  background-color: #1e293b !important; /* Slate 800 */
+}
 .v-theme--dark .border-b-thin {
   border-bottom: 1px solid #1e293b !important; /* Slate 800 - Borde oscuro */
+}
+.v-theme--dark .border-slate-200,
+.v-theme--dark .v-card.border-slate-200 {
+  border: 2px solid #475569 !important;
+  border-color: #475569 !important;
+}
+.v-theme--dark .border-r-slate,
+.v-theme--dark .v-table td.border-r-slate,
+.v-theme--dark .v-table th.border-r-slate {
+  border-right: 2px solid #475569 !important; /* slate-600 */
+}
+.v-theme--dark .border-b-slate,
+.v-theme--dark .v-table tr.border-b-slate > td,
+.v-theme--dark .v-table tr.border-b-slate > th {
+  border-bottom: 2px solid #475569 !important; /* slate-600 */
 }
 
 /* Adaptación de bg-indigo-lighten-5 para Modo Oscuro (usado en cabeceras de tablas) */
