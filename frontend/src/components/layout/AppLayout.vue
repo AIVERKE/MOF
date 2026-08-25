@@ -179,7 +179,6 @@ const handleLogout = async () => {
       class="resizable-drawer"
     >
       <div class="pa-2">
-        <div class="sidebar-section-title">Menú</div>
         <v-list density="compact" nav>
           <v-list-item
             prepend-icon="mdi-view-dashboard"
@@ -191,32 +190,22 @@ const handleLogout = async () => {
             title="Usuarios"
             to="/usuarios"
           ></v-list-item>
-          <v-list-group
-            class="no-indent"
-            prepend-icon="mdi-package-variant"
-            value="MOF"
+          <v-list-item
+            prepend-icon="mdi-sitemap"
+            title="ESTRUCTURA ORGANIZACIONAL"
+            to="/mof/organigrama-unidades"
+          ></v-list-item>
+          <v-list-item
+            prepend-icon="mdi-list-box"
+            title="LISTAR UNIDADES"
+            to="/mof/listar-unidades"
           >
-            <template #activator="{ props }">
-              <v-list-item v-bind="props" title="MOF"></v-list-item>
-            </template>
-            <v-list-item
-              prepend-icon="mdi-sitemap"
-              title="ESTRUCTURA ORGANIZACIONAL"
-              to="/mof/organigrama-unidades"
-            ></v-list-item>
-            <v-list-item
-              prepend-icon="mdi-list-box"
-              title="LISTAR UNIDADES"
-              to="/mof/listar-unidades"
-            >
-            </v-list-item>
-
-            <v-list-item
-              prepend-icon="mdi-tree"
-              title="ARBOL DE UNIDADES"
-              to="/mof/arbol-unidades"
-            ></v-list-item>
-          </v-list-group>
+          </v-list-item>
+          <v-list-item
+            prepend-icon="mdi-tree"
+            title="ARBOL DE UNIDADES"
+            to="/mof/arbol-unidades"
+          ></v-list-item>
           <v-list-group prepend-icon="mdi-chart-bar" value="Reportes">
             <template #activator="{ props }">
               <v-list-item v-bind="props" title="Reportes"></v-list-item>
@@ -242,7 +231,6 @@ const handleLogout = async () => {
             to="/configuracion"
           ></v-list-item>
         </v-list>
-        <div class="sidebar-section-title">Sección</div>
       </div>
 
       <template v-slot:append>
