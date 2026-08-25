@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, computed } from "vue";
+import { ref, onMounted, watch, computed, nextTick } from "vue";
 import { VueFlow, useVueFlow, Handle } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
@@ -49,7 +49,7 @@ import UnidadDependencyDialog from "./unidades/UnidadDependencyDialog.vue";
 import { useUnidadForm } from "@/composables/useUnidadForm";
 
 // --- VUE FLOW COMPOSABLES ---
-const { nodes, edges, setNodes, setEdges, fitView, onNodeClick } = useVueFlow();
+const { nodes, edges, setNodes, setEdges, fitView, setCenter, findNode, onNodeClick } = useVueFlow();
 
 // --- STORES INSTANCES ---
 const unidadesStore = useAllUnidadesMofStore();
@@ -897,7 +897,66 @@ const updateGraph = () => {
   setNodes(layoutedNodes);
   setEdges(layoutedEdges);
   graphKey.value++; // Incrementamos la clave para forzar redibujado total
-  setTimeout(() => fitView(), 150);
+
+  // Control de cámara inteligente post-remontaje (estilo Google Maps)
+  nextTick(() => {
+    setTimeout(() => {
+      const searchLower = (searchTerm.value || "").toLowerCase().trim();
+      if (searchLower) {
+        const matchingIds = layoutedNodes
+          .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
+          .map((n) => String(n.id));
+        if (matchingIds.length > 0) {
+          volarANodos(matchingIds);
+        } else {
+          fitView({ padding: 0.1, duration: 800 });
+        }
+      } else {
+        fitView({ padding: 0.1, duration: 800 });
+      }
+    }, 150);
+  });
+};
+
+/**
+ * Vuela animadamente la cámara hacia uno o varios nodos (estilo Google Maps).
+ * - 1 match: Centra el nodo con zoom ~1.25x y animación suave (800ms).
+ * - N matches: Encuadra conjuntamente todos los nodos coincidentes con padding 0.2 (800ms).
+ * - 0 matches o vacío: Restaura el encuadre general del organigrama con fitView (800ms).
+ *
+ * @param {Array<string|number>} ids - Lista de IDs de nodos a enfocar
+ */
+const volarANodos = async (ids = []) => {
+  if (!ids || ids.length === 0) {
+    await fitView({ padding: 0.1, duration: 800 });
+    return;
+  }
+
+  const strIds = ids.map((id) => String(id));
+
+  if (strIds.length === 1) {
+    const targetId = strIds[0];
+    let node = findNode ? findNode(targetId) : null;
+    if (!node && nodes.value) {
+      node = nodes.value.find((n) => String(n.id) === targetId);
+    }
+
+    if (node && node.position) {
+      const nodeWidth = node.dimensions?.width || 320;
+      const nodeHeight = node.dimensions?.height || 240;
+      const centerX = node.position.x + nodeWidth / 2;
+      const centerY = node.position.y + nodeHeight / 2;
+
+      await setCenter(centerX, centerY, { duration: 800, zoom: 1.25 });
+      return;
+    }
+
+    // Fallback a fitView enfocado en el nodo individual
+    await fitView({ nodes: [targetId], duration: 800, padding: 0.2 });
+  } else {
+    // Encuadre conjunto para múltiples resultados
+    await fitView({ nodes: strIds, duration: 800, padding: 0.2 });
+  }
 };
 
 // --- EVENTS ---
@@ -921,19 +980,34 @@ onNodeClick(({ node }) => {
   showNodeDetails(node.id);
 });
 
+// Debounce de 400ms para búsqueda por texto (un vuelo por búsqueda, no por tecla)
+let searchDebounceTimer = null;
+watch(searchTerm, (newVal) => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  if (!newVal || !newVal.trim()) {
+    updateGraph();
+  } else {
+    searchDebounceTimer = setTimeout(() => {
+      updateGraph();
+    }, 400);
+  }
+});
+
+// Watcher inmediato para filtros categóricos y cambios estructurales
 watch(
   [
     () => unidadesStore.unidades,
     () => clasesStore.clases,
     vistaModo,
     hasAnyFilter,
-    searchTerm,
     filterNivel,
     filterTipo,
     filterInstancia,
     filterRelacion,
   ],
-  updateGraph,
+  () => {
+    updateGraph();
+  },
 );
 
 watch(detailsDrawer, (val) => {
@@ -1276,23 +1350,27 @@ function resetFilters() {
         <v-table density="comfortable">
           <thead>
             <tr class="bg-indigo-lighten-5">
-              <th class="text-caption font-weight-black" style="width: 120px">
+              <th class="text-caption font-weight-black" style="width: 140px">
                 CÓDIGO
               </th>
               <th class="text-caption font-weight-black">
                 NOMBRE / DENOMINACIÓN
               </th>
-              <th class="text-caption font-weight-black">JERARQUÍA</th>
               <th
                 class="text-center text-caption font-weight-black"
-                style="width: 100px"
+                style="width: 80px"
               >
-                VER
+                ACCIONES
               </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="u in unidadesFiltradas" :key="u.id" class="row-hover">
+            <tr
+              v-for="u in unidadesFiltradas"
+              :key="u.id"
+              class="row-hover cursor-pointer"
+              @click="volarANodos([u.id])"
+            >
               <!-- Código con indicador de color integrado -->
               <td class="text-caption font-weight-black pa-0">
                 <div class="d-flex align-center fill-height">
@@ -1319,59 +1397,70 @@ function resetFilters() {
                 </div>
               </td>
 
-              <td>
-                <div class="d-flex align-center gap-1">
-                  <v-chip
-                    size="x-small"
-                    label
-                    :style="{
-                      backgroundColor: getClaseColor(
-                        u.clase,
-                        clasesStore.clases,
-                      ),
-                      color: 'white',
-                    }"
-                    class="px-1 font-weight-bold"
-                  >
-                    {{ resolveClase(u.clase) }}
-                  </v-chip>
-                  <v-chip
-                    size="x-small"
-                    label
-                    variant="tonal"
-                    color="indigo"
-                    class="px-1"
-                  >
-                    {{ resolveNivel(u.nivel) }}
-                  </v-chip>
-                </div>
-              </td>
-
               <td class="text-center">
-                <v-btn
-                  icon
-                  variant="text"
-                  size="x-small"
-                  color="primary"
-                  @click="showNodeDetails(u.id)"
-                >
-                  <v-icon>mdi-eye</v-icon>
-                  <v-tooltip activator="parent" location="top"
-                    >Ver ficha técnica y detalles</v-tooltip
+                <v-menu location="bottom end" transition="scale-transition">
+                  <template v-slot:activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      size="small"
+                      icon
+                      variant="text"
+                      color="grey-darken-3"
+                      @click.stop
+                    >
+                      <v-icon size="20">mdi-dots-vertical</v-icon>
+                      <v-tooltip activator="parent" location="top"
+                        >Opciones de la unidad</v-tooltip
+                      >
+                    </v-btn>
+                  </template>
+                  <v-list
+                    density="comfortable"
+                    min-width="220"
+                    class="rounded-lg shadow-2xl bg-grey-darken-4 border-sm border-white"
                   >
-                </v-btn>
-                <v-btn
-                  icon
-                  variant="text"
-                  size="x-small"
-                  color="error"
-                  @click="verReporte(u.id)"
-                >
-                  <v-icon>mdi-file-pdf-box</v-icon>
-                  <v-tooltip activator="parent" location="top"
-                    >Generar reporte oficial en PDF</v-tooltip
-                  >
-                </v-btn>
+                    <v-list-item
+                      prepend-icon="mdi-eye"
+                      title="Ver Ficha Técnica"
+                      @click="showNodeDetails(u.id)"
+                      class="text-blue-lighten-2 font-weight-black"
+                    />
+                    <v-list-item
+                      prepend-icon="mdi-file-pdf-box"
+                      title="Generar Reporte PDF"
+                      @click="verReporte(u.id)"
+                      class="text-red-lighten-2 font-weight-black"
+                    />
+                    <v-list-item
+                      prepend-icon="mdi-file-tree"
+                      title="Dependencias Funcionales"
+                      @click="verDependencias(u.id)"
+                      class="text-green-lighten-2 font-weight-black"
+                    />
+                    <v-divider class="my-1" color="white" />
+                    <v-list-item
+                      prepend-icon="mdi-plus"
+                      title="Añadir Unidad Dependiente"
+                      @click="openForm(u.id, false)"
+                      class="text-blue-lighten-2 font-weight-black"
+                    />
+                    <v-list-item
+                      prepend-icon="mdi-pencil"
+                      title="Editar Información"
+                      @click="openForm(u.id, true)"
+                      class="text-orange-lighten-2 font-weight-black"
+                    />
+                    <v-list-item
+                      prepend-icon="mdi-delete"
+                      title="Eliminar Unidad"
+                      @click="
+                        selectedNode = u;
+                        deleteDialog = true;
+                      "
+                      class="text-red-accent-1 font-weight-black"
+                    />
+                  </v-list>
+                </v-menu>
               </td>
             </tr>
           </tbody>
@@ -1501,6 +1590,12 @@ function resetFilters() {
                     min-width="220"
                     class="rounded-lg shadow-2xl bg-grey-darken-4 border-sm border-white"
                   >
+                    <v-list-item
+                      prepend-icon="mdi-eye"
+                      title="Ver Ficha Técnica"
+                      @click="showNodeDetails(id)"
+                      class="text-blue-lighten-2 font-weight-black"
+                    />
                     <v-list-item
                       prepend-icon="mdi-file-pdf-box"
                       title="Generar Reporte PDF"
@@ -1848,5 +1943,13 @@ function resetFilters() {
 }
 :deep(.vue-flow__node) {
   cursor: pointer !important;
+}
+
+.row-hover {
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+}
+.row-hover:hover {
+  background-color: rgba(var(--v-theme-primary), 0.08) !important;
 }
 </style>
