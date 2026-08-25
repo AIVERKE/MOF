@@ -582,6 +582,7 @@ const getChartOptions = (key, chartInfo) => {
             <tr class="bg-indigo-lighten-5">
               <th class="text-xxs font-weight-black px-4">CÓDIGO</th>
               <th class="text-xxs font-weight-black">UNIDAD ADMINISTRATIVA</th>
+              <th class="text-xxs font-weight-black">SIGLA</th>
               <th class="text-xxs font-weight-black">
                 TIPO DE INSTANCIA
               </th>
@@ -614,6 +615,17 @@ const getChartOptions = (key, chartInfo) => {
               </td>
               <td class="text-caption font-weight-bold text-slate-800">
                 {{ u.nombre || u.denominacion }}
+              </td>
+              <td>
+                <v-chip
+                  size="x-small"
+                  label
+                  color="primary"
+                  variant="outlined"
+                  class="font-weight-bold text-xxs px-1"
+                >
+                  {{ u.sigla || "-" }}
+                </v-chip>
               </td>
               <td>
                 <v-chip

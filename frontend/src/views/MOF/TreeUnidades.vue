@@ -165,6 +165,31 @@ function openAddDialog(item) {
 const resolveClaseColor = (val) => getClaseColor(val, clasesStore.clases);
 const resolveClase = (val) => getClaseNombre(val, clasesStore.clases);
 const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
+
+const customTreeFilter = (value, query, item) => {
+  if (!query) return true;
+  const searchNorm = query
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+  const raw = item?.raw || item || {};
+  const nameNorm = String(raw.display_name || raw.nombre || raw.denominacion || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const siglaNorm = String(raw.sigla || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const codigoNorm = String(raw.codigo || "").toLowerCase();
+
+  return (
+    nameNorm.includes(searchNorm) ||
+    siglaNorm.includes(searchNorm) ||
+    codigoNorm.includes(searchNorm)
+  );
+};
 </script>
 
 <template>
@@ -218,6 +243,7 @@ const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
           v-if="treeItems.length"
           :items="treeItems"
           :search="search"
+          :custom-filter="customTreeFilter"
           item-title="display_name"
           item-value="id"
           item-children="children"
@@ -242,8 +268,7 @@ const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
                 class="text-body-2 font-weight-bold"
                 v-html="highlightText(item.display_name, search)"
               ></span>
-              <v-chip v-if="item.sigla" size="x-small" label color="primary" variant="outlined" class="text-xxs px-1 font-weight-bold">
-                {{ item.sigla }}
+              <v-chip size="x-small" label color="primary" variant="outlined" class="text-xxs px-1 font-weight-bold" v-html="highlightText(item.sigla || '-', search)">
               </v-chip>
               <v-chip
                 size="x-small"

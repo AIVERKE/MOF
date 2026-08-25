@@ -740,12 +740,25 @@ const updateGraph = () => {
       matchRel = true,
       matchSearch = true;
 
-    if (searchLower)
-      matchSearch = String(u.nombre || u.denominacion || "")
+    if (searchLower) {
+      const uNombreNorm = String(u.nombre || u.denominacion || "")
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .includes(searchLower.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+        .replace(/[\u0300-\u036f]/g, "");
+      const uSiglaNorm = String(u.sigla || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      const uCodigoNorm = String(u.codigo || "")
+        .toLowerCase();
+      const searchNorm = searchLower
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      matchSearch =
+        uNombreNorm.includes(searchNorm) ||
+        uSiglaNorm.includes(searchNorm) ||
+        uCodigoNorm.includes(searchNorm);
+    }
     if (activeNivelId) {
       const item = nivelesStore.niveles.find(
         (n) => String(n.id) === activeNivelId,
@@ -821,6 +834,7 @@ const updateGraph = () => {
       type: "custom",
       data: {
         nombre: u.nombre || u.denominacion,
+        sigla: u.sigla || "-",
         tipo: resolveTipo(u.tipo),
         nivel: resolveNivel(u.nivel),
         clase: resolveClase(u.clase),
@@ -1444,12 +1458,16 @@ function resetFilters() {
                 :style="{ backgroundColor: data.color }"
               ></div>
               <div class="node-content" @click="showNodeDetails(id)">
-                <div class="node-line code-line d-flex align-center gap-1">
+                <div class="node-line code-line">
                   <span>{{ data.codigo }}</span>
-                  <span v-if="data.sigla" class="text-primary font-weight-black">({{ data.sigla }})</span>
                 </div>
                 <div class="node-line title-line">
                   {{ data.nombre }}
+                </div>
+                <div class="node-line detail-line" v-if="data.sigla && data.sigla !== '-'">
+                  <v-icon size="16" class="mr-2" :style="{ color: data.color }"
+                    >mdi-identifier</v-icon
+                  ><span>SIGLA: {{ data.sigla }}</span>
                 </div>
                 <div class="node-line detail-line">
                   <v-icon size="16" class="mr-2" :style="{ color: data.color }"

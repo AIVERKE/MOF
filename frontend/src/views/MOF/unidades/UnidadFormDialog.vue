@@ -180,14 +180,6 @@ function eliminarFuncion(index) {
               />
             </v-col>
             <v-col cols="12">
-              <v-text-field
-                v-model="formData.baseLegal"
-                label="Base Legal (Resolución / Ley / Estatuto)"
-                variant="underlined"
-                autocomplete="off"
-              />
-            </v-col>
-            <v-col cols="12">
               <v-textarea
                 v-model="formData.objetivo"
                 label="Objetivo Institucional"
