@@ -215,44 +215,53 @@ function eliminarFuncion(index) {
             </v-btn>
           </div>
 
-          <v-table
+          <v-card
             v-if="formData.funciones?.length"
-            density="compact"
-            class="mb-4"
+            variant="outlined"
+            class="rounded-md border-slate-200 overflow-hidden mb-4"
           >
-            <tbody>
-              <tr v-for="(f, i) in formData.funciones" :key="i">
-                <td style="width: 40%">{{ f.funcion }}</td>
-                <td style="width: 40%">{{ f.baseLegal }}</td>
-                <td class="text-right">
-                  <v-btn
-                    icon="mdi-pencil"
-                    size="x-small"
-                    variant="text"
-                    color="warning"
-                    @click="abrirModalFuncion(i)"
-                  >
-                    <v-icon>mdi-pencil</v-icon>
-                    <v-tooltip activator="parent" location="top"
-                      >Editar función</v-tooltip
+            <v-table density="compact">
+              <thead>
+                <tr class="bg-slate-100 border-b-slate">
+                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 42%">Función</th>
+                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 42%">Base Legal</th>
+                  <th class="text-caption font-weight-bold px-3 text-right" style="width: 16%">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(f, i) in formData.funciones" :key="i" class="border-b-slate">
+                  <td class="px-3 py-2 border-r-slate" style="width: 42%">{{ f.funcion }}</td>
+                  <td class="px-3 py-2 border-r-slate" style="width: 42%">{{ f.baseLegal }}</td>
+                  <td class="text-right px-3 py-1" style="width: 16%">
+                    <v-btn
+                      icon="mdi-pencil"
+                      size="x-small"
+                      variant="text"
+                      color="warning"
+                      @click="abrirModalFuncion(i)"
                     >
-                  </v-btn>
-                  <v-btn
-                    icon="mdi-delete"
-                    size="x-small"
-                    variant="text"
-                    color="error"
-                    @click="eliminarFuncion(i)"
-                  >
-                    <v-icon>mdi-delete</v-icon>
-                    <v-tooltip activator="parent" location="top"
-                      >Eliminar función</v-tooltip
+                      <v-icon>mdi-pencil</v-icon>
+                      <v-tooltip activator="parent" location="top"
+                        >Editar función</v-tooltip
+                      >
+                    </v-btn>
+                    <v-btn
+                      icon="mdi-delete"
+                      size="x-small"
+                      variant="text"
+                      color="error"
+                      @click="eliminarFuncion(i)"
                     >
-                  </v-btn>
-                </td>
-              </tr>
-            </tbody>
-          </v-table>
+                      <v-icon>mdi-delete</v-icon>
+                      <v-tooltip activator="parent" location="top"
+                        >Eliminar función</v-tooltip
+                      >
+                    </v-btn>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </v-card>
           <v-alert v-else type="info" variant="tonal" class="mb-4"
             >Sin funciones registradas.</v-alert
           >

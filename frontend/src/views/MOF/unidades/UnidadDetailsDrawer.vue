@@ -110,14 +110,14 @@ function close() {
         <v-card variant="outlined" class="rounded-md border-slate-200 overflow-hidden" v-if="detailData.funciones?.length">
           <v-table density="compact">
             <thead>
-              <tr class="bg-slate-100">
-                <th class="text-xxs font-weight-black px-2">FUNCIÓN</th>
+              <tr class="bg-slate-100 border-b-slate">
+                <th class="text-xxs font-weight-black px-2 border-r-slate">FUNCIÓN</th>
                 <th class="text-xxs font-weight-black px-2">BASE LEGAL</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="f in detailData.funciones" :key="f.id">
-                <td class="text-xxs font-weight-bold py-1 px-2 border-r">{{ f.funcion }}</td>
+              <tr v-for="f in detailData.funciones" :key="f.id" class="border-b-slate">
+                <td class="text-xxs font-weight-bold py-1 px-2 border-r-slate">{{ f.funcion }}</td>
                 <td class="text-xxs font-weight-black py-1 px-2">{{ f.baseLegal }}</td>
               </tr>
             </tbody>
