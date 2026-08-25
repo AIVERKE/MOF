@@ -43,12 +43,9 @@ function close() {
         <div class="text-subtitle-2 font-weight-black mb-1 line-height-1-1">
           {{ detailData.nombre_display }}
         </div>
-        <div class="d-flex align-center gap-1">
+        <div class="d-flex align-center">
           <v-chip size="x-small" label color="grey-darken-4" class="font-weight-black" style="font-size: 9px !important;">
             CÓDIGO: {{ detailData.codigo }}
-          </v-chip>
-          <v-chip v-if="detailData.sigla" size="x-small" label color="primary" class="font-weight-black" style="font-size: 9px !important;">
-            SIGLA: {{ detailData.sigla }}
           </v-chip>
         </div>
       </div>
@@ -61,10 +58,18 @@ function close() {
 
       <v-row dense class="mb-2">
         <v-col cols="6">
+          <div class="text-xxs text-grey-darken-1 font-weight-bold">Sigla</div>
+          <div class="text-caption font-weight-bold text-slate-800">{{ detailData.sigla || "-" }}</div>
+        </v-col>
+        <v-col cols="6">
+          <div class="text-xxs text-grey-darken-1 font-weight-bold">Resolución Creación</div>
+          <div class="text-caption font-weight-bold text-slate-800">{{ detailData.resCreacion || detailData.res_creacion || "---" }}</div>
+        </v-col>
+        <v-col cols="6" class="mt-1">
           <div class="text-xxs text-grey-darken-1 font-weight-bold">Nivel</div>
           <div class="text-caption font-weight-bold text-slate-800">{{ getNivelNombre(detailData.nivel) }}</div>
         </v-col>
-        <v-col cols="6">
+        <v-col cols="6" class="mt-1">
           <div class="text-xxs text-grey-darken-1 font-weight-bold">Tipo</div>
           <div class="text-caption font-weight-bold text-slate-800">{{ getTipoNombre(detailData.tipo) }}</div>
         </v-col>
@@ -75,14 +80,6 @@ function close() {
         <v-col cols="6" class="mt-1">
           <div class="text-xxs text-grey-darken-1 font-weight-bold">Clase</div>
           <div class="text-caption font-weight-bold text-slate-800">{{ getClaseNombre(detailData.clase) }}</div>
-        </v-col>
-        <v-col cols="6" class="mt-1">
-          <div class="text-xxs text-grey-darken-1 font-weight-bold">Resolución Creación</div>
-          <div class="text-caption font-weight-bold text-slate-800">{{ detailData.resCreacion || detailData.res_creacion || "---" }}</div>
-        </v-col>
-        <v-col cols="6" class="mt-1">
-          <div class="text-xxs text-grey-darken-1 font-weight-bold">Base Legal</div>
-          <div class="text-caption font-weight-bold text-slate-800">{{ detailData.baseLegal || detailData.base_legal || "---" }}</div>
         </v-col>
       </v-row>
 
