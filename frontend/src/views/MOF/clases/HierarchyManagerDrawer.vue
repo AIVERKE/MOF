@@ -6,12 +6,15 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { swatches, getUsedColors } from "@/utils/mofHelpers";
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const clasesStore = useAllClasesMofStore();
 const nivelesStore = useAllNivelesMofStore();
 const tiposStore = useAllTiposMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 const unidadesStore = useAllUnidadesMofStore();
+
+const { mostrar } = useSnackbar();
 
 const emit = defineEmits(['close', 'updated', 'resize']);
 
@@ -28,10 +31,6 @@ const editingItem = ref(null);
 // Diálogo de confirmación de borrado
 const deleteConfirmDialog = ref(false);
 const itemToDelete = ref(null);
-
-const snackbar = ref(false);
-const snackbarText = ref("");
-const snackbarColor = ref("error");
 
 // Colores usados en el sistema
 const usedColors = computed(() => getUsedColors(unidadesStore.unidades, clasesStore.clases));
@@ -115,9 +114,7 @@ async function handleSave() {
 
     if (vinculados.length > 0) {
       const tipoLabel = tab.value === 0 ? 'clase' : tab.value === 1 ? 'nivel' : tab.value === 2 ? 'tipo' : 'relación';
-      snackbarText.value = `Error: No se puede desactivar este ${tipoLabel} porque está siendo usado por ${vinculados.length} unidades.`;
-      snackbarColor.value = "error";
-      snackbar.value = true;
+      mostrar(`Error: No se puede desactivar este ${tipoLabel} porque está siendo usado por ${vinculados.length} unidades.`, 'error');
       return;
     }
   }
@@ -152,15 +149,11 @@ async function handleSave() {
 
     if (success) {
       dialog.value = false;
-      snackbarText.value = "Operación exitosa";
-      snackbarColor.value = "success";
-      snackbar.value = true;
+      mostrar("Operación exitosa", "success");
       await refreshData(); // Forzamos refresco local
       emit('updated');
     } else {
-      snackbarText.value = storeRef?.error || "Error en la operación";
-      snackbarColor.value = "error";
-      snackbar.value = true;
+      mostrar(storeRef?.error || "Error en la operación", "error");
     }
   } finally {
     loading.value = false;
@@ -187,16 +180,12 @@ async function confirmDelete() {
     else if (tab.value === 3) { storeRef = relacionesStore; success = await relacionesStore.deleteRelacion(id); }
 
     if (success) {
-      snackbarText.value = "Eliminado permanentemente";
-      snackbarColor.value = "success";
-      snackbar.value = true;
+      mostrar("Eliminado permanentemente", "success");
       deleteConfirmDialog.value = false;
       itemToDelete.value = null;
       emit('updated');
     } else {
-      snackbarText.value = storeRef?.error || "No se pudo eliminar: verifique si existen dependencias vinculadas.";
-      snackbarColor.value = "error";
-      snackbar.value = true;
+      mostrar(storeRef?.error || "No se pudo eliminar: verifique si existen dependencias vinculadas.", "error");
     }
   } finally {
     loading.value = false;
@@ -664,13 +653,6 @@ const getDependencies = (item) => {
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000">
-      {{ snackbarText }}
-      <template v-slot:actions>
-        <v-btn variant="text" @click="snackbar = false">Cerrar</v-btn>
-      </template>
-    </v-snackbar>
   </v-card>
 </template>
 

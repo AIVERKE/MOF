@@ -21,6 +21,9 @@ import {
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
+import { useSnackbar } from "@/composables/useSnackbar";
+
+const { mostrar } = useSnackbar();
 
 const unidadesStore = useAllUnidadesMofStore();
 const tiposStore = useAllTiposMofStore();
@@ -49,10 +52,6 @@ const {
   updateFuncion,
   removeFuncion,
 } = unitForm;
-
-const snackbar = ref(false);
-const snackbarText = ref("");
-const snackbarColor = ref("success");
 
 const addDialog = ref(false);
 const selectedItem = ref(null);
@@ -119,41 +118,31 @@ async function confirmDelete() {
     return String(pId) === String(id);
   });
   if (hasChildren) {
-    snackbarText.value = "No se puede eliminar: tiene unidades dependientes.";
-    snackbarColor.value = "error";
-    snackbar.value = true;
+    mostrar("No se puede eliminar: tiene unidades dependientes.", "error");
     deleteDialog.value = false;
     return;
   }
   await unidadesStore.deletePersonalUnidad(id);
   await unidadesStore.deleteUnidad(id);
   if (!unidadesStore.error) {
-    snackbarText.value = "¡Unidad eliminada!";
-    snackbarColor.value = "success";
+    mostrar("¡Unidad eliminada!", "success");
     deleteDialog.value = false;
     await unidadesStore.getFetchUnidades();
   } else {
-    snackbarText.value = "Error: " + unidadesStore.error;
-    snackbarColor.value = "error";
+    mostrar("Error: " + unidadesStore.error, "error");
   }
-  snackbar.value = true;
 }
 
 async function confirmAddItem() {
-  snackbarText.value = "Procesando...";
-  snackbarColor.value = "info";
-  snackbar.value = true;
+  mostrar("Procesando...", "info");
   const result = await saveUnidad();
   if (result.success) {
     addDialog.value = false;
-    snackbarText.value = "¡Operación realizada con éxito!";
-    snackbarColor.value = "success";
+    mostrar("¡Operación realizada con éxito!", "success");
     await unidadesStore.getFetchUnidades();
   } else {
-    snackbarText.value = "Error: " + result.error;
-    snackbarColor.value = "error";
+    mostrar("Error: " + result.error, "error");
   }
-  snackbar.value = true;
 }
 
 function openAddDialog(item) {
@@ -355,10 +344,6 @@ const customTreeFilter = (value, query, item) => {
     :nombre-unidad="itemToDelete?.nombre || itemToDelete?.denominacion"
     @confirm="confirmDelete"
   />
-
-  <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000">{{
-    snackbarText
-  }}</v-snackbar>
 </template>
 
 <style scoped>

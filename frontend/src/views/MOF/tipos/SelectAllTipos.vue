@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue';
 import { useAllTiposMofStore } from '../../../stores/tipos_mof';
+import { useAllUnidadesMofStore } from '../../../stores/unidades_mof';
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const props = defineProps({
   variant: { type: String, default: 'underlined' },
@@ -10,15 +12,14 @@ const props = defineProps({
 
 const model = defineModel();
 const tiposStore = useAllTiposMofStore();
+const unidadesStore = useAllUnidadesMofStore();
+const { mostrar } = useSnackbar();
 
 const dialog = ref(false);
 const editingTipo = ref(null);
 const tipoName = ref("");
 const tipoActivo = ref(true);
 const search = ref("");
-
-const snackbar = ref(false);
-const snackbarText = ref("");
 
 const visibleItems = computed(() => {
   if (!props.hideCrud) return tiposStore.tipos;
@@ -57,8 +58,7 @@ async function saveTipo() {
     );
     
     if (vinculados.length > 0) {
-      snackbarText.value = `Error: No se puede desactivar este tipo porque tiene ${vinculados.length} unidades vinculadas.`;
-      snackbar.value = true;
+      mostrar(`Error: No se puede desactivar este tipo porque tiene ${vinculados.length} unidades vinculadas.`, 'error');
       return;
     }
   }
@@ -75,8 +75,7 @@ async function saveTipo() {
     tipoName.value = "";
     editingTipo.value = null;
   } else {
-    snackbarText.value = tiposStore.error || "Error al guardar";
-    snackbar.value = true;
+    mostrar(tiposStore.error || "Error al guardar", "error");
   }
 }
 
@@ -87,8 +86,7 @@ async function deleteTipo(id) {
     if (success) {
       dialog.value = false;
     } else {
-      snackbarText.value = tiposStore.error || "No se puede eliminar";
-      snackbar.value = true;
+      mostrar(tiposStore.error || "No se puede eliminar", "error");
     }
   }
 }
@@ -197,7 +195,5 @@ async function deleteTipo(id) {
                 </v-card-actions>
             </v-card>
         </v-dialog>
-
-        <v-snackbar v-model="snackbar" color="error" timeout="4000">{{ snackbarText }}</v-snackbar>
     </div>
 </template>

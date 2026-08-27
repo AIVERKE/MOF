@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue';
 import { useAllRelacionesMofStore } from '../../../stores/relaciones_mof';
+import { useAllUnidadesMofStore } from '../../../stores/unidades_mof';
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const props = defineProps({
   variant: { type: String, default: 'underlined' },
@@ -10,15 +12,14 @@ const props = defineProps({
 
 const model = defineModel();
 const relacionesStore = useAllRelacionesMofStore();
+const unidadesStore = useAllUnidadesMofStore();
+const { mostrar } = useSnackbar();
 
 const dialog = ref(false);
 const editingRelacion = ref(null);
 const relacionName = ref("");
 const relacionActivo = ref(true);
 const search = ref("");
-
-const snackbar = ref(false);
-const snackbarText = ref("");
 
 const visibleItems = computed(() => {
   if (!props.hideCrud) return relacionesStore.relaciones;
@@ -54,8 +55,7 @@ async function saveRelacion() {
     const vinculados = unidadesStore.unidades.filter(u => String(u.relacion) === idStr);
     
     if (vinculados.length > 0) {
-      snackbarText.value = `Error: No se puede desactivar esta relación porque tiene ${vinculados.length} unidades vinculadas.`;
-      snackbar.value = true;
+      mostrar(`Error: No se puede desactivar esta relación porque tiene ${vinculados.length} unidades vinculadas.`, 'error');
       return;
     }
   }
@@ -72,8 +72,7 @@ async function saveRelacion() {
     relacionName.value = "";
     editingRelacion.value = null;
   } else {
-    snackbarText.value = relacionesStore.error || "Error al guardar";
-    snackbar.value = true;
+    mostrar(relacionesStore.error || "Error al guardar", "error");
   }
 }
 
@@ -84,8 +83,7 @@ async function deleteRelacion(id) {
     if (success) {
       dialog.value = false;
     } else {
-      snackbarText.value = relacionesStore.error || "No se puede eliminar";
-      snackbar.value = true;
+      mostrar(relacionesStore.error || "No se puede eliminar", "error");
     }
   }
 }
@@ -194,7 +192,5 @@ async function deleteRelacion(id) {
                 </v-card-actions>
             </v-card>
         </v-dialog>
-
-        <v-snackbar v-model="snackbar" color="error" timeout="4000">{{ snackbarText }}</v-snackbar>
     </div>
 </template>

@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue';
 import { useAllNivelesMofStore } from '../../../stores/niveles_mof';
+import { useAllUnidadesMofStore } from '../../../stores/unidades_mof';
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const props = defineProps({
   variant: { type: String, default: 'underlined' },
@@ -10,15 +12,14 @@ const props = defineProps({
 
 const model = defineModel();
 const nivelesStore = useAllNivelesMofStore();
+const unidadesStore = useAllUnidadesMofStore();
+const { mostrar } = useSnackbar();
 
 const dialog = ref(false);
 const editingNivel = ref(null);
 const nivelName = ref("");
 const nivelActivo = ref(true);
 const search = ref("");
-
-const snackbar = ref(false);
-const snackbarText = ref("");
 
 const visibleItems = computed(() => {
   if (!props.hideCrud) return nivelesStore.niveles;
@@ -57,8 +58,7 @@ async function saveNivel() {
     );
     
     if (vinculados.length > 0) {
-      snackbarText.value = `Error: No se puede desactivar este nivel porque tiene ${vinculados.length} unidades vinculadas.`;
-      snackbar.value = true;
+      mostrar(`Error: No se puede desactivar este nivel porque tiene ${vinculados.length} unidades vinculadas.`, 'error');
       return;
     }
   }
@@ -75,8 +75,7 @@ async function saveNivel() {
     nivelName.value = "";
     editingNivel.value = null;
   } else {
-    snackbarText.value = nivelesStore.error || "Error al guardar";
-    snackbar.value = true;
+    mostrar(nivelesStore.error || "Error al guardar", "error");
   }
 }
 
@@ -87,8 +86,7 @@ async function deleteNivel(id) {
     if (success) {
       dialog.value = false;
     } else {
-      snackbarText.value = nivelesStore.error || "No se puede eliminar";
-      snackbar.value = true;
+      mostrar(nivelesStore.error || "No se puede eliminar", "error");
     }
   }
 }
@@ -197,7 +195,5 @@ async function deleteNivel(id) {
                 </v-card-actions>
             </v-card>
         </v-dialog>
-
-        <v-snackbar v-model="snackbar" color="error" timeout="4000">{{ snackbarText }}</v-snackbar>
     </div>
 </template>

@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue';
 import { useAllClasesMofStore } from '../../../stores/clases_mof';
 import { useAllUnidadesMofStore } from '../../../stores/unidades_mof';
 import { swatches, getUsedColors } from "@/utils/mofHelpers";
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const props = defineProps({
   variant: { type: String, default: 'underlined' },
@@ -13,6 +14,7 @@ const props = defineProps({
 const model = defineModel();
 const clasesStore = useAllClasesMofStore();
 const unidadesStore = useAllUnidadesMofStore();
+const { mostrar } = useSnackbar();
 
 const dialog = ref(false);
 const editingClase = ref(null);
@@ -22,9 +24,6 @@ const claseActivo = ref(true);
 const claseOficial = ref(true);
 const search = ref("");
 const colorMenu = ref(false);
-
-const snackbar = ref(false);
-const snackbarText = ref("");
 
 // Colores usados en el sistema
 const usedColors = computed(() => getUsedColors(unidadesStore.unidades, clasesStore.clases));
@@ -74,8 +73,7 @@ async function saveClase() {
     });
     
     if (vinculados.length > 0) {
-      snackbarText.value = `Error de Usabilidad: No se puede desactivar esta clase porque tiene ${vinculados.length} unidades vinculadas. Reasigne las unidades antes de desactivar.`;
-      snackbar.value = true;
+      mostrar(`Error de Usabilidad: No se puede desactivar esta clase porque tiene ${vinculados.length} unidades vinculadas. Reasigne las unidades antes de desactivar.`, 'error');
       return;
     }
   }
@@ -92,8 +90,7 @@ async function saveClase() {
     claseName.value = "";
     editingClase.value = null;
   } else {
-    snackbarText.value = clasesStore.error || "Error al guardar";
-    snackbar.value = true;
+    mostrar(clasesStore.error || "Error al guardar", "error");
   }
 }
 
@@ -104,8 +101,7 @@ async function deleteClase(id) {
     if (success) {
       dialog.value = false;
     } else {
-      snackbarText.value = clasesStore.error || "No se puede eliminar";
-      snackbar.value = true;
+      mostrar(clasesStore.error || "No se puede eliminar", "error");
     }
   }
 }
@@ -264,7 +260,5 @@ async function deleteClase(id) {
                 </v-card-actions>
             </v-card>
         </v-dialog>
-
-        <v-snackbar v-model="snackbar" color="error" timeout="4000">{{ snackbarText }}</v-snackbar>
     </div>
 </template>

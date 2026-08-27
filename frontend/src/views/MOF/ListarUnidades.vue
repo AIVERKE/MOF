@@ -22,6 +22,7 @@ import {
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const unidadesStore = useAllUnidadesMofStore();
 const tiposStore = useAllTiposMofStore();
@@ -29,6 +30,8 @@ const nivelesStore = useAllNivelesMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 const cargosStore = useAllCargosMofStore();
 const clasesStore = useAllClasesMofStore();
+
+const { mostrar } = useSnackbar();
 
 // --- FORM COMPOSABLE ---
 const unitForm = useUnidadForm({
@@ -56,9 +59,6 @@ const search = ref('')
 const addDialog = ref(false)
 const deleteDialog = ref(false)
 const selectedNode = ref(null)
-const snackbar = ref(false)
-const snackbarText = ref("")
-const snackbarColor = ref("success")
 
 const headers = [
   { title: 'CÓDIGO', key: 'codigo', align: 'start', sortable: true },
@@ -124,20 +124,15 @@ async function openForm(nodeId = null, edit = false) {
 }
 
 async function confirmAddItem() {
-  snackbarText.value = "Procesando...";
-  snackbarColor.value = "info";
-  snackbar.value = true;
+  mostrar("Procesando...", "info");
   const result = await saveUnidad();
   if (result.success) {
     addDialog.value = false;
-    snackbarText.value = "¡Operación realizada con éxito!";
-    snackbarColor.value = "success";
+    mostrar("¡Operación realizada con éxito!", "success");
     await unidadesStore.getFetchUnidades();
   } else {
-    snackbarText.value = "Error: " + result.error;
-    snackbarColor.value = "error";
+    mostrar("Error: " + result.error, "error");
   }
-  snackbar.value = true;
 }
 
 function deleteItem(item) {
@@ -149,24 +144,19 @@ async function confirmDelete() {
   if (!selectedNode.value) return;
   const hasChildren = unidadesStore.unidades.some(u => String(u.parent) === String(selectedNode.value.id));
   if (hasChildren) {
-    snackbarText.value = "No se puede eliminar: tiene unidades dependientes.";
-    snackbarColor.value = "error";
-    snackbar.value = true;
+    mostrar("No se puede eliminar: tiene unidades dependientes.", "error");
     deleteDialog.value = false;
     return;
   }
   await unidadesStore.deletePersonalUnidad(selectedNode.value.id);
   await unidadesStore.deleteUnidad(selectedNode.value.id);
   if (!unidadesStore.error) {
-    snackbarText.value = "¡Unidad eliminada!";
-    snackbarColor.value = "success";
+    mostrar("¡Unidad eliminada!", "success");
     await unidadesStore.getFetchUnidades();
   } else {
-    snackbarText.value = "Error: " + unidadesStore.error;
-    snackbarColor.value = "error";
+    mostrar("Error: " + unidadesStore.error, "error");
   }
   deleteDialog.value = false;
-  snackbar.value = true;
 }
 </script>
 
@@ -322,8 +312,6 @@ async function confirmDelete() {
     />
 
     <UnidadDeleteDialog v-model="deleteDialog" :nombre-unidad="selectedNode?.nombre || selectedNode?.denominacion" @confirm="confirmDelete" />
-
-    <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" class="mb-4">{{ snackbarText }}</v-snackbar>
   </v-container>
 </template>
 
