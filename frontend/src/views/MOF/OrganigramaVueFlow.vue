@@ -47,9 +47,12 @@ import UnidadDependencyDialog from "./unidades/UnidadDependencyDialog.vue";
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
+import { useSnackbar } from "@/composables/useSnackbar";
 
 // --- VUE FLOW COMPOSABLES ---
 const { nodes, edges, setNodes, setEdges, fitView, setCenter, findNode, onNodeClick } = useVueFlow();
+
+const { mostrar } = useSnackbar();
 
 // --- STORES INSTANCES ---
 const unidadesStore = useAllUnidadesMofStore();
@@ -84,9 +87,6 @@ const {
 const addDialog = ref(false);
 const deleteDialog = ref(false);
 const selectedNode = ref(null);
-const snackbar = ref(false);
-const snackbarText = ref("");
-const snackbarColor = ref("success");
 const vistaModo = ref("analitico");
 
 const dialog_nodo_chance = ref(false);
@@ -420,18 +420,14 @@ async function openForm(nodeId = null, edit = false) {
 }
 
 async function confirmAddItem() {
-  snackbarText.value = "Procesando...";
-  snackbarColor.value = "info";
-  snackbar.value = true;
+  mostrar("Procesando...", "info");
   const result = await saveUnidad();
   if (result.success) {
     addDialog.value = false;
-    snackbarText.value = "¡Operación exitosa!";
-    snackbarColor.value = "success";
+    mostrar("¡Operación exitosa!", "success");
     refreshChart();
   } else {
-    snackbarText.value = "Error: " + result.error;
-    snackbarColor.value = "error";
+    mostrar("Error: " + result.error, "error");
   }
 }
 
@@ -439,23 +435,18 @@ async function confirmDelete() {
   if (!selectedNode.value) return;
   const id = selectedNode.value.id;
   if (unidadesStore.unidades.some((u) => String(u.parent) === String(id))) {
-    snackbarText.value = "No se puede eliminar: tiene dependientes.";
-    snackbarColor.value = "error";
-    snackbar.value = true;
+    mostrar("No se puede eliminar: tiene dependientes.", "error");
     return;
   }
   await unidadesStore.deletePersonalUnidad(id);
   await unidadesStore.deleteUnidad(id);
   if (!unidadesStore.error) {
     deleteDialog.value = false;
-    snackbarText.value = "¡Eliminado!";
-    snackbarColor.value = "success";
+    mostrar("¡Eliminado!", "success");
     refreshChart();
   } else {
-    snackbarText.value = "Error: " + unidadesStore.error;
-    snackbarColor.value = "error";
+    mostrar("Error: " + unidadesStore.error, "error");
   }
-  snackbar.value = true;
 }
 
 async function cambiarDependencia() {
@@ -465,13 +456,11 @@ async function cambiarDependencia() {
   });
   if (!unidadesStore.error) {
     dialog_nodo_chance.value = false;
-    snackbarText.value = "¡Cambiado!";
+    mostrar("¡Cambiado!", "success");
     refreshChart();
   } else {
-    snackbarText.value = "Error: " + unidadesStore.error;
-    snackbarColor.value = "error";
+    mostrar("Error: " + unidadesStore.error, "error");
   }
-  snackbar.value = true;
 }
 
 async function verReporte(id) {
@@ -479,9 +468,7 @@ async function verReporte(id) {
 }
 
 async function exportarOrganigrama() {
-  snackbarText.value = "Generando PDF institucional en alta resolución...";
-  snackbarColor.value = "info";
-  snackbar.value = true;
+  mostrar("Generando PDF institucional en alta resolución...", "info");
 
   // 1. AJUSTE DE CÁMARA
   await fitView({ padding: 0.1, includeHiddenNodes: false });
@@ -615,11 +602,9 @@ async function exportarOrganigrama() {
     );
 
     pdf.save(`Organigrama_UMSA_${new Date().getTime()}.pdf`);
-    snackbarText.value = "¡PDF generado correctamente!";
-    snackbarColor.value = "success";
+    mostrar("¡PDF generado correctamente!", "success");
   } catch (error) {
-    snackbarText.value = "Error al exportar: " + error.message;
-    snackbarColor.value = "error";
+    mostrar("Error al exportar: " + error.message, "error");
   } finally {
     if (document.head.contains(styleTag)) document.head.removeChild(styleTag);
     setTimeout(() => fitView({ padding: 0.1 }), 200);
@@ -656,8 +641,7 @@ async function showNodeDetails(nodeId) {
       };
     }
   } catch (e) {
-    snackbarText.value = "Error al cargar detalles";
-    snackbarColor.value = "error";
+    mostrar("Error al cargar detalles", "error");
   } finally {
     loadingDetail.value = false;
   }
@@ -678,13 +662,10 @@ async function verDependencias(id) {
       mostrarDependencias.value = true;
       updateGraph();
     } else {
-      snackbarText.value = "Esta unidad no tiene dependencias funcionales";
-      snackbarColor.value = "info";
-      snackbar.value = true;
+      mostrar("Esta unidad no tiene dependencias funcionales", "info");
     }
   } catch (e) {
-    snackbarText.value = "Error al cargar dependencias";
-    snackbarColor.value = "error";
+    mostrar("Error al cargar dependencias", "error");
   }
 }
 
@@ -1728,10 +1709,6 @@ function resetFilters() {
         @resize="(val) => (hierarchyDrawerWidth = val)"
       />
     </v-navigation-drawer>
-
-    <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">{{
-      snackbarText
-    }}</v-snackbar>
   </v-container>
 </template>
 

@@ -8,12 +8,14 @@ import { ref, computed, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useTheme } from "vuetify";
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const route = useRoute();
 const router = useRouter();
 const theme = useTheme();
 const drawer = ref(true);
 const authStore = useAuthStore();
+const { isVisible, text, color, timeout, cerrar } = useSnackbar();
 
 const toggleTheme = () => {
   theme.global.name.value = theme.global.current.value.dark ? "light" : "dark";
@@ -273,6 +275,56 @@ const handleLogout = async () => {
         <router-view />
       </v-container>
     </v-main>
+
+    <!-- Alerta Snackbar Global Centralizada -->
+    <v-snackbar
+      v-model="isVisible"
+      :color="color"
+      :timeout="timeout"
+      location="bottom"
+      elevation="4"
+      rounded="lg"
+      class="mb-4"
+    >
+      <div class="d-flex align-center">
+        <v-icon
+          v-if="color === 'success'"
+          start
+          size="20"
+          class="mr-2"
+        >mdi-check-circle</v-icon>
+        <v-icon
+          v-else-if="color === 'error'"
+          start
+          size="20"
+          class="mr-2"
+        >mdi-alert-circle</v-icon>
+        <v-icon
+          v-else-if="color === 'warning'"
+          start
+          size="20"
+          class="mr-2"
+        >mdi-alert</v-icon>
+        <v-icon
+          v-else-if="color === 'info'"
+          start
+          size="20"
+          class="mr-2"
+        >mdi-information</v-icon>
+        <span>{{ text }}</span>
+      </div>
+
+      <template v-slot:actions>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          density="comfortable"
+          aria-label="Cerrar notificación"
+          @click="cerrar"
+        />
+      </template>
+    </v-snackbar>
   </v-app>
 </template>
 <style scoped>
