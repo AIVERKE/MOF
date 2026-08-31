@@ -8,12 +8,10 @@ import { ENDPOINTS } from "../config/api";
 export const useAllCargosMofStore = defineStore(
     "cargos_mof",
     () => {
-        // --- Estado (State) ---
-        const cargos = ref([]);      // Listado de cargos obtenidos de la API
-        const loading = ref(false);  // Indicador de carga para procesos asíncronos
-        const error = ref(null);    // Almacena mensajes de error en caso de fallos
-        
-        // URL base para las peticiones de cargos
+        const cargos = ref([]);
+        const loading = ref(false);
+        const error = ref(null);
+
         const API_URL = ENDPOINTS.UNIDADES.CARGOS;
 
         const getHeaders = () => {
@@ -24,45 +22,60 @@ export const useAllCargosMofStore = defineStore(
           };
         };
 
-        // --- Acciones (Actions) ---
-        
-        /**
-         * Obtiene la lista completa de cargos desde el servidor
-         */
+        const parseError = async (response) => {
+          const errorText = await response.text();
+          let message = "Error en la operación";
+          try {
+            const errorData = JSON.parse(errorText);
+            let backendMsg = errorData.message || errorData.data || errorData.error;
+
+            if (!backendMsg || backendMsg === "Hay errores en la solicitud") {
+              if (response.status === 400) {
+                backendMsg = "No se puede realizar la acción: Existen dependencias o restricciones de integridad.";
+              }
+            }
+            message = backendMsg || message;
+          } catch (e) {
+            message = errorText || response.statusText || message;
+          }
+          return message;
+        };
+
         const getFetchCargos = async () => {
             loading.value = true;
             error.value = null;
             try {
                 const response = await fetch(`${API_URL}?t=${Date.now()}`, { headers: getHeaders() });
-                if (!response.ok) throw new Error("Error al obtener los cargos");
-                
+                if (!response.ok) throw new Error(await parseError(response));
                 const data = await response.json();
-                // Se asume que la respuesta tiene una estructura { data: [...] }
                 cargos.value = data.data;
             } catch (err) {
                 error.value = err.message;
             } finally {
                 loading.value = false;
             }
-        }
+        };
 
         /**
-         * Crea un nuevo cargo en el catálogo maestro.
-         * @param {string} descripcion - Nombre del nuevo cargo.
-         * @param {boolean} activo - Estado del cargo
+         * @param {string} descripcion
+         * @param {boolean} activo
+         * @param {number|null} [parentId]
          * @returns {Promise<boolean>}
          */
-        const createCargo = async (descripcion, activo = true) => {
+        const createCargo = async (descripcion, activo = true, parentId = null) => {
             loading.value = true;
             error.value = null;
             try {
+                const body = { descripcion, activo };
+                if (parentId != null) body.parentId = parentId;
+
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: getHeaders(),
-                    body: JSON.stringify({ descripcion, activo })
+                    body: JSON.stringify(body)
                 });
-                if (!response.ok) throw new Error("Error al crear el cargo");
-                await getFetchCargos(); // Refrescar catálogo local
+                if (!response.ok) throw new Error(await parseError(response));
+                await getFetchCargos();
                 return true;
             } catch (err) {
                 error.value = err.message;
@@ -70,14 +83,12 @@ export const useAllCargosMofStore = defineStore(
             } finally {
                 loading.value = false;
             }
-        }
+        };
 
         /**
-         * Actualiza el nombre de un cargo en el catálogo maestro.
-         * Este cambio afecta a todas las unidades que usen este cargo.
-         * @param {number|string} id - ID del cargo en el catálogo.
-         * @param {string} descripcion - Nuevo nombre del cargo.
-         * @param {boolean} activo - Estado del cargo
+         * @param {number|string} id
+         * @param {string} descripcion
+         * @param {boolean} activo
          * @returns {Promise<boolean>}
          */
         const updateCargo = async (id, descripcion, activo = true) => {
@@ -89,8 +100,8 @@ export const useAllCargosMofStore = defineStore(
                     headers: getHeaders(),
                     body: JSON.stringify({ descripcion, activo })
                 });
-                if (!response.ok) throw new Error("Error al actualizar el cargo");
-                await getFetchCargos(); // Refrescar catálogo local
+                if (!response.ok) throw new Error(await parseError(response));
+                await getFetchCargos();
                 return true;
             } catch (err) {
                 error.value = err.message;
@@ -98,16 +109,71 @@ export const useAllCargosMofStore = defineStore(
             } finally {
                 loading.value = false;
             }
-        }
+        };
+
+        /**
+         * Soft delete del cargo.
+         * @param {number|string} id
+         * @returns {Promise<boolean>}
+         */
+        const deleteCargo = async (id) => {
+            loading.value = true;
+            error.value = null;
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE',
+                    headers: getHeaders()
+                });
+                if (!response.ok) throw new Error(await parseError(response));
+                await getFetchCargos();
+                return true;
+            } catch (err) {
+                error.value = err.message;
+                return false;
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        /**
+         * Cambia el cargo padre y registra historial en backend.
+         * @param {number|string} id
+         * @param {number|null} parentId
+         * @param {string} [razon]
+         * @returns {Promise<boolean>}
+         */
+        const setParentCargo = async (id, parentId, razon) => {
+            loading.value = true;
+            error.value = null;
+            try {
+                const body = { parentId: parentId == null ? null : Number(parentId) };
+                if (razon) body.razon = razon;
+
+                const response = await fetch(`${API_URL}/${id}/setparent`, {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify(body)
+                });
+                if (!response.ok) throw new Error(await parseError(response));
+                await getFetchCargos();
+                return true;
+            } catch (err) {
+                error.value = err.message;
+                return false;
+            } finally {
+                loading.value = false;
+            }
+        };
 
         return {
-            // Exposición de estado y acciones
             cargos,
             error,
             loading,
             getFetchCargos,
             createCargo,
-            updateCargo
-        }
+            updateCargo,
+            deleteCargo,
+            setParentCargo
+        };
     }
 );

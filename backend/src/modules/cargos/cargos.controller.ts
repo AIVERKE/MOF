@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CargosService } from './cargos.service';
-import { CargoDto, SetCargoDto } from './dto/cargo.dto';
+import { CargoDto, CargoSetParentDto, SetCargoDto } from './dto/cargo.dto';
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
 
@@ -55,6 +55,27 @@ export class CargosController {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
       await this.cargosService.update(id, dto),
+    );
+  }
+
+  @Delete('cargos/:id')
+  @ApiOperation({ summary: 'Eliminar cargo (borrado lógico)' })
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.cargosService.remove(id),
+    );
+  }
+
+  @Put('cargos/:id/setparent')
+  @ApiOperation({ summary: 'Cambiar cargo padre (escribe historial de jerarquía)' })
+  async setParent(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CargoSetParentDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.cargosService.setParent(id, dto),
     );
   }
 

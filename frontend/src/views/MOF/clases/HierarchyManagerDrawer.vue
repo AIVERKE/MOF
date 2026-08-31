@@ -3,6 +3,7 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
+import { useAllCargosMofStore } from "@/stores/cargos_mof";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { swatches, getUsedColors } from "@/utils/mofHelpers";
@@ -12,6 +13,7 @@ const clasesStore = useAllClasesMofStore();
 const nivelesStore = useAllNivelesMofStore();
 const tiposStore = useAllTiposMofStore();
 const relacionesStore = useAllRelacionesMofStore();
+const cargosStore = useAllCargosMofStore();
 const unidadesStore = useAllUnidadesMofStore();
 
 const { mostrar } = useSnackbar();
@@ -40,7 +42,8 @@ const form = ref({
   descripcion: "",
   activo: true,
   oficial: true,
-  color: "#1976D2"
+  color: "#1976D2",
+  parentId: null
 });
 
 const colorMenu = ref(false);
@@ -51,7 +54,8 @@ const refreshData = async () => {
     clasesStore.getFetchClases(),
     nivelesStore.getFetchNiveles(),
     tiposStore.getFetchTipos(),
-    relacionesStore.getFetchRelaciones()
+    relacionesStore.getFetchRelaciones(),
+    cargosStore.getFetchCargos()
   ]);
   loading.value = false;
 };
@@ -65,22 +69,101 @@ watch(tab, () => {
   editingItem.value = null;
 });
 
+/** Descendientes de un cargo (ids), para evitar ciclos en el selector de padre. */
+function getCargoDescendantIds(cargoId) {
+  const idStr = String(cargoId);
+  const result = new Set();
+  const walk = (pid) => {
+    cargosStore.cargos.forEach((c) => {
+      if (c.parentId != null && String(c.parentId) === String(pid) && !result.has(String(c.id))) {
+        result.add(String(c.id));
+        walk(c.id);
+      }
+    });
+  };
+  walk(idStr);
+  return result;
+}
+
+function getActiveCargoChildren(cargoId) {
+  return cargosStore.cargos.filter(
+    (c) =>
+      c.parentId != null &&
+      String(c.parentId) === String(cargoId) &&
+      (c.activo === true || c.activo === 1 || String(c.activo) === "true")
+  );
+}
+
+/** Lista indentada de cargos (raíces → hijos). */
+const cargosTree = computed(() => {
+  const items = cargosStore.cargos || [];
+  const byParent = new Map();
+  items.forEach((c) => {
+    const key = c.parentId == null ? "root" : String(c.parentId);
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key).push(c);
+  });
+  byParent.forEach((arr) =>
+    arr.sort((a, b) => String(a.descripcion || a.nombre || "").localeCompare(String(b.descripcion || b.nombre || "")))
+  );
+
+  const flat = [];
+  const visit = (parentKey, depth) => {
+    const children = byParent.get(parentKey) || [];
+    children.forEach((c) => {
+      flat.push({ ...c, _depth: depth });
+      visit(String(c.id), depth + 1);
+    });
+  };
+  visit("root", 0);
+
+  // Cargos huérfanos (padre inexistente / soft-deleted) al final
+  const placed = new Set(flat.map((c) => String(c.id)));
+  items.forEach((c) => {
+    if (!placed.has(String(c.id))) flat.push({ ...c, _depth: 0 });
+  });
+  return flat;
+});
+
+const parentCargoOptions = computed(() => {
+  const exclude = editingItem.value
+    ? new Set([String(editingItem.value.id), ...getCargoDescendantIds(editingItem.value.id)])
+    : new Set();
+  return (cargosStore.cargos || [])
+    .filter((c) => !exclude.has(String(c.id)))
+    .map((c) => ({
+      title: c.descripcion || c.nombre,
+      value: Number(c.id)
+    }));
+});
+
+const tabLabel = computed(() => {
+  if (tab.value === 0) return "Instancia";
+  if (tab.value === 1) return "Nivel";
+  if (tab.value === 2) return "Tipo";
+  if (tab.value === 3) return "Relación";
+  if (tab.value === 4) return "Cargo";
+  return "Ítem";
+});
+
 // --- LÓGICA DE DIÁLOGOS ---
 function openDialog(item = null) {
   editingItem.value = item;
   if (item) {
     form.value = { 
-      descripcion: item.descripcion || "", 
+      descripcion: item.descripcion || item.nombre || "", 
       activo: item.activo === true || item.activo === 1 || String(item.activo) === 'true',
       oficial: item.oficial === true || item.oficial === 1 || String(item.oficial) === 'true',
-      color: item.color || "#1976D2"
+      color: item.color || "#1976D2",
+      parentId: item.parentId != null ? Number(item.parentId) : null
     };
   } else {
     form.value = { 
       descripcion: "", 
       activo: true, 
       oficial: true, 
-      color: "#1976D2" 
+      color: "#1976D2",
+      parentId: null
     };
   }
   dialog.value = true;
@@ -110,6 +193,12 @@ async function handleSave() {
       );
     } else if (tab.value === 3) { // Relaciones
       vinculados = unidadesStore.unidades.filter(u => String(u.relacion) === idStr);
+    } else if (tab.value === 4) { // Cargos: hijos activos
+      const hijos = getActiveCargoChildren(editingItem.value.id);
+      if (hijos.length > 0) {
+        mostrar(`Error: No se puede desactivar este cargo porque tiene ${hijos.length} hijo(s) activo(s).`, 'error');
+        return;
+      }
     }
 
     if (vinculados.length > 0) {
@@ -128,6 +217,7 @@ async function handleSave() {
     else if (tab.value === 1) storeRef = nivelesStore;
     else if (tab.value === 2) storeRef = tiposStore;
     else if (tab.value === 3) storeRef = relacionesStore;
+    else if (tab.value === 4) storeRef = cargosStore;
 
     if (tab.value === 0) {
       success = editingItem.value 
@@ -145,6 +235,19 @@ async function handleSave() {
       success = editingItem.value
         ? await relacionesStore.updateRelacion(editingItem.value.id, form.value.descripcion, form.value.activo)
         : await relacionesStore.createRelacion(form.value.descripcion, form.value.activo);
+    } else if (tab.value === 4) {
+      const newParentId = form.value.parentId == null || form.value.parentId === "" ? null : Number(form.value.parentId);
+      if (editingItem.value) {
+        success = await cargosStore.updateCargo(editingItem.value.id, form.value.descripcion, form.value.activo);
+        if (success) {
+          const prevParent = editingItem.value.parentId != null ? Number(editingItem.value.parentId) : null;
+          if (prevParent !== newParentId) {
+            success = await cargosStore.setParentCargo(editingItem.value.id, newParentId);
+          }
+        }
+      } else {
+        success = await cargosStore.createCargo(form.value.descripcion, form.value.activo, newParentId);
+      }
     }
 
     if (success) {
@@ -161,6 +264,13 @@ async function handleSave() {
 }
 
 function openDeleteConfirm(item) {
+  if (tab.value === 4) {
+    const hijos = getActiveCargoChildren(item.id);
+    if (hijos.length > 0) {
+      mostrar(`Error: No se puede eliminar este cargo porque tiene ${hijos.length} hijo(s) activo(s).`, 'error');
+      return;
+    }
+  }
   itemToDelete.value = item;
   deleteConfirmDialog.value = true;
 }
@@ -178,6 +288,7 @@ async function confirmDelete() {
     else if (tab.value === 1) { storeRef = nivelesStore; success = await nivelesStore.deleteNivel(id); }
     else if (tab.value === 2) { storeRef = tiposStore; success = await tiposStore.deleteTipo(id); }
     else if (tab.value === 3) { storeRef = relacionesStore; success = await relacionesStore.deleteRelacion(id); }
+    else if (tab.value === 4) { storeRef = cargosStore; success = await cargosStore.deleteCargo(id); }
 
     if (success) {
       mostrar("Eliminado permanentemente", "success");
@@ -308,6 +419,11 @@ const getDependencies = (item) => {
       <v-tab :value="3">
         <v-badge color="grey" :content="relacionesStore.relaciones.length" inline>
           <v-icon start>mdi-transit-connection-variant</v-icon> Relación
+        </v-badge>
+      </v-tab>
+      <v-tab :value="4">
+        <v-badge color="grey" :content="cargosStore.cargos.length" inline>
+          <v-icon start>mdi-badge-account-horizontal</v-icon> Cargos
         </v-badge>
       </v-tab>
     </v-tabs>
@@ -540,6 +656,68 @@ const getDependencies = (item) => {
         </div>
       </v-window-item>
 
+      <!-- TAB 4: CARGOS -->
+      <v-window-item :value="4">
+        <div class="fill-height d-flex flex-column">
+          <div class="flex-shrink-0">
+            <v-alert type="info" variant="tonal" density="compact" class="mx-3 my-2 text-caption">
+              Administre los Cargos y su jerarquía (padre). ({{ cargosStore.cargos.length }} ítems)
+            </v-alert>
+            <div class="px-3 mb-2">
+              <v-btn block color="primary" prepend-icon="mdi-plus" size="small" @click="openDialog()">
+                Añadir Cargo
+                <v-tooltip activator="parent" location="top">Crear nuevo cargo</v-tooltip>
+              </v-btn>
+            </div>
+          </div>
+          <v-list class="flex-grow-1 overflow-y-auto px-2 pb-16">
+            <v-list-item
+              v-for="item in cargosTree"
+              :key="item.id"
+              class="mb-2 rounded-lg border"
+              :class="{ 'inactive-item': !item.activo }"
+              :style="{ marginLeft: `${(item._depth || 0) * 16}px` }"
+            >
+              <template v-slot:prepend>
+                <v-icon v-if="item._depth > 0" size="16" class="mr-1 text-grey">mdi-subdirectory-arrow-right</v-icon>
+              </template>
+              <v-list-item-title class="font-weight-bold text-body-2 d-flex align-center flex-wrap" :class="{ 'text-grey': !item.activo }">
+                <span>{{ item.descripcion || item.nombre }}</span>
+                <span v-if="!item.activo" class="text-caption font-italic ml-1">(Inactivo)</span>
+                <v-chip
+                  v-if="item.parentNombre || item.parentId"
+                  size="x-small"
+                  color="secondary"
+                  variant="tonal"
+                  class="ml-2 px-1"
+                >
+                  Padre: {{ item.parentNombre || ('#' + item.parentId) }}
+                </v-chip>
+                <v-chip
+                  v-if="getActiveCargoChildren(item.id).length > 0"
+                  size="x-small"
+                  color="primary"
+                  variant="tonal"
+                  class="ml-2 px-1"
+                >
+                  {{ getActiveCargoChildren(item.id).length }} hijo(s)
+                </v-chip>
+              </v-list-item-title>
+              <template v-slot:append>
+                <v-btn icon variant="text" size="small" color="orange" @click="openDialog(item)">
+                  <v-icon>mdi-pencil</v-icon>
+                  <v-tooltip activator="parent" location="top">Editar cargo</v-tooltip>
+                </v-btn>
+                <v-btn icon variant="text" size="small" color="red" @click="openDeleteConfirm(item)">
+                  <v-icon>mdi-delete</v-icon>
+                  <v-tooltip activator="parent" location="top">Eliminar cargo (lógico)</v-tooltip>
+                </v-btn>
+              </template>
+            </v-list-item>
+          </v-list>
+        </div>
+      </v-window-item>
+
     </v-window>
 
     <v-divider></v-divider>
@@ -554,8 +732,7 @@ const getDependencies = (item) => {
     <v-dialog v-model="dialog" max-width="500">
       <v-card>
         <v-card-title class="text-h6 font-weight-bold pa-4">
-          {{ editingItem ? 'Editar' : 'Añadir' }} 
-          {{ tab === 0 ? 'Instancia' : tab === 1 ? 'Nivel' : tab === 2 ? 'Tipo' : 'Relación' }}
+          {{ editingItem ? 'Editar' : 'Añadir' }} {{ tabLabel }}
         </v-card-title>
         <v-divider />
         <v-card-text class="pa-4">
@@ -565,6 +742,19 @@ const getDependencies = (item) => {
             <span class="text-body-2">Estado: <strong>{{ form.activo ? 'ACTIVO' : 'INACTIVO' }}</strong></span>
             <v-switch v-model="form.activo" color="success" hide-details inset density="compact" />
           </div>
+
+          <!-- Selector de cargo padre (solo tab Cargos) -->
+          <v-select
+            v-if="tab === 4"
+            v-model="form.parentId"
+            :items="parentCargoOptions"
+            label="Cargo padre (opcional)"
+            variant="outlined"
+            clearable
+            hide-details
+            class="mb-4"
+            density="comfortable"
+          />
 
           <!-- Switch de Oficial (Solo para Clases) -->
           <div v-if="tab === 0" class="d-flex align-center justify-space-between pa-3 rounded border mb-4">
