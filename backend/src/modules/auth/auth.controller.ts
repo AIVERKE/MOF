@@ -1,4 +1,13 @@
-import { Controller, Post, UseGuards, Req, Get, Body } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Req,
+  Get,
+  Body,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -7,7 +16,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { AuthService } from './auth.service';
+import { AuthService, AuthUser } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
@@ -20,13 +29,13 @@ export class AuthController {
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login user and return JWT token' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, description: 'Success', type: LoginResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  login(@Req() req: Request, @Body() loginDto: LoginDto) {
-    void loginDto;
-    return this.authService.login(req.user);
+  login(@Req() req: Request, @Body() _loginDto: LoginDto) {
+    return this.authService.login(req.user as AuthUser);
   }
 
   @ApiBearerAuth()
