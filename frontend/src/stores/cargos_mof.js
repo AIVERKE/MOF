@@ -57,16 +57,21 @@ export const useAllCargosMofStore = defineStore(
         };
 
         /**
-         * @param {string} descripcion
-         * @param {boolean} activo
+         * @param {string} nombre
+         * @param {string|null} [descripcion]
+         * @param {boolean} [activo]
          * @param {number|null} [parentId]
          * @returns {Promise<boolean>}
          */
-        const createCargo = async (descripcion, activo = true, parentId = null) => {
+        const createCargo = async (nombre, descripcion = null, activo = true, parentId = null) => {
             loading.value = true;
             error.value = null;
             try {
-                const body = { descripcion, activo };
+                const desc =
+                    descripcion == null || String(descripcion).trim() === ''
+                        ? null
+                        : String(descripcion).trim();
+                const body = { nombre: String(nombre).trim(), descripcion: desc, activo };
                 if (parentId != null) body.parentId = parentId;
 
                 const response = await fetch(API_URL, {
@@ -87,18 +92,27 @@ export const useAllCargosMofStore = defineStore(
 
         /**
          * @param {number|string} id
-         * @param {string} descripcion
-         * @param {boolean} activo
+         * @param {string} nombre
+         * @param {string|null} [descripcion]
+         * @param {boolean} [activo]
          * @returns {Promise<boolean>}
          */
-        const updateCargo = async (id, descripcion, activo = true) => {
+        const updateCargo = async (id, nombre, descripcion = null, activo = true) => {
             loading.value = true;
             error.value = null;
             try {
+                const desc =
+                    descripcion == null || String(descripcion).trim() === ''
+                        ? null
+                        : String(descripcion).trim();
                 const response = await fetch(`${API_URL}/${id}`, {
                     method: 'PUT',
                     headers: getHeaders(),
-                    body: JSON.stringify({ descripcion, activo })
+                    body: JSON.stringify({
+                        nombre: String(nombre).trim(),
+                        descripcion: desc,
+                        activo
+                    })
                 });
                 if (!response.ok) throw new Error(await parseError(response));
                 await getFetchCargos();

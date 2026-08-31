@@ -39,6 +39,7 @@ const usedColors = computed(() => getUsedColors(unidadesStore.unidades, clasesSt
 
 // Formulario Genérico
 const form = ref({
+  nombre: "",
   descripcion: "",
   activo: true,
   oficial: true,
@@ -104,7 +105,7 @@ const cargosTree = computed(() => {
     byParent.get(key).push(c);
   });
   byParent.forEach((arr) =>
-    arr.sort((a, b) => String(a.descripcion || a.nombre || "").localeCompare(String(b.descripcion || b.nombre || "")))
+    arr.sort((a, b) => String(a.nombre || a.descripcion || "").localeCompare(String(b.nombre || b.descripcion || "")))
   );
 
   const flat = [];
@@ -132,7 +133,7 @@ const parentCargoOptions = computed(() => {
   return (cargosStore.cargos || [])
     .filter((c) => !exclude.has(String(c.id)))
     .map((c) => ({
-      title: c.descripcion || c.nombre,
+      title: c.nombre || c.descripcion,
       value: Number(c.id)
     }));
 });
@@ -151,7 +152,10 @@ function openDialog(item = null) {
   editingItem.value = item;
   if (item) {
     form.value = { 
-      descripcion: item.descripcion || item.nombre || "", 
+      nombre: item.nombre || (tab.value === 4 ? (item.descripcion || "") : ""),
+      descripcion: tab.value === 4
+        ? (item.descripcion || "")
+        : (item.descripcion || item.nombre || ""),
       activo: item.activo === true || item.activo === 1 || String(item.activo) === 'true',
       oficial: item.oficial === true || item.oficial === 1 || String(item.oficial) === 'true',
       color: item.color || "#1976D2",
@@ -159,6 +163,7 @@ function openDialog(item = null) {
     };
   } else {
     form.value = { 
+      nombre: "",
       descripcion: "", 
       activo: true, 
       oficial: true, 
@@ -170,12 +175,20 @@ function openDialog(item = null) {
 }
 
 async function handleSave() {
-  if (!form.value.descripcion.trim()) return;
+  if (tab.value === 4) {
+    if (!String(form.value.nombre || "").trim()) return;
+  } else if (!form.value.descripcion.trim()) {
+    return;
+  }
   
   // VALIDACIÓN PREVENTIVA GLOBAL: No permitir desactivar si está en uso
   if (editingItem.value && form.value.activo === false) {
     let vinculados = [];
-    const descLower = String(editingItem.value.descripcion || "").trim().toLowerCase();
+    const descLower = String(
+      tab.value === 4
+        ? (editingItem.value.nombre || editingItem.value.descripcion || "")
+        : (editingItem.value.descripcion || "")
+    ).trim().toLowerCase();
     const idStr = String(editingItem.value.id);
 
     if (tab.value === 0) { // Clases
@@ -237,8 +250,10 @@ async function handleSave() {
         : await relacionesStore.createRelacion(form.value.descripcion, form.value.activo);
     } else if (tab.value === 4) {
       const newParentId = form.value.parentId == null || form.value.parentId === "" ? null : Number(form.value.parentId);
+      const nombre = String(form.value.nombre || "").trim().slice(0, 255);
+      const descripcion = String(form.value.descripcion || "").trim().slice(0, 512) || null;
       if (editingItem.value) {
-        success = await cargosStore.updateCargo(editingItem.value.id, form.value.descripcion, form.value.activo);
+        success = await cargosStore.updateCargo(editingItem.value.id, nombre, descripcion, form.value.activo);
         if (success) {
           const prevParent = editingItem.value.parentId != null ? Number(editingItem.value.parentId) : null;
           if (prevParent !== newParentId) {
@@ -246,7 +261,7 @@ async function handleSave() {
           }
         }
       } else {
-        success = await cargosStore.createCargo(form.value.descripcion, form.value.activo, newParentId);
+        success = await cargosStore.createCargo(nombre, descripcion, form.value.activo, newParentId);
       }
     }
 
@@ -682,7 +697,7 @@ const getDependencies = (item) => {
                 <v-icon v-if="item._depth > 0" size="16" class="mr-1 text-grey">mdi-subdirectory-arrow-right</v-icon>
               </template>
               <v-list-item-title class="font-weight-bold text-body-2 d-flex align-center flex-wrap" :class="{ 'text-grey': !item.activo }">
-                <span>{{ item.descripcion || item.nombre }}</span>
+                <span>{{ item.nombre || item.descripcion }}</span>
                 <span v-if="!item.activo" class="text-caption font-italic ml-1">(Inactivo)</span>
                 <v-chip
                   v-if="item.parentNombre || item.parentId"
@@ -736,7 +751,39 @@ const getDependencies = (item) => {
         </v-card-title>
         <v-divider />
         <v-card-text class="pa-4">
-          <v-text-field v-model="form.descripcion" label="Descripción / Nombre" variant="outlined" class="mb-4" hide-details autofocus @keyup.enter="handleSave" />
+          <!-- Cargos: Nombre + Descripción separados -->
+          <template v-if="tab === 4">
+            <v-text-field
+              v-model="form.nombre"
+              label="Nombre"
+              variant="outlined"
+              class="mb-4"
+              maxlength="255"
+              counter="255"
+              autofocus
+              :rules="[v => !!String(v || '').trim() || 'El nombre es obligatorio']"
+            />
+            <v-textarea
+              v-model="form.descripcion"
+              label="Descripción"
+              variant="outlined"
+              class="mb-4"
+              rows="2"
+              maxlength="512"
+              counter="512"
+              hide-details="auto"
+            />
+          </template>
+          <v-text-field
+            v-else
+            v-model="form.descripcion"
+            label="Descripción / Nombre"
+            variant="outlined"
+            class="mb-4"
+            hide-details
+            autofocus
+            @keyup.enter="handleSave"
+          />
           
           <div class="d-flex align-center justify-space-between pa-3 rounded border mb-4">
             <span class="text-body-2">Estado: <strong>{{ form.activo ? 'ACTIVO' : 'INACTIVO' }}</strong></span>
@@ -802,7 +849,15 @@ const getDependencies = (item) => {
         <v-card-actions class="pa-4 pt-0">
           <v-spacer />
           <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
-          <v-btn color="primary" variant="elevated" @click="handleSave" :loading="loading">Guardar Cambios</v-btn>
+          <v-btn
+            color="primary"
+            variant="elevated"
+            @click="handleSave"
+            :loading="loading"
+            :disabled="tab === 4 ? !String(form.nombre || '').trim() : !String(form.descripcion || '').trim()"
+          >
+            Guardar Cambios
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -821,7 +876,7 @@ const getDependencies = (item) => {
           </div>
           <p class="text-body-2 mb-4 text-grey-darken-3">
             Usted está intentando eliminar: <br>
-            <strong class="text-primary">{{ itemToDelete?.descripcion }}</strong>
+            <strong class="text-primary">{{ itemToDelete?.nombre || itemToDelete?.descripcion }}</strong>
           </p>
           <v-alert type="warning" variant="tonal" density="compact" class="text-caption mb-4">
             <strong>NOTA IMPORTANTE:</strong> Eliminar un elemento es una acción irreversible. Si este elemento está siendo utilizado en el organigrama (en unidades activas), el sistema denegará la acción por integridad de datos.
