@@ -16,6 +16,7 @@ const cargosStore = useAllCargosMofStore();
 const dialog = ref(false);
 const editingCargo = ref(null);
 const cargoName = ref("");
+const cargoDescripcion = ref("");
 const cargoActivo = ref(true);
 const search = ref("");
 
@@ -54,11 +55,13 @@ const value = computed({
 function openDialog(item = null) {
   if (item) {
     editingCargo.value = item;
-    cargoName.value = item.descripcion;
+    cargoName.value = item.nombre || item.descripcion || "";
+    cargoDescripcion.value = item.descripcion || "";
     cargoActivo.value = item.activo ?? true;
   } else {
     editingCargo.value = null;
     cargoName.value = search.value; // Pre-cargar lo que el usuario escribió en la búsqueda
+    cargoDescripcion.value = "";
     cargoActivo.value = true;
   }
   dialog.value = true;
@@ -67,16 +70,20 @@ function openDialog(item = null) {
 async function saveCargo() {
   if (!cargoName.value.trim()) return;
 
+  const nombre = cargoName.value.trim().slice(0, 255);
+  const descripcion = cargoDescripcion.value.trim().slice(0, 512) || null;
+
   let success = false;
   if (editingCargo.value) {
-    success = await cargosStore.updateCargo(editingCargo.value.id, cargoName.value.trim(), cargoActivo.value);
+    success = await cargosStore.updateCargo(editingCargo.value.id, nombre, descripcion, cargoActivo.value);
   } else {
-    success = await cargosStore.createCargo(cargoName.value.trim(), cargoActivo.value);
+    success = await cargosStore.createCargo(nombre, descripcion, cargoActivo.value);
   }
 
   if (success) {
     dialog.value = false;
     cargoName.value = "";
+    cargoDescripcion.value = "";
     cargoActivo.value = true;
     editingCargo.value = null;
   }
@@ -96,7 +103,7 @@ onMounted(async () => {
             v-model:search="search"
             label="Cargos del Personal" 
             :items="uniqueCargos" 
-            item-title="descripcion" 
+            item-title="nombre" 
             item-value="id" 
             variant="underlined"
             multiple
@@ -164,7 +171,7 @@ onMounted(async () => {
         </v-autocomplete>
 
         <!-- Diálogo para crear/editar -->
-         <v-dialog v-model="dialog" max-width="400">
+         <v-dialog v-model="dialog" max-width="480">
             <v-card>
                 <v-card-title class="text-h6">
                     {{ editingCargo ? 'Editar Cargo' : 'Nuevo Cargo' }}
@@ -173,13 +180,24 @@ onMounted(async () => {
                 <v-card-text class="pt-4">
                     <v-text-field
                         v-model="cargoName"
-                        label="Nombre del Cargo (Catálogo)"
+                        label="Nombre"
                         variant="outlined"
                         autofocus
-                        @keyup.enter="saveCargo"
-                        hide-details
-                        class="mb-6"
+                        maxlength="255"
+                        counter="255"
+                        :rules="[v => !!String(v || '').trim() || 'El nombre es obligatorio']"
+                        class="mb-4"
                     ></v-text-field>
+                    <v-textarea
+                        v-model="cargoDescripcion"
+                        label="Descripción"
+                        variant="outlined"
+                        rows="2"
+                        maxlength="512"
+                        counter="512"
+                        hide-details="auto"
+                        class="mb-6"
+                    ></v-textarea>
                     
                     <div 
                         class="d-flex align-center justify-space-between pa-3 rounded cursor-pointer transition-colors" 

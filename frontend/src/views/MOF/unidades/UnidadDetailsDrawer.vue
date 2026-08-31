@@ -87,7 +87,7 @@ function close() {
 
       <div v-if="detailData.cargos_detalle?.length">
         <div class="text-xxs font-weight-black text-primary mb-1 uppercase">Talento Humano</div>
-        <div v-for="c in detailData.cargos_detalle" :key="c.id" class="text-caption font-weight-medium mb-1 line-height-1-2">• {{ c.descripcion }}</div>
+        <div v-for="c in detailData.cargos_detalle" :key="c.id" class="text-caption font-weight-medium mb-1 line-height-1-2">• {{ c.nombre || c.descripcion }}</div>
         <v-divider class="my-3" />
       </div>
 

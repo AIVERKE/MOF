@@ -33,13 +33,19 @@ export class CargosService {
       id: Number(c.id),
       codigo: c.codigo,
       nombre: c.nombre,
-      descripcion: c.descripcion ?? c.nombre,
+      descripcion: c.descripcion ?? null,
       activo: c.activo,
       parentId: c.parentId != null ? Number(c.parentId) : null,
       parentNombre: c.parent
-        ? (c.parent.descripcion ?? c.parent.nombre ?? null)
+        ? (c.parent.nombre ?? c.parent.descripcion ?? null)
         : null,
     };
+  }
+
+  private normalizeDescripcion(value?: string | null): string | null {
+    if (value == null) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   private async assertNoCycle(
@@ -161,8 +167,8 @@ export class CargosService {
 
     const saved = await this.cargoRepo.save(
       this.cargoRepo.create({
-        nombre: dto.descripcion,
-        descripcion: dto.descripcion,
+        nombre: dto.nombre.trim(),
+        descripcion: this.normalizeDescripcion(dto.descripcion),
         activo: dto.activo ?? true,
         unicoEnUnidad: false,
         parentId,
@@ -188,8 +194,8 @@ export class CargosService {
       await this.assertCanDeactivateOrDelete(id, 'desactivar');
     }
 
-    c.nombre = dto.descripcion;
-    c.descripcion = dto.descripcion;
+    c.nombre = dto.nombre.trim();
+    c.descripcion = this.normalizeDescripcion(dto.descripcion);
     if (dto.activo !== undefined) c.activo = dto.activo;
     await this.cargoRepo.save(c);
     return id;
@@ -242,7 +248,8 @@ export class CargosService {
     });
     return rows.map((r) => ({
       id: Number(r.id),
-      descripcion: r.cargo?.descripcion ?? r.cargo?.nombre ?? '',
+      nombre: r.cargo?.nombre ?? '',
+      descripcion: r.cargo?.descripcion ?? null,
       cargoId: Number(r.cargoId),
     }));
   }

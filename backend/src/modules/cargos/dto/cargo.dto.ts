@@ -5,14 +5,26 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   ValidateIf,
 } from 'class-validator';
 
 export class CargoDto {
-  @ApiProperty({ example: 'Analista' })
+  @ApiProperty({ example: 'Analista', maxLength: 255 })
   @IsString()
   @IsNotEmpty()
-  descripcion: string;
+  @MaxLength(255)
+  nombre: string;
+
+  @ApiPropertyOptional({
+    example: 'Responsable de análisis de procesos',
+    maxLength: 512,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  descripcion?: string | null;
 
   @ApiPropertyOptional({ example: true, default: true })
   @IsOptional()
