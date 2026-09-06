@@ -74,6 +74,12 @@ export class Unidad extends AuditableEntity {
   @Column({ type: 'boolean', default: false })
   oficial: boolean;
 
+  @Column({ name: 'es_troncal', type: 'boolean', default: false })
+  esTroncal: boolean;
+
+  @Column({ name: 'lado', type: 'varchar', length: 20, default: 'AUTOMATICO' })
+  lado: string;
+
   @Column({ type: 'text', nullable: true })
   objetivo: string | null;
 

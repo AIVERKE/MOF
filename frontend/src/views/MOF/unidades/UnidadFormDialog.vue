@@ -66,6 +66,19 @@ watch(
   },
 );
 
+/**
+ * Si se selecciona que es Unidad Troncal, OBLIGATORIAMENTE se fija al CENTRO.
+ */
+watch(
+  () => props.formData.es_troncal,
+  (val) => {
+    if (val) {
+      props.formData.lado = "CENTRO";
+    }
+  },
+  { immediate: true },
+);
+
 function close() {
   emit("update:modelValue", false);
 }
@@ -292,6 +305,54 @@ function eliminarFuncion(index) {
               />
             </v-col>
           </v-row>
+
+          <!-- ESTRUCTURA Y DISPOSICIÓN EN EL ORGANIGRAMA -->
+          <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-primary">
+            <div class="text-subtitle-2 font-weight-bold text-primary mb-2 d-flex align-center">
+              <v-icon start size="18">mdi-sitemap</v-icon>
+              Disposición en el Organigrama
+            </div>
+            <v-row dense align="center">
+              <v-col cols="12" sm="5">
+                <v-switch
+                  v-model="formData.es_troncal"
+                  color="primary"
+                  hide-details
+                  density="compact"
+                  label="¿Es Unidad Troncal?"
+                />
+                <span class="text-caption text-grey">Si está activo, desciende por la línea central de gobierno</span>
+              </v-col>
+              <v-col cols="12" sm="7">
+                <div class="text-caption font-weight-bold mb-1 text-grey-darken-1">
+                  {{ formData.es_troncal ? 'Lado: Fijado al CENTRO (por ser Troncal)' : 'Lado en el Organigrama:' }}
+                </div>
+                <v-btn-toggle
+                  v-model="formData.lado"
+                  :disabled="formData.es_troncal"
+                  mandatory
+                  color="primary"
+                  density="comfortable"
+                  variant="outlined"
+                  rounded="lg"
+                  class="d-flex flex-wrap"
+                >
+                  <v-btn value="IZQUIERDA" class="px-2 text-caption">
+                    <v-icon start size="16">mdi-arrow-left-bold</v-icon> Izquierda
+                  </v-btn>
+                  <v-btn value="CENTRO" class="px-2 text-caption">
+                    <v-icon start size="16">mdi-format-align-center</v-icon> Centro
+                  </v-btn>
+                  <v-btn value="DERECHA" class="px-2 text-caption">
+                    <v-icon start size="16">mdi-arrow-right-bold</v-icon> Derecha
+                  </v-btn>
+                  <v-btn value="AUTOMATICO" class="px-2 text-caption">
+                    <v-icon start size="16">mdi-auto-fix</v-icon> Auto
+                  </v-btn>
+                </v-btn-toggle>
+              </v-col>
+            </v-row>
+          </v-card>
 
           <v-row justify="end" class="mt-4 px-4 align-center">
             <v-menu v-model="colorMenu" :close-on-content-click="false">
