@@ -261,6 +261,44 @@ export const useAllUnidadesMofStore = defineStore(
             }
         };
 
+        const subirFuncion = async (unidadId, funcionId) => {
+            loading.value = true;
+            error.value = null;
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/funciones/${funcionId}/subir`, {
+                    method: 'PUT',
+                    headers: getHeaders()
+                });
+                if (!response.ok) throw new Error('Error al subir función');
+                const data = await response.json();
+                return data.data;
+            } catch (err) {
+                error.value = err.message;
+                return null;
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        const bajarFuncion = async (unidadId, funcionId) => {
+            loading.value = true;
+            error.value = null;
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/funciones/${funcionId}/bajar`, {
+                    method: 'PUT',
+                    headers: getHeaders()
+                });
+                if (!response.ok) throw new Error('Error al bajar función');
+                const data = await response.json();
+                return data.data;
+            } catch (err) {
+                error.value = err.message;
+                return null;
+            } finally {
+                loading.value = false;
+            }
+        };
+
         const updateNodo = async (id, dataForm) => {
             loading.value = true;
             error.value = null;
@@ -392,6 +430,8 @@ export const useAllUnidadesMofStore = defineStore(
             createFuncion,
             updateFuncion,
             deleteFuncion,
+            subirFuncion,
+            bajarFuncion,
             getPersonalUnidad,
             updatePersonalUnidad,
             deletePersonalUnidad,

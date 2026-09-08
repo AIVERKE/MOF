@@ -81,6 +81,8 @@ const {
   addFuncion,
   updateFuncion,
   removeFuncion,
+  moverFuncionArriba,
+  moverFuncionAbajo,
 } = unitForm;
 
 // --- UI STATE ---
@@ -1838,6 +1840,8 @@ function resetFilters() {
           updateFuncion(index, funcion, baseLegal)
       "
       @remove-funcion="(index) => removeFuncion(index)"
+      @mover-arriba="(index) => moverFuncionArriba(index)"
+      @mover-abajo="(index) => moverFuncionAbajo(index)"
     />
 
     <UnidadDetailsDrawer

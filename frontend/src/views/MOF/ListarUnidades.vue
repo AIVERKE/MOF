@@ -51,7 +51,9 @@ const {
   saveUnidad,
   addFuncion,
   updateFuncion,
-  removeFuncion 
+  removeFuncion,
+  moverFuncionArriba,
+  moverFuncionAbajo
 } = unitForm;
 
 // Estados para diálogos y UI
@@ -309,6 +311,7 @@ async function confirmDelete() {
       v-model="addDialog" :form-data="formData" :is-edit-mode="isEditMode" :selected-node="selectedNode" v-model:form-valid="formValid"
       @confirm="confirmAddItem" @add-funcion="({ funcion, baseLegal }) => addFuncion(funcion, baseLegal)"
       @edit-funcion="({ index, funcion, baseLegal }) => updateFuncion(index, funcion, baseLegal)" @remove-funcion="(index) => removeFuncion(index)"
+      @mover-arriba="(index) => moverFuncionArriba(index)" @mover-abajo="(index) => moverFuncionAbajo(index)"
     />
 
     <UnidadDeleteDialog v-model="deleteDialog" :nombre-unidad="selectedNode?.nombre || selectedNode?.denominacion" @confirm="confirmDelete" />

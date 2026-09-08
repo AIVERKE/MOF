@@ -80,10 +80,7 @@ export class MofUnidadesController {
 
   @Put('unidades/:id')
   @ApiOperation({ summary: 'Actualizar unidad' })
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UnidadDto,
-  ) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UnidadDto) {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
       await this.unidadesService.update(id, dto),
@@ -166,6 +163,30 @@ export class MofUnidadesController {
     return ResultResponse.ok(
       RestMessages.PERSIST_SUCCESSFULLY,
       await this.unidadesService.deleteFuncion(id, funcionId),
+    );
+  }
+
+  @Put('unidades/:id/funciones/:funcionId/subir')
+  @ApiOperation({ summary: 'Subir función en el orden' })
+  async subirFuncion(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('funcionId', ParseIntPipe) funcionId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.subirFuncion(id, funcionId),
+    );
+  }
+
+  @Put('unidades/:id/funciones/:funcionId/bajar')
+  @ApiOperation({ summary: 'Bajar función en el orden' })
+  async bajarFuncion(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('funcionId', ParseIntPipe) funcionId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.bajarFuncion(id, funcionId),
     );
   }
 

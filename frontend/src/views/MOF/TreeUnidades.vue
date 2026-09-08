@@ -51,6 +51,8 @@ const {
   addFuncion,
   updateFuncion,
   removeFuncion,
+  moverFuncionArriba,
+  moverFuncionAbajo,
 } = unitForm;
 
 const addDialog = ref(false);
@@ -337,6 +339,8 @@ const customTreeFilter = (value, query, item) => {
         updateFuncion(index, funcion, baseLegal)
     "
     @remove-funcion="(index) => removeFuncion(index)"
+    @mover-arriba="(index) => moverFuncionArriba(index)"
+    @mover-abajo="(index) => moverFuncionAbajo(index)"
   />
 
   <UnidadDeleteDialog

@@ -28,6 +28,8 @@ const emit = defineEmits([
   "add-funcion",
   "edit-funcion",
   "remove-funcion",
+  "mover-arriba",
+  "mover-abajo",
 ]);
 
 const unidadesStore = useAllUnidadesMofStore();
@@ -117,6 +119,14 @@ function guardarFuncion() {
 
 function eliminarFuncion(index) {
   emit("remove-funcion", index);
+}
+
+function moverArriba(index) {
+  emit("mover-arriba", index);
+}
+
+function moverAbajo(index) {
+  emit("mover-abajo", index);
 }
 </script>
 
@@ -228,16 +238,42 @@ function eliminarFuncion(index) {
             <v-table density="compact">
               <thead>
                 <tr class="bg-slate-100 border-b-slate">
-                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 42%">Función</th>
-                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 42%">Base Legal</th>
-                  <th class="text-caption font-weight-bold px-3 text-right" style="width: 16%">Acciones</th>
+                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">Función</th>
+                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">Base Legal</th>
+                  <th class="text-caption font-weight-bold px-3 text-right" style="width: 20%">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(f, i) in formData.funciones" :key="i" class="border-b-slate">
-                  <td class="px-3 py-2 border-r-slate" style="width: 42%">{{ f.funcion }}</td>
-                  <td class="px-3 py-2 border-r-slate" style="width: 42%">{{ f.baseLegal }}</td>
-                  <td class="text-right px-3 py-1" style="width: 16%">
+                <tr v-for="(f, i) in formData.funciones" :key="f.id || f.tempId || i" class="border-b-slate">
+                  <td class="px-3 py-2 border-r-slate" style="width: 40%">{{ f.funcion }}</td>
+                  <td class="px-3 py-2 border-r-slate" style="width: 40%">{{ f.baseLegal }}</td>
+                  <td class="text-right px-3 py-1 text-no-wrap" style="width: 20%">
+                    <v-btn
+                      icon="mdi-arrow-up"
+                      size="x-small"
+                      variant="text"
+                      color="primary"
+                      :disabled="i === 0"
+                      @click="moverArriba(i)"
+                    >
+                      <v-icon size="16">mdi-arrow-up</v-icon>
+                      <v-tooltip activator="parent" location="top"
+                        >Subir posición</v-tooltip
+                      >
+                    </v-btn>
+                    <v-btn
+                      icon="mdi-arrow-down"
+                      size="x-small"
+                      variant="text"
+                      color="primary"
+                      :disabled="i === formData.funciones.length - 1"
+                      @click="moverAbajo(i)"
+                    >
+                      <v-icon size="16">mdi-arrow-down</v-icon>
+                      <v-tooltip activator="parent" location="top"
+                        >Bajar posición</v-tooltip
+                      >
+                    </v-btn>
                     <v-btn
                       icon="mdi-pencil"
                       size="x-small"
@@ -245,7 +281,7 @@ function eliminarFuncion(index) {
                       color="warning"
                       @click="abrirModalFuncion(i)"
                     >
-                      <v-icon>mdi-pencil</v-icon>
+                      <v-icon size="16">mdi-pencil</v-icon>
                       <v-tooltip activator="parent" location="top"
                         >Editar función</v-tooltip
                       >
@@ -257,7 +293,7 @@ function eliminarFuncion(index) {
                       color="error"
                       @click="eliminarFuncion(i)"
                     >
-                      <v-icon>mdi-delete</v-icon>
+                      <v-icon size="16">mdi-delete</v-icon>
                       <v-tooltip activator="parent" location="top"
                         >Eliminar función</v-tooltip
                       >

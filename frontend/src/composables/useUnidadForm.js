@@ -109,7 +109,13 @@ export function useUnidadForm(stores) {
             baseLegal: fullData.base_legal || fullData.baseLegal || "",
             resCreacion: fullData.res_creacion || fullData.resCreacion || "",
             objetivo: fullData.objetivo || fullData.objetivo_puesto || "",
-            funciones: funcionesData || [],
+            funciones: (funcionesData || []).map(f => ({
+              id: f.id,
+              tempId: f.id ? String(f.id) : `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              funcion: f.funcion,
+              baseLegal: f.baseLegal || "",
+              orden: f.orden
+            })),
             fecCreacion: parseDateFromApi(fullData.fec_creacion || fullData.fecCreacion),
             dependenciasFuncionales: (fullData.dependenciasFuncionales || []).map(d => getSafeId(d)).filter(id => id !== null),
             clase: getSafeId(fullData.clase) || findIdByText(clasesStore.clases, fullData.clase),
@@ -241,42 +247,121 @@ export function useUnidadForm(stores) {
         }
         for (const id of toAdd) await unidadesStore.updatePersonalUnidad(unidadId, id);
 
-        // --- SINCRONIZACIÓN DE FUNCIONES ---
+        // --- SINCRONIZACIÓN DE FUNCIONES (MOF-013) ---
+        // Regla de oro: Blindar IDs. Nunca delete+create de filas existentes.
         const oldFuncs = funcionesOriginales.value || [];
         const newFuncs = formData.value.funciones || [];
-        const newIdsF = newFuncs.filter(f => f.id).map(f => String(f.id));
+        const newIdsSet = new Set(
+          newFuncs
+            .filter((f) => f.id != null && f.id !== "")
+            .map((f) => String(f.id)),
+        );
 
+        // 1. Eliminar únicamente las funciones que el usuario removió de la tabla
         for (const f of oldFuncs) {
-          if (f.id && !newIdsF.includes(String(f.id))) await unidadesStore.deleteFuncion(unidadId, f.id);
+          if (f.id != null && !newIdsSet.has(String(f.id))) {
+            await unidadesStore.deleteFuncion(unidadId, f.id);
+          }
         }
+
+        // 2. Crear las nuevas o actualizar existentes preservando orden
         for (const f of newFuncs) {
           if (!f.id) {
-            await unidadesStore.createFuncion(unidadId, { funcion: f.funcion, baseLegal: f.baseLegal });
-          } else if (oldFuncs.find(of => String(of.id) === String(f.id))) {
-            await unidadesStore.updateFuncion(unidadId, f.id, { funcion: f.funcion, baseLegal: f.baseLegal });
+            // Fila nueva sin ID
+            await unidadesStore.createFuncion(unidadId, {
+              funcion: f.funcion,
+              baseLegal: f.baseLegal || null,
+            });
+          } else {
+            // Fila persistida: Actualizar contenido solo si fue modificado (preservando ID y orden)
+            const orig = oldFuncs.find((of) => String(of.id) === String(f.id));
+            if (
+              orig &&
+              (orig.funcion !== f.funcion || orig.baseLegal !== f.baseLegal)
+            ) {
+              await unidadesStore.updateFuncion(unidadId, f.id, {
+                funcion: f.funcion,
+                baseLegal: f.baseLegal || null,
+              });
+            }
           }
         }
 
         return { success: true, unidadId };
       }
-      
-      return { success: false, error: unidadesStore.error || "Error desconocido al guardar" };
+
+      return {
+        success: false,
+        error: unidadesStore.error || "Error desconocido al guardar",
+      };
     } catch (e) {
       return { success: false, error: e.message };
     }
   }
 
-  // --- HELPERS PARA UI ---
+  // --- HELPERS PARA UI (MOF-013) ---
   function addFuncion(funcion, baseLegal) {
-    formData.value.funciones.push({ funcion, baseLegal });
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    formData.value.funciones.push({
+      id: null,
+      tempId,
+      funcion,
+      baseLegal: baseLegal || "",
+    });
   }
 
   function updateFuncion(index, funcion, baseLegal) {
-    formData.value.funciones[index] = { ...formData.value.funciones[index], funcion, baseLegal };
+    if (index >= 0 && index < formData.value.funciones.length) {
+      const existing = formData.value.funciones[index];
+      formData.value.funciones[index] = {
+        ...existing,
+        funcion,
+        baseLegal: baseLegal || "",
+      };
+    }
   }
 
   function removeFuncion(index) {
-    formData.value.funciones.splice(index, 1);
+    if (index >= 0 && index < formData.value.funciones.length) {
+      formData.value.funciones.splice(index, 1);
+    }
+  }
+
+  async function moverFuncionArriba(index) {
+    if (index <= 0 || !formData.value.funciones?.length) return;
+    const current = formData.value.funciones[index];
+    const prev = formData.value.funciones[index - 1];
+
+    // Reordenamiento local reactivo
+    formData.value.funciones[index] = prev;
+    formData.value.funciones[index - 1] = current;
+
+    // Persistencia inmediata en BD si ambas filas ya están guardadas en el backend
+    const unidadId = formData.value.id || selectedNode.value?.id;
+    if (isEditMode.value && current?.id && prev?.id && unidadId) {
+      await unidadesStore.subirFuncion(unidadId, current.id);
+    }
+  }
+
+  async function moverFuncionAbajo(index) {
+    if (
+      index < 0 ||
+      !formData.value.funciones?.length ||
+      index >= formData.value.funciones.length - 1
+    )
+      return;
+    const current = formData.value.funciones[index];
+    const next = formData.value.funciones[index + 1];
+
+    // Reordenamiento local reactivo
+    formData.value.funciones[index] = next;
+    formData.value.funciones[index + 1] = current;
+
+    // Persistencia inmediata en BD si ambas filas ya están guardadas en el backend
+    const unidadId = formData.value.id || selectedNode.value?.id;
+    if (isEditMode.value && current?.id && next?.id && unidadId) {
+      await unidadesStore.bajarFuncion(unidadId, current.id);
+    }
   }
 
   return {
@@ -289,6 +374,8 @@ export function useUnidadForm(stores) {
     saveUnidad,
     addFuncion,
     updateFuncion,
-    removeFuncion
+    removeFuncion,
+    moverFuncionArriba,
+    moverFuncionAbajo,
   };
 }
