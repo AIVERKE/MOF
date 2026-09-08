@@ -31,18 +31,17 @@ export class UnidadDto {
   @IsNumber()
   parentId?: number | null;
 
-  @ApiPropertyOptional({ description: 'Código o id del tipo (A/B/C o id numérico)' })
-  @IsOptional()
-  tipo?: string | number;
+  @ApiProperty({ description: 'Código o id del tipo (A/B/C o id numérico)' })
+  @IsNotEmpty()
+  tipo: string | number;
 
-  @ApiPropertyOptional({ description: 'Código o id del nivel (D/E/O o id numérico)' })
-  @IsOptional()
-  nivel?: string | number;
+  @ApiProperty({ description: 'Código o id del nivel (D/E/O o id numérico)' })
+  @IsNotEmpty()
+  nivel: string | number;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsBoolean()
-  oficial?: boolean;
+  oficial: boolean;
 
   @ApiPropertyOptional({ description: 'Indica si es unidad troncal del eje central de gobierno' })
   @IsOptional()
@@ -54,9 +53,9 @@ export class UnidadDto {
   @IsString()
   lado?: string;
 
-  @ApiPropertyOptional({ description: 'Código o id de relación (L/S o id numérico)' })
-  @IsOptional()
-  relacion?: string | number;
+  @ApiProperty({ description: 'Código o id de relación (L/S o id numérico)' })
+  @IsNotEmpty()
+  relacion: string | number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -80,28 +79,12 @@ export class UnidadDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  id?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
   @IsString()
   color?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsNumber()
-  tipoUnidad?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  clase?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  activo?: boolean;
+  tipoUnidad: number;
 
   @ApiPropertyOptional({ type: [Number] })
   @IsOptional()

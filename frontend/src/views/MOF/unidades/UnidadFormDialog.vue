@@ -281,19 +281,26 @@ function eliminarFuncion(index) {
                 :exclude-id="formData.id"
               />
             </v-col>
-            <v-col cols="12" md="4"
-              ><SelectAllTipos v-model="formData.tipo" label="Tipo de Unidad"
-            /></v-col>
-            <v-col cols="12" md="4"
-              ><SelectAllNiveles
+            <v-col cols="12" md="4">
+              <SelectAllTipos
+                v-model="formData.tipo"
+                label="Tipo de Unidad"
+                :rules="[rules.required]"
+              />
+            </v-col>
+            <v-col cols="12" md="4">
+              <SelectAllNiveles
                 v-model="formData.nivel"
                 label="Nivel Jerárquico"
-            /></v-col>
-            <v-col cols="12" md="4"
-              ><SelectAllRelaciones
+                :rules="[rules.required]"
+              />
+            </v-col>
+            <v-col cols="12" md="4">
+              <SelectAllRelaciones
                 v-model="formData.relacion"
                 :rules="[rules.required]"
-            /></v-col>
+              />
+            </v-col>
             <v-col cols="12" md="6"
               ><SelectAllCargos v-model="formData.cargos"
             /></v-col>

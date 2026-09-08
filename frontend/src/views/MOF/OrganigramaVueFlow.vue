@@ -360,9 +360,10 @@ function getLayoutedElements(nodes, edges) {
     positions[nodeId] = { x: parentCenterX - NODE_WIDTH / 2, y: startY };
   }
 
-  // Comprobar si hay unidades marcadas como troncales o de eje central
+  // Comprobar si hay unidades marcadas como troncales
+  // Nodos con esTroncal === true pertenecen al Eje Central Institucional
   const trunkNodes = layoutNodes
-    .filter((n) => n.data?.esTroncal === true || n.data?.lado === "CENTRO")
+    .filter((n) => n.data?.esTroncal === true)
     .sort((a, b) =>
       String(a.data?.codigo || "").localeCompare(
         String(b.data?.codigo || ""),
@@ -375,149 +376,137 @@ function getLayoutedElements(nodes, edges) {
 
   if (hasInstitutionalSpine) {
     // =========================================================================
-    // 🏛️ LAYOUT INSTITUCIONAL DINÁMICO (EJE TRONCAL, HIJOS A IZQ/DER Y SUBHIJOS)
+    // 🏛️ LAYOUT INSTITUCIONAL DINÁMICO POR PISOS (EJE TRONCAL Y ALAS SIMÉTRICAS)
     // =========================================================================
     const TRUNK_X = 0; // El Eje Central de Gobierno se alinea en X = 0
 
-    // Localizar Rectorado y Vicerrectorado si existen dentro del tronco
-    const rectorado =
-      trunkNodes.find(
-        (n) =>
-          (n.data?.nombre || "").toUpperCase().includes("RECTORADO") &&
-          !(n.data?.nombre || "").toUpperCase().includes("VICE"),
-      ) || trunkNodes[trunkNodes.length - 2];
-
-    const vicerrectorado =
-      trunkNodes.find((n) =>
-        (n.data?.nombre || "").toUpperCase().includes("VICERRECTORADO"),
-      ) || trunkNodes[trunkNodes.length - 1];
-
-    // Función auxiliar para determinar si un nodo desciende de otro
-    function isDescendantOf(nodeId, targetId) {
-      let curr = byId[String(nodeId)];
-      while (curr && curr.parentId) {
-        if (String(curr.parentId) === String(targetId)) return true;
-        curr = byId[String(curr.parentId)];
+    // Función auxiliar para ordenar códigos jerárquicos
+    function compareCodigos(a, b) {
+      const aParts = String(a.data?.codigo || "")
+        .split(".")
+        .map((p) => parseInt(p) || 0);
+      const bParts = String(b.data?.codigo || "")
+        .split(".")
+        .map((p) => parseInt(p) || 0);
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+        const aVal = aParts[i] ?? 0;
+        const bVal = bParts[i] ?? 0;
+        if (aVal !== bVal) return aVal - bVal;
       }
-      return false;
+      return String(a.data?.nombre || "").localeCompare(
+        String(b.data?.nombre || ""),
+      );
     }
 
-    // 1. Posicionar los nodos superiores del tronco (Congreso -> ... -> Rectorado)
-    let curY = 50;
-    const upperTrunk = trunkNodes.filter(
-      (n) =>
-        String(n.id) !== String(vicerrectorado?.id) &&
-        (!vicerrectorado || !isDescendantOf(n.id, vicerrectorado.id)),
+    // Conjunto de IDs troncales para filtrado O(1)
+    const trunkIds = new Set(trunkNodes.map((n) => String(n.id)));
+
+    // Identificar raíces troncales (nodos troncales cuyo padre no es otro nodo troncal)
+    const trunkRoots = trunkNodes.filter(
+      (n) => !n.parentId || !trunkIds.has(String(n.parentId)),
     );
-    upperTrunk.forEach((n) => {
-      positions[String(n.id)] = { x: TRUNK_X, y: curY };
-      curY += NODE_HEIGHT + V_GAP;
-    });
+    trunkRoots.sort(compareCodigos);
 
-    // 2. Hijos de Rectorado: clasificados dinámicamente por su campo "lado"
-    if (rectorado) {
-      const recId = String(rectorado.id);
-      const recChildren = (childrenMap[recId] || []).filter(
-        (c) => String(c.id) !== String(vicerrectorado?.id),
-      );
-      const centerAdmin = recChildren.filter(
-        (c) => c.data?.lado === "CENTRO" || c.data?.esTroncal === true,
-      );
-      const leftAdmin = recChildren.filter((c) => c.data?.lado === "IZQUIERDA");
-      const rightAdmin = recChildren.filter((c) => c.data?.lado === "DERECHA");
-      const autoAdmin = recChildren.filter(
-        (c) =>
-          !c.data?.esTroncal &&
-          c.data?.lado !== "IZQUIERDA" &&
-          c.data?.lado !== "DERECHA" &&
-          c.data?.lado !== "CENTRO",
-      );
-
-      // Si algunos hijos tienen "AUTOMATICO", se reparten simétricamente
-      autoAdmin.forEach((c, idx) => {
-        if (idx % 2 === 0) leftAdmin.push(c);
-        else rightAdmin.push(c);
-      });
-
-      const REC_Y = positions[recId]?.y ?? curY;
-
-      // Nodos centrales dependientes de Rectorado (en columna X = 0)
-      let curCenterRecY = REC_Y + NODE_HEIGHT + V_GAP;
-      centerAdmin.forEach((c) => {
-        layoutSubtree(String(c.id), TRUNK_X, curCenterRecY);
-        curCenterRecY += NODE_HEIGHT + V_GAP;
-      });
-
-      // Ala Izquierda: se expande hacia X negativo alejándose del tronco
-      let curLeftX = TRUNK_X - H_GAP;
-      leftAdmin.forEach((c) => {
-        const w = getSubtreeWidth(String(c.id));
-        curLeftX -= w;
-        layoutSubtree(String(c.id), curLeftX, REC_Y + NODE_HEIGHT + V_GAP);
-        curLeftX -= H_GAP;
-      });
-
-      // Ala Derecha: se expande hacia X positivo alejándose del tronco
-      let curRightX = TRUNK_X + NODE_WIDTH + H_GAP;
-      rightAdmin.forEach((c) => {
-        const w = getSubtreeWidth(String(c.id));
-        layoutSubtree(String(c.id), curRightX, REC_Y + NODE_HEIGHT + V_GAP);
-        curRightX += w + H_GAP;
-      });
+    // Recorrer la cadena del tronco en orden jerárquico topológico
+    const orderedTrunk = [];
+    function traverseTrunk(node) {
+      orderedTrunk.push(node);
+      const trunkChildren = (childrenMap[String(node.id)] || [])
+        .filter((c) => trunkIds.has(String(c.id)))
+        .sort(compareCodigos);
+      trunkChildren.forEach(traverseTrunk);
     }
+    trunkRoots.forEach(traverseTrunk);
 
-    // Calcular el nivel Y más bajo alcanzado por las ramas de Rectorado
-    let maxAdminY = curY;
-    Object.keys(positions).forEach((id) => {
-      if (positions[id].y > maxAdminY) maxAdminY = positions[id].y;
+    // Por seguridad, si algún nodo troncal quedó fuera (árboles desconectados), agregarlo
+    trunkNodes.forEach((n) => {
+      if (!orderedTrunk.some((o) => String(o.id) === String(n.id))) {
+        orderedTrunk.push(n);
+      }
     });
 
-    // 3. Vicerrectorado: baja directamente por la columna troncal (X = 0)
-    if (vicerrectorado) {
-      const vicId = String(vicerrectorado.id);
-      const VIC_Y = maxAdminY + NODE_HEIGHT + V_GAP;
-      positions[vicId] = { x: TRUNK_X, y: VIC_Y };
+    // Procesar cada nodo del tronco en pisos sucesivos
+    let curTrunkY = 50;
 
-      // Hijos de Vicerrectorado clasificados dinámicamente por su campo "lado"
-      const vicChildren = childrenMap[vicId] || [];
-      const centerVic = vicChildren.filter(
-        (c) => c.data?.lado === "CENTRO" || c.data?.esTroncal === true,
-      );
-      const leftVic = vicChildren.filter((c) => c.data?.lado === "IZQUIERDA");
-      const rightVic = vicChildren.filter((c) => c.data?.lado === "DERECHA");
-      const autoVic = vicChildren.filter(
-        (c) =>
-          !c.data?.esTroncal &&
-          c.data?.lado !== "IZQUIERDA" &&
-          c.data?.lado !== "DERECHA" &&
-          c.data?.lado !== "CENTRO",
+    orderedTrunk.forEach((tNode) => {
+      const tId = String(tNode.id);
+
+      // 1. Posicionar el nodo troncal actual en el eje central
+      positions[tId] = { x: TRUNK_X, y: curTrunkY };
+      const T_Y = curTrunkY;
+
+      // 2. Obtener hijos NO troncales (dependencias y alas del piso)
+      const nonTrunkChildren = (childrenMap[tId] || []).filter(
+        (c) => !trunkIds.has(String(c.id)),
       );
 
-      autoVic.forEach((c, idx) => {
-        if (idx % 2 === 0) leftVic.push(c);
-        else rightVic.push(c);
+      if (nonTrunkChildren.length > 0) {
+        const left = nonTrunkChildren.filter((c) => c.data?.lado === "IZQUIERDA");
+        const right = nonTrunkChildren.filter((c) => c.data?.lado === "DERECHA");
+        const center = nonTrunkChildren.filter((c) => c.data?.lado === "CENTRO");
+        const auto = nonTrunkChildren.filter(
+          (c) =>
+            c.data?.lado !== "IZQUIERDA" &&
+            c.data?.lado !== "DERECHA" &&
+            c.data?.lado !== "CENTRO",
+        );
+
+        // Repartir automáticos balanceando dinámicamente las alas
+        auto.forEach((c) => {
+          if (left.length <= right.length) left.push(c);
+          else right.push(c);
+        });
+
+        const wingsStartY = T_Y + NODE_HEIGHT + V_GAP;
+
+        // Ala Izquierda: se expande hacia X negativo alejándose del eje central
+        let curLeftX = TRUNK_X - H_GAP;
+        left.forEach((c) => {
+          const w = getSubtreeWidth(String(c.id));
+          curLeftX -= w;
+          layoutSubtree(String(c.id), curLeftX, wingsStartY);
+          curLeftX -= H_GAP;
+        });
+
+        // Ala Derecha: se expande hacia X positivo alejándose del eje central
+        let curRightX = TRUNK_X + NODE_WIDTH + H_GAP;
+        right.forEach((c) => {
+          const w = getSubtreeWidth(String(c.id));
+          layoutSubtree(String(c.id), curRightX, wingsStartY);
+          curRightX += w + H_GAP;
+        });
+
+        // Nodos dependientes centrales no troncales (en el pasillo central)
+        let curCenterY = wingsStartY;
+        center.forEach((c) => {
+          layoutSubtree(String(c.id), TRUNK_X, curCenterY);
+          curCenterY += NODE_HEIGHT + V_GAP;
+        });
+      }
+
+      // 3. Calcular el nivel Y más bajo alcanzado hasta ahora por todas las unidades posicionadas
+      let maxCurrentY = T_Y;
+      Object.keys(positions).forEach((id) => {
+        if (positions[id].y > maxCurrentY) maxCurrentY = positions[id].y;
       });
 
-      // Eje Central debajo de Vicerrectorado (para nodos troncales o marcados en el centro)
-      let curCenterVicY = VIC_Y + NODE_HEIGHT + V_GAP;
-      centerVic.forEach((c) => {
-        layoutSubtree(String(c.id), TRUNK_X, curCenterVicY);
-        curCenterVicY += NODE_HEIGHT + V_GAP;
-      });
+      // El siguiente piso troncal arrancará DEBAJO de todo lo generado por este piso y sus alas
+      curTrunkY = maxCurrentY + NODE_HEIGHT + V_GAP;
+    });
 
-      let curLeftX = TRUNK_X - H_GAP;
-      leftVic.forEach((c) => {
-        const w = getSubtreeWidth(String(c.id));
-        curLeftX -= w;
-        layoutSubtree(String(c.id), curLeftX, VIC_Y + NODE_HEIGHT + V_GAP);
-        curLeftX -= H_GAP;
+    // 4. Posicionar cualquier nodo que no esté conectado al tronco (ej: raíces secundarias)
+    const unpositionedRoots = layoutNodes.filter(
+      (n) => !positions[String(n.id)] && (!n.parentId || !byId[String(n.parentId)]),
+    );
+    if (unpositionedRoots.length > 0) {
+      let maxPlacedX = TRUNK_X + NODE_WIDTH;
+      Object.keys(positions).forEach((id) => {
+        if (positions[id].x > maxPlacedX) maxPlacedX = positions[id].x;
       });
-
-      let curRightX = TRUNK_X + NODE_WIDTH + H_GAP;
-      rightVic.forEach((c) => {
-        const w = getSubtreeWidth(String(c.id));
-        layoutSubtree(String(c.id), curRightX, VIC_Y + NODE_HEIGHT + V_GAP);
-        curRightX += w + H_GAP;
+      let startExtraX = maxPlacedX + H_GAP * 2;
+      unpositionedRoots.forEach((r) => {
+        layoutSubtree(String(r.id), startExtraX, 50);
+        startExtraX += getSubtreeWidth(String(r.id)) + H_GAP * 2;
       });
     }
   } else {

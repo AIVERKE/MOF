@@ -167,13 +167,13 @@ export class UnidadesService {
     if (exists) {
       throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
     }
-    const tipoId = await this.resolveCatalogId(this.tipoRepo, dto.tipo ?? 1);
-    const nivelId = await this.resolveCatalogId(this.nivelRepo, dto.nivel ?? 1);
+    const tipoId = await this.resolveCatalogId(this.tipoRepo, dto.tipo);
+    const nivelId = await this.resolveCatalogId(this.nivelRepo, dto.nivel);
     const relacionId = await this.resolveCatalogId(
       this.relacionRepo,
-      dto.relacion ?? 1,
+      dto.relacion,
     );
-    const tipoUnidadId = dto.tipoUnidad ?? dto.clase ?? 1;
+    const tipoUnidadId = dto.tipoUnidad;
     const clase = await this.claseRepo.findOne({
       where: { id: tipoUnidadId },
     });
@@ -191,7 +191,7 @@ export class UnidadesService {
       nivelId,
       relacionId,
       tipoUnidadId,
-      oficial: dto.oficial ?? false,
+      oficial: dto.oficial,
       esTroncal,
       lado,
       objetivo: dto.objetivo ?? null,
@@ -265,13 +265,12 @@ export class UnidadesService {
         dto.relacion,
       );
     }
-    const cId = dto.tipoUnidad ?? dto.clase;
-    if (cId !== undefined) {
+    if (dto.tipoUnidad !== undefined) {
       const clase = await this.claseRepo.findOne({
-        where: { id: cId },
+        where: { id: dto.tipoUnidad },
       });
-      if (!clase) notFound(cId);
-      u.tipoUnidadId = cId;
+      if (!clase) notFound(dto.tipoUnidad);
+      u.tipoUnidadId = dto.tipoUnidad;
     }
     if (dto.parentId !== undefined) {
       await this.assertNoCycle(id, dto.parentId);

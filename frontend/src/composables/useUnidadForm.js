@@ -206,14 +206,11 @@ export function useUnidadForm(stores) {
       objetivo: formData.value.objetivo?.trim() || "",
       color: formData.value.color || "#1976D2",
       tipoUnidad: getSafeId(formData.value.clase) || 1,
-      clase: getSafeId(formData.value.clase) || 1,
       oficial: formData.value.oficial !== false,
       esTroncal: isTroncal,
       lado: isTroncal ? "CENTRO" : (formData.value.lado || "AUTOMATICO"),
       dependenciasFuncionales: (formData.value.dependenciasFuncionales || []).map(d => getSafeId(d)).filter(id => id !== null)
     };
-
-    if (isEditMode.value) dataToSend.id = formData.value.id;
 
     let success = false;
     let unidadId = formData.value.id;
