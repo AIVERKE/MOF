@@ -18,11 +18,7 @@ import {
   notFound,
 } from '../../common/exceptions/business.exception';
 import { RestMessages } from '../../common/constants/rest-messages';
-import {
-  ConflictException,
-  HttpStatus,
-  Injectable,
-} from '@nestjs/common';
+import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
@@ -52,14 +48,14 @@ export class UnidadesService {
   ): Promise<number> {
     if (typeof value === 'number' || /^\d+$/.test(String(value))) {
       const id = Number(value);
-      const byId = await repo.findOne({ where: { id } as never });
+      const byId = await repo.findOne({ where: { id } });
       if (byId) return byId.id;
     }
     const code = String(value);
-    const byCodigo = await repo.findOne({ where: { codigo: code } as never });
+    const byCodigo = await repo.findOne({ where: { codigo: code } });
     if (byCodigo) return byCodigo.id;
     const byDesc = await repo.findOne({
-      where: { descripcion: code } as never,
+      where: { descripcion: code },
     });
     if (byDesc) return byDesc.id;
     throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
@@ -420,13 +416,122 @@ export class UnidadesService {
     };
   }
 
+  // REGLA DE ORO (MOF-013):
+  // 1. Al editar una función, su campo "orden" NUNCA debe modificarse ni reinicializarse.
+  // 2. El reordenamiento solo ocurre explícitamente mediante subirFuncion/bajarFuncion (swap transaccional).
+  // 3. Al eliminar una función, las funciones restantes deben renumerarse 1..N sin huecos ni duplicados.
   async deleteFuncion(unidadId: number, funcionId: number) {
     const f = await this.funcionRepo.findOne({
       where: { id: String(funcionId), unidadId: String(unidadId) },
     });
     if (!f) notFound(funcionId);
     await this.funcionRepo.softRemove(f);
+
+    // Renumerar 1..N las funciones restantes para garantizar permanencia sin huecos
+    const remaining = await this.funcionRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { orden: 'ASC', id: 'ASC' },
+    });
+    let needsSave = false;
+    remaining.forEach((row, index) => {
+      const nuevoOrden = index + 1;
+      if (row.orden !== nuevoOrden) {
+        row.orden = nuevoOrden;
+        needsSave = true;
+      }
+    });
+    if (needsSave && remaining.length > 0) {
+      await this.funcionRepo.save(remaining);
+    }
     return null;
+  }
+
+  async subirFuncion(unidadId: number, funcionId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
+    if (!u) notFound(unidadId);
+
+    const rows = await this.funcionRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { orden: 'ASC', id: 'ASC' },
+    });
+
+    const idx = rows.findIndex((r) => Number(r.id) === Number(funcionId));
+    if (idx < 0) notFound(funcionId);
+    if (idx === 0) {
+      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+    }
+
+    // Normalizar si hay huecos o duplicados antes del swap
+    let hasGaps = false;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].orden !== i + 1) {
+        hasGaps = true;
+        break;
+      }
+    }
+    if (hasGaps) {
+      rows.forEach((r, i) => {
+        r.orden = i + 1;
+      });
+    }
+
+    const current = rows[idx];
+    const prev = rows[idx - 1];
+    const tmp = current.orden;
+    current.orden = prev.orden;
+    prev.orden = tmp;
+
+    await this.funcionRepo.save([current, prev]);
+    return {
+      id: Number(current.id),
+      orden: current.orden,
+    };
+  }
+
+  async bajarFuncion(unidadId: number, funcionId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
+    if (!u) notFound(unidadId);
+
+    const rows = await this.funcionRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { orden: 'ASC', id: 'ASC' },
+    });
+
+    const idx = rows.findIndex((r) => Number(r.id) === Number(funcionId));
+    if (idx < 0) notFound(funcionId);
+    if (idx === rows.length - 1) {
+      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+    }
+
+    // Normalizar si hay huecos o duplicados antes del swap
+    let hasGaps = false;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].orden !== i + 1) {
+        hasGaps = true;
+        break;
+      }
+    }
+    if (hasGaps) {
+      rows.forEach((r, i) => {
+        r.orden = i + 1;
+      });
+    }
+
+    const current = rows[idx];
+    const next = rows[idx + 1];
+    const tmp = current.orden;
+    current.orden = next.orden;
+    next.orden = tmp;
+
+    await this.funcionRepo.save([current, next]);
+    return {
+      id: Number(current.id),
+      orden: current.orden,
+    };
   }
 
   async addDependencia(unidadId: number, dto: DependenciaFuncionalDto) {
