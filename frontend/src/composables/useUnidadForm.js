@@ -39,7 +39,9 @@ export function useUnidadForm(stores) {
     clase: null,
     parentId: null,
     color: "#1976D2",
-    oficial: true
+    oficial: true,
+    es_troncal: false,
+    lado: "AUTOMATICO"
   });
 
   const isEditMode = ref(false);
@@ -117,7 +119,9 @@ export function useUnidadForm(stores) {
             parentId: getSafeId(fullData.parent || fullData.parentId),
             cargos: mappedCargos.map(m => m.catalogId),
             color: fullData.color || "#1976D2",
-            oficial: fullData.oficial !== false
+            oficial: fullData.oficial !== false,
+            es_troncal: fullData.es_troncal === true,
+            lado: fullData.lado || "AUTOMATICO"
           };
 
           cargosOriginales.value = [...mappedCargos];
@@ -145,7 +149,9 @@ export function useUnidadForm(stores) {
           clase: null,
           parentId: node ? getSafeId(node.id) : null,
           color: "#1976D2",
-          oficial: true
+          oficial: true,
+          es_troncal: false,
+          lado: "AUTOMATICO"
         };
         cargosOriginales.value = [];
         funcionesOriginales.value = [];
@@ -185,6 +191,7 @@ export function useUnidadForm(stores) {
       }
     }
 
+    const isTroncal = formData.value.es_troncal === true;
     const dataToSend = {
       codigo: formData.value.codigo?.trim() || "",
       sigla: formData.value.sigla?.trim() || "",
@@ -195,17 +202,15 @@ export function useUnidadForm(stores) {
       nivel: getSafeId(formData.value.nivel) || 1,
       relacion: getSafeId(formData.value.relacion) || 1,
       resCreacion: formData.value.resCreacion?.trim() || "",
-      fecCreacion: formatDateToString(formData.value.fecCreacion),
+      fecCreacion: formatDateToString(formData.value.fecCreacion) || null,
       objetivo: formData.value.objetivo?.trim() || "",
       color: formData.value.color || "#1976D2",
-      clase: getSafeId(formData.value.clase) || 1,
       tipoUnidad: getSafeId(formData.value.clase) || 1,
       oficial: formData.value.oficial !== false,
-      activo: true,
+      esTroncal: isTroncal,
+      lado: isTroncal ? "CENTRO" : (formData.value.lado || "AUTOMATICO"),
       dependenciasFuncionales: (formData.value.dependenciasFuncionales || []).map(d => getSafeId(d)).filter(id => id !== null)
     };
-
-    if (isEditMode.value) dataToSend.id = formData.value.id;
 
     let success = false;
     let unidadId = formData.value.id;

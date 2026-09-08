@@ -270,90 +270,294 @@ const stats = computed(() => {
 });
 
 // --- ESTRUCTURA VISUAL & LAYOUT ---
-// --- ESTRUCTURA VISUAL & LAYOUT ---
 function getLayoutedElements(nodes, edges) {
-  // 1. Separar nodos normales/invisibles de nodos staff
+  const NODE_WIDTH = 320;
+  const NODE_HEIGHT = 210; // Altura fija garantizada para evitar cualquier solapamiento
+  const H_GAP = 90; // Separación horizontal generosa entre ramas
+  const V_GAP = 140; // Separación vertical generosa tipo mapa conceptual para trazo ortogonal limpio
+
+  // 1. Separar nodos normales de nodos staff (asesoría)
   const staffNodes = nodes.filter((n) => n.data && n.data.isStaff);
   const layoutNodes = nodes.filter((n) => !n.data || !n.data.isStaff);
 
-  // Separar aristas que conectan a nodos staff
-  const staffEdges = edges.filter((e) => {
-    const sourceNode = nodes.find((n) => n.id === e.source);
-    const targetNode = nodes.find((n) => n.id === e.target);
-    return (
-      (sourceNode && sourceNode.data && sourceNode.data.isStaff) ||
-      (targetNode && targetNode.data && targetNode.data.isStaff)
-    );
-  });
-  const layoutEdges = edges.filter((e) => !staffEdges.includes(e));
-
-  // Agrupar staff por parentId para calcular el espacio virtual extra
-  const staffByParent = {};
-  staffNodes.forEach((node) => {
-    if (!staffByParent[node.parentId]) {
-      staffByParent[node.parentId] = [];
-    }
-    staffByParent[node.parentId].push(node);
+  const byId = {};
+  layoutNodes.forEach((u) => {
+    byId[String(u.id)] = u;
   });
 
-  // 2. Hacer layout de Dagre solo con nodos y aristas normales/invisibles
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-  dagreGraph.setGraph({ rankdir: "TB", nodesep: 70, ranksep: 140 });
+  const childrenMap = {};
+  layoutNodes.forEach((u) => {
+    const pId =
+      u.parentId && byId[String(u.parentId)] ? String(u.parentId) : "root";
+    if (!childrenMap[pId]) childrenMap[pId] = [];
+    childrenMap[pId].push(u);
+  });
 
-  layoutNodes.forEach((node) => {
-    // Calculamos el espacio vertical extra necesario si tiene staff
-    const parentStaffs = staffByParent[node.id] || [];
-    // Cada par de staff por lado requiere 240px de espacio vertical extra
-    const extraHeight = Math.ceil(parentStaffs.length / 2) * 240;
+  const LADO_RANK = {
+    IZQUIERDA: 1,
+    CENTRO: 2,
+    AUTOMATICO: 3,
+    DERECHA: 4,
+  };
 
-    dagreGraph.setNode(node.id, {
-      width: 320,
-      height: node.data.isInvisible ? 60 : 240 + extraHeight,
+  // Ordenar hermanos considerando primero su "lado" de preferencia y luego su código numérico
+  Object.keys(childrenMap).forEach((pId) => {
+    childrenMap[pId].sort((a, b) => {
+      const rankA = LADO_RANK[a.data?.lado] || 3;
+      const rankB = LADO_RANK[b.data?.lado] || 3;
+      if (rankA !== rankB) return rankA - rankB;
+
+      const aParts = String(a.data?.codigo || "")
+        .split(".")
+        .map((p) => parseInt(p) || 0);
+      const bParts = String(b.data?.codigo || "")
+        .split(".")
+        .map((p) => parseInt(p) || 0);
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+        const aVal = aParts[i] ?? 0;
+        const bVal = bParts[i] ?? 0;
+        if (aVal !== bVal) return aVal - bVal;
+      }
+      return String(a.data?.nombre || "").localeCompare(
+        String(b.data?.nombre || ""),
+      );
     });
   });
 
-  layoutEdges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
+  const positions = {};
 
-  dagre.layout(dagreGraph);
+  // Función recursiva para calcular el ancho total necesario para cualquier subárbol
+  function getSubtreeWidth(nodeId) {
+    const children = childrenMap[nodeId] || [];
+    if (children.length === 0) return NODE_WIDTH;
+    const totalW =
+      children.reduce(
+        (sum, c) => sum + getSubtreeWidth(String(c.id)) + H_GAP,
+        0,
+      ) - H_GAP;
+    return Math.max(NODE_WIDTH, totalW);
+  }
 
-  // Asignar posiciones resultantes a los nodos normales
+  // Función recursiva para posicionar cualquier subárbol sin colisiones
+  function layoutSubtree(nodeId, startX, startY) {
+    const children = childrenMap[nodeId] || [];
+    if (children.length === 0) {
+      positions[nodeId] = { x: startX, y: startY };
+      return;
+    }
+
+    let curX = startX;
+    const childCenters = [];
+    children.forEach((c) => {
+      const w = getSubtreeWidth(String(c.id));
+      layoutSubtree(String(c.id), curX, startY + NODE_HEIGHT + V_GAP);
+      childCenters.push(positions[String(c.id)].x + NODE_WIDTH / 2);
+      curX += w + H_GAP;
+    });
+
+    const parentCenterX =
+      (childCenters[0] + childCenters[childCenters.length - 1]) / 2;
+    positions[nodeId] = { x: parentCenterX - NODE_WIDTH / 2, y: startY };
+  }
+
+  // Comprobar si hay unidades marcadas como troncales
+  // Nodos con esTroncal === true pertenecen al Eje Central Institucional
+  const trunkNodes = layoutNodes
+    .filter((n) => n.data?.esTroncal === true)
+    .sort((a, b) =>
+      String(a.data?.codigo || "").localeCompare(
+        String(b.data?.codigo || ""),
+        undefined,
+        { numeric: true },
+      ),
+    );
+
+  const hasInstitutionalSpine = trunkNodes.length >= 2;
+
+  if (hasInstitutionalSpine) {
+    // =========================================================================
+    // 🏛️ LAYOUT INSTITUCIONAL DINÁMICO POR PISOS (EJE TRONCAL Y ALAS SIMÉTRICAS)
+    // =========================================================================
+    const TRUNK_X = 0; // El Eje Central de Gobierno se alinea en X = 0
+
+    // Función auxiliar para ordenar códigos jerárquicos
+    function compareCodigos(a, b) {
+      const aParts = String(a.data?.codigo || "")
+        .split(".")
+        .map((p) => parseInt(p) || 0);
+      const bParts = String(b.data?.codigo || "")
+        .split(".")
+        .map((p) => parseInt(p) || 0);
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+        const aVal = aParts[i] ?? 0;
+        const bVal = bParts[i] ?? 0;
+        if (aVal !== bVal) return aVal - bVal;
+      }
+      return String(a.data?.nombre || "").localeCompare(
+        String(b.data?.nombre || ""),
+      );
+    }
+
+    // Conjunto de IDs troncales para filtrado O(1)
+    const trunkIds = new Set(trunkNodes.map((n) => String(n.id)));
+
+    // Identificar raíces troncales (nodos troncales cuyo padre no es otro nodo troncal)
+    const trunkRoots = trunkNodes.filter(
+      (n) => !n.parentId || !trunkIds.has(String(n.parentId)),
+    );
+    trunkRoots.sort(compareCodigos);
+
+    // Recorrer la cadena del tronco en orden jerárquico topológico
+    const orderedTrunk = [];
+    function traverseTrunk(node) {
+      orderedTrunk.push(node);
+      const trunkChildren = (childrenMap[String(node.id)] || [])
+        .filter((c) => trunkIds.has(String(c.id)))
+        .sort(compareCodigos);
+      trunkChildren.forEach(traverseTrunk);
+    }
+    trunkRoots.forEach(traverseTrunk);
+
+    // Por seguridad, si algún nodo troncal quedó fuera (árboles desconectados), agregarlo
+    trunkNodes.forEach((n) => {
+      if (!orderedTrunk.some((o) => String(o.id) === String(n.id))) {
+        orderedTrunk.push(n);
+      }
+    });
+
+    // Procesar cada nodo del tronco en pisos sucesivos
+    let curTrunkY = 50;
+
+    orderedTrunk.forEach((tNode) => {
+      const tId = String(tNode.id);
+
+      // 1. Posicionar el nodo troncal actual en el eje central
+      positions[tId] = { x: TRUNK_X, y: curTrunkY };
+      const T_Y = curTrunkY;
+
+      // 2. Obtener hijos NO troncales (dependencias y alas del piso)
+      const nonTrunkChildren = (childrenMap[tId] || []).filter(
+        (c) => !trunkIds.has(String(c.id)),
+      );
+
+      if (nonTrunkChildren.length > 0) {
+        const left = nonTrunkChildren.filter((c) => c.data?.lado === "IZQUIERDA");
+        const right = nonTrunkChildren.filter((c) => c.data?.lado === "DERECHA");
+        const center = nonTrunkChildren.filter((c) => c.data?.lado === "CENTRO");
+        const auto = nonTrunkChildren.filter(
+          (c) =>
+            c.data?.lado !== "IZQUIERDA" &&
+            c.data?.lado !== "DERECHA" &&
+            c.data?.lado !== "CENTRO",
+        );
+
+        // Repartir automáticos balanceando dinámicamente las alas
+        auto.forEach((c) => {
+          if (left.length <= right.length) left.push(c);
+          else right.push(c);
+        });
+
+        const wingsStartY = T_Y + NODE_HEIGHT + V_GAP;
+
+        // Ala Izquierda: se expande hacia X negativo alejándose del eje central
+        let curLeftX = TRUNK_X - H_GAP;
+        left.forEach((c) => {
+          const w = getSubtreeWidth(String(c.id));
+          curLeftX -= w;
+          layoutSubtree(String(c.id), curLeftX, wingsStartY);
+          curLeftX -= H_GAP;
+        });
+
+        // Ala Derecha: se expande hacia X positivo alejándose del eje central
+        let curRightX = TRUNK_X + NODE_WIDTH + H_GAP;
+        right.forEach((c) => {
+          const w = getSubtreeWidth(String(c.id));
+          layoutSubtree(String(c.id), curRightX, wingsStartY);
+          curRightX += w + H_GAP;
+        });
+
+        // Nodos dependientes centrales no troncales (en el pasillo central)
+        let curCenterY = wingsStartY;
+        center.forEach((c) => {
+          layoutSubtree(String(c.id), TRUNK_X, curCenterY);
+          curCenterY += NODE_HEIGHT + V_GAP;
+        });
+      }
+
+      // 3. Calcular el nivel Y más bajo alcanzado hasta ahora por todas las unidades posicionadas
+      let maxCurrentY = T_Y;
+      Object.keys(positions).forEach((id) => {
+        if (positions[id].y > maxCurrentY) maxCurrentY = positions[id].y;
+      });
+
+      // El siguiente piso troncal arrancará DEBAJO de todo lo generado por este piso y sus alas
+      curTrunkY = maxCurrentY + NODE_HEIGHT + V_GAP;
+    });
+
+    // 4. Posicionar cualquier nodo que no esté conectado al tronco (ej: raíces secundarias)
+    const unpositionedRoots = layoutNodes.filter(
+      (n) => !positions[String(n.id)] && (!n.parentId || !byId[String(n.parentId)]),
+    );
+    if (unpositionedRoots.length > 0) {
+      let maxPlacedX = TRUNK_X + NODE_WIDTH;
+      Object.keys(positions).forEach((id) => {
+        if (positions[id].x > maxPlacedX) maxPlacedX = positions[id].x;
+      });
+      let startExtraX = maxPlacedX + H_GAP * 2;
+      unpositionedRoots.forEach((r) => {
+        layoutSubtree(String(r.id), startExtraX, 50);
+        startExtraX += getSubtreeWidth(String(r.id)) + H_GAP * 2;
+      });
+    }
+  } else {
+    // =========================================================================
+    // 🌳 ÁRBOL JERÁRQUICO SIMÉTRICO ESTÁNDAR (PARA FILTROS Y BÚSQUEDAS)
+    // =========================================================================
+    const rootNodes = childrenMap["root"] || [];
+    let startX = 50;
+    rootNodes.forEach((r) => {
+      layoutSubtree(String(r.id), startX, 50);
+      startX += getSubtreeWidth(String(r.id)) + H_GAP * 2;
+    });
+  }
+
+  // Asignar posiciones calculadas a todos los nodos normales
   layoutNodes.forEach((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    const dagreHeight = dagreGraph.node(node.id).height;
-    node.position = {
-      x: nodeWithPosition.x - 160,
-      // Usamos el alto calculado por Dagre para restar el offset
-      y: nodeWithPosition.y - dagreHeight / 2,
-    };
+    if (positions[String(node.id)]) {
+      node.position = { ...positions[String(node.id)] };
+    } else {
+      node.position = { x: 50, y: 50 };
+    }
   });
 
-  // 3. Posicionar nodos Staff de forma manual a los costados sin solaparse
+  // 6. Posicionar nodos Staff (Asesoría) a los lados de sus padres
+  const staffByParent = {};
+  staffNodes.forEach((node) => {
+    const pId = String(node.parentId || "root");
+    if (!staffByParent[pId]) staffByParent[pId] = [];
+    staffByParent[pId].push(node);
+  });
+
   Object.keys(staffByParent).forEach((parentId) => {
     const parentNode = layoutNodes.find(
       (n) => String(n.id) === String(parentId),
     );
     const parentStaffs = staffByParent[parentId];
-    if (parentNode) {
+    if (parentNode && parentNode.position) {
       parentStaffs.forEach((staffNode, index) => {
         const side =
-          staffNode.data.staffSide || (index % 2 === 0 ? "right" : "left");
+          staffNode.data?.staffSide || (index % 2 === 0 ? "right" : "left");
         const multiplier = side === "right" ? 1 : -1;
         const indexInSide = Math.floor(index / 2);
 
         staffNode.position = {
-          x: parentNode.position.x + multiplier * (320 + 80),
-          // El padre visual mide 240px, así que su base está en parentNode.position.y + 240.
-          // Colocamos los staff uno debajo del otro con 20px de margen vertical (240px altura + 20px = 260px paso).
-          // El primero arranca 10px abajo del borde inferior del padre para centrarse perfectamente en el gap de 260px.
-          y: parentNode.position.y + 240 + 10 + indexInSide * 260,
+          x: parentNode.position.x + multiplier * (NODE_WIDTH + 80),
+          y: parentNode.position.y + indexInSide * (NODE_HEIGHT + 40),
         };
       });
     } else {
       parentStaffs.forEach((staffNode) => {
-        staffNode.position = { x: 0, y: 0 };
+        staffNode.position = { x: 50, y: 50 };
       });
     }
   });
@@ -362,41 +566,7 @@ function getLayoutedElements(nodes, edges) {
 }
 
 function procesarEstructuraVisual(unidadesMapeadas) {
-  let nodosOriginales = JSON.parse(JSON.stringify(unidadesMapeadas));
-  let nodosFinales = [];
-  nodosOriginales.forEach((nodo) => {
-    // Saltamos la creación de puentes invisibles para los nodos Staff
-    if (nodo.parentId && (!nodo.data || !nodo.data.isStaff)) {
-      const padre = nodosOriginales.find(
-        (n) => String(n.id) === String(nodo.parentId),
-      );
-      if (padre) {
-        const pesoPadre = getPesoReal(padre.data.rawData, clasesStore.clases);
-        const pesoHijo = getPesoReal(nodo.data.rawData, clasesStore.clases);
-        const diferencia = pesoHijo - pesoPadre;
-        if (diferencia > 1) {
-          let ultimoPid = padre.id;
-          for (let i = 1; i < diferencia; i++) {
-            const puenteId = `inv_${padre.id}_${nodo.id}_${i}`;
-            nodosFinales.push({
-              id: puenteId,
-              parentId: ultimoPid,
-              type: "invisible",
-              data: {
-                isInvisible: true,
-                isStaff: nodo.data.isStaff,
-                rawData: { orden: pesoPadre + i },
-              },
-            });
-            ultimoPid = puenteId;
-          }
-          nodo.parentId = ultimoPid;
-        }
-      }
-    }
-    nodosFinales.push(nodo);
-  });
-  return nodosFinales;
+  return unidadesMapeadas;
 }
 
 // --- METHODS ---
@@ -828,6 +998,8 @@ const updateGraph = () => {
         isMatch: isMatch,
         isNonOficialInOficialView: isNodeNonOficialInOficialView,
         isOficial: oficialStatus,
+        esTroncal: u.es_troncal === true || u.esTroncal === true,
+        lado: u.lado || "AUTOMATICO",
       },
     };
   });
@@ -862,9 +1034,13 @@ const updateGraph = () => {
         id: `e${n.parentId}-${n.id}`,
         source: String(n.parentId),
         target: String(n.id),
+        type: "smoothstep", // Líneas rectas ortogonales limpias tipo mapa conceptual
         targetHandle: targetH,
+        data: {
+          borderRadius: 0,
+        },
         style: {
-          stroke: "#bbb",
+          stroke: "#94a3b8",
           strokeWidth: 2.5,
           strokeDasharray: n.data && n.data.isStaff ? "5 5" : "none",
         },
@@ -890,10 +1066,10 @@ const updateGraph = () => {
         if (matchingIds.length > 0) {
           volarANodos(matchingIds);
         } else {
-          fitView({ padding: 0.1, duration: 800 });
+          fitView({ padding: 0.15, duration: 800 });
         }
       } else {
-        fitView({ padding: 0.1, duration: 800 });
+        fitView({ padding: 0.15, duration: 800 });
       }
     }, 150);
   });
@@ -1465,7 +1641,7 @@ function resetFilters() {
           :nodes="nodes"
           :edges="edges"
           fit-view-on-init
-          :default-edge-options="{ type: 'smoothstep' }"
+          :default-edge-options="{ type: 'smoothstep', data: { borderRadius: 0 } }"
           :min-zoom="0.05"
           :max-zoom="4"
         >
@@ -1754,15 +1930,16 @@ function resetFilters() {
 }
 .custom-node {
   background: white;
-  border-radius: 14px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   width: 320px;
-  min-height: 150px;
+  height: 210px;
+  max-height: 210px;
   position: relative;
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  transition: all 0.25s ease;
   overflow: hidden;
 }
 .v-theme--dark .custom-node {
@@ -1828,41 +2005,54 @@ function resetFilters() {
   border: none !important;
 }
 .node-content {
-  padding: 20px 20px 50px 20px;
+  padding: 12px 16px 36px 16px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   flex-grow: 1;
   cursor: pointer;
   text-align: left;
   border: none !important;
+  overflow: hidden;
 }
 .node-line {
-  line-height: 1.5;
-  margin-bottom: 6px;
+  line-height: 1.35;
+  margin-bottom: 4px;
   border: none !important;
 }
 .code-line {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
-  color: #37474f;
+  color: #475569;
   text-transform: uppercase;
-  opacity: 0.8;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
 }
 .title-line {
-  font-weight: 950;
-  font-size: 23px;
-  color: #000000;
+  font-weight: 850;
+  font-size: 15px;
+  color: #0f172a;
   text-transform: uppercase;
-  margin-bottom: 12px;
-  line-height: 1.2;
+  margin-bottom: 8px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 .detail-line {
-  font-size: 17px;
-  color: #1a1a1a;
-  font-weight: 800;
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
   display: flex;
   align-items: center;
+  line-height: 1.3;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .node-actions {
   position: absolute;
@@ -1877,6 +2067,14 @@ function resetFilters() {
   width: 12px;
   height: 12px;
   border: 2px solid white;
+}
+:deep(.vue-flow__handle.vue-flow__handle-top) {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+}
+:deep(.vue-flow__handle.vue-flow__handle-bottom) {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
 }
 
 @media print {

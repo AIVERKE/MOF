@@ -43,6 +43,16 @@ export class UnidadDto {
   @IsBoolean()
   oficial: boolean;
 
+  @ApiPropertyOptional({ description: 'Indica si es unidad troncal del eje central de gobierno' })
+  @IsOptional()
+  @IsBoolean()
+  esTroncal?: boolean;
+
+  @ApiPropertyOptional({ description: 'Lado o disposición en organigrama (CENTRO, IZQUIERDA, DERECHA, AUTOMATICO)' })
+  @IsOptional()
+  @IsString()
+  lado?: string;
+
   @ApiProperty({ description: 'Código o id de relación (L/S o id numérico)' })
   @IsNotEmpty()
   relacion: string | number;

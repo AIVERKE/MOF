@@ -81,6 +81,8 @@ export class UnidadesService {
       str_relacion: u.relacion?.descripcion ?? null,
       dependencia: parentNombre ?? null,
       oficial: u.oficial,
+      es_troncal: u.esTroncal ?? false,
+      lado: u.lado ?? 'AUTOMATICO',
       color: u.tipoUnidad?.color ?? null,
       tipo_unidad: u.tipoUnidad?.descripcion ?? null,
       tipoUnidad: u.tipoUnidadId,
@@ -126,6 +128,8 @@ export class UnidadesService {
           }
         : null,
       oficial: u.oficial,
+      es_troncal: u.esTroncal ?? false,
+      lado: u.lado ?? 'AUTOMATICO',
       tipoUnidad: u.tipoUnidadId,
       clase: u.tipoUnidad?.descripcion ?? null,
       peso: u.tipoUnidad?.peso ?? null,
@@ -169,12 +173,15 @@ export class UnidadesService {
       this.relacionRepo,
       dto.relacion,
     );
+    const tipoUnidadId = dto.tipoUnidad;
     const clase = await this.claseRepo.findOne({
-      where: { id: dto.tipoUnidad },
+      where: { id: tipoUnidadId },
     });
-    if (!clase) notFound(dto.tipoUnidad);
+    if (!clase) notFound(tipoUnidadId);
 
     const sigla = (dto.sigla ?? dto.codigo).slice(0, 32);
+    const esTroncal = dto.esTroncal ?? false;
+    const lado = esTroncal ? 'CENTRO' : (dto.lado ?? 'AUTOMATICO');
     const entity = this.unidadRepo.create({
       codigo: dto.codigo,
       sigla,
@@ -183,8 +190,10 @@ export class UnidadesService {
       tipoId,
       nivelId,
       relacionId,
-      tipoUnidadId: dto.tipoUnidad,
-      oficial: dto.oficial ?? false,
+      tipoUnidadId,
+      oficial: dto.oficial,
+      esTroncal,
+      lado,
       objetivo: dto.objetivo ?? null,
       baseLegal: dto.baseLegal ?? null,
       resCreacion: dto.resCreacion ?? null,
@@ -228,6 +237,16 @@ export class UnidadesService {
     if (dto.sigla) u.sigla = dto.sigla;
     if (dto.nombre) u.nombre = dto.nombre;
     if (dto.oficial !== undefined) u.oficial = dto.oficial;
+    if (dto.esTroncal !== undefined) {
+      u.esTroncal = dto.esTroncal;
+      if (dto.esTroncal) {
+        u.lado = 'CENTRO';
+      } else if (dto.lado !== undefined) {
+        u.lado = dto.lado;
+      }
+    } else if (dto.lado !== undefined) {
+      u.lado = u.esTroncal ? 'CENTRO' : dto.lado;
+    }
     if (dto.objetivo !== undefined) u.objetivo = dto.objetivo;
     if (dto.baseLegal !== undefined) u.baseLegal = dto.baseLegal;
     if (dto.resCreacion !== undefined) u.resCreacion = dto.resCreacion;
