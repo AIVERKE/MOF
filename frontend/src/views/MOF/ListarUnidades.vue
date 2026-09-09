@@ -10,11 +10,15 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 // Componentes modulares
 import UnidadFormDialog from "./unidades/UnidadFormDialog.vue";
 import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
+import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
+import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 
 // --- PLUGINS & UTILS ---
 import {
   getClaseNombre,
   getNivelNombre,
+  getTipoNombre,
+  getRelacionNombre,
   getClaseColor,
   highlightText,
   isUnidadOficial
@@ -22,6 +26,7 @@ import {
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
+import { useUnidadDetails } from "@/composables/useUnidadDetails";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 const unidadesStore = useAllUnidadesMofStore();
@@ -55,6 +60,16 @@ const {
   moverFuncionArriba,
   moverFuncionAbajo
 } = unitForm;
+
+const {
+  detailsDrawer,
+  detailData,
+  loadingDetail,
+  initialOpenPanels,
+  showDetails,
+  showDependenciasInDrawer,
+  verReporte,
+} = useUnidadDetails({ unidadesStore });
 
 // Estados para diálogos y UI
 const search = ref('')
@@ -105,6 +120,8 @@ const getFadedClass = (item) => {
 
 const resolveClase = (val) => getClaseNombre(val, clasesStore.clases);
 const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
+const resolveTipo = (val) => getTipoNombre(val, tiposStore.tipos);
+const resolveRelacion = (val) => getRelacionNombre(val, relacionesStore.relaciones);
 const resolveClaseColor = (val) => getClaseColor(val, clasesStore.clases);
 
 onMounted(async () => {
@@ -137,8 +154,9 @@ async function confirmAddItem() {
   }
 }
 
-function deleteItem(item) {
-  selectedNode.value = item;
+function deleteItem(id) {
+  const item = unidadesStore.unidades.find((u) => String(u.id) === String(id));
+  selectedNode.value = item || detailData.value;
   deleteDialog.value = true;
 }
 
@@ -290,16 +308,19 @@ async function confirmDelete() {
               </div>
             </td>
 
-            <!-- Custom Slot: Acciones -->
-            <td class="text-center">
-              <div class="d-flex justify-center gap-1">
-                <v-btn icon variant="text" size="small" color="orange-darken-2" @click="openForm(item.id, true)">
-                  <v-icon size="20">mdi-pencil</v-icon>
-                </v-btn>
-                <v-btn icon variant="text" size="small" color="error" @click="deleteItem(item)">
-                  <v-icon size="20">mdi-delete</v-icon>
-                </v-btn>
-              </div>
+            <!-- Custom Slot: Acciones [👁][📄][⋮] -->
+            <td class="text-center" @click.stop>
+              <UnidadActionsMenu
+                :unidad-id="item.id"
+                show-quick-actions
+                density="compact"
+                @details="showDetails"
+                @pdf="verReporte"
+                @dependencias="showDependenciasInDrawer"
+                @add-child="(id) => openForm(id, false)"
+                @edit="(id) => openForm(id, true)"
+                @delete="deleteItem"
+              />
             </td>
           </tr>
         </template>
@@ -315,6 +336,38 @@ async function confirmDelete() {
     />
 
     <UnidadDeleteDialog v-model="deleteDialog" :nombre-unidad="selectedNode?.nombre || selectedNode?.denominacion" @confirm="confirmDelete" />
+
+    <UnidadDetailsDrawer
+      v-model="detailsDrawer"
+      :detail-data="detailData"
+      :loading="loadingDetail"
+      :initial-open-panels="initialOpenPanels"
+      :get-nivel-nombre="resolveNivel"
+      :get-tipo-nombre="resolveTipo"
+      :get-relacion-nombre="resolveRelacion"
+      :get-clase-nombre="resolveClase"
+      @edit="
+        (id) => {
+          openForm(id, true);
+          detailsDrawer = false;
+        }
+      "
+      @reporte="verReporte"
+      @pdf="verReporte"
+      @dependencias="showDependenciasInDrawer"
+      @add-child="
+        (id) => {
+          openForm(id, false);
+          detailsDrawer = false;
+        }
+      "
+      @delete="
+        (id) => {
+          deleteItem(id);
+          detailsDrawer = false;
+        }
+      "
+    />
   </v-container>
 </template>
 

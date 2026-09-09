@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { useDisplay } from "vuetify";
+import UnidadActionsMenu from "./UnidadActionsMenu.vue";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -10,9 +11,20 @@ const props = defineProps({
   getTipoNombre: Function,
   getRelacionNombre: Function,
   getClaseNombre: Function,
+  /** Panel keys to expand when opening (e.g. ['dependencias']) */
+  initialOpenPanels: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["update:modelValue", "edit", "reporte"]);
+const emit = defineEmits([
+  "update:modelValue",
+  "edit",
+  "reporte",
+  "details",
+  "pdf",
+  "dependencias",
+  "add-child",
+  "delete",
+]);
 
 const display = useDisplay();
 
@@ -27,14 +39,14 @@ const drawerWidth = computed(() => {
 // Paneles abiertos (colapsados por defecto)
 const openedPanels = ref([]);
 
-// Reiniciar a todo colapsado al abrir el drawer o cambiar de unidad
+// Reiniciar paneles al abrir el drawer o cambiar de unidad
 watch(
-  () => [props.modelValue, props.detailData?.id],
+  () => [props.modelValue, props.detailData?.id, props.initialOpenPanels],
   ([isOpen]) => {
     if (isOpen) {
-      openedPanels.value = [];
+      openedPanels.value = [...(props.initialOpenPanels || [])];
     }
-  }
+  },
 );
 
 function close() {
@@ -155,6 +167,19 @@ const panels = computed(() => {
     <v-toolbar :color="detailData?.color || 'primary'" dark density="compact">
       <v-toolbar-title class="text-caption font-weight-bold">Detalles de la Unidad</v-toolbar-title>
       <v-spacer />
+      <UnidadActionsMenu
+        v-if="detailData?.id"
+        :unidad-id="detailData.id"
+        :show-quick-actions="false"
+        :show-details="false"
+        density="compact"
+        activator-color="white"
+        @pdf="(id) => emit('pdf', id)"
+        @dependencias="(id) => emit('dependencias', id)"
+        @add-child="(id) => emit('add-child', id)"
+        @edit="(id) => emit('edit', id)"
+        @delete="(id) => emit('delete', id)"
+      />
       <v-btn icon size="small" @click="close">
         <v-icon size="20">mdi-close</v-icon>
         <v-tooltip activator="parent" location="bottom">Cerrar detalles</v-tooltip>
