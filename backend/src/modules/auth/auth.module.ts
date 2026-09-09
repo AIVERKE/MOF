@@ -10,6 +10,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { Usuario } from './entities/usuario.entity';
 import { Rol } from './entities/rol.entity';
 import { UsuarioRol } from './entities/usuario-rol.entity';
+import { resolveJwtSecret } from './jwt-secret.util';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { UsuarioRol } from './entities/usuario-rol.entity';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET', 'secret'),
+        secret: resolveJwtSecret(configService),
         signOptions: {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- matches Nest JWT StringValue from env
           expiresIn: configService.get<any>('JWT_EXPIRES_IN', '1d'),
