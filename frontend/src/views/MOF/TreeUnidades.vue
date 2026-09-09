@@ -10,17 +10,22 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 // Componentes modulares
 import UnidadFormDialog from "./unidades/UnidadFormDialog.vue";
 import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
+import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
+import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 
 // --- PLUGINS & UTILS ---
 import {
   getClaseNombre,
   getNivelNombre,
+  getTipoNombre,
+  getRelacionNombre,
   getClaseColor,
   highlightText,
 } from "@/utils/mofHelpers";
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
+import { useUnidadDetails } from "@/composables/useUnidadDetails";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 const { mostrar } = useSnackbar();
@@ -54,6 +59,16 @@ const {
   moverFuncionArriba,
   moverFuncionAbajo,
 } = unitForm;
+
+const {
+  detailsDrawer,
+  detailData,
+  loadingDetail,
+  initialOpenPanels,
+  showDetails,
+  showDependenciasInDrawer,
+  verReporte,
+} = useUnidadDetails({ unidadesStore });
 
 const addDialog = ref(false);
 const selectedItem = ref(null);
@@ -99,13 +114,17 @@ function buildTree(list) {
 
 const treeItems = computed(() => buildTree(unidadesStore.unidades));
 
-async function editItem(item) {
+async function editItem(id) {
+  const item = unidadesStore.unidades.find((u) => String(u.id) === String(id));
   selectedItem.value = item;
   await openUnitForm(item, true);
   addDialog.value = true;
 }
 
-function deleteItem(item) {
+function deleteItem(id) {
+  const item =
+    unidadesStore.unidades.find((u) => String(u.id) === String(id)) ||
+    detailData.value;
   itemToDelete.value = item;
   deleteDialog.value = true;
 }
@@ -147,7 +166,13 @@ async function confirmAddItem() {
   }
 }
 
-function openAddDialog(item) {
+function openAddDialog(itemOrId) {
+  let item = itemOrId;
+  if (itemOrId != null && typeof itemOrId !== "object") {
+    item = unidadesStore.unidades.find(
+      (u) => String(u.id) === String(itemOrId),
+    );
+  }
   selectedItem.value = item;
   openUnitForm(item, false);
   addDialog.value = true;
@@ -156,6 +181,9 @@ function openAddDialog(item) {
 const resolveClaseColor = (val) => getClaseColor(val, clasesStore.clases);
 const resolveClase = (val) => getClaseNombre(val, clasesStore.clases);
 const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
+const resolveTipo = (val) => getTipoNombre(val, tiposStore.tipos);
+const resolveRelacion = (val) =>
+  getRelacionNombre(val, relacionesStore.relaciones);
 
 const customTreeFilter = (value, query, item) => {
   if (!query) return true;
@@ -275,45 +303,18 @@ const customTreeFilter = (value, query, item) => {
           </template>
 
           <template #append="{ item }">
-            <div class="d-flex align-center">
-              <v-tooltip text="Agregar Hijo" location="top">
-                <template v-slot:activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon="mdi-plus"
-                    variant="text"
-                    size="x-small"
-                    color="success"
-                    @click.stop="openAddDialog(item)"
-                  ></v-btn>
-                </template>
-              </v-tooltip>
-
-              <v-tooltip text="Editar" location="top">
-                <template v-slot:activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon="mdi-pencil"
-                    variant="text"
-                    size="x-small"
-                    color="orange"
-                    @click.stop="editItem(item)"
-                  ></v-btn>
-                </template>
-              </v-tooltip>
-
-              <v-tooltip text="Eliminar" location="top">
-                <template v-slot:activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon="mdi-delete"
-                    variant="text"
-                    size="x-small"
-                    color="error"
-                    @click.stop="deleteItem(item)"
-                  ></v-btn>
-                </template>
-              </v-tooltip>
+            <div class="d-flex align-center" @click.stop>
+              <UnidadActionsMenu
+                :unidad-id="item.id"
+                show-quick-actions
+                density="compact"
+                @details="showDetails"
+                @pdf="verReporte"
+                @dependencias="showDependenciasInDrawer"
+                @add-child="openAddDialog"
+                @edit="editItem"
+                @delete="deleteItem"
+              />
             </div>
           </template>
         </v-treeview>
@@ -347,6 +348,38 @@ const customTreeFilter = (value, query, item) => {
     v-model="deleteDialog"
     :nombre-unidad="itemToDelete?.nombre || itemToDelete?.denominacion"
     @confirm="confirmDelete"
+  />
+
+  <UnidadDetailsDrawer
+    v-model="detailsDrawer"
+    :detail-data="detailData"
+    :loading="loadingDetail"
+    :initial-open-panels="initialOpenPanels"
+    :get-nivel-nombre="resolveNivel"
+    :get-tipo-nombre="resolveTipo"
+    :get-relacion-nombre="resolveRelacion"
+    :get-clase-nombre="resolveClase"
+    @edit="
+      (id) => {
+        editItem(id);
+        detailsDrawer = false;
+      }
+    "
+    @reporte="verReporte"
+    @pdf="verReporte"
+    @dependencias="showDependenciasInDrawer"
+    @add-child="
+      (id) => {
+        openAddDialog(id);
+        detailsDrawer = false;
+      }
+    "
+    @delete="
+      (id) => {
+        deleteItem(id);
+        detailsDrawer = false;
+      }
+    "
   />
 </template>
 

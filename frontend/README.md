@@ -50,6 +50,8 @@ La configuración centralizada está en `src/config/api.js`.
 ## Estructura
 
 - `src/views/MOF/`: vistas del módulo (organigrama, unidades, catálogos, dashboards).
+- `src/views/MOF/unidades/UnidadActionsMenu.vue`: menú compartido de acciones de unidad (`[👁][📄][⋮]` o solo `⋮`), usado en organigrama, listado, árbol y drawer de detalles.
+- `src/composables/useUnidadDetails.js`: carga de ficha técnica y apertura del PDF oficial.
 - `src/stores/`: comunicación con el API (Pinia).
 - `src/utils/mofHelpers.js`: pesos jerárquicos y formateo.
 
@@ -60,3 +62,5 @@ La configuración centralizada está en `src/config/api.js`.
 | `npm run dev` | Servidor de desarrollo (Vite). |
 | `npm run build` | Build de producción en `dist/`. |
 | `npm run preview` | Previsualiza el build de producción. |
+| `npm test` | Tests unitarios (Vitest). |
+| `npm run test:watch` | Vitest en modo watch. |

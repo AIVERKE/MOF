@@ -44,6 +44,7 @@ import UnidadFormDialog from "./unidades/UnidadFormDialog.vue";
 import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
 import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDependencyDialog from "./unidades/UnidadDependencyDialog.vue";
+import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
@@ -1556,70 +1557,23 @@ function resetFilters() {
                 </div>
               </td>
 
-              <td class="text-center">
-                <v-menu location="bottom end" transition="scale-transition">
-                  <template v-slot:activator="{ props }">
-                    <v-btn
-                      v-bind="props"
-                      size="small"
-                      icon
-                      variant="text"
-                      color="grey-darken-3"
-                      @click.stop
-                    >
-                      <v-icon size="20">mdi-dots-vertical</v-icon>
-                      <v-tooltip activator="parent" location="top"
-                        >Opciones de la unidad</v-tooltip
-                      >
-                    </v-btn>
-                  </template>
-                  <v-list
-                    density="comfortable"
-                    min-width="220"
-                    class="rounded-lg shadow-2xl bg-grey-darken-4 border-sm border-white"
-                  >
-                    <v-list-item
-                      prepend-icon="mdi-eye"
-                      title="Ver Ficha Técnica"
-                      @click="showNodeDetails(u.id)"
-                      class="text-blue-lighten-2 font-weight-black"
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-file-pdf-box"
-                      title="Generar Reporte PDF"
-                      @click="verReporte(u.id)"
-                      class="text-red-lighten-2 font-weight-black"
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-file-tree"
-                      title="Dependencias Funcionales"
-                      @click="verDependencias(u.id)"
-                      class="text-green-lighten-2 font-weight-black"
-                    />
-                    <v-divider class="my-1" color="white" />
-                    <v-list-item
-                      prepend-icon="mdi-plus"
-                      title="Añadir Unidad Dependiente"
-                      @click="openForm(u.id, false)"
-                      class="text-blue-lighten-2 font-weight-black"
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-pencil"
-                      title="Editar Información"
-                      @click="openForm(u.id, true)"
-                      class="text-orange-lighten-2 font-weight-black"
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-delete"
-                      title="Eliminar Unidad"
-                      @click="
-                        selectedNode = u;
-                        deleteDialog = true;
-                      "
-                      class="text-red-accent-1 font-weight-black"
-                    />
-                  </v-list>
-                </v-menu>
+              <td class="text-center" @click.stop>
+                <UnidadActionsMenu
+                  :unidad-id="u.id"
+                  show-quick-actions
+                  density="compact"
+                  @details="showNodeDetails"
+                  @pdf="verReporte"
+                  @dependencias="verDependencias"
+                  @add-child="(id) => openForm(id, false)"
+                  @edit="(id) => openForm(id, true)"
+                  @delete="
+                    (id) => {
+                      selectedNode = u;
+                      deleteDialog = true;
+                    }
+                  "
+                />
               </td>
             </tr>
           </tbody>
@@ -1731,66 +1685,23 @@ function resetFilters() {
                   >Ver detalles de {{ data.nombre }}</v-tooltip
                 >
               </div>
-              <div class="node-actions pa-1 d-flex justify-end">
-                <v-menu location="bottom end" transition="scale-transition">
-                  <template v-slot:activator="{ props }">
-                    <v-btn
-                      v-bind="props"
-                      size="32"
-                      icon
-                      variant="text"
-                      color="grey-darken-3"
-                      @click.stop
-                      ><v-icon size="24">mdi-dots-vertical</v-icon></v-btn
-                    >
-                  </template>
-                  <v-list
-                    density="comfortable"
-                    min-width="220"
-                    class="rounded-lg shadow-2xl bg-grey-darken-4 border-sm border-white"
-                  >
-                    <v-list-item
-                      prepend-icon="mdi-eye"
-                      title="Ver Ficha Técnica"
-                      @click="showNodeDetails(id)"
-                      class="text-blue-lighten-2 font-weight-black"
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-file-pdf-box"
-                      title="Generar Reporte PDF"
-                      @click="verReporte(id)"
-                      class="text-red-lighten-2 font-weight-black"
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-file-tree"
-                      title="Dependencias Funcionales"
-                      @click="verDependencias(id)"
-                      class="text-green-lighten-2 font-weight-black"
-                    />
-                    <v-divider class="my-1" color="white" />
-                    <v-list-item
-                      prepend-icon="mdi-plus"
-                      title="Añadir Unidad Dependiente"
-                      @click="openForm(id, false)"
-                      class="text-blue-lighten-2 font-weight-black"
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-pencil"
-                      title="Editar Información"
-                      @click="openForm(id, true)"
-                      class="text-orange-lighten-2 font-weight-black"
-                    />
-                    <v-list-item
-                      prepend-icon="mdi-delete"
-                      title="Eliminar Unidad"
-                      @click="
-                        selectedNode = data.rawData;
-                        deleteDialog = true;
-                      "
-                      class="text-red-accent-1 font-weight-black"
-                    />
-                  </v-list>
-                </v-menu>
+              <div class="node-actions pa-1 d-flex justify-end" @click.stop>
+                <UnidadActionsMenu
+                  :unidad-id="id"
+                  :show-quick-actions="false"
+                  density="node"
+                  @details="showNodeDetails"
+                  @pdf="verReporte"
+                  @dependencias="verDependencias"
+                  @add-child="(uid) => openForm(uid, false)"
+                  @edit="(uid) => openForm(uid, true)"
+                  @delete="
+                    () => {
+                      selectedNode = data.rawData;
+                      deleteDialog = true;
+                    }
+                  "
+                />
               </div>
               <Handle
                 v-if="data.isStaff && data.staffSide === 'right'"
@@ -1848,10 +1759,10 @@ function resetFilters() {
       v-model="detailsDrawer"
       :detail-data="detailData"
       :loading="loadingDetail"
-      :get-nivel-nombre="getNivelNombre"
-      :get-tipo-nombre="getTipoNombre"
-      :get-relacion-nombre="getRelacionNombre"
-      :get-clase-nombre="getClaseNombre"
+      :get-nivel-nombre="resolveNivel"
+      :get-tipo-nombre="resolveTipo"
+      :get-relacion-nombre="resolveRelacion"
+      :get-clase-nombre="resolveClase"
       @edit="
         (id) => {
           openForm(id, true);
@@ -1859,6 +1770,28 @@ function resetFilters() {
         }
       "
       @reporte="(id) => verReporte(id)"
+      @pdf="(id) => verReporte(id)"
+      @dependencias="
+        (id) => {
+          detailsDrawer = false;
+          verDependencias(id);
+        }
+      "
+      @add-child="
+        (id) => {
+          openForm(id, false);
+          detailsDrawer = false;
+        }
+      "
+      @delete="
+        (id) => {
+          selectedNode =
+            unidadesStore.unidades.find((u) => String(u.id) === String(id)) ||
+            detailData;
+          deleteDialog = true;
+          detailsDrawer = false;
+        }
+      "
     />
 
     <UnidadDeleteDialog
