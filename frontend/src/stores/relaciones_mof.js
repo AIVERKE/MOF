@@ -23,9 +23,11 @@ export const useAllRelacionesMofStore = defineStore(
             error.value = null;
             try {
                 const response = await fetch(`${API_URL}?t=${Date.now()}`, { headers: getHeaders() });
+                if (!response.ok) throw new Error(await parseError(response));
                 const data = await response.json();
-                relaciones.value = data.data;
+                relaciones.value = Array.isArray(data.data) ? data.data : [];
             } catch (err) {
+                relaciones.value = [];
                 error.value = err.message;
             } finally {
                 loading.value = false;

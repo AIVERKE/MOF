@@ -125,6 +125,9 @@ const resolveClaseColor = (val) => getClaseColor(val, clasesStore.clases);
 
 const checkOficial = (u) => isUnidadOficial(u, clasesStore.clases);
 
+/** Always an array — never crash on .find/.filter if store list is undefined */
+const unidadesList = computed(() => unidadesStore.unidades ?? []);
+
 const findNearestOficialParentId = (unidad) => {
   let currentParentId =
     unidad.parent && typeof unidad.parent === "object"
@@ -132,7 +135,7 @@ const findNearestOficialParentId = (unidad) => {
       : unidad.parent;
 
   while (currentParentId) {
-    const parentUnit = unidadesStore.unidades.find(
+    const parentUnit = unidadesList.value.find(
       (u) => String(u.id) === String(currentParentId),
     );
     if (!parentUnit) break;
@@ -163,7 +166,7 @@ const unidadesFiltradas = computed(() => {
   const activeRelacionId = getFilterId(filterRelacion.value);
   const searchLower = (searchTerm.value || "").toLowerCase().trim();
 
-  return unidadesStore.unidades.filter((u) => {
+  return unidadesList.value.filter((u) => {
     // Si estamos en modo organigrama oficial estricto, filtramos
     if (vistaModo.value === "estricto" && !checkOficial(u)) return false;
 
@@ -241,7 +244,7 @@ const hasAnyFilter = computed(
 );
 
 const stats = computed(() => {
-  const all = unidadesStore.unidades;
+  const all = unidadesList.value;
   const oficiales = all.filter((u) => checkOficial(u));
   return [
     {
@@ -585,7 +588,7 @@ async function refreshChart() {
 
 async function openForm(nodeId = null, edit = false) {
   const node = nodeId
-    ? unidadesStore.unidades.find((u) => String(u.id) === String(nodeId))
+    ? unidadesList.value.find((u) => String(u.id) === String(nodeId))
     : null;
   selectedNode.value = node;
   await openUnitForm(node, edit);
@@ -607,7 +610,7 @@ async function confirmAddItem() {
 async function confirmDelete() {
   if (!selectedNode.value) return;
   const id = selectedNode.value.id;
-  if (unidadesStore.unidades.some((u) => String(u.parent) === String(id))) {
+  if (unidadesList.value.some((u) => String(u.parent) === String(id))) {
     mostrar("No se puede eliminar: tiene dependientes.", "error");
     return;
   }
@@ -797,7 +800,7 @@ async function showNodeDetails(nodeId) {
       const dependenciasDetalle = (data.dependenciasFuncionales || []).map(
         (dep) => {
           const id = typeof dep === "object" ? dep.id : dep;
-          const unidadFound = unidadesStore.unidades.find(
+          const unidadFound = unidadesList.value.find(
             (u) => String(u.id) === String(id),
           );
           return unidadFound
@@ -822,7 +825,7 @@ async function showNodeDetails(nodeId) {
 
 async function verDependencias(id) {
   try {
-    const node = unidadesStore.unidades.find(
+    const node = unidadesList.value.find(
       (u) => String(u.id) === String(id),
     );
     if (!node) return;
@@ -863,7 +866,7 @@ const updateGraph = () => {
   const searchLower = (searchTerm.value || "").toLowerCase().trim();
 
   // Filtrado Estructural para Modo Estricto
-  let sourceData = unidadesStore.unidades;
+  let sourceData = unidadesList.value;
   if (vistaModo.value === "estricto") {
     sourceData = sourceData.filter((u) => checkOficial(u));
   }
@@ -1132,6 +1135,14 @@ onMounted(async () => {
     cargosStore.getFetchCargos(),
     clasesStore.getFetchClases(),
   ]);
+  const fetchError =
+    unidadesStore.error ||
+    tiposStore.error ||
+    nivelesStore.error ||
+    relacionesStore.error;
+  if (fetchError) {
+    mostrar(fetchError, "error");
+  }
   updateGraph();
 });
 
@@ -1156,7 +1167,7 @@ watch(searchTerm, (newVal) => {
 // Watcher inmediato para filtros categóricos y cambios estructurales
 watch(
   [
-    () => unidadesStore.unidades,
+    () => unidadesList.value,
     () => clasesStore.clases,
     vistaModo,
     hasAnyFilter,
@@ -1786,7 +1797,7 @@ function resetFilters() {
       @delete="
         (id) => {
           selectedNode =
-            unidadesStore.unidades.find((u) => String(u.id) === String(id)) ||
+            unidadesList.find((u) => String(u.id) === String(id)) ||
             detailData;
           deleteDialog = true;
           detailsDrawer = false;
@@ -1805,7 +1816,7 @@ function resetFilters() {
       v-model:unidad-a-cambiar="unidadACambiar"
       v-model:unidad-destino="unidadDestino"
       v-model:razon="unidadRazon"
-      :unidades="unidadesStore.unidades"
+      :unidades="unidadesList"
       @confirm="cambiarDependencia"
     />
 

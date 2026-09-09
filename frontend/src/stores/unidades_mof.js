@@ -49,9 +49,18 @@ export const useAllUnidadesMofStore = defineStore(
                 if (!response) {
                     throw new Error('Error en el Servidor. Comuniquese con el administrador del sistema');
                 }
-                const data = await response.json();
-                unidades.value = data.data;
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch {
+                    data = null;
+                }
+                if (!response.ok) {
+                    throw new Error(extractError(data, response.status));
+                }
+                unidades.value = Array.isArray(data?.data) ? data.data : [];
             } catch (err) {
+                unidades.value = [];
                 error.value = err.message === 'Falla en fetch'
                     ? 'No se puede conectar al servidor. Comuniquese con el administrador del sistema.'
                     : err.message;
