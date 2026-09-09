@@ -20,9 +20,11 @@ describe('UsuariosService', () => {
     >
   >;
   let rolRepo: jest.Mocked<Pick<Repository<Rol>, 'find'>>;
-  let usuarioRolRepo: jest.Mocked<
-    Pick<Repository<UsuarioRol>, 'delete' | 'create' | 'save'>
-  >;
+  let usuarioRolRepo: {
+    delete: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+  };
 
   const adminRole = { id: 1, codigo: 'ADMIN', activo: true } as Rol;
   const operadorRole = { id: 2, codigo: 'OPERADOR', activo: true } as Rol;
@@ -108,9 +110,9 @@ describe('UsuariosService', () => {
         id: '10',
         email: 'op@test.com',
       } as Usuario);
-      usuarioRolRepo.create.mockImplementation((data) => data as UsuarioRol);
+      usuarioRolRepo.create.mockImplementation((data: Partial<UsuarioRol>) => data);
       usuarioRolRepo.save.mockResolvedValue([]);
-      usuarioRolRepo.delete.mockResolvedValue({} as never);
+      usuarioRolRepo.delete.mockResolvedValue({});
 
       const result = await service.crear({
         email: 'op@test.com',
