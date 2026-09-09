@@ -34,12 +34,22 @@ const uniqueCargos = computed(() => {
     })
     .map(c => ({
       ...c,
-      id: String(c.id) 
+      id: String(c.id),
+      // Vuetify: deshabilita selección de inactivos (siguen visibles)
+      props: { disabled: c.activo === false }
     }));
+});
+
+const cargoById = computed(() => {
+  const map = new Map();
+  uniqueCargos.value.forEach((c) => map.set(String(c.id), c));
+  return map;
 });
 
 /**
  * Propiedad computada bidireccional para el v-model.
+ * Conserva chips ya asignados aunque el cargo esté inactivo;
+ * bloquea nuevas selecciones de inactivos.
  */
 const value = computed({
   get() {
@@ -47,9 +57,35 @@ const value = computed({
     return val.map(id => String(id));
   },
   set(val) {
-    emit('update:modelValue', val);
+    const next = Array.isArray(val) ? val.map((id) => String(id)) : [];
+    const prev = new Set(
+      (Array.isArray(props.modelValue) ? props.modelValue : []).map((id) =>
+        String(id),
+      ),
+    );
+    const filtered = next.filter((id) => {
+      if (prev.has(id)) return true;
+      const cargo = cargoById.value.get(id);
+      return !cargo || cargo.activo !== false;
+    });
+    emit('update:modelValue', filtered);
   }
 });
+
+function isSelected(id) {
+  return value.value.includes(String(id));
+}
+
+function toggleSelect(item) {
+  const id = String(item.id);
+  const selected = isSelected(id);
+  if (!selected && item.activo === false) return;
+  if (selected) {
+    value.value = value.value.filter((v) => v !== id);
+  } else {
+    value.value = [...value.value, id];
+  }
+}
 
 // Funciones de gestión
 function openDialog(item = null) {
@@ -125,10 +161,27 @@ onMounted(async () => {
             </template>
 
             <!-- Slot para cada item en la lista -->
-            <template v-slot:item="{ props, item }">
-              <v-list-item v-bind="props" :title="item.title" :class="{ 'opacity-50 text-grey-darken-1': !item.raw.activo }">
+            <template v-slot:item="{ props: itemProps, item }">
+              <v-list-item
+                v-bind="itemProps"
+                :title="undefined"
+                :disabled="item.raw.activo === false"
+                :class="{ 'opacity-50 text-grey-darken-1': !item.raw.activo }"
+                @click.prevent="toggleSelect(item.raw)"
+              >
                 <template v-slot:prepend>
-                  <v-checkbox-btn :model-value="value.includes(String(item.value))"></v-checkbox-btn>
+                  <v-checkbox-btn
+                    :model-value="isSelected(item.raw.id)"
+                    :disabled="item.raw.activo === false && !isSelected(item.raw.id)"
+                    @click.stop="toggleSelect(item.raw)"
+                  ></v-checkbox-btn>
+                </template>
+                <template v-slot:title>
+                  {{ item.raw.nombre }}
+                  <span v-if="item.raw.nivelOrden != null" class="text-caption text-medium-emphasis ml-1">
+                    · N{{ item.raw.nivelOrden }}
+                  </span>
+                  <span v-if="!item.raw.activo" class="text-caption font-italic ml-1">(Inactivo)</span>
                 </template>
                 <template v-slot:append>
                   <div class="d-flex align-center">
@@ -209,7 +262,7 @@ onMounted(async () => {
                                 Estado: <span class="font-weight-bold">{{ cargoActivo ? 'ACTIVO' : 'INACTIVO' }}</span>
                             </div>
                             <div class="text-xs text-grey-darken-1">
-                                {{ cargoActivo ? 'Este cargo será visible y disponible' : 'Este cargo estará oculto' }}
+                                {{ cargoActivo ? 'Visible y seleccionable para asignar a unidades' : 'Visible (atenuado) pero no seleccionable ni asignable' }}
                             </div>
                         </div>
                         <v-checkbox

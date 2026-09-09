@@ -1,0 +1,1589 @@
+{
+  "source": "AJUSTES_NOMINAS.CARGOS_S-MAU.1.xlsx",
+  "generatedAt": "2026-09-09T15:00:31.801Z",
+  "counts": {
+    "adm": 152,
+    "acad": 4,
+    "total": 156
+  },
+  "rows": [
+    {
+      "codigo": "ADM-26-RECTORA",
+      "nombre": "RECTORA",
+      "ambito": "ADM",
+      "nivelOrden": 26,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "RECTORA",
+        "RECTOR/A",
+        "RECTOR"
+      ]
+    },
+    {
+      "codigo": "ADM-25-VICERRECTOR",
+      "nombre": "VICERRECTOR",
+      "ambito": "ADM",
+      "nivelOrden": 25,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "VICERRECTOR",
+        "VICERRECTOR/A"
+      ]
+    },
+    {
+      "codigo": "ADM-24-DEFENSOR",
+      "nombre": "DEFENSOR",
+      "ambito": "ADM",
+      "nivelOrden": 24,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "DEFENSOR",
+        "DEFENSOR/A  UNIVERSITARIO",
+        "DEFENSOR/A UNIVERSITARIO",
+        "DEFENSOR UNIVERSITARIO"
+      ]
+    },
+    {
+      "codigo": "ADM-24-DIRECTOR",
+      "nombre": "DIRECTOR.",
+      "ambito": "ADM",
+      "nivelOrden": 24,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "DIRECTOR."
+      ]
+    },
+    {
+      "codigo": "ADM-24-SECRETARIO-GENERAL",
+      "nombre": "SECRETARIO GENERAL",
+      "ambito": "ADM",
+      "nivelOrden": 24,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIO GENERAL",
+        "SECRETARIO/A GENERAL"
+      ]
+    },
+    {
+      "codigo": "ADM-23-JEFE-A-I-DE-DEPARTAMENTO",
+      "nombre": "JEFE a.i. DE DEPARTAMENTO",
+      "ambito": "ADM",
+      "nivelOrden": 23,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "JEFE a.i. DE DEPARTAMENTO"
+      ]
+    },
+    {
+      "codigo": "ADM-23-JEFE-DE-DEPARTAMENTO",
+      "nombre": "JEFE DE DEPARTAMENTO",
+      "ambito": "ADM",
+      "nivelOrden": 23,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "JEFE DE DEPARTAMENTO"
+      ]
+    },
+    {
+      "codigo": "ADM-23-SECRETARIO-ACADEMICO",
+      "nombre": "SECRETARIO ACADEMICO",
+      "ambito": "ADM",
+      "nivelOrden": 23,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIO ACADEMICO",
+        "SECRETARIO/A ACADÉMICO",
+        "SECRETARIO ACADÉMICO",
+        "SECRETARIO/A ACADEMICO"
+      ]
+    },
+    {
+      "codigo": "ADM-22-JEFE-A-I-DIVISION",
+      "nombre": "JEFE a.i. DIVISION",
+      "ambito": "ADM",
+      "nivelOrden": 22,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "JEFE a.i. DIVISION"
+      ]
+    },
+    {
+      "codigo": "ADM-22-JEFE-DE-DIVISION",
+      "nombre": "JEFE DE DIVISION",
+      "ambito": "ADM",
+      "nivelOrden": 22,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "JEFE DE DIVISION",
+        "JEFE DE DIVISIÓN"
+      ]
+    },
+    {
+      "codigo": "ADM-21-JEFE-A-I-SECCION",
+      "nombre": "JEFE a.i.SECCION",
+      "ambito": "ADM",
+      "nivelOrden": 21,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "JEFE a.i.SECCION"
+      ]
+    },
+    {
+      "codigo": "ADM-21-JEFE-DE-SECCION",
+      "nombre": "JEFE DE SECCION",
+      "ambito": "ADM",
+      "nivelOrden": 21,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "JEFE DE SECCION",
+        "JEFE DE SECCIÓN"
+      ]
+    },
+    {
+      "codigo": "ADM-21-SUPERVISOR",
+      "nombre": "SUPERVISOR",
+      "ambito": "ADM",
+      "nivelOrden": 21,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SUPERVISOR"
+      ]
+    },
+    {
+      "codigo": "ADM-20-ABOGADO",
+      "nombre": "ABOGADO",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ABOGADO"
+      ]
+    },
+    {
+      "codigo": "ADM-20-ADMINISTRADOR-RED-I",
+      "nombre": "ADMINISTRADOR RED I",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ADMINISTRADOR RED I"
+      ]
+    },
+    {
+      "codigo": "ADM-20-ANALISTA",
+      "nombre": "ANALISTA",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ANALISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-20-ARQUITECTO",
+      "nombre": "ARQUITECTO",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ARQUITECTO"
+      ]
+    },
+    {
+      "codigo": "ADM-20-ASIST-INVEST-I",
+      "nombre": "ASIST.INVEST. I",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ASIST.INVEST. I"
+      ]
+    },
+    {
+      "codigo": "ADM-20-AUDITOR",
+      "nombre": "AUDITOR",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUDITOR"
+      ]
+    },
+    {
+      "codigo": "ADM-20-GESTOR-PROYECTOS",
+      "nombre": "GESTOR PROYECTOS",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "GESTOR PROYECTOS"
+      ]
+    },
+    {
+      "codigo": "ADM-20-ING-ELECTRONICO",
+      "nombre": "ING.ELECTRONICO",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ING.ELECTRONICO"
+      ]
+    },
+    {
+      "codigo": "ADM-20-INGENIERO-CIVIL",
+      "nombre": "INGENIERO CIVIL",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "INGENIERO CIVIL"
+      ]
+    },
+    {
+      "codigo": "ADM-20-INGENIERO-ELECTRICO",
+      "nombre": "INGENIERO ELECTRICO",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "INGENIERO ELECTRICO"
+      ]
+    },
+    {
+      "codigo": "ADM-20-MEDICO",
+      "nombre": "MEDICO",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "MEDICO"
+      ]
+    },
+    {
+      "codigo": "ADM-20-NUTRICIONISTA",
+      "nombre": "NUTRICIONISTA",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "NUTRICIONISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-20-ODONTOLOGO",
+      "nombre": "ODONTOLOGO",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ODONTOLOGO"
+      ]
+    },
+    {
+      "codigo": "ADM-20-PSICOLOGA",
+      "nombre": "PSICOLOGA",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PSICOLOGA"
+      ]
+    },
+    {
+      "codigo": "ADM-20-RELACIONADOR-PUBLICO",
+      "nombre": "RELACIONADOR PUBLICO",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "RELACIONADOR PUBLICO"
+      ]
+    },
+    {
+      "codigo": "ADM-20-RESPONSABLE-U-D-I",
+      "nombre": "RESPONSABLE U.D.I.",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "RESPONSABLE U.D.I."
+      ]
+    },
+    {
+      "codigo": "ADM-20-TRABAJADORA-SOCIAL",
+      "nombre": "TRABAJADORA SOCIAL",
+      "ambito": "ADM",
+      "nivelOrden": 20,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TRABAJADORA SOCIAL"
+      ]
+    },
+    {
+      "codigo": "ADM-19-ADMINISTRADOR-RED",
+      "nombre": "ADMINISTRADOR RED",
+      "ambito": "ADM",
+      "nivelOrden": 19,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ADMINISTRADOR RED"
+      ]
+    },
+    {
+      "codigo": "ADM-19-ASIST-INVEST",
+      "nombre": "ASIST.INVEST.",
+      "ambito": "ADM",
+      "nivelOrden": 19,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ASIST.INVEST."
+      ]
+    },
+    {
+      "codigo": "ADM-19-ASIST-INVEST-M-T",
+      "nombre": "ASIST.INVEST. M/T",
+      "ambito": "ADM",
+      "nivelOrden": 19,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ASIST.INVEST. M/T"
+      ]
+    },
+    {
+      "codigo": "ADM-19-CONTADOR",
+      "nombre": "CONTADOR",
+      "ambito": "ADM",
+      "nivelOrden": 19,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "CONTADOR"
+      ]
+    },
+    {
+      "codigo": "ADM-19-PROG-COMPUTACION-I",
+      "nombre": "PROG. COMPUTACION I",
+      "ambito": "ADM",
+      "nivelOrden": 19,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PROG. COMPUTACION I"
+      ]
+    },
+    {
+      "codigo": "ADM-19-TEC-ADM-DOCUMENTARIA-I",
+      "nombre": "TEC.ADM.DOCUMENTARIA I",
+      "ambito": "ADM",
+      "nivelOrden": 19,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.ADM.DOCUMENTARIA I"
+      ]
+    },
+    {
+      "codigo": "ADM-18-ADMINISTRADOR",
+      "nombre": "ADMINISTRADOR",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ADMINISTRADOR"
+      ]
+    },
+    {
+      "codigo": "ADM-18-AYUD-PLANIFICACION",
+      "nombre": "AYUD.PLANIFICACION",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AYUD.PLANIFICACION"
+      ]
+    },
+    {
+      "codigo": "ADM-18-ENCARGADO-BIBLIOTECA",
+      "nombre": "ENCARGADO BIBLIOTECA",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ENCARGADO BIBLIOTECA"
+      ]
+    },
+    {
+      "codigo": "ADM-18-PRODUCTOR-REDACTOR",
+      "nombre": "PRODUCTOR REDACTOR",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PRODUCTOR REDACTOR"
+      ]
+    },
+    {
+      "codigo": "ADM-18-REDACTOR-REPORTERO",
+      "nombre": "REDACTOR REPORTERO",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "REDACTOR REPORTERO"
+      ]
+    },
+    {
+      "codigo": "ADM-18-RESPONSABLE-U-D-I",
+      "nombre": "RESPONSABLE U.D.I.",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "RESPONSABLE U.D.I."
+      ]
+    },
+    {
+      "codigo": "ADM-18-SUP-ALMACENES",
+      "nombre": "SUP.ALMACENES",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SUP.ALMACENES"
+      ]
+    },
+    {
+      "codigo": "ADM-18-SUP-DEPORTES",
+      "nombre": "SUP.DEPORTES",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SUP.DEPORTES"
+      ]
+    },
+    {
+      "codigo": "ADM-18-TEC-ADM-DOCUMENTARIA",
+      "nombre": "TEC.ADM.DOCUMENTARIA",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.ADM.DOCUMENTARIA"
+      ]
+    },
+    {
+      "codigo": "ADM-18-TEC-ESCALAFON-I",
+      "nombre": "TEC.ESCALAFON I",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.ESCALAFON I"
+      ]
+    },
+    {
+      "codigo": "ADM-18-TEC-INVESTIGACION-II",
+      "nombre": "TEC.INVESTIGACION II",
+      "ambito": "ADM",
+      "nivelOrden": 18,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.INVESTIGACION II"
+      ]
+    },
+    {
+      "codigo": "ADM-17-TEC-ARCHIVO",
+      "nombre": "TEC.ARCHIVO",
+      "ambito": "ADM",
+      "nivelOrden": 17,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.ARCHIVO"
+      ]
+    },
+    {
+      "codigo": "ADM-17-TEC-ESCALAFON",
+      "nombre": "TEC.ESCALAFON",
+      "ambito": "ADM",
+      "nivelOrden": 17,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.ESCALAFON"
+      ]
+    },
+    {
+      "codigo": "ADM-17-TEC-REMUNERACIONES",
+      "nombre": "TEC.REMUNERACIONES",
+      "ambito": "ADM",
+      "nivelOrden": 17,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.REMUNERACIONES"
+      ]
+    },
+    {
+      "codigo": "ADM-16-BIBLIOTECARIO-III",
+      "nombre": "BIBLIOTECARIO III",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "BIBLIOTECARIO III"
+      ]
+    },
+    {
+      "codigo": "ADM-16-CAJERO",
+      "nombre": "CAJERO",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "CAJERO"
+      ]
+    },
+    {
+      "codigo": "ADM-16-ENC-MECANICA-AUTOMOTRIZ",
+      "nombre": "ENC.MECANICA AUTOMOTRIZ",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ENC.MECANICA AUTOMOTRIZ"
+      ]
+    },
+    {
+      "codigo": "ADM-16-PROCURADOR",
+      "nombre": "PROCURADOR",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PROCURADOR"
+      ]
+    },
+    {
+      "codigo": "ADM-16-PROG-COMPUTACION",
+      "nombre": "PROG. COMPUTACION",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PROG. COMPUTACION"
+      ]
+    },
+    {
+      "codigo": "ADM-16-SECRETARIA-ASISTENTE",
+      "nombre": "SECRETARIA ASISTENTE",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA ASISTENTE"
+      ]
+    },
+    {
+      "codigo": "ADM-16-TEC-LABORATORIO",
+      "nombre": "TEC.LABORATORIO",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.LABORATORIO"
+      ]
+    },
+    {
+      "codigo": "ADM-16-TEC-REGISTRO-II",
+      "nombre": "TEC.REGISTRO II",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.REGISTRO II"
+      ]
+    },
+    {
+      "codigo": "ADM-16-TEC-TELEVISION",
+      "nombre": "TEC.TELEVISION",
+      "ambito": "ADM",
+      "nivelOrden": 16,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.TELEVISION"
+      ]
+    },
+    {
+      "codigo": "ADM-15-ENCARGADO-HERBARIO",
+      "nombre": "ENCARGADO HERBARIO",
+      "ambito": "ADM",
+      "nivelOrden": 15,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ENCARGADO HERBARIO"
+      ]
+    },
+    {
+      "codigo": "ADM-15-ENCARGADO-KARDEX",
+      "nombre": "ENCARGADO KARDEX",
+      "ambito": "ADM",
+      "nivelOrden": 15,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ENCARGADO KARDEX"
+      ]
+    },
+    {
+      "codigo": "ADM-15-OP-COMPUTACION-I",
+      "nombre": "OP.COMPUTACION I",
+      "ambito": "ADM",
+      "nivelOrden": 15,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "OP.COMPUTACION I"
+      ]
+    },
+    {
+      "codigo": "ADM-15-PROCURADOR",
+      "nombre": "PROCURADOR",
+      "ambito": "ADM",
+      "nivelOrden": 15,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PROCURADOR"
+      ]
+    },
+    {
+      "codigo": "ADM-15-SECRETARIA-ASISTENTE",
+      "nombre": "SECRETARIA ASISTENTE",
+      "ambito": "ADM",
+      "nivelOrden": 15,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA ASISTENTE"
+      ]
+    },
+    {
+      "codigo": "ADM-15-TEC-INVESTIGACION-I",
+      "nombre": "TEC.INVESTIGACION I",
+      "ambito": "ADM",
+      "nivelOrden": 15,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.INVESTIGACION I"
+      ]
+    },
+    {
+      "codigo": "ADM-14-ASIST-INFRAESTRUCTURA",
+      "nombre": "ASIST.INFRAESTRUCTURA",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ASIST.INFRAESTRUCTURA"
+      ]
+    },
+    {
+      "codigo": "ADM-14-AYUDANTE-CONTABLE",
+      "nombre": "AYUDANTE CONTABLE",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AYUDANTE CONTABLE"
+      ]
+    },
+    {
+      "codigo": "ADM-14-BIBLIOTECARIO-II",
+      "nombre": "BIBLIOTECARIO II",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "BIBLIOTECARIO II"
+      ]
+    },
+    {
+      "codigo": "ADM-14-DOCUMENTALISTA-I",
+      "nombre": "DOCUMENTALISTA I",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "DOCUMENTALISTA I"
+      ]
+    },
+    {
+      "codigo": "ADM-14-INSP-TITULOS",
+      "nombre": "INSP.TITULOS",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "INSP.TITULOS"
+      ]
+    },
+    {
+      "codigo": "ADM-14-INST-DEPORTES",
+      "nombre": "INST.DEPORTES",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "INST.DEPORTES"
+      ]
+    },
+    {
+      "codigo": "ADM-14-LABORATORISTA-I",
+      "nombre": "LABORATORISTA I",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "LABORATORISTA I"
+      ]
+    },
+    {
+      "codigo": "ADM-14-MECANICO-AUTOMOTRIZ-II",
+      "nombre": "MECANICO AUTOMOTRIZ II",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "MECANICO AUTOMOTRIZ II"
+      ]
+    },
+    {
+      "codigo": "ADM-14-OP-TELEVISION",
+      "nombre": "OP.TELEVISION",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "OP.TELEVISION"
+      ]
+    },
+    {
+      "codigo": "ADM-14-REDACTOR",
+      "nombre": "REDACTOR",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "REDACTOR"
+      ]
+    },
+    {
+      "codigo": "ADM-14-SECRETARIA-DECANATO",
+      "nombre": "SECRETARIA DECANATO",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA DECANATO"
+      ]
+    },
+    {
+      "codigo": "ADM-14-SECRETARIA-EJECUTIVA-II",
+      "nombre": "SECRETARIA EJECUTIVA II",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA EJECUTIVA II"
+      ]
+    },
+    {
+      "codigo": "ADM-14-SONIDISTA",
+      "nombre": "SONIDISTA",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SONIDISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-14-TEC-COMPUTACION",
+      "nombre": "TEC.COMPUTACION",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.COMPUTACION"
+      ]
+    },
+    {
+      "codigo": "ADM-14-TEC-LIQUIDADOR",
+      "nombre": "TEC.LIQUIDADOR",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.LIQUIDADOR"
+      ]
+    },
+    {
+      "codigo": "ADM-14-TEC-REGISTRO-I",
+      "nombre": "TEC.REGISTRO I",
+      "ambito": "ADM",
+      "nivelOrden": 14,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.REGISTRO I"
+      ]
+    },
+    {
+      "codigo": "ADM-13-ASISTENTE-LEGAL",
+      "nombre": "ASISTENTE LEGAL",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ASISTENTE LEGAL"
+      ]
+    },
+    {
+      "codigo": "ADM-13-COTIZADOR",
+      "nombre": "COTIZADOR",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "COTIZADOR"
+      ]
+    },
+    {
+      "codigo": "ADM-13-ENC-MECANICA-AUTOMOTRIZ",
+      "nombre": "ENC.MECANICA AUTOMOTRIZ",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ENC.MECANICA AUTOMOTRIZ"
+      ]
+    },
+    {
+      "codigo": "ADM-13-INSP-PERSONAL-I",
+      "nombre": "INSP.PERSONAL I",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "INSP.PERSONAL I"
+      ]
+    },
+    {
+      "codigo": "ADM-13-OP-COMPUTACION",
+      "nombre": "OP.COMPUTACION",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "OP.COMPUTACION"
+      ]
+    },
+    {
+      "codigo": "ADM-13-PRENSISTA",
+      "nombre": "PRENSISTA",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PRENSISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-13-SECRETARIA-DECANATO",
+      "nombre": "SECRETARIA DECANATO",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA DECANATO"
+      ]
+    },
+    {
+      "codigo": "ADM-13-SECRETARIA-EJECUTIVA-I",
+      "nombre": "SECRETARIA EJECUTIVA I",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA EJECUTIVA I"
+      ]
+    },
+    {
+      "codigo": "ADM-13-SECRETARIA-VICEDECANATO",
+      "nombre": "SECRETARIA VICEDECANATO",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA VICEDECANATO"
+      ]
+    },
+    {
+      "codigo": "ADM-13-TEC-INVESTIGACION",
+      "nombre": "TEC.INVESTIGACION",
+      "ambito": "ADM",
+      "nivelOrden": 13,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.INVESTIGACION"
+      ]
+    },
+    {
+      "codigo": "ADM-12-AUX-ENFERMERIA",
+      "nombre": "AUX.ENFERMERIA",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.ENFERMERIA"
+      ]
+    },
+    {
+      "codigo": "ADM-12-AYUDANTE-CAJA",
+      "nombre": "AYUDANTE CAJA",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AYUDANTE CAJA"
+      ]
+    },
+    {
+      "codigo": "ADM-12-BIBLIOTECARIO-I",
+      "nombre": "BIBLIOTECARIO I",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "BIBLIOTECARIO I"
+      ]
+    },
+    {
+      "codigo": "ADM-12-DIBUJANTE-TECNICO",
+      "nombre": "DIBUJANTE TECNICO",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "DIBUJANTE TECNICO"
+      ]
+    },
+    {
+      "codigo": "ADM-12-ELECTROMECANICO",
+      "nombre": "ELECTROMECANICO",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ELECTROMECANICO"
+      ]
+    },
+    {
+      "codigo": "ADM-12-ENCARGADA-ADM-LIBRERIA",
+      "nombre": "ENCARGADA ADM.LIBRERIA",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ENCARGADA ADM.LIBRERIA"
+      ]
+    },
+    {
+      "codigo": "ADM-12-LABORATORISTA",
+      "nombre": "LABORATORISTA",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "LABORATORISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-12-MECANICO-AUTOMOTRIZ-I",
+      "nombre": "MECANICO AUTOMOTRIZ I",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "MECANICO AUTOMOTRIZ I"
+      ]
+    },
+    {
+      "codigo": "ADM-12-RADIOLOGO",
+      "nombre": "RADIOLOGO",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "RADIOLOGO"
+      ]
+    },
+    {
+      "codigo": "ADM-12-SECRETARIA-EJECUTIVA",
+      "nombre": "SECRETARIA EJECUTIVA",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA EJECUTIVA"
+      ]
+    },
+    {
+      "codigo": "ADM-12-SECRETARIO-EJECUTIVO",
+      "nombre": "SECRETARIO EJECUTIVO",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIO EJECUTIVO"
+      ]
+    },
+    {
+      "codigo": "ADM-12-TEC-REGISTRO",
+      "nombre": "TEC.REGISTRO",
+      "ambito": "ADM",
+      "nivelOrden": 12,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.REGISTRO"
+      ]
+    },
+    {
+      "codigo": "ADM-11-AUX-IMPRENTA-I",
+      "nombre": "AUX.IMPRENTA I",
+      "ambito": "ADM",
+      "nivelOrden": 11,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.IMPRENTA I"
+      ]
+    },
+    {
+      "codigo": "ADM-11-AYUD-LABORATORIO-I",
+      "nombre": "AYUD.LABORATORIO I",
+      "ambito": "ADM",
+      "nivelOrden": 11,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AYUD.LABORATORIO I"
+      ]
+    },
+    {
+      "codigo": "ADM-11-TEC-ELECTRICO",
+      "nombre": "TEC.ELECTRICO",
+      "ambito": "ADM",
+      "nivelOrden": 11,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.ELECTRICO"
+      ]
+    },
+    {
+      "codigo": "ADM-11-TEC-REGISTRO",
+      "nombre": "TEC.REGISTRO",
+      "ambito": "ADM",
+      "nivelOrden": 11,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.REGISTRO"
+      ]
+    },
+    {
+      "codigo": "ADM-10-ALMACENERO-I",
+      "nombre": "ALMACENERO I",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ALMACENERO I"
+      ]
+    },
+    {
+      "codigo": "ADM-10-AUX-CONTABILIDAD",
+      "nombre": "AUX.CONTABILIDAD",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.CONTABILIDAD"
+      ]
+    },
+    {
+      "codigo": "ADM-10-AUX-LABORATORIO",
+      "nombre": "AUX.LABORATORIO",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.LABORATORIO"
+      ]
+    },
+    {
+      "codigo": "ADM-10-AYUD-LABORATORIO",
+      "nombre": "AYUD.LABORATORIO",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AYUD.LABORATORIO"
+      ]
+    },
+    {
+      "codigo": "ADM-10-BIBLIOTECARIO",
+      "nombre": "BIBLIOTECARIO",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "BIBLIOTECARIO"
+      ]
+    },
+    {
+      "codigo": "ADM-10-CHOFER",
+      "nombre": "CHOFER",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "CHOFER"
+      ]
+    },
+    {
+      "codigo": "ADM-10-KARDIXTA-ACADEMICO",
+      "nombre": "KARDIXTA ACADEMICO",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "KARDIXTA ACADEMICO"
+      ]
+    },
+    {
+      "codigo": "ADM-10-KARDIXTA-ACADEMICO-I",
+      "nombre": "KARDIXTA ACADEMICO I",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "KARDIXTA ACADEMICO I"
+      ]
+    },
+    {
+      "codigo": "ADM-10-OFICINISTA-I",
+      "nombre": "OFICINISTA I",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "OFICINISTA I"
+      ]
+    },
+    {
+      "codigo": "ADM-10-SECRETARIA-III",
+      "nombre": "SECRETARIA III",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA III"
+      ]
+    },
+    {
+      "codigo": "ADM-10-TEC-HIDROMETRISTA",
+      "nombre": "TEC.HIDROMETRISTA",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.HIDROMETRISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-10-TEC-TOPOGRAFO",
+      "nombre": "TEC.TOPOGRAFO",
+      "ambito": "ADM",
+      "nivelOrden": 10,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TEC.TOPOGRAFO"
+      ]
+    },
+    {
+      "codigo": "ADM-9-AUX-LABORATORIO",
+      "nombre": "AUX.LABORATORIO",
+      "ambito": "ADM",
+      "nivelOrden": 9,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.LABORATORIO"
+      ]
+    },
+    {
+      "codigo": "ADM-9-AUX-TECNICO-I",
+      "nombre": "AUX.TECNICO I",
+      "ambito": "ADM",
+      "nivelOrden": 9,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.TECNICO I"
+      ]
+    },
+    {
+      "codigo": "ADM-9-BIBLIOTECARIO",
+      "nombre": "BIBLIOTECARIO",
+      "ambito": "ADM",
+      "nivelOrden": 9,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "BIBLIOTECARIO"
+      ]
+    },
+    {
+      "codigo": "ADM-8-ALBANIL",
+      "nombre": "ALBANIL",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ALBANIL"
+      ]
+    },
+    {
+      "codigo": "ADM-8-ALMACENERO",
+      "nombre": "ALMACENERO",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ALMACENERO"
+      ]
+    },
+    {
+      "codigo": "ADM-8-ASCENSORISTA",
+      "nombre": "ASCENSORISTA",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ASCENSORISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-8-AUX-BIBLIOTECA",
+      "nombre": "AUX.BIBLIOTECA",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.BIBLIOTECA"
+      ]
+    },
+    {
+      "codigo": "ADM-8-AUX-RADIOLOGIA",
+      "nombre": "AUX.RADIOLOGIA",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.RADIOLOGIA"
+      ]
+    },
+    {
+      "codigo": "ADM-8-BIOTERISTA",
+      "nombre": "BIOTERISTA",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "BIOTERISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-8-CARPINTERO",
+      "nombre": "CARPINTERO",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "CARPINTERO"
+      ]
+    },
+    {
+      "codigo": "ADM-8-ELECTRICISTA",
+      "nombre": "ELECTRICISTA",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ELECTRICISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-8-ENCARGADO-HERRAMIENTAS",
+      "nombre": "ENCARGADO HERRAMIENTAS",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ENCARGADO HERRAMIENTAS"
+      ]
+    },
+    {
+      "codigo": "ADM-8-MAYORDOMO",
+      "nombre": "MAYORDOMO",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "MAYORDOMO"
+      ]
+    },
+    {
+      "codigo": "ADM-8-OFICINISTA",
+      "nombre": "OFICINISTA",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "OFICINISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-8-OP-MULTICOPIADORA",
+      "nombre": "OP.MULTICOPIADORA",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "OP.MULTICOPIADORA"
+      ]
+    },
+    {
+      "codigo": "ADM-8-PLOMERO",
+      "nombre": "PLOMERO",
+      "ambito": "ADM",
+      "nivelOrden": 8,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PLOMERO"
+      ]
+    },
+    {
+      "codigo": "ADM-7-AUX-TECNICO",
+      "nombre": "AUX.TECNICO",
+      "ambito": "ADM",
+      "nivelOrden": 7,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.TECNICO"
+      ]
+    },
+    {
+      "codigo": "ADM-7-SECRETARIA-I",
+      "nombre": "SECRETARIA I",
+      "ambito": "ADM",
+      "nivelOrden": 7,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "SECRETARIA I"
+      ]
+    },
+    {
+      "codigo": "ADM-7-TRANSCRIPTOR",
+      "nombre": "TRANSCRIPTOR",
+      "ambito": "ADM",
+      "nivelOrden": 7,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TRANSCRIPTOR"
+      ]
+    },
+    {
+      "codigo": "ADM-6-AUX-OFICINA",
+      "nombre": "AUX.OFICINA",
+      "ambito": "ADM",
+      "nivelOrden": 6,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.OFICINA"
+      ]
+    },
+    {
+      "codigo": "ADM-6-AYUDANTE-DE-CAMPO",
+      "nombre": "AYUDANTE DE CAMPO",
+      "ambito": "ADM",
+      "nivelOrden": 6,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AYUDANTE DE CAMPO"
+      ]
+    },
+    {
+      "codigo": "ADM-6-COCINERO-MAYOR",
+      "nombre": "COCINERO MAYOR",
+      "ambito": "ADM",
+      "nivelOrden": 6,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "COCINERO MAYOR"
+      ]
+    },
+    {
+      "codigo": "ADM-6-JARDINERO",
+      "nombre": "JARDINERO",
+      "ambito": "ADM",
+      "nivelOrden": 6,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "JARDINERO"
+      ]
+    },
+    {
+      "codigo": "ADM-5-AUX-BIOTERIO",
+      "nombre": "AUX.BIOTERIO",
+      "ambito": "ADM",
+      "nivelOrden": 5,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "AUX.BIOTERIO"
+      ]
+    },
+    {
+      "codigo": "ADM-5-LAVANDERA",
+      "nombre": "LAVANDERA",
+      "ambito": "ADM",
+      "nivelOrden": 5,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "LAVANDERA"
+      ]
+    },
+    {
+      "codigo": "ADM-5-PILOTO-DE-EMBARCACION",
+      "nombre": "PILOTO DE EMBARCACION",
+      "ambito": "ADM",
+      "nivelOrden": 5,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PILOTO DE EMBARCACION"
+      ]
+    },
+    {
+      "codigo": "ADM-5-PORTERO-MENSAJERO",
+      "nombre": "PORTERO MENSAJERO",
+      "ambito": "ADM",
+      "nivelOrden": 5,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PORTERO MENSAJERO"
+      ]
+    },
+    {
+      "codigo": "ADM-5-VAQUERO",
+      "nombre": "VAQUERO",
+      "ambito": "ADM",
+      "nivelOrden": 5,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "VAQUERO"
+      ]
+    },
+    {
+      "codigo": "ADM-2-ASCENSORISTA",
+      "nombre": "ASCENSORISTA",
+      "ambito": "ADM",
+      "nivelOrden": 2,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "ASCENSORISTA"
+      ]
+    },
+    {
+      "codigo": "ADM-2-COCINERA",
+      "nombre": "COCINERA",
+      "ambito": "ADM",
+      "nivelOrden": 2,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "COCINERA"
+      ]
+    },
+    {
+      "codigo": "ADM-2-PORTERO-I",
+      "nombre": "PORTERO I",
+      "ambito": "ADM",
+      "nivelOrden": 2,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PORTERO I"
+      ]
+    },
+    {
+      "codigo": "ADM-2-TRABAJADOR-DE-CAMPO",
+      "nombre": "TRABAJADOR DE CAMPO",
+      "ambito": "ADM",
+      "nivelOrden": 2,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "TRABAJADOR DE CAMPO"
+      ]
+    },
+    {
+      "codigo": "ADM-1-PORTERO",
+      "nombre": "PORTERO",
+      "ambito": "ADM",
+      "nivelOrden": 1,
+      "cargaHoraria": null,
+      "matchAliases": [
+        "PORTERO"
+      ]
+    },
+    {
+      "codigo": "ACAD-DECANO",
+      "nombre": "DECANO",
+      "ambito": "ACAD",
+      "nivelOrden": null,
+      "cargaHoraria": 160,
+      "matchAliases": [
+        "DECANO",
+        "DECANO/A"
+      ]
+    },
+    {
+      "codigo": "ACAD-VICEDECANO",
+      "nombre": "VICEDECANO",
+      "ambito": "ACAD",
+      "nivelOrden": null,
+      "cargaHoraria": 160,
+      "matchAliases": [
+        "VICEDECANO",
+        "VICEDECANO/A"
+      ]
+    },
+    {
+      "codigo": "ACAD-JEDE-DIRECTOR-DE-CARRERA",
+      "nombre": "JEDE/DIRECTOR DE CARRERA",
+      "ambito": "ACAD",
+      "nivelOrden": null,
+      "cargaHoraria": 160,
+      "matchAliases": [
+        "JEDE/DIRECTOR DE CARRERA",
+        "DIRECTOR/A DE CARRERA",
+        "JEFE/DIRECTOR DE CARRERA",
+        "DIRECTOR DE CARRERA"
+      ]
+    },
+    {
+      "codigo": "ACAD-DIRECTOR-DE-INSTITUTO",
+      "nombre": "DIRECTOR DE INSTITUTO",
+      "ambito": "ACAD",
+      "nivelOrden": null,
+      "cargaHoraria": 160,
+      "matchAliases": [
+        "DIRECTOR DE INSTITUTO",
+        "DIRECTOR/A DE INSTITUTO"
+      ]
+    }
+  ]
+}

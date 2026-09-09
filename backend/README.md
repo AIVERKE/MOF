@@ -56,10 +56,30 @@ npm run seed -- --force
 | `tipo_unidad` | 21 |
 | `unidad_funcion` | 1889 |
 | `unidad_dependencia_funcional` | 158 |
-| `cargo` | 23 |
+| `cargo` | 171 (dataset Excel con `nivel_orden` / `ambito`) |
 | `persona` | 3 |
 | `cargo_unidad` | 197 |
 | `catalogo_tipo` / `catalogo_nivel` / `catalogo_relacion` | A/B/C/N/Z, D/E/O, L/S/F/X |
+
+### Cargos desde Excel (MOF-014)
+
+Fuente: [`seed-1/sources/AJUSTES_NOMINAS.CARGOS_S-MAU.1.xlsx`](src/database/seed-1/sources/AJUSTES_NOMINAS.CARGOS_S-MAU.1.xlsx).
+
+| Hoja | Columnas | Persistencia |
+|------|----------|--------------|
+| `CARGOS ADM` | `CARGO`, `NIVEL` (26=Rectorado … 1) | `ambito=ADM`, `nivel_orden` |
+| `CARGOS ACAD` | `CARGO`, `CARGA HORARIA` | `ambito=ACAD`, `nivel_orden=NULL` |
+
+Procedimiento de carga / recarga (idempotente; **no** trunca ni toca `parent_id` / `cargo_unidad`):
+
+```bash
+npm run migration:run          # incluye nivel_orden + ambito
+npm run seed:cargos:extract    # regenera cargos-dataset.json desde el Excel
+npm run seed:cargos            # upsert merge por codigo / alias
+npm run seed:export            # opcional: congela resultado en etl-snapshot.sql
+```
+
+El dataset versionable es [`seed-1/cargos-dataset.json`](src/database/seed-1/cargos-dataset.json). Re-ejecutar `seed:cargos` no duplica: match por `codigo` o alias (p.ej. `RECTORA` ↔ `RECTOR/A`).
 
 ### Otros seeders
 
@@ -68,6 +88,8 @@ npm run seed -- --force
 | `npm run seed` | Snapshot ETL (recomendado al clonar) |
 | `npm run seed -- --force` | Trunca tablas de dominio y recarga el snapshot |
 | `npm run seed:catalogos` | Solo catálogos mínimos (A/B/C, D/E/O, L/S), sin organigrama |
+| `npm run seed:cargos:extract` | Lee el Excel y escribe `cargos-dataset.json` |
+| `npm run seed:cargos` | Upsert idempotente de cargos desde el JSON |
 | `npm run seed:export` | Regenera `etl-snapshot.sql` desde la BD actual (`mof_db`) |
 
 Tras un ETL nuevo, actualiza el seed del repo así:
@@ -135,4 +157,6 @@ backend/
 | `npm run seed -- --force` | Trunca y recarga el snapshot |
 | `npm run seed:catalogos` | Solo catálogos mínimos |
 | `npm run seed:export` | Regenera `seed-1/etl-snapshot.sql` desde `mof_db` |
+| `npm run seed:cargos:extract` | Excel → `cargos-dataset.json` |
+| `npm run seed:cargos` | Upsert de cargos (nivel/ámbito) sin romper FKs |
 | `npm run etl:umsa` | ScriptETL (requiere `umsa_legacy`; ver `src/database/etl/README.md`) |

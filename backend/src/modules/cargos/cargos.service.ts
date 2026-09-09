@@ -35,6 +35,8 @@ export class CargosService {
       nombre: c.nombre,
       descripcion: c.descripcion ?? null,
       activo: c.activo,
+      nivelOrden: c.nivelOrden ?? null,
+      ambito: c.ambito ?? null,
       parentId: c.parentId != null ? Number(c.parentId) : null,
       parentNombre: c.parent
         ? (c.parent.nombre ?? c.parent.descripcion ?? null)
@@ -142,10 +144,12 @@ export class CargosService {
   }
 
   async list() {
-    const rows = await this.cargoRepo.find({
-      relations: ['parent'],
-      order: { nombre: 'ASC' },
-    });
+    const rows = await this.cargoRepo
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.parent', 'parent')
+      .orderBy('c.nivelOrden', 'DESC', 'NULLS LAST')
+      .addOrderBy('c.nombre', 'ASC')
+      .getMany();
     return rows.map((c) => this.mapCargo(c));
   }
 
@@ -263,6 +267,13 @@ export class CargosService {
       where: { id: String(dto.cargoId) },
     });
     if (!cargo) notFound(dto.cargoId);
+
+    if (!cargo.activo) {
+      throw new BusinessException(
+        'No se puede asignar un cargo inactivo.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     if (cargo.unicoEnUnidad) {
       const exists = await this.cargoUnidadRepo.findOne({

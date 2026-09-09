@@ -117,4 +117,16 @@ Tras un ETL exitoso, regenera el seed que viaja con el repo:
 npm run seed:export   # escribe src/database/seed-1/etl-snapshot.sql
 ```
 
+## Cargos desde Excel (AJUSTES_NOMINAS)
+
+Además del ETL UMSA, el catálogo de cargos se enriquece con el Excel
+`seed-1/sources/AJUSTES_NOMINAS.CARGOS_S-MAU.1.xlsx`:
+
+1. `npm run seed:cargos:extract` — lee pestañas `CARGOS ADM` (CARGO+NIVEL) y `CARGOS ACAD` (CARGO+CARGA HORARIA) → `cargos-dataset.json`.
+2. `npm run seed:cargos` — upsert idempotente: actualiza `nivel_orden`/`ambito`/`codigo` en matches; inserta faltantes; **no** modifica `parent_id`, `activo`, soft-delete ni `cargo_unidad`.
+3. `npm run seed:export` — opcional, para congelar el resultado en el snapshot.
+
+Mismo nombre en distinto `NIVEL` = cargos distintos. `cargo_nivel` (letra A) sigue siendo el grado de `asignacion_cargo`, no el nivel del Excel.
+
 Quien clone `backend-MOF` no necesita el dump ni `umsa_legacy`: `npm run migration:run && npm run seed`.
+Tras clonar, si el snapshot aún no trae niveles: `npm run seed:cargos`.
