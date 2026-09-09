@@ -2,9 +2,20 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { ENDPOINTS } from "../config/api";
 
+function safeParseUser() {
+  const raw = localStorage.getItem("user");
+  if (raw == null || raw === "") return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem("user");
+    return null;
+  }
+}
+
 export const useAuthStore = defineStore("auth", () => {
   const token = ref(localStorage.getItem("token") || null);
-  const user = ref(JSON.parse(localStorage.getItem("user") || "null"));
+  const user = ref(safeParseUser());
 
   async function login(email, password) {
     try {
