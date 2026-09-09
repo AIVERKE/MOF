@@ -95,7 +95,7 @@ function getActiveCargoChildren(cargoId) {
   );
 }
 
-/** Lista indentada de cargos (raíces → hijos). */
+/** Lista indentada de cargos (raíces → hijos). Orden: nivel DESC, luego nombre. */
 const cargosTree = computed(() => {
   const items = cargosStore.cargos || [];
   const byParent = new Map();
@@ -104,9 +104,15 @@ const cargosTree = computed(() => {
     if (!byParent.has(key)) byParent.set(key, []);
     byParent.get(key).push(c);
   });
-  byParent.forEach((arr) =>
-    arr.sort((a, b) => String(a.nombre || a.descripcion || "").localeCompare(String(b.nombre || b.descripcion || "")))
-  );
+  const sortSiblings = (a, b) => {
+    const na = a.nivelOrden == null ? -Infinity : Number(a.nivelOrden);
+    const nb = b.nivelOrden == null ? -Infinity : Number(b.nivelOrden);
+    if (na !== nb) return nb - na;
+    return String(a.nombre || a.descripcion || "").localeCompare(
+      String(b.nombre || b.descripcion || ""),
+    );
+  };
+  byParent.forEach((arr) => arr.sort(sortSiblings));
 
   const flat = [];
   const visit = (parentKey, depth) => {
@@ -699,6 +705,24 @@ const getDependencies = (item) => {
               <v-list-item-title class="font-weight-bold text-body-2 d-flex align-center flex-wrap" :class="{ 'text-grey': !item.activo }">
                 <span>{{ item.nombre || item.descripcion }}</span>
                 <span v-if="!item.activo" class="text-caption font-italic ml-1">(Inactivo)</span>
+                <v-chip
+                  v-if="item.nivelOrden != null"
+                  size="x-small"
+                  color="info"
+                  variant="tonal"
+                  class="ml-2 px-1"
+                >
+                  Nivel {{ item.nivelOrden }}
+                </v-chip>
+                <v-chip
+                  v-if="item.ambito"
+                  size="x-small"
+                  :color="item.ambito === 'ACAD' ? 'purple' : 'teal'"
+                  variant="tonal"
+                  class="ml-2 px-1"
+                >
+                  {{ item.ambito }}
+                </v-chip>
                 <v-chip
                   v-if="item.parentNombre || item.parentId"
                   size="x-small"

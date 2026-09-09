@@ -42,9 +42,10 @@ export async function migrateCargo(
     try {
       await target.query(
         `INSERT INTO cargo (
-           id, codigo, nombre, descripcion, parent_id, unico_en_unidad, activo,
+           id, codigo, nombre, descripcion, parent_id, unico_en_unidad,
+           nivel_orden, ambito, activo,
            created_at, updated_at, deleted_at
-         ) VALUES ($1, NULL, $2, $3, NULL, false, $4, now(), now(), NULL)
+         ) VALUES ($1, NULL, $2, $3, NULL, false, NULL, NULL, $4, now(), now(), NULL)
          ON CONFLICT (id) DO UPDATE SET
            nombre = EXCLUDED.nombre,
            descripcion = EXCLUDED.descripcion,

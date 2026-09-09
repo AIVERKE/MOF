@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -35,6 +36,15 @@ export class Cargo extends AuditableEntity {
 
   @Column({ name: 'unico_en_unidad', type: 'boolean', default: false })
   unicoEnUnidad: boolean;
+
+  /** Nivel jerárquico del Excel (Rectorado=26 … descendente). NULL = sin nivel. */
+  @Index('IDX_cargo_nivel_orden')
+  @Column({ name: 'nivel_orden', type: 'smallint', nullable: true })
+  nivelOrden: number | null;
+
+  /** Hoja de origen: ADM | ACAD. */
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  ambito: string | null;
 
   @Column({ type: 'boolean', default: true })
   activo: boolean;
