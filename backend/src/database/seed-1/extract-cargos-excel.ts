@@ -59,11 +59,14 @@ function extractSheet(
   if (!sheet) {
     throw new Error(`Hoja no encontrada: ${sheetName}`);
   }
-  const rows = XLSX.utils.sheet_to_json(sheet, {
+  const rawRows: unknown[] = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
     defval: null,
     raw: true,
-  }) as unknown[][];
+  });
+  const rows: unknown[][] = rawRows.map((r) =>
+    Array.isArray(r) ? (r as unknown[]) : [],
+  );
 
   const header = findHeaderRow(
     rows,
@@ -78,7 +81,7 @@ function extractSheet(
 
   const out: CargoDatasetRow[] = [];
   for (let i = header.headerIdx + 1; i < rows.length; i++) {
-    const row = rows[i] || [];
+    const row: unknown[] = rows[i] ?? [];
     const nombre = cellStr(row[header.cargoCol]);
     if (!nombre) continue;
 

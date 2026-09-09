@@ -1,7 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { Unidad } from '../unidades/entities/unidad.entity';
 import { AsignacionCargo } from './entities/asignacion-cargo.entity';
@@ -12,16 +11,24 @@ import { CargosService } from './cargos.service';
 
 describe('CargosService', () => {
   let service: CargosService;
-  let cargoRepo: jest.Mocked<
-    Pick<
-      Repository<Cargo>,
-      'find' | 'findOne' | 'save' | 'create' | 'count' | 'softRemove' | 'createQueryBuilder'
-    >
-  >;
-  let cargoUnidadRepo: jest.Mocked<
-    Pick<Repository<CargoUnidad>, 'find' | 'findOne' | 'save' | 'create' | 'count' | 'softRemove'>
-  >;
-  let unidadRepo: jest.Mocked<Pick<Repository<Unidad>, 'findOne'>>;
+  let cargoRepo: {
+    find: jest.Mock;
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    count: jest.Mock;
+    softRemove: jest.Mock;
+    createQueryBuilder: jest.Mock;
+  };
+  let cargoUnidadRepo: {
+    find: jest.Mock;
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    count: jest.Mock;
+    softRemove: jest.Mock;
+  };
+  let unidadRepo: { findOne: jest.Mock };
 
   const qb = {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -38,7 +45,7 @@ describe('CargosService', () => {
       create: jest.fn((x) => x),
       count: jest.fn(),
       softRemove: jest.fn(),
-      createQueryBuilder: jest.fn(() => qb as never),
+      createQueryBuilder: jest.fn(() => qb),
     };
     cargoUnidadRepo = {
       find: jest.fn(),
