@@ -10,6 +10,7 @@ import { PersonasModule } from './modules/personas/personas.module';
 import { CatalogosModule } from './modules/catalogos/catalogos.module';
 import { UnidadesModule } from './modules/unidades/unidades.module';
 import { CargosModule } from './modules/cargos/cargos.module';
+import { SeguridadModule } from './modules/seguridad/seguridad.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CargosModule } from './modules/cargos/cargos.module';
     UnidadesModule,
     CargosModule,
     VersionesModule,
+    SeguridadModule,
   ],
   controllers: [AppController],
   providers: [AppService],
