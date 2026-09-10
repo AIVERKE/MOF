@@ -90,13 +90,15 @@ const internalRelUnitIds = computed({
     ),
   set: (ids) => {
     props.formData.relacionesInternas = (ids || []).map((id) => {
-      const encontrada = unidadesStore.unidades.find(
-        (u) => String(u.id) === String(id),
+      const rawId = typeof id === "object" && id !== null ? (id.id || id.value) : id;
+      const idNum = Number(rawId);
+      const encontrada = (unidadesStore.unidades || []).find(
+        (u) => String(u.id) === String(rawId),
       );
       return {
-        relacionadaId: Number(id),
+        relacionadaId: idNum,
         codigo: encontrada?.codigo || "",
-        nombre: encontrada?.nombre || encontrada?.denominacion || `Unidad ${id}`,
+        nombre: encontrada?.nombre || encontrada?.denominacion || `Unidad ${rawId}`,
         sigla: encontrada?.sigla || "",
         tipo: null,
       };
@@ -245,16 +247,6 @@ function moverAbajo(index) {
               <v-textarea
                 v-model="formData.objetivo"
                 label="Objetivo Institucional"
-                variant="underlined"
-                rows="2"
-                auto-grow
-                autocomplete="off"
-              />
-            </v-col>
-            <v-col cols="12">
-              <v-textarea
-                v-model="formData.baseLegal"
-                label="Base Legal de la Unidad"
                 variant="underlined"
                 rows="2"
                 auto-grow

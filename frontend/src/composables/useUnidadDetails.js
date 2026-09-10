@@ -38,6 +38,27 @@ export function useUnidadDetails({ unidadesStore }) {
               : "ID: " + id;
           },
         );
+        const mappedRelInternas = (data.relacionesInternas || []).map((r) => {
+          const relId = r.relacionadaId || r.unidadDestinoId || r.id;
+          const found = (unidadesStore.unidades || []).find(
+            (u) => String(u.id) === String(relId),
+          );
+          return {
+            id: r.id,
+            relacionadaId: relId,
+            codigo: r.codigo || found?.codigo || "",
+            sigla: r.sigla || found?.sigla || "",
+            nombre:
+              r.nombre ||
+              r.denominacion ||
+              r.unidadDestinoNombre ||
+              found?.nombre ||
+              found?.denominacion ||
+              (relId ? `Unidad #${relId}` : "Sin denominación"),
+            tipo: r.tipo || r.descripcion || null,
+          };
+        });
+
         detailData.value = {
           ...data,
           nombre_display: data.denominacion || data.nombre,
@@ -47,7 +68,7 @@ export function useUnidadDetails({ unidadesStore }) {
           dependencia_lineal_nombre: data.parent?.nombre || data.dependencia || null,
           hijas_lineales: Array.isArray(data.hijasLineales) ? data.hijasLineales : [],
           hijas_funcionales: Array.isArray(data.hijasFuncionales) ? data.hijasFuncionales : [],
-          relaciones_internas: Array.isArray(data.relacionesInternas) ? data.relacionesInternas : [],
+          relaciones_internas: mappedRelInternas,
           relaciones_externas: Array.isArray(data.relacionesExternas) ? data.relacionesExternas : [],
           tramites_atendidos: data.tramitesAtendidos || data.tramites_atendidos || null,
           ejecucion_poa: data.ejecucionPoa || data.ejecucion_poa || null,

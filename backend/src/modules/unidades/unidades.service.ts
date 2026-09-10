@@ -140,18 +140,28 @@ export class UnidadesService {
       }));
 
     const relsIntRaw = await this.relIntRepo.find({
-      where: { unidadId: u.id },
+      where: { unidadId: String(u.id) },
       relations: ['relacionada'],
       order: { id: 'ASC' },
     });
-    const relacionesInternas = relsIntRaw.map((r) => ({
-      id: Number(r.id),
-      relacionadaId: Number(r.relacionadaId),
-      codigo: r.relacionada?.codigo ?? null,
-      nombre: r.relacionada?.nombre ?? null,
-      sigla: r.relacionada?.sigla ?? null,
-      tipo: r.tipo ?? null,
-    }));
+    const relacionesInternas = await Promise.all(
+      relsIntRaw.map(async (r) => {
+        let relUnit: Unidad | null = r.relacionada ?? null;
+        if (!relUnit && r.relacionadaId) {
+          relUnit = await this.unidadRepo.findOne({
+            where: { id: String(r.relacionadaId) },
+          });
+        }
+        return {
+          id: Number(r.id),
+          relacionadaId: Number(r.relacionadaId),
+          codigo: relUnit?.codigo ?? null,
+          nombre: relUnit?.nombre ?? null,
+          sigla: relUnit?.sigla ?? null,
+          tipo: r.tipo ?? null,
+        };
+      }),
+    );
 
     const relsExtRaw = await this.relExtRepo.find({
       where: { unidadId: u.id },

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
 import { useDisplay } from "vuetify";
 import UnidadActionsMenu from "./UnidadActionsMenu.vue";
 
@@ -28,12 +28,68 @@ const emit = defineEmits([
 
 const display = useDisplay();
 
-// Ancho responsivo: xs=100%, sm=90%, md=480px, lg/xl=520px
+// Ancho ajustable y redimensionable con arrastre
+const customWidth = ref(520);
+const isResizing = ref(false);
+
 const drawerWidth = computed(() => {
   if (display.xs.value) return "100%";
   if (display.sm.value) return "90%";
-  if (display.md.value) return 480;
-  return 520;
+  return customWidth.value;
+});
+
+// Lógica de Redimensionamiento (Mouse)
+const startResizing = () => {
+  isResizing.value = true;
+  document.addEventListener("mousemove", handleResize);
+  document.addEventListener("mouseup", stopResizing);
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+};
+
+const handleResize = (e) => {
+  if (!isResizing.value) return;
+  const newWidth = window.innerWidth - e.clientX;
+  if (newWidth >= 360 && newWidth <= Math.min(1200, window.innerWidth * 0.95)) {
+    customWidth.value = newWidth;
+  }
+};
+
+const stopResizing = () => {
+  if (!isResizing.value) return;
+  isResizing.value = false;
+  document.removeEventListener("mousemove", handleResize);
+  document.removeEventListener("mouseup", stopResizing);
+  document.body.style.cursor = "default";
+  document.body.style.userSelect = "";
+};
+
+// Soporte Táctil (Móviles / Tablets)
+const startResizingTouch = () => {
+  isResizing.value = true;
+  document.addEventListener("touchmove", handleResizeTouch);
+  document.addEventListener("touchend", stopResizingTouch);
+};
+
+const handleResizeTouch = (e) => {
+  if (isResizing.value && e.touches.length > 0) {
+    const newWidth = window.innerWidth - e.touches[0].clientX;
+    if (newWidth >= 360 && newWidth <= Math.min(1200, window.innerWidth * 0.95)) {
+      customWidth.value = newWidth;
+    }
+  }
+};
+
+const stopResizingTouch = () => {
+  if (!isResizing.value) return;
+  isResizing.value = false;
+  document.removeEventListener("touchmove", handleResizeTouch);
+  document.removeEventListener("touchend", stopResizingTouch);
+};
+
+onUnmounted(() => {
+  stopResizing();
+  stopResizingTouch();
 });
 
 // Paneles abiertos (colapsados por defecto)
@@ -214,14 +270,6 @@ const panels = computed(() => {
       type: "objetivo",
     },
     {
-      key: "base_legal",
-      title: "BASE LEGAL",
-      icon: "mdi-scale-balance",
-      avatarColor: "cyan-darken-1",
-      type: "text_multiline",
-      value: data.baseLegal || data.base_legal,
-    },
-    {
       key: "funciones",
       title: "FUNCIONES Y BASE LEGAL",
       icon: "mdi-clipboard-list-outline",
@@ -323,9 +371,32 @@ const panels = computed(() => {
     elevation="10"
     class="unidad-details-drawer"
   >
+    <!-- Asa lateral izquierda para redimensionar arrastrando con el mouse -->
+    <div
+      v-if="!display.xs.value"
+      class="resize-handle"
+      @mousedown="startResizing"
+      @touchstart="startResizingTouch"
+      title="Arrastre para modificar el ancho del panel"
+    >
+      <div class="resize-handle-bar"></div>
+    </div>
+
     <v-toolbar :color="detailData?.color || 'primary'" dark density="compact">
       <v-toolbar-title class="text-caption font-weight-bold">Detalles de la Unidad</v-toolbar-title>
       <v-spacer />
+      <!-- Botón para alternar ancho normal (520px) o expandido (850px) -->
+      <v-btn
+        v-if="!display.xs.value"
+        icon
+        size="small"
+        @click="customWidth = customWidth > 650 ? 520 : 850"
+      >
+        <v-icon size="18">{{ customWidth > 650 ? 'mdi-arrow-collapse-right' : 'mdi-arrow-expand-left' }}</v-icon>
+        <v-tooltip activator="parent" location="bottom">
+          {{ customWidth > 650 ? 'Ancho estándar (520px)' : 'Expandir panel (850px)' }}
+        </v-tooltip>
+      </v-btn>
       <UnidadActionsMenu
         v-if="detailData?.id"
         :unidad-id="detailData.id"
@@ -643,20 +714,47 @@ const panels = computed(() => {
             <template v-else-if="panel.type === 'relaciones_internas'">
               <div v-if="detailData.relaciones_internas?.length" class="d-flex flex-column gap-1">
                 <div
-                  v-for="rel in detailData.relaciones_internas"
-                  :key="rel.id || rel.unidadDestinoId"
-                  class="pa-2 rounded bg-slate-100 border-b-thin"
+                  v-for="(rel, idx) in detailData.relaciones_internas"
+                  :key="rel.id || idx"
+                  class="d-flex align-center justify-space-between py-1 px-2 rounded bg-slate-100 border-b-thin"
                 >
-                  <div class="d-flex align-center mb-1">
-                    <v-icon size="15" color="indigo-darken-1" class="mr-1 flex-shrink-0">
+                  <div class="d-flex align-center">
+                    <v-icon size="15" color="indigo-darken-1" class="mr-2 flex-shrink-0">
                       mdi-account-switch-outline
                     </v-icon>
-                    <span class="text-caption font-weight-bold text-slate-800">
-                      {{ rel.unidadDestinoNombre || ('Unidad ID: ' + rel.unidadDestinoId) }}
+                    <span class="text-caption font-weight-medium text-slate-800 line-height-1-2">
+                      {{ rel.nombre || ('Unidad #' + (rel.relacionadaId || rel.id)) }}
                     </span>
                   </div>
-                  <div v-if="rel.descripcion" class="text-caption text-slate-600 line-height-1-3 pl-4">
-                    {{ rel.descripcion }}
+                  <div class="d-flex align-center gap-1 ml-2">
+                    <v-chip
+                      v-if="rel.sigla"
+                      size="x-small"
+                      label
+                      color="primary"
+                      variant="tonal"
+                      style="font-size: 9px;"
+                    >
+                      {{ rel.sigla }}
+                    </v-chip>
+                    <v-chip
+                      v-if="rel.codigo"
+                      size="x-small"
+                      label
+                      variant="outlined"
+                      style="font-size: 9px;"
+                    >
+                      {{ rel.codigo }}
+                    </v-chip>
+                    <v-chip
+                      v-if="rel.tipo"
+                      size="x-small"
+                      color="indigo"
+                      variant="flat"
+                      style="font-size: 9px;"
+                    >
+                      {{ rel.tipo }}
+                    </v-chip>
                   </div>
                 </div>
               </div>
@@ -848,5 +946,47 @@ const panels = computed(() => {
 
 .mt-0-5 {
   margin-top: 2px;
+}
+
+/* Asa de redimensionamiento arrastrable */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: rgba(var(--v-theme-primary), 0.2);
+}
+
+.resize-handle-bar {
+  width: 2px;
+  height: 40px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+}
+
+.resize-handle:hover .resize-handle-bar,
+.resize-handle:active .resize-handle-bar {
+  background: rgb(var(--v-theme-primary));
+  height: 60px;
+  width: 3px;
+}
+
+@media (max-width: 600px) {
+  .resize-handle {
+    display: none !important;
+  }
 }
 </style>
