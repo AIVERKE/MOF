@@ -20,6 +20,8 @@ import {
   SetParentDto,
   UnidadDto,
   UnidadFuncionDto,
+  UnidadRelacionExternaDto,
+  UnidadRelacionInternaDto,
 } from './dto/unidad.dto';
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
@@ -211,6 +213,87 @@ export class MofUnidadesController {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
       await this.unidadesService.removeDependencia(id, dependenciaId),
+    );
+  }
+
+  // --- RELACIONES INTERNAS ---
+  @Get('unidades/:id/relaciones-internas')
+  @ApiOperation({ summary: 'Listar relaciones internas de la unidad' })
+  async listRelacionesInternas(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.listRelacionesInternas(id),
+    );
+  }
+
+  @Post('unidades/:id/relaciones-internas')
+  @ApiOperation({ summary: 'Agregar relación interna' })
+  async addRelacionInterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UnidadRelacionInternaDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.addRelacionInterna(id, dto),
+    );
+  }
+
+  @Delete('unidades/:id/relaciones-internas/:relacionId')
+  @ApiOperation({ summary: 'Eliminar relación interna' })
+  async removeRelacionInterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('relacionId', ParseIntPipe) relacionId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.removeRelacionInterna(id, relacionId),
+    );
+  }
+
+  // --- RELACIONES EXTERNAS ---
+  @Get('unidades/:id/relaciones-externas')
+  @ApiOperation({ summary: 'Listar relaciones externas de la unidad' })
+  async listRelacionesExternas(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.listRelacionesExternas(id),
+    );
+  }
+
+  @Post('unidades/:id/relaciones-externas')
+  @ApiOperation({ summary: 'Agregar relación externa' })
+  async addRelacionExterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UnidadRelacionExternaDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.addRelacionExterna(id, dto),
+    );
+  }
+
+  @Put('unidades/:id/relaciones-externas/:relacionId')
+  @ApiOperation({ summary: 'Actualizar relación externa' })
+  async updateRelacionExterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('relacionId', ParseIntPipe) relacionId: number,
+    @Body() dto: UnidadRelacionExternaDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.updateRelacionExterna(id, relacionId, dto),
+    );
+  }
+
+  @Delete('unidades/:id/relaciones-externas/:relacionId')
+  @ApiOperation({ summary: 'Eliminar relación externa' })
+  async removeRelacionExterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('relacionId', ParseIntPipe) relacionId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.removeRelacionExterna(id, relacionId),
     );
   }
 }

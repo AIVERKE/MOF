@@ -81,6 +81,45 @@ watch(
   { immediate: true },
 );
 
+const nuevaRelacionExterna = ref("");
+
+const internalRelUnitIds = computed({
+  get: () =>
+    (props.formData.relacionesInternas || []).map((r) =>
+      typeof r === "object" ? r.relacionadaId || r.id : r,
+    ),
+  set: (ids) => {
+    props.formData.relacionesInternas = (ids || []).map((id) => {
+      const encontrada = unidadesStore.unidades.find(
+        (u) => String(u.id) === String(id),
+      );
+      return {
+        relacionadaId: Number(id),
+        codigo: encontrada?.codigo || "",
+        nombre: encontrada?.nombre || encontrada?.denominacion || `Unidad ${id}`,
+        sigla: encontrada?.sigla || "",
+        tipo: null,
+      };
+    });
+  },
+});
+
+function agregarRelacionExterna() {
+  const desc = (nuevaRelacionExterna.value || "").trim();
+  if (!desc) return;
+  if (!props.formData.relacionesExternas) {
+    props.formData.relacionesExternas = [];
+  }
+  props.formData.relacionesExternas.push({ descripcion: desc });
+  nuevaRelacionExterna.value = "";
+}
+
+function eliminarRelacionExterna(index) {
+  if (props.formData.relacionesExternas) {
+    props.formData.relacionesExternas.splice(index, 1);
+  }
+}
+
 function close() {
   emit("update:modelValue", false);
 }
@@ -206,6 +245,16 @@ function moverAbajo(index) {
               <v-textarea
                 v-model="formData.objetivo"
                 label="Objetivo Institucional"
+                variant="underlined"
+                rows="2"
+                auto-grow
+                autocomplete="off"
+              />
+            </v-col>
+            <v-col cols="12">
+              <v-textarea
+                v-model="formData.baseLegal"
+                label="Base Legal de la Unidad"
                 variant="underlined"
                 rows="2"
                 auto-grow
@@ -393,6 +442,142 @@ function moverAbajo(index) {
                     <v-icon start size="16">mdi-auto-fix</v-icon> Auto
                   </v-btn>
                 </v-btn-toggle>
+              </v-col>
+            </v-row>
+          </v-card>
+
+          <!-- INFORMACIÓN OPERATIVA Y RECURSOS (S-MAU) -->
+          <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-teal">
+            <div class="text-subtitle-2 font-weight-bold text-teal mb-3 d-flex align-center">
+              <v-icon start size="18">mdi-clipboard-text-clock-outline</v-icon>
+              Información Operativa y Recursos (S-MAU)
+            </div>
+            <v-row dense>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="formData.ejecucionPoa"
+                  label="Ejecución POA"
+                  variant="underlined"
+                  density="compact"
+                  autocomplete="off"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="formData.ejecucionPresupuestaria"
+                  label="Ejecución Presupuestaria"
+                  variant="underlined"
+                  density="compact"
+                  autocomplete="off"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="formData.cargaHorariaProgramada"
+                  label="Carga Horaria Programada"
+                  variant="underlined"
+                  density="compact"
+                  autocomplete="off"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="formData.cargaHorariaEjecutada"
+                  label="Carga Horaria Ejecutada"
+                  variant="underlined"
+                  density="compact"
+                  autocomplete="off"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="formData.ubicacion"
+                  label="Ubicación"
+                  variant="underlined"
+                  density="compact"
+                  autocomplete="off"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="formData.infraestructura"
+                  label="Infraestructura Física Utilizada"
+                  variant="underlined"
+                  density="compact"
+                  autocomplete="off"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-textarea
+                  v-model="formData.tramitesAtendidos"
+                  label="Trámites Atendidos"
+                  variant="underlined"
+                  rows="2"
+                  density="compact"
+                  auto-grow
+                  autocomplete="off"
+                />
+              </v-col>
+            </v-row>
+          </v-card>
+
+          <!-- RELACIONAMIENTO Y COORDINACIÓN (S-MAU) -->
+          <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-indigo">
+            <div class="text-subtitle-2 font-weight-bold text-indigo mb-3 d-flex align-center">
+              <v-icon start size="18">mdi-transit-connection-variant</v-icon>
+              Relacionamiento y Coordinación (S-MAU)
+            </div>
+            <v-row dense>
+              <v-col cols="12">
+                <SelectAllUnidades
+                  v-model="internalRelUnitIds"
+                  type="autocomplete"
+                  label="Coordinación Interna (Unidades relacionadas)"
+                  multiple
+                  :exclude-id="formData.id"
+                />
+              </v-col>
+              <v-col cols="12">
+                <div class="text-caption font-weight-bold text-grey-darken-2 mb-1">
+                  Coordinación Interinstitucional (Relaciones Externas)
+                </div>
+                <div class="d-flex align-center gap-2 mb-2">
+                  <v-text-field
+                    v-model="nuevaRelacionExterna"
+                    label="Nueva entidad o coordinación externa..."
+                    variant="underlined"
+                    density="compact"
+                    hide-details
+                    autocomplete="off"
+                    @keydown.enter.prevent="agregarRelacionExterna"
+                  />
+                  <v-btn
+                    color="indigo"
+                    size="small"
+                    prepend-icon="mdi-plus"
+                    :disabled="!nuevaRelacionExterna?.trim()"
+                    @click="agregarRelacionExterna"
+                  >
+                    Agregar
+                  </v-btn>
+                </div>
+                <div v-if="formData.relacionesExternas?.length" class="d-flex flex-wrap gap-1">
+                  <v-chip
+                    v-for="(rel, idx) in formData.relacionesExternas"
+                    :key="idx"
+                    closable
+                    color="indigo-darken-1"
+                    variant="tonal"
+                    size="small"
+                    @click:close="eliminarRelacionExterna(idx)"
+                  >
+                    <v-icon start size="14">mdi-domain</v-icon>
+                    {{ typeof rel === 'object' ? rel.descripcion : rel }}
+                  </v-chip>
+                </div>
+                <span v-else class="text-caption text-grey font-italic">
+                  Sin coordinaciones interinstitucionales registradas.
+                </span>
               </v-col>
             </v-row>
           </v-card>

@@ -49,6 +49,7 @@ import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
 import { useSnackbar } from "@/composables/useSnackbar";
+import { useUnidadDetails } from "@/composables/useUnidadDetails";
 
 // --- VUE FLOW COMPOSABLES ---
 const { nodes, edges, setNodes, setEdges, fitView, setCenter, findNode, onNodeClick } = useVueFlow();
@@ -99,9 +100,14 @@ const unidadRazon = ref("");
 
 const mostrarDependencias = ref(false);
 const unidadDependenciaSeleccionada = ref(null);
-const detailsDrawer = ref(false);
-const detailData = ref(null);
-const loadingDetail = ref(false);
+const {
+  detailsDrawer,
+  detailData,
+  loadingDetail,
+  initialOpenPanels,
+  showDetails: showNodeDetails,
+  verReporte,
+} = useUnidadDetails({ unidadesStore });
 const hierarchyDrawer = ref(false);
 const hierarchyDrawerWidth = ref(450);
 
@@ -639,10 +645,6 @@ async function cambiarDependencia() {
   }
 }
 
-async function verReporte(id) {
-  window.open(ENDPOINTS.MOF.PDF_UNIDAD(id), "_blank");
-}
-
 async function exportarOrganigrama() {
   mostrar("Generando PDF institucional en alta resolución...", "info");
 
@@ -784,42 +786,6 @@ async function exportarOrganigrama() {
   } finally {
     if (document.head.contains(styleTag)) document.head.removeChild(styleTag);
     setTimeout(() => fitView({ padding: 0.1 }), 200);
-  }
-}
-
-async function showNodeDetails(nodeId) {
-  loadingDetail.value = true;
-  detailsDrawer.value = true;
-  detailData.value = null;
-  try {
-    const [data, personal] = await Promise.all([
-      unidadesStore.getUnidadById(nodeId),
-      unidadesStore.getPersonalUnidad(nodeId),
-    ]);
-    if (data) {
-      const dependenciasDetalle = (data.dependenciasFuncionales || []).map(
-        (dep) => {
-          const id = typeof dep === "object" ? dep.id : dep;
-          const unidadFound = unidadesList.value.find(
-            (u) => String(u.id) === String(id),
-          );
-          return unidadFound
-            ? unidadFound.nombre || unidadFound.denominacion
-            : "ID: " + id;
-        },
-      );
-      detailData.value = {
-        ...data,
-        nombre_display: data.denominacion || data.nombre,
-        objetivo_display: data.objetivo_puesto || data.objetivo,
-        dependencias_nombres: dependenciasDetalle,
-        cargos_detalle: Array.isArray(personal) ? personal : [],
-      };
-    }
-  } catch (e) {
-    mostrar("Error al cargar detalles", "error");
-  } finally {
-    loadingDetail.value = false;
   }
 }
 
@@ -1770,6 +1736,7 @@ function resetFilters() {
       v-model="detailsDrawer"
       :detail-data="detailData"
       :loading="loadingDetail"
+      :initial-open-panels="initialOpenPanels"
       :get-nivel-nombre="resolveNivel"
       :get-tipo-nombre="resolveTipo"
       :get-relacion-nombre="resolveRelacion"
@@ -1797,8 +1764,8 @@ function resetFilters() {
       @delete="
         (id) => {
           selectedNode =
-            unidadesList.find((u) => String(u.id) === String(id)) ||
-            detailData;
+            unidadesList.value.find((u) => String(u.id) === String(id)) ||
+            detailData.value;
           deleteDialog = true;
           detailsDrawer = false;
         }

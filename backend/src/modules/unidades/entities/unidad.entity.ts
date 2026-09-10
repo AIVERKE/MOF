@@ -92,6 +92,27 @@ export class Unidad extends AuditableEntity {
   @Column({ name: 'fec_creacion', type: 'date', nullable: true })
   fecCreacion: Date | null;
 
+  @Column({ name: 'tramites_atendidos', type: 'text', nullable: true })
+  tramitesAtendidos: string | null;
+
+  @Column({ name: 'ejecucion_poa', type: 'text', nullable: true })
+  ejecucionPoa: string | null;
+
+  @Column({ name: 'ejecucion_presupuestaria', type: 'text', nullable: true })
+  ejecucionPresupuestaria: string | null;
+
+  @Column({ name: 'carga_horaria_programada', type: 'text', nullable: true })
+  cargaHorariaProgramada: string | null;
+
+  @Column({ name: 'carga_horaria_ejecutada', type: 'text', nullable: true })
+  cargaHorariaEjecutada: string | null;
+
+  @Column({ name: 'infraestructura', type: 'text', nullable: true })
+  infraestructura: string | null;
+
+  @Column({ name: 'ubicacion', type: 'text', nullable: true })
+  ubicacion: string | null;
+
   @ManyToOne(() => Usuario, { nullable: true })
   @JoinColumn({ name: 'created_by' })
   createdByUser: Usuario | null;
