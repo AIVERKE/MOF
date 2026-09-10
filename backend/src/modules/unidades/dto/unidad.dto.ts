@@ -91,6 +91,51 @@ export class UnidadDto {
   @IsArray()
   @Type(() => Number)
   dependenciasFuncionales?: number[];
+
+  @ApiPropertyOptional({ description: 'Trámites atendidos por la unidad' })
+  @IsOptional()
+  @IsString()
+  tramitesAtendidos?: string;
+
+  @ApiPropertyOptional({ description: 'Ejecución del POA de la unidad' })
+  @IsOptional()
+  @IsString()
+  ejecucionPoa?: string;
+
+  @ApiPropertyOptional({ description: 'Ejecución presupuestaria de la unidad' })
+  @IsOptional()
+  @IsString()
+  ejecucionPresupuestaria?: string;
+
+  @ApiPropertyOptional({ description: 'Carga horaria programada' })
+  @IsOptional()
+  @IsString()
+  cargaHorariaProgramada?: string;
+
+  @ApiPropertyOptional({ description: 'Carga horaria ejecutada' })
+  @IsOptional()
+  @IsString()
+  cargaHorariaEjecutada?: string;
+
+  @ApiPropertyOptional({ description: 'Infraestructura física utilizada' })
+  @IsOptional()
+  @IsString()
+  infraestructura?: string;
+
+  @ApiPropertyOptional({ description: 'Ubicación física de la unidad' })
+  @IsOptional()
+  @IsString()
+  ubicacion?: string;
+
+  @ApiPropertyOptional({ description: 'Relaciones internas asociadas' })
+  @IsOptional()
+  @IsArray()
+  relacionesInternas?: (number | UnidadRelacionInternaDto)[];
+
+  @ApiPropertyOptional({ description: 'Relaciones externas asociadas' })
+  @IsOptional()
+  @IsArray()
+  relacionesExternas?: (string | UnidadRelacionExternaDto)[];
 }
 
 export class SetParentDto {
@@ -121,3 +166,22 @@ export class DependenciaFuncionalDto {
   @IsNumber()
   dependenciaId: number;
 }
+
+export class UnidadRelacionInternaDto {
+  @ApiProperty({ description: 'ID de la unidad relacionada' })
+  @IsNumber()
+  relacionadaId: number;
+
+  @ApiPropertyOptional({ description: 'Tipo o motivo de la relación interna' })
+  @IsOptional()
+  @IsString()
+  tipo?: string;
+}
+
+export class UnidadRelacionExternaDto {
+  @ApiProperty({ description: 'Descripción de la relación externa' })
+  @IsString()
+  @IsNotEmpty()
+  descripcion: string;
+}
+

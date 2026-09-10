@@ -423,6 +423,107 @@ export const useAllUnidadesMofStore = defineStore(
             finally { loading.value = false; }
         };
 
+        // --- CRUD: RELACIONES INTERNAS ---
+        const getRelacionesInternas = async (unidadId) => {
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/relaciones-internas`, { headers: getHeaders() });
+                if (!response.ok) return [];
+                const data = await response.json();
+                return data.data || [];
+            } catch (err) { return []; }
+        };
+
+        const createRelacionInterna = async (unidadId, { relacionadaId, tipo }) => {
+            loading.value = true;
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/relaciones-internas`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ relacionadaId: Number(relacionadaId), tipo })
+                });
+                if (!response.ok) throw new Error('Error al agregar relación interna');
+                const data = await response.json();
+                return data.data;
+            } catch (err) {
+                error.value = err.message;
+                return null;
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        const deleteRelacionInterna = async (unidadId, relacionId) => {
+            loading.value = true;
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/relaciones-internas/${relacionId}`, {
+                    method: 'DELETE',
+                    headers: getHeaders()
+                });
+                return response.ok;
+            } catch (err) { return false; }
+            finally { loading.value = false; }
+        };
+
+        // --- CRUD: RELACIONES EXTERNAS ---
+        const getRelacionesExternas = async (unidadId) => {
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/relaciones-externas`, { headers: getHeaders() });
+                if (!response.ok) return [];
+                const data = await response.json();
+                return data.data || [];
+            } catch (err) { return []; }
+        };
+
+        const createRelacionExterna = async (unidadId, { descripcion }) => {
+            loading.value = true;
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/relaciones-externas`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ descripcion })
+                });
+                if (!response.ok) throw new Error('Error al registrar relación externa');
+                const data = await response.json();
+                return data.data;
+            } catch (err) {
+                error.value = err.message;
+                return null;
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        const updateRelacionExterna = async (unidadId, relacionId, { descripcion }) => {
+            loading.value = true;
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/relaciones-externas/${relacionId}`, {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ descripcion })
+                });
+                if (!response.ok) throw new Error('Error al actualizar relación externa');
+                const data = await response.json();
+                return data.data;
+            } catch (err) {
+                error.value = err.message;
+                return null;
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        const deleteRelacionExterna = async (unidadId, relacionId) => {
+            loading.value = true;
+            try {
+                const response = await fetch(`${API_URL}/${unidadId}/relaciones-externas/${relacionId}`, {
+                    method: 'DELETE',
+                    headers: getHeaders()
+                });
+                return response.ok;
+            } catch (err) { return false; }
+            finally { loading.value = false; }
+        };
+
         return {
             unidades,
             loading,
@@ -444,7 +545,14 @@ export const useAllUnidadesMofStore = defineStore(
             getPersonalUnidad,
             updatePersonalUnidad,
             deletePersonalUnidad,
-            deleteCargoDeUnidad
+            deleteCargoDeUnidad,
+            getRelacionesInternas,
+            createRelacionInterna,
+            deleteRelacionInterna,
+            getRelacionesExternas,
+            createRelacionExterna,
+            updateRelacionExterna,
+            deleteRelacionExterna
         }
     }
 )

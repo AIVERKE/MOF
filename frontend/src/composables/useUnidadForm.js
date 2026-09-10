@@ -41,7 +41,16 @@ export function useUnidadForm(stores) {
     color: "#1976D2",
     oficial: true,
     es_troncal: false,
-    lado: "AUTOMATICO"
+    lado: "AUTOMATICO",
+    tramitesAtendidos: "",
+    ejecucionPoa: "",
+    ejecucionPresupuestaria: "",
+    cargaHorariaProgramada: "",
+    cargaHorariaEjecutada: "",
+    infraestructura: "",
+    ubicacion: "",
+    relacionesInternas: [],
+    relacionesExternas: []
   });
 
   const isEditMode = ref(false);
@@ -127,7 +136,28 @@ export function useUnidadForm(stores) {
             color: fullData.color || "#1976D2",
             oficial: fullData.oficial !== false,
             es_troncal: fullData.es_troncal === true,
-            lado: fullData.lado || "AUTOMATICO"
+            lado: fullData.lado || "AUTOMATICO",
+            tramitesAtendidos: fullData.tramitesAtendidos || fullData.tramites_atendidos || "",
+            ejecucionPoa: fullData.ejecucionPoa || fullData.ejecucion_poa || "",
+            ejecucionPresupuestaria: fullData.ejecucionPresupuestaria || fullData.ejecucion_presupuestaria || "",
+            cargaHorariaProgramada: fullData.cargaHorariaProgramada || fullData.carga_horaria_programada || "",
+            cargaHorariaEjecutada: fullData.cargaHorariaEjecutada || fullData.carga_horaria_ejecutada || "",
+            infraestructura: fullData.infraestructura || fullData.infraestructura_fisica || "",
+            ubicacion: fullData.ubicacion || "",
+            relacionesInternas: (fullData.relacionesInternas || []).map(r => ({
+              id: r.id,
+              relacionadaId: r.relacionadaId || r.unidadDestinoId || r.id,
+              codigo: r.codigo,
+              nombre: r.nombre || r.unidadDestinoNombre,
+              sigla: r.sigla,
+              tipo: r.tipo || null,
+              descripcion: r.descripcion || null,
+            })),
+            relacionesExternas: (fullData.relacionesExternas || []).map(r => ({
+              id: r.id,
+              entidadExterna: r.entidadExterna || "",
+              descripcion: r.descripcion || (typeof r === "string" ? r : ""),
+            }))
           };
 
           cargosOriginales.value = [...mappedCargos];
@@ -157,7 +187,16 @@ export function useUnidadForm(stores) {
           color: "#1976D2",
           oficial: true,
           es_troncal: false,
-          lado: "AUTOMATICO"
+          lado: "AUTOMATICO",
+          tramitesAtendidos: "",
+          ejecucionPoa: "",
+          ejecucionPresupuestaria: "",
+          cargaHorariaProgramada: "",
+          cargaHorariaEjecutada: "",
+          infraestructura: "",
+          ubicacion: "",
+          relacionesInternas: [],
+          relacionesExternas: []
         };
         cargosOriginales.value = [];
         funcionesOriginales.value = [];
@@ -215,7 +254,21 @@ export function useUnidadForm(stores) {
       oficial: formData.value.oficial !== false,
       esTroncal: isTroncal,
       lado: isTroncal ? "CENTRO" : (formData.value.lado || "AUTOMATICO"),
-      dependenciasFuncionales: (formData.value.dependenciasFuncionales || []).map(d => getSafeId(d)).filter(id => id !== null)
+      dependenciasFuncionales: (formData.value.dependenciasFuncionales || []).map(d => getSafeId(d)).filter(id => id !== null),
+      tramitesAtendidos: formData.value.tramitesAtendidos?.trim() || null,
+      ejecucionPoa: formData.value.ejecucionPoa?.trim() || null,
+      ejecucionPresupuestaria: formData.value.ejecucionPresupuestaria?.trim() || null,
+      cargaHorariaProgramada: formData.value.cargaHorariaProgramada?.trim() || null,
+      cargaHorariaEjecutada: formData.value.cargaHorariaEjecutada?.trim() || null,
+      infraestructura: formData.value.infraestructura?.trim() || null,
+      ubicacion: formData.value.ubicacion?.trim() || null,
+      relacionesInternas: (formData.value.relacionesInternas || []).map(r => ({
+        relacionadaId: Number(r.relacionadaId || r.id || r),
+        tipo: r.tipo || null,
+      })),
+      relacionesExternas: (formData.value.relacionesExternas || [])
+        .map(r => typeof r === 'object' ? r.descripcion?.trim() : String(r).trim())
+        .filter(Boolean),
     };
 
     let success = false;
@@ -364,6 +417,45 @@ export function useUnidadForm(stores) {
     }
   }
 
+  function addRelacionInterna(relacionadaId, tipo = null) {
+    if (!relacionadaId) return;
+    const exists = formData.value.relacionesInternas.some(
+      (r) => String(r.relacionadaId || r.id || r) === String(relacionadaId)
+    );
+    if (!exists) {
+      const encontrada = unidadesStore.unidades.find(
+        (u) => String(u.id) === String(relacionadaId)
+      );
+      formData.value.relacionesInternas.push({
+        relacionadaId: Number(relacionadaId),
+        codigo: encontrada?.codigo || "",
+        nombre: encontrada?.nombre || encontrada?.denominacion || `Unidad ${relacionadaId}`,
+        sigla: encontrada?.sigla || "",
+        tipo: tipo || null,
+      });
+    }
+  }
+
+  function removeRelacionInterna(index) {
+    if (index >= 0 && index < formData.value.relacionesInternas.length) {
+      formData.value.relacionesInternas.splice(index, 1);
+    }
+  }
+
+  function addRelacionExterna(descripcion) {
+    const desc = (descripcion || "").trim();
+    if (!desc) return;
+    formData.value.relacionesExternas.push({
+      descripcion: desc,
+    });
+  }
+
+  function removeRelacionExterna(index) {
+    if (index >= 0 && index < formData.value.relacionesExternas.length) {
+      formData.value.relacionesExternas.splice(index, 1);
+    }
+  }
+
   return {
     formData,
     isEditMode,
@@ -377,5 +469,9 @@ export function useUnidadForm(stores) {
     removeFuncion,
     moverFuncionArriba,
     moverFuncionAbajo,
+    addRelacionInterna,
+    removeRelacionInterna,
+    addRelacionExterna,
+    removeRelacionExterna,
   };
 }

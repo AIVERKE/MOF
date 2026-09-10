@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
 import { useDisplay } from "vuetify";
 import UnidadActionsMenu from "./UnidadActionsMenu.vue";
 
@@ -28,12 +28,80 @@ const emit = defineEmits([
 
 const display = useDisplay();
 
-// Ancho responsivo: xs=100%, sm=90%, md=480px, lg/xl=520px
+// Ancho ajustable y redimensionable con arrastre
+const customWidth = ref(520);
+const isResizing = ref(false);
+
 const drawerWidth = computed(() => {
   if (display.xs.value) return "100%";
-  if (display.sm.value) return "90%";
-  if (display.md.value) return 480;
-  return 520;
+  return customWidth.value;
+});
+
+const drawerStyle = computed(() => {
+  if (display.xs.value) {
+    return { width: "100% !important", maxWidth: "100vw !important" };
+  }
+  return {
+    width: `${customWidth.value}px !important`,
+    maxWidth: "95vw !important",
+  };
+});
+
+// Lógica de Redimensionamiento (Mouse)
+const startResizing = (e) => {
+  e?.preventDefault?.();
+  e?.stopPropagation?.();
+  isResizing.value = true;
+  document.addEventListener("mousemove", handleResize);
+  document.addEventListener("mouseup", stopResizing);
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+};
+
+const handleResize = (e) => {
+  if (!isResizing.value) return;
+  const minWidth = 360;
+  const maxWidth = Math.min(1400, Math.floor(window.innerWidth * 0.95));
+  const newWidth = window.innerWidth - e.clientX;
+  customWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth));
+};
+
+const stopResizing = () => {
+  if (!isResizing.value) return;
+  isResizing.value = false;
+  document.removeEventListener("mousemove", handleResize);
+  document.removeEventListener("mouseup", stopResizing);
+  document.body.style.cursor = "default";
+  document.body.style.userSelect = "";
+};
+
+// Soporte Táctil (Móviles / Tablets)
+const startResizingTouch = (e) => {
+  isResizing.value = true;
+  document.addEventListener("touchmove", handleResizeTouch, { passive: false });
+  document.addEventListener("touchend", stopResizingTouch);
+};
+
+const handleResizeTouch = (e) => {
+  if (isResizing.value && e.touches.length > 0) {
+    e.preventDefault?.();
+    const minWidth = 360;
+    const maxWidth = Math.min(1400, Math.floor(window.innerWidth * 0.95));
+    const newWidth = window.innerWidth - e.touches[0].clientX;
+    customWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth));
+  }
+};
+
+const stopResizingTouch = () => {
+  if (!isResizing.value) return;
+  isResizing.value = false;
+  document.removeEventListener("touchmove", handleResizeTouch);
+  document.removeEventListener("touchend", stopResizingTouch);
+};
+
+onUnmounted(() => {
+  stopResizing();
+  stopResizingTouch();
 });
 
 // Paneles abiertos (colapsados por defecto)
@@ -44,7 +112,10 @@ watch(
   () => [props.modelValue, props.detailData?.id, props.initialOpenPanels],
   ([isOpen]) => {
     if (isOpen) {
-      openedPanels.value = [...(props.initialOpenPanels || [])];
+      const mapped = (props.initialOpenPanels || []).map((k) =>
+        k === "dependencias" ? "dependencias_funcionales" : k,
+      );
+      openedPanels.value = [...mapped];
     }
   },
 );
@@ -53,19 +124,94 @@ function close() {
   emit("update:modelValue", false);
 }
 
-// Definición declarativa de los 10 paneles con iconos, colores y badges
+function formatFecha(val) {
+  if (!val) return null;
+  try {
+    const s = String(val);
+    if (s.includes("-")) {
+      const p = s.split("T")[0].split("-");
+      if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+    }
+    return s;
+  } catch {
+    return String(val);
+  }
+}
+
+// Definición declarativa de los 26 paneles S-MAU con títulos exactos
 const panels = computed(() => {
   const data = props.detailData;
   if (!data) return [];
 
   const cargosCount = data.cargos_detalle?.length ?? 0;
-  const depCount = data.dependencias_nombres?.length ?? 0;
+  const depFuncCount =
+    (data.dependencias_nombres?.length ||
+      data.dependenciasFuncionales?.length) ??
+    0;
+  const hijasLinCount = data.hijas_lineales?.length ?? 0;
+  const hijasFuncCount = data.hijas_funcionales?.length ?? 0;
+  const relIntCount = data.relaciones_internas?.length ?? 0;
+  const relExtCount = data.relaciones_externas?.length ?? 0;
   const funcCount = data.funciones?.length ?? 0;
 
   return [
     {
+      key: "nombre",
+      title: "NOMBRE DE LA UNIDAD ORGANIZACIONAL",
+      icon: "mdi-office-building-outline",
+      avatarColor: "blue-grey-darken-1",
+      type: "text",
+      value: data.nombre_display || data.nombre,
+      emptyText: "---",
+    },
+    {
+      key: "sigla",
+      title: "SIGLA",
+      icon: "mdi-tag-outline",
+      avatarColor: "primary",
+      type: "text",
+      value: data.sigla,
+      emptyText: "---",
+    },
+    {
+      key: "codigo",
+      title: "CÓDIGO",
+      icon: "mdi-barcode",
+      avatarColor: "grey-darken-3",
+      type: "text",
+      value: data.codigo,
+      emptyText: "---",
+    },
+    {
+      key: "resolucion",
+      title: "RESOLUCIÓN DE CREACIÓN",
+      icon: "mdi-file-certificate-outline",
+      avatarColor: "amber-darken-2",
+      type: "text",
+      value: data.resCreacion || data.res_creacion,
+      emptyText: "---",
+    },
+    {
+      key: "fec_creacion",
+      title: "FECHA DE CREACIÓN",
+      icon: "mdi-calendar-range",
+      avatarColor: "deep-purple",
+      type: "text",
+      value: formatFecha(data.fec_creacion || data.fecCreacion),
+      emptyText: "---",
+    },
+    {
+      key: "clase",
+      title: "NIVEL DE AUTORIDAD",
+      icon: "mdi-briefcase-outline",
+      avatarColor: "blue-grey",
+      type: "text",
+      value: props.getClaseNombre ? props.getClaseNombre(data.clase) : data.clase,
+      emptyText: "---",
+    },
+    {
       key: "nivel",
-      title: "NIVEL",
+      title: "NIVEL JERÁRQUICO",
       icon: "mdi-layers-outline",
       avatarColor: "teal",
       type: "text",
@@ -93,47 +239,40 @@ const panels = computed(() => {
       emptyText: "---",
     },
     {
-      key: "clase",
-      title: "CLASE",
-      icon: "mdi-briefcase-outline",
-      avatarColor: "blue-grey",
+      key: "dependencia_lineal",
+      title: "DEPENDENCIA LINEAL",
+      icon: "mdi-arrow-up-bold-box-outline",
+      avatarColor: "blue-darken-3",
       type: "text",
-      value: props.getClaseNombre ? props.getClaseNombre(data.clase) : data.clase,
-      emptyText: "---",
+      value:
+        data.dependencia_lineal_nombre ||
+        data.parent?.nombre ||
+        data.dependencia,
+      emptyText: "--- (Raíz / Sin superior lineal)",
     },
     {
-      key: "resolucion",
-      title: "RESOLUCIÓN CREACIÓN",
-      icon: "mdi-file-certificate-outline",
-      avatarColor: "amber-darken-2",
-      type: "text",
-      value: data.resCreacion || data.res_creacion,
-      emptyText: "---",
+      key: "dependencias_funcionales",
+      title: "DEPENDENCIA FUNCIONAL",
+      icon: "mdi-source-branch",
+      avatarColor: "deep-purple-accent-3",
+      badge: depFuncCount > 0 ? depFuncCount : null,
+      type: "dependencias_funcionales",
     },
     {
-      key: "base_legal",
-      title: "BASE LEGAL",
-      icon: "mdi-scale-balance",
-      avatarColor: "cyan-darken-1",
-      type: "text",
-      value: data.baseLegal || data.base_legal,
-      emptyText: "---",
-    },
-    {
-      key: "cargos",
-      title: "CARGOS",
-      icon: "mdi-account-tie-outline",
-      avatarColor: "deep-orange",
-      badge: cargosCount > 0 ? cargosCount : null,
-      type: "cargos",
-    },
-    {
-      key: "dependencias",
-      title: "DEPENDENCIAS",
+      key: "unidades_dependientes_lineal",
+      title: "UNIDADES DEPENDIENTES (LINEAL)",
       icon: "mdi-file-tree-outline",
-      avatarColor: "deep-purple",
-      badge: depCount > 0 ? depCount : null,
-      type: "dependencias",
+      avatarColor: "teal-darken-1",
+      badge: hijasLinCount > 0 ? hijasLinCount : null,
+      type: "hijas_lineales",
+    },
+    {
+      key: "unidades_dependientes_funcional",
+      title: "UNIDADES DEPENDIENTES (FUNCIONAL)",
+      icon: "mdi-routes",
+      avatarColor: "deep-purple-darken-1",
+      badge: hijasFuncCount > 0 ? hijasFuncCount : null,
+      type: "hijas_funcionales",
     },
     {
       key: "objetivo",
@@ -144,11 +283,91 @@ const panels = computed(() => {
     },
     {
       key: "funciones",
-      title: "FUNCIONES",
+      title: "FUNCIONES Y BASE LEGAL",
       icon: "mdi-clipboard-list-outline",
       avatarColor: "green-darken-1",
       badge: funcCount > 0 ? funcCount : null,
       type: "funciones",
+    },
+    {
+      key: "relaciones_internas",
+      title: "RELACIONAMIENTO Y COORDINACIÓN INTERNA",
+      icon: "mdi-account-switch-outline",
+      avatarColor: "indigo-darken-1",
+      badge: relIntCount > 0 ? relIntCount : null,
+      type: "relaciones_internas",
+    },
+    {
+      key: "relaciones_externas",
+      title: "RELACIONAMIENTO Y COORDINACIÓN INTERINSTITUCIONAL",
+      icon: "mdi-domain",
+      avatarColor: "blue-darken-2",
+      badge: relExtCount > 0 ? relExtCount : null,
+      type: "relaciones_externas",
+    },
+    {
+      key: "cargos",
+      title: "PERSONAL (FIJO)",
+      icon: "mdi-account-tie-outline",
+      avatarColor: "deep-orange",
+      badge: cargosCount > 0 ? cargosCount : null,
+      type: "cargos",
+    },
+    {
+      key: "tramites_atendidos",
+      title: "TRÁMITES ATENDIDOS",
+      icon: "mdi-file-document-multiple-outline",
+      avatarColor: "amber-darken-3",
+      type: "text_multiline",
+      value: data.tramites_atendidos || data.tramitesAtendidos,
+    },
+    {
+      key: "ejecucion_poa",
+      title: "EJECUCIÓN POA",
+      icon: "mdi-chart-line",
+      avatarColor: "light-blue-darken-2",
+      type: "text_multiline",
+      value: data.ejecucion_poa || data.ejecucionPoa,
+    },
+    {
+      key: "ejecucion_presupuestaria",
+      title: "EJECUCIÓN PRESUPUESTARIA",
+      icon: "mdi-cash-multiple",
+      avatarColor: "green-darken-2",
+      type: "text_multiline",
+      value: data.ejecucion_presupuestaria || data.ejecucionPresupuestaria,
+    },
+    {
+      key: "carga_horaria_programada",
+      title: "CARGA HORARIA PROGRAMADA",
+      icon: "mdi-clock-outline",
+      avatarColor: "orange-darken-2",
+      type: "text_multiline",
+      value: data.carga_horaria_programada || data.cargaHorariaProgramada,
+    },
+    {
+      key: "carga_horaria_ejecutada",
+      title: "CARGA HORARIA EJECUTADA",
+      icon: "mdi-clock-check-outline",
+      avatarColor: "deep-orange-darken-2",
+      type: "text_multiline",
+      value: data.carga_horaria_ejecutada || data.cargaHorariaEjecutada,
+    },
+    {
+      key: "infraestructura",
+      title: "INFRAESTRUCTURA FÍSICA ULITIZADA",
+      icon: "mdi-domain-plus",
+      avatarColor: "blue-grey-darken-2",
+      type: "text_multiline",
+      value: data.infraestructura || data.infraestructura_fisica,
+    },
+    {
+      key: "ubicacion",
+      title: "UBICACIÓN",
+      icon: "mdi-map-marker-outline",
+      avatarColor: "red-darken-1",
+      type: "text_multiline",
+      value: data.ubicacion,
     },
   ];
 });
@@ -161,12 +380,36 @@ const panels = computed(() => {
     location="right"
     temporary
     :width="drawerWidth"
+    :style="drawerStyle"
     elevation="10"
-    class="unidad-details-drawer"
+    :class="['unidad-details-drawer', { 'is-resizing': isResizing }]"
   >
+    <!-- Asa lateral izquierda para redimensionar arrastrando con el mouse -->
+    <div
+      v-if="!display.xs.value"
+      class="resize-handle"
+      @mousedown.prevent="startResizing"
+      @touchstart.prevent="startResizingTouch"
+      title="Arrastre para modificar el ancho del panel"
+    >
+      <div class="resize-handle-bar"></div>
+    </div>
+
     <v-toolbar :color="detailData?.color || 'primary'" dark density="compact">
       <v-toolbar-title class="text-caption font-weight-bold">Detalles de la Unidad</v-toolbar-title>
       <v-spacer />
+      <!-- Botón para alternar ancho normal (520px) o expandido (850px) -->
+      <v-btn
+        v-if="!display.xs.value"
+        icon
+        size="small"
+        @click="customWidth = customWidth > 650 ? 520 : 850"
+      >
+        <v-icon size="18">{{ customWidth > 650 ? 'mdi-arrow-collapse-right' : 'mdi-arrow-expand-left' }}</v-icon>
+        <v-tooltip activator="parent" location="bottom">
+          {{ customWidth > 650 ? 'Ancho estándar (520px)' : 'Expandir panel (850px)' }}
+        </v-tooltip>
+      </v-btn>
       <UnidadActionsMenu
         v-if="detailData?.id"
         :unidad-id="detailData.id"
@@ -274,47 +517,143 @@ const panels = computed(() => {
               </div>
             </template>
 
-            <!-- Panel Cargos con viñetas estilizadas e icono -->
-            <template v-else-if="panel.type === 'cargos'">
-              <div v-if="detailData.cargos_detalle?.length" class="d-flex flex-column gap-1">
-                <div
-                  v-for="c in detailData.cargos_detalle"
-                  :key="c.id"
-                  class="d-flex align-center py-1 px-2 rounded bg-slate-100 border-b-thin"
-                >
-                  <v-icon size="15" color="deep-orange-darken-1" class="mr-2 flex-shrink-0">
-                    mdi-account-tie
-                  </v-icon>
-                  <span class="text-caption font-weight-medium text-slate-800 line-height-1-2">
-                    {{ c.nombre || c.descripcion }}
-                  </span>
+            <!-- Panel tipo texto multilínea / observaciones -->
+            <template v-else-if="panel.type === 'text_multiline'">
+              <div v-if="panel.value" class="pa-2 rounded bg-slate-100 border-b-thin">
+                <div class="text-caption text-slate-800 line-height-1-4" style="white-space: pre-wrap;">
+                  {{ panel.value }}
                 </div>
               </div>
               <div v-else class="d-flex align-center text-caption text-grey py-1">
                 <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
-                <span class="font-italic">Sin cargos registrados.</span>
+                <span class="font-italic">Sin información registrada.</span>
               </div>
             </template>
 
-            <!-- Panel Dependencias con viñetas estilizadas e icono -->
-            <template v-else-if="panel.type === 'dependencias'">
-              <div v-if="detailData.dependencias_nombres?.length" class="d-flex flex-column gap-1">
+            <!-- Panel Dependencia Funcional -->
+            <template v-else-if="panel.type === 'dependencias_funcionales'">
+              <div
+                v-if="(detailData.dependenciasFuncionales && detailData.dependenciasFuncionales.length) || (detailData.dependencias_nombres && detailData.dependencias_nombres.length)"
+                class="d-flex flex-column gap-1"
+              >
                 <div
-                  v-for="name in detailData.dependencias_nombres"
-                  :key="name"
-                  class="d-flex align-center py-1 px-2 rounded bg-slate-100 border-b-thin"
+                  v-for="(dep, idx) in (detailData.dependenciasFuncionales?.length ? detailData.dependenciasFuncionales : detailData.dependencias_nombres)"
+                  :key="idx"
+                  class="d-flex align-center justify-space-between py-1 px-2 rounded bg-slate-100 border-b-thin"
                 >
-                  <v-icon size="15" color="indigo-darken-2" class="mr-2 flex-shrink-0">
-                    mdi-source-branch
-                  </v-icon>
-                  <span class="text-caption font-weight-medium text-indigo-darken-3 line-height-1-2">
-                    {{ name }}
-                  </span>
+                  <div class="d-flex align-center">
+                    <v-icon size="15" color="deep-purple-accent-3" class="mr-2 flex-shrink-0">
+                      mdi-source-branch
+                    </v-icon>
+                    <span class="text-caption font-weight-medium text-slate-800 line-height-1-2">
+                      {{ typeof dep === 'object' ? (dep.denominacion || dep.nombre) : dep }}
+                    </span>
+                  </div>
+                  <v-chip
+                    v-if="typeof dep === 'object' && dep.codigo"
+                    size="x-small"
+                    label
+                    variant="outlined"
+                    class="ml-2 font-weight-bold"
+                    style="font-size: 9px;"
+                  >
+                    {{ dep.codigo }}
+                  </v-chip>
                 </div>
               </div>
               <div v-else class="d-flex align-center text-caption text-grey py-1">
                 <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
-                <span class="font-italic">Sin dependencias registradas.</span>
+                <span class="font-italic">Sin dependencias funcionales registradas.</span>
+              </div>
+            </template>
+
+            <!-- Panel Unidades Dependientes (Lineal) -->
+            <template v-else-if="panel.type === 'hijas_lineales'">
+              <div v-if="detailData.hijas_lineales?.length" class="d-flex flex-column gap-1">
+                <div
+                  v-for="hija in detailData.hijas_lineales"
+                  :key="hija.id"
+                  class="d-flex align-center justify-space-between py-1 px-2 rounded bg-slate-100 border-b-thin"
+                >
+                  <div class="d-flex align-center">
+                    <v-icon size="15" color="teal-darken-2" class="mr-2 flex-shrink-0">
+                      mdi-file-tree-outline
+                    </v-icon>
+                    <span class="text-caption font-weight-medium text-slate-800 line-height-1-2">
+                      {{ hija.nombre }}
+                    </span>
+                  </div>
+                  <div class="d-flex align-center gap-1 ml-2">
+                    <v-chip
+                      v-if="hija.sigla"
+                      size="x-small"
+                      label
+                      color="primary"
+                      variant="tonal"
+                      style="font-size: 9px;"
+                    >
+                      {{ hija.sigla }}
+                    </v-chip>
+                    <v-chip
+                      v-if="hija.codigo"
+                      size="x-small"
+                      label
+                      variant="outlined"
+                      style="font-size: 9px;"
+                    >
+                      {{ hija.codigo }}
+                    </v-chip>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin unidades dependientes lineales.</span>
+              </div>
+            </template>
+
+            <!-- Panel Unidades Dependientes (Funcional) -->
+            <template v-else-if="panel.type === 'hijas_funcionales'">
+              <div v-if="detailData.hijas_funcionales?.length" class="d-flex flex-column gap-1">
+                <div
+                  v-for="hija in detailData.hijas_funcionales"
+                  :key="hija.id"
+                  class="d-flex align-center justify-space-between py-1 px-2 rounded bg-slate-100 border-b-thin"
+                >
+                  <div class="d-flex align-center">
+                    <v-icon size="15" color="deep-purple-darken-1" class="mr-2 flex-shrink-0">
+                      mdi-routes
+                    </v-icon>
+                    <span class="text-caption font-weight-medium text-slate-800 line-height-1-2">
+                      {{ hija.nombre }}
+                    </span>
+                  </div>
+                  <div class="d-flex align-center gap-1 ml-2">
+                    <v-chip
+                      v-if="hija.sigla"
+                      size="x-small"
+                      label
+                      color="primary"
+                      variant="tonal"
+                      style="font-size: 9px;"
+                    >
+                      {{ hija.sigla }}
+                    </v-chip>
+                    <v-chip
+                      v-if="hija.codigo"
+                      size="x-small"
+                      label
+                      variant="outlined"
+                      style="font-size: 9px;"
+                    >
+                      {{ hija.codigo }}
+                    </v-chip>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin unidades dependientes funcionales.</span>
               </div>
             </template>
 
@@ -383,6 +722,120 @@ const panels = computed(() => {
                 Sin funciones asignadas.
               </v-alert>
             </template>
+
+            <!-- Panel Relacionamiento Interno -->
+            <template v-else-if="panel.type === 'relaciones_internas'">
+              <div v-if="detailData.relaciones_internas?.length" class="d-flex flex-column gap-1">
+                <div
+                  v-for="(rel, idx) in detailData.relaciones_internas"
+                  :key="rel.id || idx"
+                  class="d-flex align-center justify-space-between py-1 px-2 rounded bg-slate-100 border-b-thin"
+                >
+                  <div class="d-flex align-center">
+                    <v-icon size="15" color="indigo-darken-1" class="mr-2 flex-shrink-0">
+                      mdi-account-switch-outline
+                    </v-icon>
+                    <span class="text-caption font-weight-medium text-slate-800 line-height-1-2">
+                      {{ rel.nombre || ('Unidad #' + (rel.relacionadaId || rel.id)) }}
+                    </span>
+                  </div>
+                  <div class="d-flex align-center gap-1 ml-2">
+                    <v-chip
+                      v-if="rel.sigla"
+                      size="x-small"
+                      label
+                      color="primary"
+                      variant="tonal"
+                      style="font-size: 9px;"
+                    >
+                      {{ rel.sigla }}
+                    </v-chip>
+                    <v-chip
+                      v-if="rel.codigo"
+                      size="x-small"
+                      label
+                      variant="outlined"
+                      style="font-size: 9px;"
+                    >
+                      {{ rel.codigo }}
+                    </v-chip>
+                    <v-chip
+                      v-if="rel.tipo"
+                      size="x-small"
+                      color="indigo"
+                      variant="flat"
+                      style="font-size: 9px;"
+                    >
+                      {{ rel.tipo }}
+                    </v-chip>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin relacionamiento interno registrado.</span>
+              </div>
+            </template>
+
+            <!-- Panel Relacionamiento Externo (Interinstitucional) -->
+            <template v-else-if="panel.type === 'relaciones_externas'">
+              <div v-if="detailData.relaciones_externas?.length" class="d-flex flex-column gap-1">
+                <div
+                  v-for="rel in detailData.relaciones_externas"
+                  :key="rel.id || rel.entidadExterna"
+                  class="pa-2 rounded bg-slate-100 border-b-thin"
+                >
+                  <div class="d-flex align-center mb-1">
+                    <v-icon size="15" color="blue-darken-2" class="mr-1 flex-shrink-0">
+                      mdi-domain
+                    </v-icon>
+                    <span class="text-caption font-weight-bold text-slate-800">
+                      {{ rel.entidadExterna }}
+                    </span>
+                  </div>
+                  <div v-if="rel.descripcion" class="text-caption text-slate-600 line-height-1-3 pl-4">
+                    {{ rel.descripcion }}
+                  </div>
+                </div>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin relacionamiento interinstitucional registrado.</span>
+              </div>
+            </template>
+
+            <!-- Panel Cargos con viñetas estilizadas e icono -->
+            <template v-else-if="panel.type === 'cargos'">
+              <div v-if="detailData.cargos_detalle?.length" class="d-flex flex-column gap-1">
+                <div
+                  v-for="c in detailData.cargos_detalle"
+                  :key="c.id"
+                  class="d-flex align-center justify-space-between py-1 px-2 rounded bg-slate-100 border-b-thin"
+                >
+                  <div class="d-flex align-center">
+                    <v-icon size="15" color="deep-orange-darken-1" class="mr-2 flex-shrink-0">
+                      mdi-account-tie
+                    </v-icon>
+                    <span class="text-caption font-weight-medium text-slate-800 line-height-1-2">
+                      {{ c.nombre || c.denominacion || c.descripcion }}
+                    </span>
+                  </div>
+                  <v-chip
+                    v-if="c.item"
+                    size="x-small"
+                    label
+                    variant="outlined"
+                    style="font-size: 9px;"
+                  >
+                    Ítem: {{ c.item }}
+                  </v-chip>
+                </div>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin cargos registrados.</span>
+              </div>
+            </template>
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
@@ -418,7 +871,7 @@ const panels = computed(() => {
 <style scoped>
 /* Responsive width enforcement */
 .unidad-details-drawer {
-  max-width: 100vw !important;
+  max-width: 95vw !important;
 }
 
 @media (max-width: 599.99px) {
@@ -429,28 +882,12 @@ const panels = computed(() => {
   }
 }
 
-@media (min-width: 600px) and (max-width: 959.99px) {
-  .unidad-details-drawer,
-  :deep(.unidad-details-drawer) {
-    width: 90vw !important;
-    max-width: 90vw !important;
-  }
-}
-
-@media (min-width: 960px) and (max-width: 1279.99px) {
-  .unidad-details-drawer,
-  :deep(.unidad-details-drawer) {
-    width: 480px !important;
-    max-width: 480px !important;
-  }
-}
-
-@media (min-width: 1280px) {
-  .unidad-details-drawer,
-  :deep(.unidad-details-drawer) {
-    width: 520px !important;
-    max-width: 520px !important;
-  }
+/* Desactivar transiciones durante el arrastre para máxima fluidez */
+.unidad-details-drawer.is-resizing,
+.unidad-details-drawer.is-resizing :deep(*),
+.unidad-details-drawer.is-resizing :deep(.v-navigation-drawer__content) {
+  transition: none !important;
+  user-select: none !important;
 }
 
 .drawer-content {
@@ -506,5 +943,51 @@ const panels = computed(() => {
 
 .mt-0-5 {
   margin-top: 2px;
+}
+
+/* Asa de redimensionamiento arrastrable */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 100%;
+  min-height: 100%;
+  cursor: col-resize;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: rgba(var(--v-theme-primary), 0.15);
+}
+
+.resize-handle-bar {
+  position: sticky;
+  top: 50vh;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 48px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+}
+
+.resize-handle:hover .resize-handle-bar,
+.resize-handle:active .resize-handle-bar {
+  background: rgb(var(--v-theme-primary));
+  height: 68px;
+  width: 4px;
+}
+
+@media (max-width: 600px) {
+  .resize-handle {
+    display: none !important;
+  }
 }
 </style>
