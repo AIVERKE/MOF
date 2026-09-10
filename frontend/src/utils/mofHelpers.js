@@ -226,3 +226,40 @@ export const isUnidadOficial = (unidad, clases = []) => {
     String(cInfo.oficial).toLowerCase() === "true"
   );
 };
+
+/**
+ * Normaliza un texto para búsquedas y comparaciones (sin acentos, minúsculas, limpio)
+ */
+export const normalizeText = (text) => {
+  if (!text) return "";
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+};
+
+/**
+ * Compara códigos jerárquicos numéricos separados por puntos (ej: "1.2.3")
+ * Soporta tanto nodos de VueFlow ({ data: { codigo, nombre } }) como objetos unidad ({ codigo, nombre }).
+ */
+export const compareCodigos = (a, b) => {
+  const codA = a?.data?.codigo ?? a?.codigo ?? "";
+  const codB = b?.data?.codigo ?? b?.codigo ?? "";
+  const aParts = String(codA)
+    .split(".")
+    .map((p) => parseInt(p, 10) || 0);
+  const bParts = String(codB)
+    .split(".")
+    .map((p) => parseInt(p, 10) || 0);
+  const maxLen = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < maxLen; i++) {
+    const aVal = aParts[i] ?? 0;
+    const bVal = bParts[i] ?? 0;
+    if (aVal !== bVal) return aVal - bVal;
+  }
+  const nomA = a?.data?.nombre ?? a?.nombre ?? "";
+  const nomB = b?.data?.nombre ?? b?.nombre ?? "";
+  return String(nomA).localeCompare(String(nomB));
+};
+
