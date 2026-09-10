@@ -29,6 +29,8 @@ import {
   getClaseColor,
   highlightText,
   isUnidadOficial,
+  normalizeText,
+  compareCodigos,
 } from "@/utils/mofHelpers";
 
 import "@vue-flow/core/dist/style.css";
@@ -111,7 +113,6 @@ const {
 const hierarchyDrawer = ref(false);
 const hierarchyDrawerWidth = ref(450);
 
-const graphKey = ref(0); // Clave para forzar redibujado completo
 const searchTerm = ref("");
 
 // --- FILTROS ---
@@ -134,6 +135,15 @@ const checkOficial = (u) => isUnidadOficial(u, clasesStore.clases);
 /** Always an array — never crash on .find/.filter if store list is undefined */
 const unidadesList = computed(() => unidadesStore.unidades ?? []);
 
+/** Mapa indexado por ID para acceso O(1) a unidades */
+const unidadesByIdMap = computed(() => {
+  const map = new Map();
+  for (const u of unidadesList.value) {
+    map.set(String(u.id), u);
+  }
+  return map;
+});
+
 const findNearestOficialParentId = (unidad) => {
   let currentParentId =
     unidad.parent && typeof unidad.parent === "object"
@@ -141,9 +151,7 @@ const findNearestOficialParentId = (unidad) => {
       : unidad.parent;
 
   while (currentParentId) {
-    const parentUnit = unidadesList.value.find(
-      (u) => String(u.id) === String(currentParentId),
-    );
+    const parentUnit = unidadesByIdMap.value.get(String(currentParentId));
     if (!parentUnit) break;
 
     if (checkOficial(parentUnit)) {
@@ -170,73 +178,76 @@ const unidadesFiltradas = computed(() => {
   const activeTipoId = getFilterId(filterTipo.value);
   const activeClaseId = getFilterId(filterInstancia.value);
   const activeRelacionId = getFilterId(filterRelacion.value);
-  const searchLower = (searchTerm.value || "").toLowerCase().trim();
+  const searchNorm = normalizeText(searchTerm.value);
+
+  // Pre-resolver descripciones fuera del bucle para máximo rendimiento (O(1) por iteración)
+  let expectedNivelDesc = "";
+  if (activeNivelId) {
+    const item = nivelesStore.niveles.find((n) => String(n.id) === activeNivelId);
+    expectedNivelDesc = item ? item.descripcion.toLowerCase().trim() : "";
+  }
+
+  let expectedTipoDesc = "";
+  if (activeTipoId) {
+    const item = tiposStore.tipos.find((t) => String(t.id) === activeTipoId);
+    expectedTipoDesc = item ? normalizeText(item.descripcion) : "";
+  }
+
+  let expectedClaseDesc = "";
+  if (activeClaseId) {
+    const item = clasesStore.clases.find((c) => String(c.id) === activeClaseId);
+    expectedClaseDesc = item ? item.descripcion.toLowerCase().trim() : "";
+  }
+
+  const isEstricto = vistaModo.value === "estricto";
 
   return unidadesList.value.filter((u) => {
     // Si estamos en modo organigrama oficial estricto, filtramos
-    if (vistaModo.value === "estricto" && !checkOficial(u)) return false;
+    if (isEstricto && !checkOficial(u)) return false;
 
-    if (searchLower) {
-      const uNombreNorm = String(u.nombre || u.denominacion || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      const uSiglaNorm = String(u.sigla || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      const uCodigoNorm = String(u.codigo || "")
-        .toLowerCase();
-      const searchNorm = searchLower
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      if (!uNombreNorm.includes(searchNorm) && !uSiglaNorm.includes(searchNorm) && !uCodigoNorm.includes(searchNorm)) return false;
-    }
-    if (activeNivelId) {
-      const item = nivelesStore.niveles.find(
-        (n) => String(n.id) === activeNivelId,
-      );
+    if (searchNorm) {
+      const uNombreNorm = normalizeText(u.nombre || u.denominacion);
+      const uSiglaNorm = normalizeText(u.sigla);
+      const uCodigoNorm = String(u.codigo || "").toLowerCase();
       if (
-        item &&
-        item.descripcion.toLowerCase().trim() !==
-          String(u.nivel || "")
-            .toLowerCase()
-            .trim()
-      )
+        !uNombreNorm.includes(searchNorm) &&
+        !uSiglaNorm.includes(searchNorm) &&
+        !uCodigoNorm.includes(searchNorm)
+      ) {
         return false;
-    }
-    if (activeTipoId) {
-      const item = tiposStore.tipos.find((t) => String(t.id) === activeTipoId);
-      if (item) {
-        const expected = item.descripcion
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-        const actual = String(u.tipo || "")
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-        if (expected !== actual) return false;
       }
     }
-    if (activeClaseId) {
-      const item = clasesStore.clases.find(
-        (c) => String(c.id) === activeClaseId,
-      );
-      if (
-        item &&
-        item.descripcion.toLowerCase().trim() !==
-          String(u.clase || "")
-            .toLowerCase()
-            .trim()
-      )
+
+    if (activeNivelId) {
+      if (expectedNivelDesc !== String(u.nivel || "").toLowerCase().trim()) {
         return false;
+      }
     }
-    if (activeRelacionId && String(u.relacion) !== activeRelacionId)
+
+    if (activeTipoId) {
+      if (expectedTipoDesc !== normalizeText(u.tipo)) {
+        return false;
+      }
+    }
+
+    if (activeClaseId) {
+      if (expectedClaseDesc !== String(u.clase || "").toLowerCase().trim()) {
+        return false;
+      }
+    }
+
+    if (activeRelacionId && String(u.relacion) !== activeRelacionId) {
       return false;
+    }
+
     return true;
   });
 });
+
+/** Set de IDs filtrados para lookup O(1) compartido entre tabla y grafo (evita doble filtrado) */
+const filteredUnitIdsSet = computed(
+  () => new Set(unidadesFiltradas.value.map((u) => String(u.id))),
+);
 
 const hasAnyFilter = computed(
   () =>
@@ -250,7 +261,46 @@ const hasAnyFilter = computed(
 );
 
 const stats = computed(() => {
+  const backendResumen = unidadesStore.dashboardStats?.resumen;
   const all = unidadesList.value;
+
+  // Si no hay filtros aplicados y tenemos el resumen precalculado del backend, usarlo de inmediato
+  if (
+    backendResumen &&
+    !searchQuery.value &&
+    !selectedNivel.value &&
+    !selectedTipo.value &&
+    !selectedRelacion.value &&
+    !selectedClase.value
+  ) {
+    return [
+      {
+        title: "Total Unidades",
+        value: backendResumen.total,
+        icon: "mdi-sitemap",
+        color: "primary",
+      },
+      {
+        title: "Oficiales",
+        value: backendResumen.oficiales,
+        icon: "mdi-check-decagram",
+        color: "success",
+      },
+      {
+        title: "No Oficiales",
+        value: backendResumen.noOficiales,
+        icon: "mdi-alert-circle-outline",
+        color: "warning",
+      },
+      {
+        title: "Asesoría/Staff",
+        value: backendResumen.staff,
+        icon: "mdi-account-tie",
+        color: "orange-darken-2",
+      },
+    ];
+  }
+
   const oficiales = all.filter((u) => checkOficial(u));
   return [
     {
@@ -318,36 +368,30 @@ function getLayoutedElements(nodes, edges) {
       const rankA = LADO_RANK[a.data?.lado] || 3;
       const rankB = LADO_RANK[b.data?.lado] || 3;
       if (rankA !== rankB) return rankA - rankB;
-
-      const aParts = String(a.data?.codigo || "")
-        .split(".")
-        .map((p) => parseInt(p) || 0);
-      const bParts = String(b.data?.codigo || "")
-        .split(".")
-        .map((p) => parseInt(p) || 0);
-      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-        const aVal = aParts[i] ?? 0;
-        const bVal = bParts[i] ?? 0;
-        if (aVal !== bVal) return aVal - bVal;
-      }
-      return String(a.data?.nombre || "").localeCompare(
-        String(b.data?.nombre || ""),
-      );
+      return compareCodigos(a, b);
     });
   });
 
   const positions = {};
+  const widthMemo = new Map();
 
-  // Función recursiva para calcular el ancho total necesario para cualquier subárbol
+  // Función recursiva memoizada para calcular el ancho total necesario para cualquier subárbol
   function getSubtreeWidth(nodeId) {
+    if (widthMemo.has(nodeId)) return widthMemo.get(nodeId);
     const children = childrenMap[nodeId] || [];
-    if (children.length === 0) return NODE_WIDTH;
-    const totalW =
-      children.reduce(
-        (sum, c) => sum + getSubtreeWidth(String(c.id)) + H_GAP,
-        0,
-      ) - H_GAP;
-    return Math.max(NODE_WIDTH, totalW);
+    let width;
+    if (children.length === 0) {
+      width = NODE_WIDTH;
+    } else {
+      const totalW =
+        children.reduce(
+          (sum, c) => sum + getSubtreeWidth(String(c.id)) + H_GAP,
+          0,
+        ) - H_GAP;
+      width = Math.max(NODE_WIDTH, totalW);
+    }
+    widthMemo.set(nodeId, width);
+    return width;
   }
 
   // Función recursiva para posicionar cualquier subárbol sin colisiones
@@ -376,13 +420,7 @@ function getLayoutedElements(nodes, edges) {
   // Nodos con esTroncal === true pertenecen al Eje Central Institucional
   const trunkNodes = layoutNodes
     .filter((n) => n.data?.esTroncal === true)
-    .sort((a, b) =>
-      String(a.data?.codigo || "").localeCompare(
-        String(b.data?.codigo || ""),
-        undefined,
-        { numeric: true },
-      ),
-    );
+    .sort(compareCodigos);
 
   const hasInstitutionalSpine = trunkNodes.length >= 2;
 
@@ -391,24 +429,6 @@ function getLayoutedElements(nodes, edges) {
     // 🏛️ LAYOUT INSTITUCIONAL DINÁMICO POR PISOS (EJE TRONCAL Y ALAS SIMÉTRICAS)
     // =========================================================================
     const TRUNK_X = 0; // El Eje Central de Gobierno se alinea en X = 0
-
-    // Función auxiliar para ordenar códigos jerárquicos
-    function compareCodigos(a, b) {
-      const aParts = String(a.data?.codigo || "")
-        .split(".")
-        .map((p) => parseInt(p) || 0);
-      const bParts = String(b.data?.codigo || "")
-        .split(".")
-        .map((p) => parseInt(p) || 0);
-      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-        const aVal = aParts[i] ?? 0;
-        const bVal = bParts[i] ?? 0;
-        if (aVal !== bVal) return aVal - bVal;
-      }
-      return String(a.data?.nombre || "").localeCompare(
-        String(b.data?.nombre || ""),
-      );
-    }
 
     // Conjunto de IDs troncales para filtrado O(1)
     const trunkIds = new Set(trunkNodes.map((n) => String(n.id)));
@@ -577,10 +597,6 @@ function getLayoutedElements(nodes, edges) {
   return { nodes, edges };
 }
 
-function procesarEstructuraVisual(unidadesMapeadas) {
-  return unidadesMapeadas;
-}
-
 // --- METHODS ---
 async function refreshChart() {
   console.log(">>> REFRESCO DE TABLAS INICIADO");
@@ -594,11 +610,18 @@ async function refreshChart() {
 
 async function openForm(nodeId = null, edit = false) {
   const node = nodeId
-    ? unidadesList.value.find((u) => String(u.id) === String(nodeId))
+    ? unidadesByIdMap.value.get(String(nodeId))
     : null;
   selectedNode.value = node;
   await openUnitForm(node, edit);
   addDialog.value = true;
+}
+
+function openDeleteDialog(nodeId) {
+  selectedNode.value = nodeId
+    ? unidadesByIdMap.value.get(String(nodeId))
+    : null;
+  deleteDialog.value = true;
 }
 
 async function confirmAddItem() {
@@ -817,10 +840,82 @@ function resetDependencias() {
   updateGraph();
 }
 
-// --- GRAPH LOGIC ---
+// --- GRAPH LOGIC & CACHE ---
+let cachedHierarchyKey = "";
+let cachedPositions = null;
+let cachedEdges = null;
+
+function computeHierarchyKey(sourceData, modo) {
+  let key = `${modo}:${sourceData.length}:`;
+  for (let i = 0; i < sourceData.length; i++) {
+    const u = sourceData[i];
+    const pId = u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
+    key += `${u.id}-${pId}-${u.lado || "A"}-${u.es_troncal || u.esTroncal ? 1 : 0};`;
+  }
+  return key;
+}
+
+function computeNodeVisuals({
+  u,
+  isMatch,
+  isStaff,
+  oficialStatus,
+  isDepMode,
+  selectedDepId,
+  depsIdsSet,
+  activesCount,
+  searchActive,
+  activeNivelId,
+  activeTipoId,
+  activeClaseId,
+  activeRelacionId,
+}) {
+  let isNodeNonOficialInOficialView = false;
+  if (vistaModo.value === "analitico" && !oficialStatus) {
+    isNodeNonOficialInOficialView = true;
+  }
+
+  let finalColor = u.color || (isStaff ? "#FF9800" : "#1976D2");
+
+  if (isDepMode) {
+    const uIdStr = String(u.id);
+    if (uIdStr === selectedDepId) finalColor = "#14B34C";
+    else if (depsIdsSet.has(uIdStr)) finalColor = "#C62828";
+    else finalColor = "#E0E0E0";
+  } else if (isNodeNonOficialInOficialView) {
+    finalColor = "#9E9E9E"; // Gris claro para no oficiales en vista analítica
+  } else if (hasAnyFilter.value) {
+    if (!isMatch) {
+      finalColor = "#E0E0E0";
+    } else {
+      if (activesCount > 1) finalColor = "#4CAF50";
+      else if (searchActive) finalColor = "#FFD700";
+      else if (activeNivelId) finalColor = "#AA00FF";
+      else if (activeTipoId) finalColor = "#00B8D4";
+      else if (activeClaseId) finalColor = "#FF5722";
+      else if (activeRelacionId) {
+        finalColor = u.color || (isStaff ? "#FF9800" : "#E91E63");
+      }
+    }
+  }
+
+  return { finalColor, isNodeNonOficialInOficialView };
+}
+
 const updateGraph = () => {
   const isDepMode =
     mostrarDependencias.value && unidadDependenciaSeleccionada.value;
+  let selectedDepId = "";
+  let depsIdsSet = new Set();
+  if (isDepMode) {
+    selectedDepId = String(unidadDependenciaSeleccionada.value.id);
+    depsIdsSet = new Set(
+      (unidadDependenciaSeleccionada.value.dependencias || []).map((d) =>
+        String(typeof d === "object" ? d.id : d),
+      ),
+    );
+  }
+
   const getFilterId = (val) =>
     val && typeof val === "object"
       ? String(val.id || "").trim()
@@ -830,6 +925,12 @@ const updateGraph = () => {
   const activeClaseId = getFilterId(filterInstancia.value);
   const activeRelacionId = getFilterId(filterRelacion.value);
   const searchLower = (searchTerm.value || "").toLowerCase().trim();
+  const activesCount = [
+    activeNivelId,
+    activeTipoId,
+    activeClaseId,
+    activeRelacionId,
+  ].filter((x) => x).length;
 
   // Filtrado Estructural para Modo Estricto
   let sourceData = unidadesList.value;
@@ -837,6 +938,63 @@ const updateGraph = () => {
     sourceData = sourceData.filter((u) => checkOficial(u));
   }
 
+  const currentHierarchyKey = computeHierarchyKey(sourceData, vistaModo.value);
+
+  // ⚡ LAYOUT INCREMENTAL: Si la jerarquía no cambió, solo actualizamos visuales (color, isMatch)
+  if (
+    currentHierarchyKey === cachedHierarchyKey &&
+    cachedPositions &&
+    nodes.value &&
+    nodes.value.length === sourceData.length
+  ) {
+    const currentNodes = nodes.value;
+    for (let i = 0; i < currentNodes.length; i++) {
+      const node = currentNodes[i];
+      const u = unidadesByIdMap.value.get(node.id);
+      if (!u) continue;
+      const isStaff =
+        node.data?.isStaff ?? isStaffNode(u, relacionesStore.relaciones);
+      const oficialStatus = node.data?.isOficial ?? checkOficial(u);
+      const isMatch = filteredUnitIdsSet.value.has(node.id);
+
+      const { finalColor, isNodeNonOficialInOficialView } = computeNodeVisuals({
+        u,
+        isMatch,
+        isStaff,
+        oficialStatus,
+        isDepMode,
+        selectedDepId,
+        depsIdsSet,
+        activesCount,
+        searchActive: !!searchLower,
+        activeNivelId,
+        activeTipoId,
+        activeClaseId,
+        activeRelacionId,
+      });
+
+      node.data.color = finalColor;
+      node.data.isMatch = isMatch;
+      node.data.isNonOficialInOficialView = isNodeNonOficialInOficialView;
+    }
+
+    // Control de cámara inteligente inmediato sin setTimeout
+    nextTick(() => {
+      if (searchLower) {
+        const matchingIds = currentNodes
+          .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
+          .map((n) => String(n.id));
+        if (matchingIds.length > 0) {
+          volarANodos(matchingIds);
+        } else {
+          fitView({ padding: 0.15, duration: 800 });
+        }
+      }
+    });
+    return;
+  }
+
+  // Si la jerarquía cambió (modo estricto/analítico o recarga de datos), recalculamos layout
   const baseNodes = sourceData.map((u) => {
     const isStaff = isStaffNode(u, relacionesStore.relaciones);
     let pId = u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
@@ -847,109 +1005,23 @@ const updateGraph = () => {
     }
 
     const oficialStatus = checkOficial(u);
+    const isMatch = filteredUnitIdsSet.value.has(String(u.id));
 
-    // Lógica de visualización según el modo seleccionado
-    let isNodeNonOficialInOficialView = false;
-    if (vistaModo.value === "analitico" && !oficialStatus) {
-      isNodeNonOficialInOficialView = true;
-    }
-
-    let finalColor = u.color || (isStaff ? "#FF9800" : "#1976D2");
-
-    let isMatch = true;
-    let matchNivel = true,
-      matchTipo = true,
-      matchClase = true,
-      matchRel = true,
-      matchSearch = true;
-
-    if (searchLower) {
-      const uNombreNorm = String(u.nombre || u.denominacion || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      const uSiglaNorm = String(u.sigla || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      const uCodigoNorm = String(u.codigo || "")
-        .toLowerCase();
-      const searchNorm = searchLower
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      matchSearch =
-        uNombreNorm.includes(searchNorm) ||
-        uSiglaNorm.includes(searchNorm) ||
-        uCodigoNorm.includes(searchNorm);
-    }
-    if (activeNivelId) {
-      const item = nivelesStore.niveles.find(
-        (n) => String(n.id) === activeNivelId,
-      );
-      matchNivel =
-        item &&
-        item.descripcion.toLowerCase().trim() ===
-          String(u.nivel || "")
-            .toLowerCase()
-            .trim();
-    }
-    if (activeTipoId) {
-      const item = tiposStore.tipos.find((t) => String(t.id) === activeTipoId);
-      matchTipo =
-        item &&
-        item.descripcion
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "") ===
-          String(u.tipo || "")
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "");
-    }
-    if (activeClaseId) {
-      const item = clasesStore.clases.find(
-        (c) => String(c.id) === activeClaseId,
-      );
-      matchClase =
-        item &&
-        item.descripcion.toLowerCase().trim() ===
-          String(u.clase || "")
-            .toLowerCase()
-            .trim();
-    }
-    if (activeRelacionId) matchRel = String(u.relacion) === activeRelacionId;
-
-    isMatch = matchSearch && matchNivel && matchTipo && matchClase && matchRel;
-
-    if (isDepMode) {
-      const selectedId = String(unidadDependenciaSeleccionada.value.id);
-      const depsIds = (
-        unidadDependenciaSeleccionada.value.dependencias || []
-      ).map((d) => String(typeof d === "object" ? d.id : d));
-      if (String(u.id) === selectedId) finalColor = "#14B34C";
-      else if (depsIds.includes(String(u.id))) finalColor = "#C62828";
-      else finalColor = "#E0E0E0";
-    } else if (isNodeNonOficialInOficialView) {
-      finalColor = "#9E9E9E"; // Gris claro para no oficiales en vista analítica
-    } else if (hasAnyFilter.value) {
-      if (!isMatch) finalColor = "#E0E0E0";
-      else {
-        const actives = [
-          activeNivelId,
-          activeTipoId,
-          activeClaseId,
-          activeRelacionId,
-        ].filter((x) => x).length;
-        if (actives > 1) finalColor = "#4CAF50";
-        else if (searchLower) finalColor = "#FFD700";
-        else if (activeNivelId) finalColor = "#AA00FF";
-        else if (activeTipoId) finalColor = "#00B8D4";
-        else if (activeClaseId) finalColor = "#FF5722";
-        else if (activeRelacionId) {
-          finalColor = u.color || (isStaff ? "#FF9800" : "#E91E63");
-        }
-      }
-    }
+    const { finalColor, isNodeNonOficialInOficialView } = computeNodeVisuals({
+      u,
+      isMatch,
+      isStaff,
+      oficialStatus,
+      isDepMode,
+      selectedDepId,
+      depsIdsSet,
+      activesCount,
+      searchActive: !!searchLower,
+      activeNivelId,
+      activeTipoId,
+      activeClaseId,
+      activeRelacionId,
+    });
 
     return {
       id: String(u.id),
@@ -965,7 +1037,6 @@ const updateGraph = () => {
         color: finalColor,
         isStaff: isStaff,
         isInvisible: false,
-        rawData: u,
         orden: getPesoReal(u, clasesStore.clases),
         isMatch: isMatch,
         isNonOficialInOficialView: isNodeNonOficialInOficialView,
@@ -993,7 +1064,7 @@ const updateGraph = () => {
     });
   });
 
-  const finalNodes = procesarEstructuraVisual(baseNodes);
+  const finalNodes = baseNodes;
   const nodeIds = new Set(finalNodes.map((n) => String(n.id)));
   const flowEdges = finalNodes
     .filter((n) => n.parentId && nodeIds.has(String(n.parentId)))
@@ -1023,27 +1094,32 @@ const updateGraph = () => {
     finalNodes,
     flowEdges,
   );
+
+  // Cachear jerarquía y posiciones para actualizaciones incrementales
+  cachedHierarchyKey = currentHierarchyKey;
+  cachedPositions = {};
+  layoutedNodes.forEach((n) => {
+    cachedPositions[n.id] = { ...n.position };
+  });
+  cachedEdges = layoutedEdges;
+
   setNodes(layoutedNodes);
   setEdges(layoutedEdges);
-  graphKey.value++; // Incrementamos la clave para forzar redibujado total
 
-  // Control de cámara inteligente post-remontaje (estilo Google Maps)
+  // Control de cámara inteligente inmediato sin setTimeout
   nextTick(() => {
-    setTimeout(() => {
-      const searchLower = (searchTerm.value || "").toLowerCase().trim();
-      if (searchLower) {
-        const matchingIds = layoutedNodes
-          .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
-          .map((n) => String(n.id));
-        if (matchingIds.length > 0) {
-          volarANodos(matchingIds);
-        } else {
-          fitView({ padding: 0.15, duration: 800 });
-        }
+    if (searchLower) {
+      const matchingIds = layoutedNodes
+        .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
+        .map((n) => String(n.id));
+      if (matchingIds.length > 0) {
+        volarANodos(matchingIds);
       } else {
         fitView({ padding: 0.15, duration: 800 });
       }
-    }, 150);
+    } else {
+      fitView({ padding: 0.15, duration: 800 });
+    }
   });
 };
 
@@ -1095,6 +1171,7 @@ onMounted(async () => {
   }
   await Promise.all([
     unidadesStore.getFetchUnidades(),
+    unidadesStore.getDashboardStats(),
     tiposStore.getFetchTipos(),
     nivelesStore.getFetchNiveles(),
     relacionesStore.getFetchRelaciones(),
@@ -1117,20 +1194,7 @@ onNodeClick(({ node }) => {
   showNodeDetails(node.id);
 });
 
-// Debounce de 400ms para búsqueda por texto (un vuelo por búsqueda, no por tecla)
-let searchDebounceTimer = null;
-watch(searchTerm, (newVal) => {
-  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-  if (!newVal || !newVal.trim()) {
-    updateGraph();
-  } else {
-    searchDebounceTimer = setTimeout(() => {
-      updateGraph();
-    }, 400);
-  }
-});
-
-// Watcher inmediato para filtros categóricos y cambios estructurales
+// Watcher inmediato para búsqueda, filtros categóricos y cambios estructurales (sin debounce ni timers)
 watch(
   [
     () => unidadesList.value,
@@ -1141,6 +1205,7 @@ watch(
     filterTipo,
     filterInstancia,
     filterRelacion,
+    searchTerm,
   ],
   () => {
     updateGraph();
@@ -1544,12 +1609,7 @@ function resetFilters() {
                   @dependencias="verDependencias"
                   @add-child="(id) => openForm(id, false)"
                   @edit="(id) => openForm(id, true)"
-                  @delete="
-                    (id) => {
-                      selectedNode = u;
-                      deleteDialog = true;
-                    }
-                  "
+                  @delete="(id) => openDeleteDialog(id)"
                 />
               </td>
             </tr>
@@ -1570,7 +1630,6 @@ function resetFilters() {
       />
       <div class="flow-container">
         <VueFlow
-          :key="graphKey"
           :nodes="nodes"
           :edges="edges"
           fit-view-on-init
@@ -1672,12 +1731,7 @@ function resetFilters() {
                   @dependencias="verDependencias"
                   @add-child="(uid) => openForm(uid, false)"
                   @edit="(uid) => openForm(uid, true)"
-                  @delete="
-                    () => {
-                      selectedNode = data.rawData;
-                      deleteDialog = true;
-                    }
-                  "
+                  @delete="() => openDeleteDialog(id)"
                 />
               </div>
               <Handle

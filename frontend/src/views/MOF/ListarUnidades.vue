@@ -20,6 +20,7 @@ import {
   getTipoNombre,
   getRelacionNombre,
   getClaseColor,
+  getContrastingTextColor,
   highlightText,
   isUnidadOficial
 } from "@/utils/mofHelpers";
@@ -107,7 +108,8 @@ const filteredUnidades = computed(() => {
 
   return list.map(u => ({
     ...u,
-    display_name: u.denominacion || u.nombre
+    display_name: u.denominacion || u.nombre,
+    clase: u.clase || u.tipo_unidad || u.tipoUnidad
   }));
 });
 
@@ -286,7 +288,7 @@ async function confirmDelete() {
                 size="x-small" 
                 label 
                 class="font-weight-bold" 
-                :style="{ backgroundColor: resolveClaseColor(item.clase), color: '#1E293B' }"
+                :style="{ backgroundColor: resolveClaseColor(item.clase), color: getContrastingTextColor(resolveClaseColor(item.clase)) }"
               >
                 {{ resolveClase(item.clase) }}
               </v-chip>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { useTheme } from "vuetify";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
@@ -27,6 +27,7 @@ const relacionesStore = useAllRelacionesMofStore();
 const isUnidadOficialCheck = (u) => isUnidadOficial(u, clasesStore.clases);
 
 const loading = ref(true);
+const dashboardData = ref(null);
 
 // Estados para Filtros
 const filtroClase = ref(null);
@@ -42,6 +43,23 @@ const chartTypes = ref({
   relacion: "column",
 });
 
+const cargarDashboard = async () => {
+  const filters = {};
+  if (filtroClase.value) filters.clase = filtroClase.value;
+  if (filtroNivel.value) filters.nivel = filtroNivel.value;
+  if (filtroTipo.value) filters.tipo = filtroTipo.value;
+  if (filtroRelacion.value) filters.relacion = filtroRelacion.value;
+
+  const data = await unidadesStore.getDashboardStats(filters);
+  if (data) {
+    dashboardData.value = data;
+  }
+};
+
+watch([filtroClase, filtroNivel, filtroTipo, filtroRelacion], () => {
+  cargarDashboard();
+});
+
 onMounted(async () => {
   loading.value = true;
   await Promise.all([
@@ -50,6 +68,7 @@ onMounted(async () => {
     nivelesStore.getFetchNiveles(),
     tiposStore.getFetchTipos(),
     relacionesStore.getFetchRelaciones(),
+    cargarDashboard(),
   ]);
   loading.value = false;
 });
@@ -178,15 +197,53 @@ const agrupaciones = computed(() => ({
   },
 }));
 
-// Generador dinámico de opciones de Highcharts
+// Generador dinámico de opciones de Highcharts usando agregaciones nativas del backend
 const getChartOptions = (key, chartInfo) => {
   const type = chartTypes.value[key];
-  const data = Object.entries(chartInfo.data).map(([name, items]) => ({
-    name: name,
-    y: items.length,
-    color:
-      key === "clase" ? getClaseColor(name, clasesStore.clases) : undefined,
-  }));
+
+  let data = [];
+  if (dashboardData.value) {
+    if (key === "clase" && dashboardData.value.porClase) {
+      data = dashboardData.value.porClase
+        .filter((c) => c.count > 0 || !filtroClase.value)
+        .map((c) => ({
+          name: c.descripcion,
+          y: c.count,
+          color: c.color || getClaseColor(c.descripcion, clasesStore.clases),
+        }));
+    } else if (key === "nivel" && dashboardData.value.porNivel) {
+      data = dashboardData.value.porNivel
+        .filter((n) => n.count > 0 || !filtroNivel.value)
+        .map((n) => ({
+          name: n.descripcion,
+          y: n.count,
+        }));
+    } else if (key === "tipo" && dashboardData.value.porTipo) {
+      data = dashboardData.value.porTipo
+        .filter((t) => t.count > 0 || !filtroTipo.value)
+        .map((t) => ({
+          name: t.descripcion,
+          y: t.count,
+        }));
+    } else if (key === "relacion" && dashboardData.value.porRelacion) {
+      data = dashboardData.value.porRelacion
+        .filter((r) => r.count > 0 || !filtroRelacion.value)
+        .map((r) => ({
+          name: r.descripcion,
+          y: r.count,
+        }));
+    }
+  }
+
+  // Fallback si por alguna razón no ha cargado dashboardData
+  if (data.length === 0 && chartInfo?.data) {
+    data = Object.entries(chartInfo.data).map(([name, items]) => ({
+      name: name,
+      y: items.length,
+      color:
+        key === "clase" ? getClaseColor(name, clasesStore.clases) : undefined,
+    }));
+  }
 
   const textColor = isDark.value ? "#E2E8F0" : "#333333";
   const labelColor = isDark.value ? "#94A3B8" : "#666666";
@@ -385,7 +442,7 @@ const getChartOptions = (key, chartInfo) => {
               UNIVERSO DE UNIDADES
             </div>
             <div class="text-h1 font-weight-black line-height-1">
-              {{ unidadesFiltradas.length }}
+              {{ dashboardData?.resumen?.total ?? unidadesFiltradas.length }}
             </div>
             <div class="text-caption mt-2 font-weight-bold opacity-70 italic">
               Según filtros aplicados

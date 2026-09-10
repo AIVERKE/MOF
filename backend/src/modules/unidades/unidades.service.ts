@@ -88,6 +88,7 @@ export class UnidadesService {
       es_troncal: u.esTroncal ?? false,
       lado: u.lado ?? 'AUTOMATICO',
       color: u.tipoUnidad?.color ?? null,
+      clase: u.tipoUnidad?.descripcion ?? null,
       tipo_unidad: u.tipoUnidad?.descripcion ?? null,
       tipoUnidad: u.tipoUnidadId,
       base_legal: u.baseLegal,
@@ -474,6 +475,15 @@ export class UnidadesService {
   async remove(id: number) {
     const u = await this.unidadRepo.findOne({ where: { id: String(id) } });
     if (!u) notFound(id);
+    const hasChildren = await this.unidadRepo.count({
+      where: { parentId: String(id) },
+    });
+    if (hasChildren > 0) {
+      throw new BusinessException(
+        'No se puede eliminar: tiene unidades dependientes.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     await this.unidadRepo.softRemove(u);
     return id;
   }
@@ -873,5 +883,235 @@ export class UnidadesService {
     if (!u) notFound(id);
     const funciones = await this.funciones(id);
     return { unidad: u, funciones };
+  }
+
+  async getDashboardStats(filters?: {
+    clase?: string;
+    nivel?: string;
+    tipo?: string;
+    relacion?: string;
+  }) {
+    const params: any[] = [];
+    const filterClauses: string[] = [];
+
+    if (filters?.clase) {
+      params.push(filters.clase.trim());
+      filterClauses.push(`tu_filter.descripcion = $${params.length}`);
+    }
+    if (filters?.nivel) {
+      params.push(filters.nivel.trim());
+      filterClauses.push(`cn_filter.descripcion = $${params.length}`);
+    }
+    if (filters?.tipo) {
+      params.push(filters.tipo.trim());
+      filterClauses.push(`ct_filter.descripcion = $${params.length}`);
+    }
+    if (filters?.relacion) {
+      params.push(filters.relacion.trim());
+      filterClauses.push(`cr_filter.descripcion = $${params.length}`);
+    }
+
+    const filterJoinSql = `
+      LEFT JOIN tipo_unidad tu_filter ON u.tipo_unidad_id = tu_filter.id AND tu_filter.deleted_at IS NULL
+      LEFT JOIN catalogo_nivel cn_filter ON u.nivel_id = cn_filter.id AND cn_filter.deleted_at IS NULL
+      LEFT JOIN catalogo_tipo ct_filter ON u.tipo_id = ct_filter.id AND ct_filter.deleted_at IS NULL
+      LEFT JOIN catalogo_relacion cr_filter ON u.relacion_id = cr_filter.id AND cr_filter.deleted_at IS NULL
+    `;
+
+    const whereBase = ['u.deleted_at IS NULL', ...filterClauses].join(' AND ');
+
+    // 1. Resumen general
+    const resumenSql = `
+      SELECT
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE u.oficial = true)::int as oficiales,
+        COUNT(*) FILTER (WHERE u.oficial = false OR u.oficial IS NULL)::int as "noOficiales",
+        COUNT(*) FILTER (WHERE UPPER(r.descripcion) LIKE '%STAFF%' OR UPPER(r.descripcion) LIKE '%ASESOR%')::int as staff
+      FROM unidad u
+      ${filterJoinSql}
+      LEFT JOIN catalogo_relacion r ON u.relacion_id = r.id AND r.deleted_at IS NULL
+      WHERE ${whereBase}
+    `;
+    const resumenRaw = await this.unidadRepo.query(resumenSql, params);
+
+    // 2. Conteo por Clase / Tipo de Instancia
+    const porClaseSql = `
+      SELECT
+        tu.id,
+        tu.descripcion,
+        tu.color,
+        tu.peso,
+        COUNT(u.id)::int as count
+      FROM tipo_unidad tu
+      LEFT JOIN unidad u ON u.tipo_unidad_id = tu.id AND u.deleted_at IS NULL
+      ${filterClauses.length ? filterJoinSql : ''}
+      WHERE tu.deleted_at IS NULL AND tu.activo = true
+      ${filterClauses.length ? `AND (${filterClauses.join(' AND ')})` : ''}
+      GROUP BY tu.id, tu.descripcion, tu.color, tu.peso
+      ORDER BY tu.peso ASC, tu.descripcion ASC
+    `;
+    const porClase = await this.unidadRepo.query(porClaseSql, params);
+
+    // 3. Conteo por Nivel Jerárquico
+    const porNivelSql = `
+      SELECT
+        cn.id,
+        cn.descripcion,
+        COUNT(u.id)::int as count
+      FROM catalogo_nivel cn
+      LEFT JOIN unidad u ON u.nivel_id = cn.id AND u.deleted_at IS NULL
+      ${filterClauses.length ? filterJoinSql : ''}
+      WHERE cn.deleted_at IS NULL AND cn.activo = true
+      ${filterClauses.length ? `AND (${filterClauses.join(' AND ')})` : ''}
+      GROUP BY cn.id, cn.descripcion
+      ORDER BY cn.id ASC
+    `;
+    const porNivel = await this.unidadRepo.query(porNivelSql, params);
+
+    // 4. Conteo por Tipo de Unidad
+    const porTipoSql = `
+      SELECT
+        ct.id,
+        ct.descripcion,
+        COUNT(u.id)::int as count
+      FROM catalogo_tipo ct
+      LEFT JOIN unidad u ON u.tipo_id = ct.id AND u.deleted_at IS NULL
+      ${filterClauses.length ? filterJoinSql : ''}
+      WHERE ct.deleted_at IS NULL AND ct.activo = true
+      ${filterClauses.length ? `AND (${filterClauses.join(' AND ')})` : ''}
+      GROUP BY ct.id, ct.descripcion
+      ORDER BY ct.id ASC
+    `;
+    const porTipo = await this.unidadRepo.query(porTipoSql, params);
+
+    // 5. Conteo por Tipo de Relación
+    const porRelacionSql = `
+      SELECT
+        cr.id,
+        cr.descripcion,
+        COUNT(u.id)::int as count
+      FROM catalogo_relacion cr
+      LEFT JOIN unidad u ON u.relacion_id = cr.id AND u.deleted_at IS NULL
+      ${filterClauses.length ? filterJoinSql : ''}
+      WHERE cr.deleted_at IS NULL AND cr.activo = true
+      ${filterClauses.length ? `AND (${filterClauses.join(' AND ')})` : ''}
+      GROUP BY cr.id, cr.descripcion
+      ORDER BY cr.id ASC
+    `;
+    const porRelacion = await this.unidadRepo.query(porRelacionSql, params);
+
+    // 6. Recientes (últimas 6)
+    const recientes = await this.unidadRepo.query(`
+      SELECT
+        u.id,
+        u.codigo,
+        u.nombre,
+        u.sigla,
+        COALESCE(tu.color, '#1976D2') as color,
+        tu.descripcion as clase,
+        u.fec_creacion as "fecCreacion",
+        u.created_at as "createdAt"
+      FROM unidad u
+      LEFT JOIN tipo_unidad tu ON u.tipo_unidad_id = tu.id AND tu.deleted_at IS NULL
+      WHERE u.deleted_at IS NULL
+      ORDER BY u.id DESC
+      LIMIT 6
+    `);
+
+    const resumen = resumenRaw[0] || {
+      total: 0,
+      oficiales: 0,
+      noOficiales: 0,
+      staff: 0,
+    };
+
+    return {
+      resumen,
+      porClase,
+      porNivel,
+      porTipo,
+      porRelacion,
+      recientes,
+    };
+  }
+
+  async getDescendientesStats(unidadId: number) {
+    const unidadMadre = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+      relations: ['tipoUnidad'],
+    });
+    if (!unidadMadre) notFound(unidadId);
+
+    const arbol = await this.unidadRepo.query(
+      `
+      WITH RECURSIVE descendientes AS (
+        SELECT
+          u.id,
+          u.codigo,
+          u.nombre,
+          u.sigla,
+          u.parent_id,
+          u.tipo_unidad_id,
+          u.oficial,
+          0 as level
+        FROM unidad u
+        WHERE u.id = $1 AND u.deleted_at IS NULL
+
+        UNION ALL
+
+        SELECT
+          h.id,
+          h.codigo,
+          h.nombre,
+          h.sigla,
+          h.parent_id,
+          h.tipo_unidad_id,
+          h.oficial,
+          d.level + 1
+        FROM unidad h
+        INNER JOIN descendientes d ON h.parent_id = d.id
+        WHERE h.deleted_at IS NULL
+      )
+      SELECT
+        d.id,
+        d.codigo,
+        d.nombre,
+        d.sigla,
+        d.parent_id as "parentId",
+        d.oficial,
+        d.level,
+        COALESCE(tu.color, '#1976D2') as color,
+        tu.descripcion as clase,
+        tu.id as "claseId"
+      FROM descendientes d
+      LEFT JOIN tipo_unidad tu ON d.tipo_unidad_id = tu.id AND tu.deleted_at IS NULL
+      ORDER BY d.level ASC, d.codigo ASC
+    `,
+      [String(unidadId)],
+    );
+
+    const conteoPorClase: Record<string, number> = {};
+    let totalDependientes = 0;
+
+    for (const item of arbol) {
+      if (item.level > 0) {
+        totalDependientes++;
+        const claseNombre = item.clase || 'OTRA UNIDAD';
+        conteoPorClase[claseNombre] = (conteoPorClase[claseNombre] || 0) + 1;
+      }
+    }
+
+    return {
+      unidad: {
+        id: Number(unidadMadre.id),
+        nombre: unidadMadre.nombre,
+        codigo: unidadMadre.codigo,
+        sigla: unidadMadre.sigla,
+        clase: unidadMadre.tipoUnidad?.descripcion,
+      },
+      totalDependientes,
+      conteoPorClase,
+      arbol,
+    };
   }
 }

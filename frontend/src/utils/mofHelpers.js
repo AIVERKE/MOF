@@ -84,7 +84,13 @@ export const getRelacionNombre = (val, relaciones = []) => {
 
 export const getClaseNombre = (val, clases = []) => {
   if (!val) return "---";
-  if (typeof val === "object" && val.descripcion) return val.descripcion;
+  if (typeof val === "object") {
+    if (val.descripcion) return val.descripcion;
+    if (val.clase) val = val.clase;
+    else if (val.tipo_unidad) val = val.tipo_unidad;
+    else if (val.tipoUnidad) val = val.tipoUnidad;
+    else return "---";
+  }
   const item = clases.find(
     (c) =>
       String(c.id) === String(val) ||
@@ -96,6 +102,12 @@ export const getClaseNombre = (val, clases = []) => {
 
 export const getClaseColor = (val, clases = []) => {
   if (!val) return "#757575";
+  if (typeof val === "object") {
+    if (val.color) return val.color;
+    if (val.clase) val = val.clase;
+    else if (val.tipo_unidad) val = val.tipo_unidad;
+    else if (val.tipoUnidad) val = val.tipoUnidad;
+  }
   const item = clases.find(
     (c) =>
       String(c.id) === String(val) ||
@@ -106,13 +118,53 @@ export const getClaseColor = (val, clases = []) => {
   return item ? item.color : "#757575";
 };
 
+/**
+ * Devuelve un color de texto (#FFFFFF o #0F172A) con contraste óptimo según el fondo.
+ */
+export const getContrastingTextColor = (hexColor) => {
+  if (!hexColor) return "#FFFFFF";
+  let color = String(hexColor).replace("#", "").trim();
+  if (color.length === 3) {
+    color = color
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  if (color.length !== 6) return "#FFFFFF";
+  const r = parseInt(color.substring(0, 2), 16) || 0;
+  const g = parseInt(color.substring(2, 4), 16) || 0;
+  const b = parseInt(color.substring(4, 6), 16) || 0;
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 145 ? "#0F172A" : "#FFFFFF";
+};
+
 export const highlightText = (text, query) => {
   if (!query || !text) return text;
-  const re = new RegExp(`(${query})`, "gi");
-  return String(text).replace(
-    re,
-    '<mark style="background-color: #FFEB3B; color: #000000 !important; font-weight: bold; border-radius: 2px; padding: 0 2px;">$1</mark>',
-  );
+  const strText = String(text);
+  const strQuery = String(query).trim();
+  if (!strQuery) return strText;
+
+  try {
+    // Escapar caracteres especiales de regex
+    const escaped = strQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+
+    // Mapear vocales y enes para coincidir con o sin tildes
+    const accentPattern = escaped
+      .replace(/[aáàäâ]/gi, "[aáàäâAÁÀÄÂ]")
+      .replace(/[eéèëê]/gi, "[eéèëêEÉÈËÊ]")
+      .replace(/[iíìïî]/gi, "[iíìïîIÍÌÏÎ]")
+      .replace(/[oóòöô]/gi, "[oóòöôOÓÒÖÔ]")
+      .replace(/[uúùüû]/gi, "[uúùüûUÚÙÜÛ]")
+      .replace(/[nñ]/gi, "[nñNÑ]");
+
+    const re = new RegExp(`(${accentPattern})`, "gi");
+    return strText.replace(
+      re,
+      '<mark style="background-color: #FFEB3B; color: #000000 !important; font-weight: bold; border-radius: 2px; padding: 0 2px;">$1</mark>',
+    );
+  } catch (e) {
+    return strText;
+  }
 };
 
 /**
@@ -226,3 +278,40 @@ export const isUnidadOficial = (unidad, clases = []) => {
     String(cInfo.oficial).toLowerCase() === "true"
   );
 };
+
+/**
+ * Normaliza un texto para búsquedas y comparaciones (sin acentos, minúsculas, limpio)
+ */
+export const normalizeText = (text) => {
+  if (!text) return "";
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+};
+
+/**
+ * Compara códigos jerárquicos numéricos separados por puntos (ej: "1.2.3")
+ * Soporta tanto nodos de VueFlow ({ data: { codigo, nombre } }) como objetos unidad ({ codigo, nombre }).
+ */
+export const compareCodigos = (a, b) => {
+  const codA = a?.data?.codigo ?? a?.codigo ?? "";
+  const codB = b?.data?.codigo ?? b?.codigo ?? "";
+  const aParts = String(codA)
+    .split(".")
+    .map((p) => parseInt(p, 10) || 0);
+  const bParts = String(codB)
+    .split(".")
+    .map((p) => parseInt(p, 10) || 0);
+  const maxLen = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < maxLen; i++) {
+    const aVal = aParts[i] ?? 0;
+    const bVal = bParts[i] ?? 0;
+    if (aVal !== bVal) return aVal - bVal;
+  }
+  const nomA = a?.data?.nombre ?? a?.nombre ?? "";
+  const nomB = b?.data?.nombre ?? b?.nombre ?? "";
+  return String(nomA).localeCompare(String(nomB));
+};
+

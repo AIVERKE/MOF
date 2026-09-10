@@ -91,9 +91,13 @@ function buildTree(list) {
   const map = {};
   const roots = [];
   list.forEach((item) => {
+    const claseVal = item.clase || item.tipo_unidad || item.tipoUnidad;
+    const nameVal = item.denominacion || item.nombre;
     map[item.id] = {
       ...item,
-      display_name: item.denominacion || item.nombre,
+      title: nameVal,
+      display_name: nameVal,
+      clase: claseVal,
       children: [],
     };
   });
@@ -272,40 +276,27 @@ const customTreeFilter = (value, query, item) => {
         >
           <template #prepend="{ item }">
             <v-icon
-              :color="item.color || resolveClaseColor(item.clase)"
+              :color="(item?.raw || item).color || resolveClaseColor((item?.raw || item).clase)"
               size="24"
+              class="mr-2 flex-shrink-0"
             >
               {{
-                item.children?.length ? "mdi-sitemap" : "mdi-office-building"
+                (item?.raw || item).children?.length ? "mdi-sitemap" : "mdi-office-building"
               }}
             </v-icon>
           </template>
 
-          <template #label="{ item }">
-            <div class="d-flex align-center gap-2">
-              <span
-                class="text-body-2 font-weight-bold"
-                v-html="highlightText(item.display_name, search)"
-              ></span>
-              <v-chip size="x-small" label color="primary" variant="outlined" class="text-xxs px-1 font-weight-bold" v-html="highlightText(item.sigla || '-', search)">
-              </v-chip>
-              <v-chip
-                size="x-small"
-                label
-                density="compact"
-                class="text-xxs px-1 font-weight-bold"
-                :style="{ backgroundColor: resolveClaseColor(item.clase), color: '#1E293B' }"
-              >
-                {{ resolveClase(item.clase) }}
-              </v-chip>
-              <span v-if="item.oficial" class="text-success font-weight-black ml-1" style="font-size: 8px;">OFICIAL</span>
-            </div>
+          <template #title="{ item }">
+            <span
+              class="text-body-2 font-weight-bold text-slate-800"
+              v-html="highlightText((item?.raw || item).display_name || (item?.raw || item).nombre, search)"
+            ></span>
           </template>
 
           <template #append="{ item }">
             <div class="d-flex align-center" @click.stop>
               <UnidadActionsMenu
-                :unidad-id="item.id"
+                :unidad-id="(item?.raw || item).id"
                 show-quick-actions
                 density="compact"
                 @details="showDetails"
@@ -387,12 +378,8 @@ const customTreeFilter = (value, query, item) => {
 .max-width-300 {
   max-width: 300px;
 }
-.text-xxs {
-  font-size: 9px;
-  font-weight: bold;
-}
 .simple-tree :deep(.v-treeview-node__root) {
-  min-height: 40px !important;
+  min-height: 40px;
   border-bottom: 1px solid #f1f5f9;
 }
 .simple-tree :deep(.v-treeview-node__root:hover) {

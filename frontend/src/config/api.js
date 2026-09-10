@@ -14,6 +14,8 @@ export const ENDPOINTS = {
     RELACIONES: `${API_BASE_URL}/api/v1/mof/relaciones`,
     CLASES: `${API_BASE_URL}/api/v1/mof/clases`,
     UNIDADES: `${API_BASE_URL}/api/v1/mof/unidades`,
+    DASHBOARD_STATS: `${API_BASE_URL}/api/v1/mof/dashboard/stats`,
+    DESCENDIENTES_STATS: (id) => `${API_BASE_URL}/api/v1/mof/unidades/${id}/descendientes-stats`,
     PDF_UNIDAD: (id) => `${API_BASE_URL}/api/v1/mof/unidades/pdf/${id}`,
   },
   UNIDADES: {

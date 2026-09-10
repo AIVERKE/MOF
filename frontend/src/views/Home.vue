@@ -1,32 +1,59 @@
 <script setup>
-import { onMounted, computed } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAuthStore } from "@/stores/auth";
 
 const unidadesStore = useAllUnidadesMofStore();
 const authStore = useAuthStore();
 
+const totalUsuarios = ref(1);
+
 onMounted(async () => {
-  if (unidadesStore.unidades.length === 0) {
-    await unidadesStore.getFetchUnidades();
+  if (!unidadesStore.dashboardStats) {
+    await unidadesStore.getDashboardStats();
   }
 });
 
-// Simulamos conteo de usuarios (Ya que el store de auth solo maneja el logueado por ahora)
-const totalUsuarios = ref(1); // Mínimo el usuario actual
-
-// Unidades recientes (Las últimas 5 creadas según ID o fecha si estuviera disponible)
 const actividadesRecientes = computed(() => {
-  return [...unidadesStore.unidades]
+  const recientes = unidadesStore.dashboardStats?.recientes;
+  if (recientes && Array.isArray(recientes) && recientes.length > 0) {
+    return recientes.map((u) => {
+      let fechaFormateada = "Reciente";
+      if (u.fecCreacion) {
+        try {
+          fechaFormateada = new Date(u.fecCreacion).toLocaleDateString("es-BO");
+        } catch (e) {
+          fechaFormateada = "Reciente";
+        }
+      } else if (u.createdAt) {
+        try {
+          fechaFormateada = new Date(u.createdAt).toLocaleDateString("es-BO");
+        } catch (e) {
+          fechaFormateada = "Reciente";
+        }
+      }
+      return {
+        id: u.id,
+        nombre: u.nombre || u.denominacion,
+        codigo: u.codigo,
+        color: u.color || "#1976D2",
+        clase: u.clase,
+        fecha: fechaFormateada,
+      };
+    });
+  }
+
+  // Fallback a unidades si ya estuvieran en memoria
+  return [...(unidadesStore.unidades || [])]
     .sort((a, b) => b.id - a.id)
     .slice(0, 6)
-    .map(u => ({
+    .map((u) => ({
       id: u.id,
       nombre: u.nombre || u.denominacion,
       codigo: u.codigo,
-      color: u.color || '#1976D2',
+      color: u.color || "#1976D2",
       clase: u.clase,
-      fecha: 'Reciente'
+      fecha: "Reciente",
     }));
 });
 
@@ -36,18 +63,18 @@ const stats = computed(() => [
     value: totalUsuarios.value,
     icon: "mdi-account-multiple",
     gradient: "linear-gradient(135deg, #667EEA 0%, #764BA2 100%)",
-    suffix: "Activo"
+    suffix: "Activo",
   },
   {
     title: "Unidades en MOF",
-    value: unidadesStore.unidades.length,
+    value:
+      unidadesStore.dashboardStats?.resumen?.total ??
+      unidadesStore.unidades.length,
     icon: "mdi-sitemap",
     gradient: "linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%)",
-    suffix: "Registradas"
-  }
+    suffix: "Registradas",
+  },
 ]);
-
-import { ref } from "vue";
 </script>
 
 <template>
