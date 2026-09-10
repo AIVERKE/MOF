@@ -88,6 +88,7 @@ export class UnidadesService {
       es_troncal: u.esTroncal ?? false,
       lado: u.lado ?? 'AUTOMATICO',
       color: u.tipoUnidad?.color ?? null,
+      clase: u.tipoUnidad?.descripcion ?? null,
       tipo_unidad: u.tipoUnidad?.descripcion ?? null,
       tipoUnidad: u.tipoUnidadId,
       base_legal: u.baseLegal,

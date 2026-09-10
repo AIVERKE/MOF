@@ -175,7 +175,10 @@
                     variant="flat"
                     label
                     class="font-weight-bold"
-                    :style="{ backgroundColor: getClaseColor(item.clase, clasesStore.clases), color: '#1E293B' }"
+                    :style="{
+                      backgroundColor: getClaseColor(item.clase, clasesStore.clases),
+                      color: getContrastingTextColor(getClaseColor(item.clase, clasesStore.clases)),
+                    }"
                   >
                     {{ resolveClase(item.clase) }}
                   </v-chip>
@@ -200,6 +203,7 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import {
   getClaseNombre,
   getClaseColor,
+  getContrastingTextColor,
   isUnidadOficial,
 } from "@/utils/mofHelpers";
 
