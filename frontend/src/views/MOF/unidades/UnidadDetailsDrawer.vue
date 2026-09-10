@@ -34,12 +34,23 @@ const isResizing = ref(false);
 
 const drawerWidth = computed(() => {
   if (display.xs.value) return "100%";
-  if (display.sm.value) return "90%";
   return customWidth.value;
 });
 
+const drawerStyle = computed(() => {
+  if (display.xs.value) {
+    return { width: "100% !important", maxWidth: "100vw !important" };
+  }
+  return {
+    width: `${customWidth.value}px !important`,
+    maxWidth: "95vw !important",
+  };
+});
+
 // Lógica de Redimensionamiento (Mouse)
-const startResizing = () => {
+const startResizing = (e) => {
+  e?.preventDefault?.();
+  e?.stopPropagation?.();
   isResizing.value = true;
   document.addEventListener("mousemove", handleResize);
   document.addEventListener("mouseup", stopResizing);
@@ -49,10 +60,10 @@ const startResizing = () => {
 
 const handleResize = (e) => {
   if (!isResizing.value) return;
+  const minWidth = 360;
+  const maxWidth = Math.min(1400, Math.floor(window.innerWidth * 0.95));
   const newWidth = window.innerWidth - e.clientX;
-  if (newWidth >= 360 && newWidth <= Math.min(1200, window.innerWidth * 0.95)) {
-    customWidth.value = newWidth;
-  }
+  customWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth));
 };
 
 const stopResizing = () => {
@@ -65,18 +76,19 @@ const stopResizing = () => {
 };
 
 // Soporte Táctil (Móviles / Tablets)
-const startResizingTouch = () => {
+const startResizingTouch = (e) => {
   isResizing.value = true;
-  document.addEventListener("touchmove", handleResizeTouch);
+  document.addEventListener("touchmove", handleResizeTouch, { passive: false });
   document.addEventListener("touchend", stopResizingTouch);
 };
 
 const handleResizeTouch = (e) => {
   if (isResizing.value && e.touches.length > 0) {
+    e.preventDefault?.();
+    const minWidth = 360;
+    const maxWidth = Math.min(1400, Math.floor(window.innerWidth * 0.95));
     const newWidth = window.innerWidth - e.touches[0].clientX;
-    if (newWidth >= 360 && newWidth <= Math.min(1200, window.innerWidth * 0.95)) {
-      customWidth.value = newWidth;
-    }
+    customWidth.value = Math.max(minWidth, Math.min(maxWidth, newWidth));
   }
 };
 
@@ -368,15 +380,16 @@ const panels = computed(() => {
     location="right"
     temporary
     :width="drawerWidth"
+    :style="drawerStyle"
     elevation="10"
-    class="unidad-details-drawer"
+    :class="['unidad-details-drawer', { 'is-resizing': isResizing }]"
   >
     <!-- Asa lateral izquierda para redimensionar arrastrando con el mouse -->
     <div
       v-if="!display.xs.value"
       class="resize-handle"
-      @mousedown="startResizing"
-      @touchstart="startResizingTouch"
+      @mousedown.prevent="startResizing"
+      @touchstart.prevent="startResizingTouch"
       title="Arrastre para modificar el ancho del panel"
     >
       <div class="resize-handle-bar"></div>
@@ -858,7 +871,7 @@ const panels = computed(() => {
 <style scoped>
 /* Responsive width enforcement */
 .unidad-details-drawer {
-  max-width: 100vw !important;
+  max-width: 95vw !important;
 }
 
 @media (max-width: 599.99px) {
@@ -869,28 +882,12 @@ const panels = computed(() => {
   }
 }
 
-@media (min-width: 600px) and (max-width: 959.99px) {
-  .unidad-details-drawer,
-  :deep(.unidad-details-drawer) {
-    width: 90vw !important;
-    max-width: 90vw !important;
-  }
-}
-
-@media (min-width: 960px) and (max-width: 1279.99px) {
-  .unidad-details-drawer,
-  :deep(.unidad-details-drawer) {
-    width: 480px !important;
-    max-width: 480px !important;
-  }
-}
-
-@media (min-width: 1280px) {
-  .unidad-details-drawer,
-  :deep(.unidad-details-drawer) {
-    width: 520px !important;
-    max-width: 520px !important;
-  }
+/* Desactivar transiciones durante el arrastre para máxima fluidez */
+.unidad-details-drawer.is-resizing,
+.unidad-details-drawer.is-resizing :deep(*),
+.unidad-details-drawer.is-resizing :deep(.v-navigation-drawer__content) {
+  transition: none !important;
+  user-select: none !important;
 }
 
 .drawer-content {
@@ -953,8 +950,9 @@ const panels = computed(() => {
   position: absolute;
   top: 0;
   left: 0;
-  width: 10px;
+  width: 14px;
   height: 100%;
+  min-height: 100%;
   cursor: col-resize;
   z-index: 100;
   display: flex;
@@ -966,13 +964,16 @@ const panels = computed(() => {
 
 .resize-handle:hover,
 .resize-handle:active {
-  background: rgba(var(--v-theme-primary), 0.2);
+  background: rgba(var(--v-theme-primary), 0.15);
 }
 
 .resize-handle-bar {
-  width: 2px;
-  height: 40px;
-  border-radius: 2px;
+  position: sticky;
+  top: 50vh;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 48px;
+  border-radius: 3px;
   background: rgba(0, 0, 0, 0.25);
   transition: all 0.2s ease;
 }
@@ -980,8 +981,8 @@ const panels = computed(() => {
 .resize-handle:hover .resize-handle-bar,
 .resize-handle:active .resize-handle-bar {
   background: rgb(var(--v-theme-primary));
-  height: 60px;
-  width: 3px;
+  height: 68px;
+  width: 4px;
 }
 
 @media (max-width: 600px) {
