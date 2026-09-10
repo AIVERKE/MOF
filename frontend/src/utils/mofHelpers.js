@@ -202,16 +202,39 @@ export const getPesoReal = (unidad, clases = []) => {
  */
 export const isStaffNode = (unidad, relaciones = []) => {
   if (!unidad) return false;
-  const relacionId = unidad.relacion;
-  if (relacionId && relaciones.length > 0) {
-    const relacionItem = relaciones.find((r) => String(r.id) === String(relacionId));
-    if (relacionItem) {
-      const desc = String(relacionItem.descripcion || "").toUpperCase();
-      return desc.includes("STAFF") || desc.includes("ASESOR");
+
+  const rel =
+    unidad.relacion && typeof unidad.relacion === "object"
+      ? unidad.relacion.id || unidad.relacion.codigo || unidad.relacion.descripcion
+      : unidad.relacion;
+
+  if (rel) {
+    const relStr = String(rel).trim().toUpperCase();
+    if (relStr === "S" || relStr === "STAFF" || relStr.includes("ASESOR")) {
+      return true;
+    }
+    if (relaciones.length > 0) {
+      const relacionItem = relaciones.find(
+        (r) =>
+          String(r.id) === relStr ||
+          String(r.codigo || "").trim().toUpperCase() === relStr ||
+          String(r.value || "").trim().toUpperCase() === relStr ||
+          String(r.descripcion || "").trim().toUpperCase() === relStr,
+      );
+      if (relacionItem) {
+        const desc = String(
+          relacionItem.descripcion || relacionItem.description || "",
+        ).toUpperCase();
+        const cod = String(
+          relacionItem.codigo || relacionItem.value || "",
+        ).toUpperCase();
+        return cod === "S" || desc.includes("STAFF") || desc.includes("ASESOR");
+      }
     }
   }
+
   const relDesc = String(unidad.str_relacion || "").toUpperCase();
-  return relDesc.includes("STAFF") || relDesc.includes("ASESOR");
+  return relDesc === "S" || relDesc.includes("STAFF") || relDesc.includes("ASESOR");
 };
 
 /**
@@ -248,16 +271,16 @@ export const getUsedColors = (unidades = [], clases = []) => {
 export const isUnidadOficial = (unidad, clases = []) => {
   if (!unidad) return false;
 
-  // Prioridad 1: Propiedad directa en la unidad (si el API la provee)
-  if (
-    unidad.oficial === true ||
-    unidad.oficial === 1 ||
-    String(unidad.oficial).toLowerCase() === "true"
-  ) {
-    return true;
+  // Prioridad 1: Propiedad directa en la unidad (si el API la provee explícitamente)
+  if (unidad.oficial !== undefined && unidad.oficial !== null) {
+    return (
+      unidad.oficial === true ||
+      unidad.oficial === 1 ||
+      String(unidad.oficial).toLowerCase() === "true"
+    );
   }
 
-  // Prioridad 2: Basado en el catálogo maestro de la Clase
+  // Prioridad 2: Basado en el catálogo maestro de la Clase (fallback si unidad.oficial no está definida)
   const val =
     unidad.clase && typeof unidad.clase === "object"
       ? unidad.clase.id

@@ -584,7 +584,10 @@ function getLayoutedElements(nodes, edges) {
 
         staffNode.position = {
           x: parentNode.position.x + multiplier * (NODE_WIDTH + 80),
-          y: parentNode.position.y + indexInSide * (NODE_HEIGHT + 40),
+          y:
+            parentNode.position.y +
+            (NODE_HEIGHT + V_GAP) / 2 +
+            indexInSide * (NODE_HEIGHT + 40),
         };
       });
     } else {
