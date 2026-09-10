@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   Res,
   StreamableFile,
 } from '@nestjs/common';
@@ -43,6 +44,20 @@ export class MofUnidadesController {
     );
   }
 
+  @Get('dashboard/stats')
+  @ApiOperation({ summary: 'Estadísticas agregadas para Dashboard y Organigrama' })
+  async dashboardStats(
+    @Query('clase') clase?: string,
+    @Query('nivel') nivel?: string,
+    @Query('tipo') tipo?: string,
+    @Query('relacion') relacion?: string,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.getDashboardStats({ clase, nivel, tipo, relacion }),
+    );
+  }
+
   // PDF must be registered before :id to avoid conflict
   @Get('unidades/pdf/:id')
   @ApiOperation({ summary: 'PDF de unidad' })
@@ -60,6 +75,15 @@ export class MofUnidadesController {
       'Content-Disposition': 'inline; filename="signed-document.pdf"',
     });
     return new StreamableFile(buffer);
+  }
+
+  @Get('unidades/:id/descendientes-stats')
+  @ApiOperation({ summary: 'Árbol y estadísticas de dependientes para Dashboard Facultativo' })
+  async descendientesStats(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.getDescendientesStats(id),
+    );
   }
 
   @Get('unidades/:id')

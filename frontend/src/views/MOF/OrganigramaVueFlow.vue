@@ -261,7 +261,46 @@ const hasAnyFilter = computed(
 );
 
 const stats = computed(() => {
+  const backendResumen = unidadesStore.dashboardStats?.resumen;
   const all = unidadesList.value;
+
+  // Si no hay filtros aplicados y tenemos el resumen precalculado del backend, usarlo de inmediato
+  if (
+    backendResumen &&
+    !searchQuery.value &&
+    !selectedNivel.value &&
+    !selectedTipo.value &&
+    !selectedRelacion.value &&
+    !selectedClase.value
+  ) {
+    return [
+      {
+        title: "Total Unidades",
+        value: backendResumen.total,
+        icon: "mdi-sitemap",
+        color: "primary",
+      },
+      {
+        title: "Oficiales",
+        value: backendResumen.oficiales,
+        icon: "mdi-check-decagram",
+        color: "success",
+      },
+      {
+        title: "No Oficiales",
+        value: backendResumen.noOficiales,
+        icon: "mdi-alert-circle-outline",
+        color: "warning",
+      },
+      {
+        title: "Asesoría/Staff",
+        value: backendResumen.staff,
+        icon: "mdi-account-tie",
+        color: "orange-darken-2",
+      },
+    ];
+  }
+
   const oficiales = all.filter((u) => checkOficial(u));
   return [
     {
@@ -1132,6 +1171,7 @@ onMounted(async () => {
   }
   await Promise.all([
     unidadesStore.getFetchUnidades(),
+    unidadesStore.getDashboardStats(),
     tiposStore.getFetchTipos(),
     nivelesStore.getFetchNiveles(),
     relacionesStore.getFetchRelaciones(),

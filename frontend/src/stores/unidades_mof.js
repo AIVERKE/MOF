@@ -7,6 +7,7 @@ export const useAllUnidadesMofStore = defineStore(
     "unidades_mof",
     () => {
         const unidades = ref([]);
+        const dashboardStats = ref(null);
         const loading = ref(false);
         const error = ref(null);
         const authStore = useAuthStore();
@@ -524,8 +525,51 @@ export const useAllUnidadesMofStore = defineStore(
             finally { loading.value = false; }
         };
 
+        // --- DASHBOARD & JERARQUÍA OPTIMIZADOS (BACKEND AGGREGATIONS) ---
+        const getDashboardStats = async (filters = {}) => {
+            loading.value = true;
+            try {
+                const params = new URLSearchParams();
+                if (filters.clase) params.append('clase', filters.clase);
+                if (filters.nivel) params.append('nivel', filters.nivel);
+                if (filters.tipo) params.append('tipo', filters.tipo);
+                if (filters.relacion) params.append('relacion', filters.relacion);
+                params.append('t', Date.now());
+
+                const url = `${ENDPOINTS.MOF.DASHBOARD_STATS}?${params.toString()}`;
+                const response = await fetch(url, { headers: getHeaders() });
+                if (!response.ok) return null;
+                const data = await response.json();
+                if (data && data.data) {
+                    dashboardStats.value = data.data;
+                    return data.data;
+                }
+                return null;
+            } catch (err) {
+                return null;
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        const getDescendientesStats = async (unidadId) => {
+            loading.value = true;
+            try {
+                const url = `${ENDPOINTS.MOF.DESCENDIENTES_STATS(unidadId)}?t=${Date.now()}`;
+                const response = await fetch(url, { headers: getHeaders() });
+                if (!response.ok) return null;
+                const data = await response.json();
+                return data?.data || null;
+            } catch (err) {
+                return null;
+            } finally {
+                loading.value = false;
+            }
+        };
+
         return {
             unidades,
+            dashboardStats,
             loading,
             error,
             getFetchUnidades,
@@ -552,7 +596,9 @@ export const useAllUnidadesMofStore = defineStore(
             getRelacionesExternas,
             createRelacionExterna,
             updateRelacionExterna,
-            deleteRelacionExterna
+            deleteRelacionExterna,
+            getDashboardStats,
+            getDescendientesStats
         }
     }
 )

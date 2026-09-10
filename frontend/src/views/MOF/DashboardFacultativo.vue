@@ -64,7 +64,7 @@
       </v-card-text>
     </v-card>
 
-    <v-row v-if="loading">
+    <v-row v-if="loading || loadingDescendientes">
       <v-col cols="12" class="text-center pa-12">
         <v-progress-circular
           indeterminate
@@ -190,7 +190,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { useTheme } from "vuetify";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
@@ -213,8 +213,11 @@ const tiposStore = useAllTiposMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 
 const loading = ref(true);
+const loadingDescendientes = ref(false);
 const claseSeleccionada = ref(null);
 const unidadMadre = ref(null);
+const arbolDependencias = ref([]);
+const conteoDependientes = ref({});
 
 const isUnidadOficialCheck = (u) => isUnidadOficial(u, clasesStore.clases);
 
@@ -253,27 +256,32 @@ const unidadesFiltradasPorClase = computed(() => {
   );
 });
 
-// Lógica recursiva para encontrar TODO el árbol genealógico de una unidad
-function getDescendientes(parentId, level = 0) {
-  const todas = unidadesStore.unidades || [];
-  let result = [];
-
-  const hijos = todas.filter((u) => {
-    const uParentId =
-      u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
-    return String(uParentId) === String(parentId);
-  });
-
-  hijos.forEach((hijo) => {
-    result.push({ ...hijo, level });
-    result = [...result, ...getDescendientes(hijo.id, level + 1)];
-  });
-  return result;
-}
-
-const arbolDependencias = computed(() => {
-  if (!unidadMadre.value) return [];
-  return getDescendientes(unidadMadre.value.id);
+// Cargar árbol de dependencias y conteos agregados directamente desde el backend (CTE recursiva en PostgreSQL)
+watch(unidadMadre, async (nuevaUnidad) => {
+  if (!nuevaUnidad || !nuevaUnidad.id) {
+    arbolDependencias.value = [];
+    conteoDependientes.value = {};
+    return;
+  }
+  loadingDescendientes.value = true;
+  try {
+    const data = await unidadesStore.getDescendientesStats(nuevaUnidad.id);
+    if (data) {
+      // Filtrar unidad madre (level 0) y normalizar nivel relativo para indentación visual
+      arbolDependencias.value = (data.arbol || [])
+        .filter((item) => item.level > 0)
+        .map((item) => ({ ...item, level: item.level - 1 }));
+      conteoDependientes.value = data.conteoPorClase || {};
+    } else {
+      arbolDependencias.value = [];
+      conteoDependientes.value = {};
+    }
+  } catch (e) {
+    arbolDependencias.value = [];
+    conteoDependientes.value = {};
+  } finally {
+    loadingDescendientes.value = false;
+  }
 });
 
 const getRowClass = (item) => {
@@ -282,15 +290,6 @@ const getRowClass = (item) => {
   }
   return "";
 };
-
-const conteoDependientes = computed(() => {
-  const counts = {};
-  arbolDependencias.value.forEach((u) => {
-    const tipo = resolveClase(u.clase) || "OTRA UNIDAD";
-    counts[tipo] = (counts[tipo] || 0) + 1;
-  });
-  return counts;
-});
 
 const chartOptions = computed(() => {
   const textColor = isDark.value ? "#E2E8F0" : "#333333";
