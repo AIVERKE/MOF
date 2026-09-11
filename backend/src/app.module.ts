@@ -11,6 +11,7 @@ import { CatalogosModule } from './modules/catalogos/catalogos.module';
 import { UnidadesModule } from './modules/unidades/unidades.module';
 import { CargosModule } from './modules/cargos/cargos.module';
 import { SeguridadModule } from './modules/seguridad/seguridad.module';
+import { GacetaModule } from './modules/integraciones/gaceta/gaceta.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SeguridadModule } from './modules/seguridad/seguridad.module';
     CargosModule,
     VersionesModule,
     SeguridadModule,
+    GacetaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
