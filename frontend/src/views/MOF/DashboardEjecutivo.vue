@@ -6,14 +6,9 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
-import {
-  getClaseNombre,
-  getNivelNombre,
-  getTipoNombre,
-  getRelacionNombre,
-  getClaseColor,
-  isUnidadOficial,
-} from "@/utils/mofHelpers";
+import { getClaseColor } from "@/utils/mofHelpers";
+import { useMofResolvers } from "@/composables/useMofResolvers";
+import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
@@ -24,7 +19,14 @@ const nivelesStore = useAllNivelesMofStore();
 const tiposStore = useAllTiposMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 
-const isUnidadOficialCheck = (u) => isUnidadOficial(u, clasesStore.clases);
+const {
+  resolveNivel,
+  resolveTipo,
+  resolveRelacion,
+  resolveClase,
+  resolveClaseColor,
+  checkOficial: isUnidadOficialCheck,
+} = useMofResolvers(clasesStore, nivelesStore, tiposStore, relacionesStore);
 
 const loading = ref(true);
 const dashboardData = ref(null);
@@ -72,13 +74,6 @@ onMounted(async () => {
   ]);
   loading.value = false;
 });
-
-// Resuelve nombres reales desde los stores
-const resolveClase = (val) => getClaseNombre(val, clasesStore.clases);
-const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
-const resolveTipo = (val) => getTipoNombre(val, tiposStore.tipos);
-const resolveRelacion = (val) =>
-  getRelacionNombre(val, relacionesStore.relaciones);
 
 // Listas para los selectores de filtros
 const listaClases = computed(() => {
@@ -245,28 +240,18 @@ const getChartOptions = (key, chartInfo) => {
     }));
   }
 
-  const textColor = isDark.value ? "#E2E8F0" : "#333333";
-  const labelColor = isDark.value ? "#94A3B8" : "#666666";
-
-  const baseOptions = {
+  const baseOptions = getHighchartsBaseOptions(isDark, {
     chart: {
       type: type,
-      backgroundColor: "transparent",
       height: 350,
-      style: { fontFamily: "inherit", color: textColor },
-    },
-    title: { text: null },
-    credits: { enabled: false },
-    legend: {
-      itemStyle: { color: textColor },
-      itemHoverStyle: { color: isDark.value ? "#FFFFFF" : "#000000" }
     },
     tooltip: {
       headerFormat: '<span style="font-size:10px">{point.key}</span><br>',
       pointFormat:
         '<span style="color:{point.color}">\u25CF</span> <b>{point.y}</b> unidades ({point.percentage:.1f}%)',
     },
-  };
+  });
+  const { textColor, labelColor } = baseOptions._colors;
 
   if (type === "column") {
     return {

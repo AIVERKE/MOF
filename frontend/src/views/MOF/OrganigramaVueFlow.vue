@@ -22,13 +22,7 @@ import {
   getPesoReal,
   getSafeId,
   isStaffNode,
-  getClaseNombre,
-  getNivelNombre,
-  getTipoNombre,
-  getRelacionNombre,
-  getClaseColor,
   highlightText,
-  isUnidadOficial,
   normalizeText,
   compareCodigos,
 } from "@/utils/mofHelpers";
@@ -52,6 +46,8 @@ import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import { useUnidadForm } from "@/composables/useUnidadForm";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useUnidadDetails } from "@/composables/useUnidadDetails";
+import { useMofResolvers } from "@/composables/useMofResolvers";
+import { useUnidadActions } from "@/composables/useUnidadActions";
 
 // --- VUE FLOW COMPOSABLES ---
 const { nodes, edges, setNodes, setEdges, fitView, setCenter, findNode, onNodeClick } = useVueFlow();
@@ -107,7 +103,7 @@ const {
   detailData,
   loadingDetail,
   initialOpenPanels,
-  showDetails: showNodeDetails,
+  showDetails,
   verReporte,
 } = useUnidadDetails({ unidadesStore });
 const hierarchyDrawer = ref(false);
@@ -123,14 +119,14 @@ const filterRelacion = ref(null);
 const activePanels = ref(0); // Abre por defecto el panel de filtros
 
 // --- HELPER WRAPPERS ---
-const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
-const resolveTipo = (val) => getTipoNombre(val, tiposStore.tipos);
-const resolveRelacion = (val) =>
-  getRelacionNombre(val, relacionesStore.relaciones);
-const resolveClase = (val) => getClaseNombre(val, clasesStore.clases);
-const resolveClaseColor = (val) => getClaseColor(val, clasesStore.clases);
-
-const checkOficial = (u) => isUnidadOficial(u, clasesStore.clases);
+const {
+  resolveNivel,
+  resolveTipo,
+  resolveRelacion,
+  resolveClase,
+  resolveClaseColor,
+  checkOficial,
+} = useMofResolvers(clasesStore, nivelesStore, tiposStore, relacionesStore);
 
 /** Always an array — never crash on .find/.filter if store list is undefined */
 const unidadesList = computed(() => unidadesStore.unidades ?? []);
@@ -627,35 +623,14 @@ function openDeleteDialog(nodeId) {
   deleteDialog.value = true;
 }
 
-async function confirmAddItem() {
-  mostrar("Procesando...", "info");
-  const result = await saveUnidad();
-  if (result.success) {
-    addDialog.value = false;
-    mostrar("¡Operación exitosa!", "success");
-    refreshChart();
-  } else {
-    mostrar("Error: " + result.error, "error");
-  }
-}
-
-async function confirmDelete() {
-  if (!selectedNode.value) return;
-  const id = selectedNode.value.id;
-  if (unidadesList.value.some((u) => String(u.parent) === String(id))) {
-    mostrar("No se puede eliminar: tiene dependientes.", "error");
-    return;
-  }
-  await unidadesStore.deletePersonalUnidad(id);
-  await unidadesStore.deleteUnidad(id);
-  if (!unidadesStore.error) {
-    deleteDialog.value = false;
-    mostrar("¡Eliminado!", "success");
-    refreshChart();
-  } else {
-    mostrar("Error: " + unidadesStore.error, "error");
-  }
-}
+const { confirmAddItem, confirmDelete } = useUnidadActions({
+  unidadesStore,
+  saveUnidad,
+  onRefresh: refreshChart,
+  addDialog,
+  deleteDialog,
+  selectedNode,
+});
 
 async function cambiarDependencia() {
   await unidadesStore.updateNodo(unidadACambiar.value, {
@@ -1194,7 +1169,7 @@ onMounted(async () => {
 
 onNodeClick(({ node }) => {
   if (node.data.isInvisible) return;
-  showNodeDetails(node.id);
+  showDetails(node.id);
 });
 
 // Watcher inmediato para búsqueda, filtros categóricos y cambios estructurales (sin debounce ni timers)
@@ -1607,7 +1582,7 @@ function resetFilters() {
                   :unidad-id="u.id"
                   show-quick-actions
                   density="compact"
-                  @details="showNodeDetails"
+                  @details="showDetails"
                   @pdf="verReporte"
                   @dependencias="verDependencias"
                   @add-child="(id) => openForm(id, false)"
@@ -1698,7 +1673,7 @@ function resetFilters() {
                 class="node-top-accent"
                 :style="{ backgroundColor: data.color }"
               ></div>
-              <div class="node-content" @click="showNodeDetails(id)">
+              <div class="node-content" @click="showDetails(id)">
                 <div class="node-line code-line">
                   <span>{{ data.codigo }}</span>
                 </div>
@@ -1729,7 +1704,7 @@ function resetFilters() {
                   :unidad-id="id"
                   :show-quick-actions="false"
                   density="node"
-                  @details="showNodeDetails"
+                  @details="showDetails"
                   @pdf="verReporte"
                   @dependencias="verDependencias"
                   @add-child="(uid) => openForm(uid, false)"

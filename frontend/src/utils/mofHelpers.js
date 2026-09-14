@@ -338,3 +338,39 @@ export const compareCodigos = (a, b) => {
   return String(nomA).localeCompare(String(nomB));
 };
 
+/**
+ * Transforma una lista plana de unidades en una estructura de árbol jerárquica con nodos anidados en children: [].
+ * Cada nodo conserva sus propiedades originales y añade title, display_name, clase normalizada y children.
+ *
+ * @param {Array} list - Lista plana de unidades
+ * @returns {Array} - Nodos raíz con sus hijos anidados
+ */
+export const buildHierarchyTree = (list = []) => {
+  const map = {};
+  const roots = [];
+  (list || []).forEach((item) => {
+    const claseVal = item.clase || item.tipo_unidad || item.tipoUnidad;
+    const nameVal = item.denominacion || item.nombre;
+    map[item.id] = {
+      ...item,
+      title: nameVal,
+      display_name: nameVal,
+      clase: claseVal,
+      children: [],
+    };
+  });
+  (list || []).forEach((item) => {
+    let pId = null;
+    if (item.parent) {
+      pId = typeof item.parent === "object" ? item.parent.id : item.parent;
+    }
+
+    if (pId && map[pId]) {
+      map[pId].children.push(map[item.id]);
+    } else {
+      roots.push(map[item.id]);
+    }
+  });
+  return roots;
+};
+
