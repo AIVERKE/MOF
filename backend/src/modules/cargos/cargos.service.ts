@@ -310,4 +310,18 @@ export class CargosService {
     await this.cargoUnidadRepo.softRemove(row);
     return assignmentId;
   }
+
+  async removerTodoPersonal(unidadId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
+    if (!u) notFound(unidadId);
+    const rows = await this.cargoUnidadRepo.find({
+      where: { unidadId: String(unidadId), activo: true },
+    });
+    if (rows.length > 0) {
+      await this.cargoUnidadRepo.softRemove(rows);
+    }
+    return { count: rows.length, unidadId };
+  }
 }

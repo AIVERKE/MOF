@@ -147,4 +147,43 @@ describe('CargosService', () => {
       expect(cargoUnidadRepo.save).toHaveBeenCalled();
     });
   });
+
+  describe('removerTodoPersonal', () => {
+    it('throws 404 when unidad is not found', async () => {
+      unidadRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.removerTodoPersonal(999)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+      });
+      expect(cargoUnidadRepo.softRemove).not.toHaveBeenCalled();
+    });
+
+    it('soft-removes all active personal rows in batch when found', async () => {
+      unidadRepo.findOne.mockResolvedValue({ id: '1' } as Unidad);
+      const mockRows = [
+        { id: '10', unidadId: '1', activo: true },
+        { id: '11', unidadId: '1', activo: true },
+      ];
+      cargoUnidadRepo.find.mockResolvedValue(mockRows);
+      cargoUnidadRepo.softRemove.mockResolvedValue(mockRows);
+
+      const result = await service.removerTodoPersonal(1);
+
+      expect(cargoUnidadRepo.find).toHaveBeenCalledWith({
+        where: { unidadId: '1', activo: true },
+      });
+      expect(cargoUnidadRepo.softRemove).toHaveBeenCalledWith(mockRows);
+      expect(result).toEqual({ count: 2, unidadId: 1 });
+    });
+
+    it('returns count 0 without calling softRemove if no rows found', async () => {
+      unidadRepo.findOne.mockResolvedValue({ id: '1' } as Unidad);
+      cargoUnidadRepo.find.mockResolvedValue([]);
+
+      const result = await service.removerTodoPersonal(1);
+
+      expect(cargoUnidadRepo.softRemove).not.toHaveBeenCalled();
+      expect(result).toEqual({ count: 0, unidadId: 1 });
+    });
+  });
 });

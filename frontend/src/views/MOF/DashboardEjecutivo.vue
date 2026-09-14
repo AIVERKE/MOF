@@ -9,6 +9,7 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { getClaseColor } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
+import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
@@ -18,6 +19,13 @@ const clasesStore = useAllClasesMofStore();
 const nivelesStore = useAllNivelesMofStore();
 const tiposStore = useAllTiposMofStore();
 const relacionesStore = useAllRelacionesMofStore();
+
+const { prefetchCatalogs } = usePrefetchCatalogs({
+  clasesStore,
+  nivelesStore,
+  tiposStore,
+  relacionesStore,
+});
 
 const {
   resolveNivel,
@@ -66,10 +74,7 @@ onMounted(async () => {
   loading.value = true;
   await Promise.all([
     unidadesStore.getFetchUnidades(),
-    clasesStore.getFetchClases(),
-    nivelesStore.getFetchNiveles(),
-    tiposStore.getFetchTipos(),
-    relacionesStore.getFetchRelaciones(),
+    prefetchCatalogs(),
     cargarDashboard(),
   ]);
   loading.value = false;

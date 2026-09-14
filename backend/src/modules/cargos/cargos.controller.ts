@@ -100,6 +100,15 @@ export class CargosController {
     );
   }
 
+  @Delete(':id/personal')
+  @ApiOperation({ summary: 'Quitar todas las asignaciones de personal de la unidad (batch)' })
+  async removerTodo(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.cargosService.removerTodoPersonal(id),
+    );
+  }
+
   @Delete(':id/personal/:assignmentId')
   @ApiOperation({ summary: 'Quitar asignación de cargo en la unidad' })
   async remover(
