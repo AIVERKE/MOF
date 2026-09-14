@@ -2,7 +2,7 @@
 import { onMounted, ref, computed } from 'vue';
 import { useAllClasesMofStore } from '../../../stores/clases_mof';
 import { useAllUnidadesMofStore } from '../../../stores/unidades_mof';
-import { swatches, getUsedColors } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, toBoolean } from "@/utils/mofHelpers";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 const props = defineProps({
@@ -48,8 +48,8 @@ function openDialog(item = null) {
     editingClase.value = item;
     claseName.value = item.descripcion;
     claseColor.value = item.color || "#1976D2";
-    claseActivo.value = item.activo === true || item.activo === 1;
-    claseOficial.value = item.oficial === true || item.oficial === 1;
+    claseActivo.value = toBoolean(item.activo);
+    claseOficial.value = toBoolean(item.oficial);
   } else {
     editingClase.value = null;
     claseName.value = search.value || "";

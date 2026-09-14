@@ -42,6 +42,192 @@ export const formatDateForDisplay = (dateStr) => {
 };
 
 /**
+ * Constantes nombradas para pesos jerárquicos y colores por defecto
+ */
+export const PESO_NULO = 99;
+export const PESO_DEFAULT = 10;
+export const DEFAULT_CLASE_COLOR = "#757575";
+
+const NORMALIZE_CACHE_MAX_SIZE = 1000;
+const normalizeCache = new Map();
+
+/**
+ * Normaliza un texto para búsquedas y comparaciones (sin acentos, minúsculas, limpio).
+ * Utiliza memoización con LRU simple de tamaño acotado para acelerar búsquedas en 1000+ unidades.
+ *
+ * @param {string|any} text
+ * @returns {string}
+ */
+export const normalizeText = (text) => {
+  if (text === null || text === undefined) return "";
+  const key = String(text);
+
+  const cached = normalizeCache.get(key);
+  if (cached !== undefined) {
+    normalizeCache.delete(key);
+    normalizeCache.set(key, cached);
+    return cached;
+  }
+
+  const normalized = key
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  if (normalizeCache.size >= NORMALIZE_CACHE_MAX_SIZE) {
+    const firstKey = normalizeCache.keys().next().value;
+    normalizeCache.delete(firstKey);
+  }
+
+  normalizeCache.set(key, normalized);
+  return normalized;
+};
+
+/**
+ * Limpia el cache de normalización (útil para tests).
+ */
+export const clearNormalizeCache = () => {
+  normalizeCache.clear();
+};
+
+/**
+ * Normaliza cualquier representación de booleano a true o false.
+ * Soporta booleanos primitivos, números (1/0), strings ("true"/"false"/"1"/"0"/"t"/"f"/"si"/"no"), null y undefined.
+ *
+ * @param {any} val
+ * @returns {boolean}
+ */
+export const toBoolean = (val) => {
+  if (val === true || val === 1) return true;
+  if (val === false || val === 0 || val === null || val === undefined) return false;
+
+  if (typeof val === "string") {
+    const s = val.trim().toLowerCase();
+    if (
+      s === "true" ||
+      s === "1" ||
+      s === "t" ||
+      s === "si" ||
+      s === "sí" ||
+      s === "yes" ||
+      s === "y"
+    ) {
+      return true;
+    }
+    if (
+      s === "false" ||
+      s === "0" ||
+      s === "f" ||
+      s === "no" ||
+      s === "n" ||
+      s === ""
+    ) {
+      return false;
+    }
+  }
+
+  return Boolean(val);
+};
+
+/**
+ * Extrae de forma segura el identificador o valor representativo de clase de una unidad u objeto.
+ *
+ * @param {Object|number|string} val
+ * @returns {any}
+ */
+export const getCampoClase = (val) => {
+  if (!val) return null;
+  if (typeof val !== "object") return val;
+  const ref = val.clase ?? val.tipoUnidad ?? val.tipo_unidad;
+  if (ref !== undefined && ref !== null) {
+    if (typeof ref === "object") {
+      return ref.id ?? ref.value ?? ref.descripcion ?? ref.nombre ?? null;
+    }
+    return ref;
+  }
+  return val.id ?? val.value ?? val.descripcion ?? val.nombre ?? null;
+};
+
+/**
+ * Resuelve un elemento de catálogo con una estrategia unificada y consistente:
+ * 1. Coincidencia directa por id o value (numérico o string).
+ * 2. Coincidencia por texto normalizado (sin acentos, case-insensitive) sobre codigo, value, descripcion o nombre.
+ *
+ * @param {any} value - Valor buscado (ID, objeto, código o descripción)
+ * @param {Array} catalog - Colección de catálogo
+ * @returns {Object|null} El elemento del catálogo encontrado o null
+ */
+export const resolveCatalogItem = (value, catalog = []) => {
+  if (
+    value === null ||
+    value === undefined ||
+    !Array.isArray(catalog) ||
+    catalog.length === 0
+  ) {
+    return null;
+  }
+
+  let rawTarget = value;
+  if (typeof value === "object") {
+    rawTarget =
+      value.id ??
+      value.value ??
+      value.codigo ??
+      value.descripcion ??
+      value.description ??
+      value.nombre;
+  }
+
+  if (rawTarget === null || rawTarget === undefined || rawTarget === "") {
+    return null;
+  }
+
+  const strTarget = String(rawTarget).trim();
+
+  // 1. Estrategia 1: Matching por id o value (directo)
+  const byIdOrValue = catalog.find((item) => {
+    if (!item) return false;
+    return (
+      (item.id !== undefined &&
+        item.id !== null &&
+        String(item.id).trim() === strTarget) ||
+      (item.value !== undefined &&
+        item.value !== null &&
+        String(item.value).trim() === strTarget)
+    );
+  });
+  if (byIdOrValue) return byIdOrValue;
+
+  // 2. Estrategia 2: Matching por texto normalizado (código, descripción, nombre)
+  const normTarget = normalizeText(strTarget);
+  if (!normTarget) return null;
+
+  return (
+    catalog.find((item) => {
+      if (!item) return false;
+      const codNorm = item.codigo ? normalizeText(item.codigo) : "";
+      if (codNorm && codNorm === normTarget) return true;
+
+      const descNorm = item.descripcion
+        ? normalizeText(item.descripcion)
+        : item.description
+        ? normalizeText(item.description)
+        : "";
+      if (descNorm && descNorm === normTarget) return true;
+
+      const nomNorm = item.nombre ? normalizeText(item.nombre) : "";
+      if (nomNorm && nomNorm === normTarget) return true;
+
+      const valNorm = item.value ? normalizeText(item.value) : "";
+      if (valNorm && valNorm === normTarget) return true;
+
+      return false;
+    }) || null
+  );
+};
+
+/**
  * Obtiene el ID numérico de forma segura de un valor (objeto o ID)
  */
 export const getSafeId = (val) => {
@@ -56,66 +242,62 @@ export const getSafeId = (val) => {
  */
 
 export const getNivelNombre = (val, niveles = []) => {
-  if (!val) return "---";
-  if (typeof val === "object" && val.descripcion) return val.descripcion;
-  const item = niveles.find(
-    (n) => String(n.id) === String(val) || String(n.value) === String(val),
-  );
-  return item ? item.description || item.descripcion : val;
+  if (val === null || val === undefined || val === "") return "---";
+  if (typeof val === "object" && (val.descripcion || val.description)) {
+    return val.descripcion || val.description;
+  }
+  const item = resolveCatalogItem(val, niveles);
+  return item
+    ? item.descripcion || item.description || item.nombre
+    : typeof val === "object"
+    ? "---"
+    : val;
 };
 
 export const getTipoNombre = (val, tipos = []) => {
-  if (!val) return "---";
-  if (typeof val === "object" && val.descripcion) return val.descripcion;
-  const item = tipos.find(
-    (t) => String(t.id) === String(val) || String(t.value) === String(val),
-  );
-  return item ? item.description || item.descripcion : val;
+  if (val === null || val === undefined || val === "") return "---";
+  if (typeof val === "object" && (val.descripcion || val.description)) {
+    return val.descripcion || val.description;
+  }
+  const item = resolveCatalogItem(val, tipos);
+  return item
+    ? item.descripcion || item.description || item.nombre
+    : typeof val === "object"
+    ? "---"
+    : val;
 };
 
 export const getRelacionNombre = (val, relaciones = []) => {
-  if (!val) return "---";
-  if (typeof val === "object" && val.descripcion) return val.descripcion;
-  const item = relaciones.find(
-    (r) => String(r.id) === String(val) || String(r.value) === String(val),
-  );
-  return item ? item.description || item.descripcion : val;
+  if (val === null || val === undefined || val === "") return "---";
+  if (typeof val === "object" && (val.descripcion || val.description)) {
+    return val.descripcion || val.description;
+  }
+  const item = resolveCatalogItem(val, relaciones);
+  return item
+    ? item.descripcion || item.description || item.nombre
+    : typeof val === "object"
+    ? "---"
+    : val;
 };
 
 export const getClaseNombre = (val, clases = []) => {
-  if (!val) return "---";
-  if (typeof val === "object") {
-    if (val.descripcion) return val.descripcion;
-    if (val.clase) val = val.clase;
-    else if (val.tipo_unidad) val = val.tipo_unidad;
-    else if (val.tipoUnidad) val = val.tipoUnidad;
-    else return "---";
-  }
-  const item = clases.find(
-    (c) =>
-      String(c.id) === String(val) ||
-      String(c.descripcion).trim().toUpperCase() ===
-        String(val).trim().toUpperCase(),
-  );
-  return item ? item.descripcion : val;
+  if (val === null || val === undefined || val === "") return "---";
+  if (typeof val === "object" && val.descripcion) return val.descripcion;
+  const target = getCampoClase(val) ?? val;
+  const item = resolveCatalogItem(target, clases);
+  return item
+    ? item.descripcion || item.nombre
+    : typeof val === "object"
+    ? "---"
+    : val;
 };
 
 export const getClaseColor = (val, clases = []) => {
-  if (!val) return "#757575";
-  if (typeof val === "object") {
-    if (val.color) return val.color;
-    if (val.clase) val = val.clase;
-    else if (val.tipo_unidad) val = val.tipo_unidad;
-    else if (val.tipoUnidad) val = val.tipoUnidad;
-  }
-  const item = clases.find(
-    (c) =>
-      String(c.id) === String(val) ||
-      String(c.descripcion).trim().toUpperCase() ===
-        String(val).trim().toUpperCase() ||
-      (typeof val === "object" && String(c.id) === String(val.id)),
-  );
-  return item ? item.color : "#757575";
+  if (val === null || val === undefined || val === "") return DEFAULT_CLASE_COLOR;
+  if (typeof val === "object" && val.color) return val.color;
+  const target = getCampoClase(val) ?? val;
+  const item = resolveCatalogItem(target, clases);
+  return item ? item.color || DEFAULT_CLASE_COLOR : DEFAULT_CLASE_COLOR;
 };
 
 /**
@@ -171,22 +353,13 @@ export const highlightText = (text, query) => {
  * Calcula el peso jerárquico real de una unidad.
  */
 export const getPesoReal = (unidad, clases = []) => {
-  if (!unidad) return 99;
+  if (!unidad) return PESO_NULO;
   if (unidad.peso !== null && unidad.peso !== undefined) return unidad.peso;
   if (unidad.orden !== null && unidad.orden !== undefined) return unidad.orden;
 
-  let tId = unidad.clase || unidad.tipoUnidad || unidad.tipo_unidad;
-  if (tId && typeof tId === "object") {
-    tId = tId.id ?? tId.value ?? tId.descripcion;
-  }
-
+  const tId = getCampoClase(unidad);
   if (tId && clases && clases.length > 0) {
-    const clase = clases.find(
-      (c) =>
-        Number(c.id) === Number(tId) ||
-        String(c.id).trim() === String(tId).trim() ||
-        String(c.descripcion).trim().toUpperCase() === String(tId).trim().toUpperCase()
-    );
+    const clase = resolveCatalogItem(tId, clases);
     if (clase) {
       if (clase.orden !== null && clase.orden !== undefined) return clase.orden;
       if (clase.peso !== null && clase.peso !== undefined) return clase.peso;
@@ -194,7 +367,7 @@ export const getPesoReal = (unidad, clases = []) => {
       if (index !== -1) return index + 1;
     }
   }
-  return 10;
+  return PESO_DEFAULT;
 };
 
 /**
@@ -209,32 +382,26 @@ export const isStaffNode = (unidad, relaciones = []) => {
       : unidad.relacion;
 
   if (rel) {
-    const relStr = String(rel).trim().toUpperCase();
-    if (relStr === "S" || relStr === "STAFF" || relStr.includes("ASESOR")) {
+    const relNorm = normalizeText(rel);
+    if (relNorm === "s" || relNorm === "staff" || relNorm.includes("asesor")) {
       return true;
     }
     if (relaciones.length > 0) {
-      const relacionItem = relaciones.find(
-        (r) =>
-          String(r.id) === relStr ||
-          String(r.codigo || "").trim().toUpperCase() === relStr ||
-          String(r.value || "").trim().toUpperCase() === relStr ||
-          String(r.descripcion || "").trim().toUpperCase() === relStr,
-      );
+      const relacionItem = resolveCatalogItem(rel, relaciones);
       if (relacionItem) {
-        const desc = String(
+        const desc = normalizeText(
           relacionItem.descripcion || relacionItem.description || "",
-        ).toUpperCase();
-        const cod = String(
+        );
+        const cod = normalizeText(
           relacionItem.codigo || relacionItem.value || "",
-        ).toUpperCase();
-        return cod === "S" || desc.includes("STAFF") || desc.includes("ASESOR");
+        );
+        return cod === "s" || desc.includes("staff") || desc.includes("asesor");
       }
     }
   }
 
-  const relDesc = String(unidad.str_relacion || "").toUpperCase();
-  return relDesc === "S" || relDesc.includes("STAFF") || relDesc.includes("ASESOR");
+  const relDesc = normalizeText(unidad.str_relacion || "");
+  return relDesc === "s" || relDesc.includes("staff") || relDesc.includes("asesor");
 };
 
 /**
@@ -273,45 +440,16 @@ export const isUnidadOficial = (unidad, clases = []) => {
 
   // Prioridad 1: Propiedad directa en la unidad (si el API la provee explícitamente)
   if (unidad.oficial !== undefined && unidad.oficial !== null) {
-    return (
-      unidad.oficial === true ||
-      unidad.oficial === 1 ||
-      String(unidad.oficial).toLowerCase() === "true"
-    );
+    return toBoolean(unidad.oficial);
   }
 
   // Prioridad 2: Basado en el catálogo maestro de la Clase (fallback si unidad.oficial no está definida)
-  const val =
-    unidad.clase && typeof unidad.clase === "object"
-      ? unidad.clase.id
-      : unidad.clase;
+  const val = getCampoClase(unidad);
   if (!val) return false;
 
-  const cInfo = clases.find(
-    (c) =>
-      String(c.id) === String(val) ||
-      String(c.descripcion).trim().toLowerCase() ===
-        String(val).trim().toLowerCase(),
-  );
-
+  const cInfo = resolveCatalogItem(val, clases);
   if (!cInfo) return false;
-  return (
-    cInfo.oficial === true ||
-    cInfo.oficial === 1 ||
-    String(cInfo.oficial).toLowerCase() === "true"
-  );
-};
-
-/**
- * Normaliza un texto para búsquedas y comparaciones (sin acentos, minúsculas, limpio)
- */
-export const normalizeText = (text) => {
-  if (!text) return "";
-  return String(text)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
+  return toBoolean(cInfo.oficial);
 };
 
 /**

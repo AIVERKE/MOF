@@ -17,6 +17,7 @@ import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import {
   buildHierarchyTree,
   highlightText,
+  normalizeText,
 } from "@/utils/mofHelpers";
 
 // --- COMPOSABLES ---
@@ -140,21 +141,11 @@ const {
 
 const customTreeFilter = (value, query, item) => {
   if (!query) return true;
-  const searchNorm = query
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
+  const searchNorm = normalizeText(query);
   const raw = item?.raw || item || {};
-  const nameNorm = String(raw.display_name || raw.nombre || raw.denominacion || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  const siglaNorm = String(raw.sigla || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  const codigoNorm = String(raw.codigo || "").toLowerCase();
+  const nameNorm = normalizeText(raw.display_name || raw.nombre || raw.denominacion);
+  const siglaNorm = normalizeText(raw.sigla);
+  const codigoNorm = normalizeText(raw.codigo);
 
   return (
     nameNorm.includes(searchNorm) ||

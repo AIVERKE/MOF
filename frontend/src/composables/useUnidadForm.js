@@ -3,7 +3,8 @@ import {
   getSafeId, 
   parseDateFromApi, 
   formatDateToString,
-  getPesoReal 
+  getPesoReal,
+  resolveCatalogItem,
 } from "@/utils/mofHelpers";
 
 /**
@@ -102,11 +103,7 @@ export function useUnidadForm(stores) {
           // Helper para resolver IDs desde texto (usado en ListarUnidades)
           const findIdByText = (catalog, text) => {
             if (!text) return null;
-            const search = String(text).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            const item = catalog.find(i => 
-              String(i.value || i.id).trim().toLowerCase() === search ||
-              (i.description || i.descripcion || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(search)
-            );
+            const item = resolveCatalogItem(text, catalog);
             return item ? (item.value || item.id) : text;
           };
 
