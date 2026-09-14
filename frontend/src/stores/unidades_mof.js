@@ -349,16 +349,31 @@ export const useAllUnidadesMofStore = defineStore(
         const deletePersonalUnidad = async (unidadId) => {
             loading.value = true;
             try {
-                const personal = await getPersonalUnidad(unidadId);
-                if (!personal || !Array.isArray(personal)) return true;
-                for (const p of personal) {
-                    if (p.id) {
-                        await apiFetch(`${API_PERSONAL_URL}/${unidadId}/personal/${p.id}`, {
-                            method: 'DELETE'
-                        });
-                    }
+                // 1. Intentar borrado batch mediante endpoint dedicado
+                try {
+                    const batchRes = await apiFetch(`${API_PERSONAL_URL}/${unidadId}/personal`, {
+                        method: 'DELETE',
+                    });
+                    if (batchRes && batchRes.ok) return true;
+                } catch {
+                    // Si el endpoint batch falla o no está disponible, continuar al fallback paralelo
                 }
-                return true;
+
+                // 2. Fallback: deletes en paralelo con Promise.all (evita for..of secuencial)
+                const personal = await getPersonalUnidad(unidadId);
+                if (!personal || !Array.isArray(personal) || personal.length === 0) return true;
+
+                const validPersonal = personal.filter((p) => p && p.id);
+                if (validPersonal.length === 0) return true;
+
+                const results = await Promise.all(
+                    validPersonal.map((p) =>
+                        apiFetch(`${API_PERSONAL_URL}/${unidadId}/personal/${p.id}`, {
+                            method: 'DELETE',
+                        })
+                    )
+                );
+                return results.every((r) => r && r.ok);
             } catch {
                 return false;
             } finally {

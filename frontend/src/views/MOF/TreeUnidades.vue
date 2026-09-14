@@ -25,6 +25,7 @@ import { useUnidadDetails } from "@/composables/useUnidadDetails";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
+import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 
 const { mostrar } = useSnackbar();
 
@@ -34,6 +35,14 @@ const nivelesStore = useAllNivelesMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 const cargosStore = useAllCargosMofStore();
 const clasesStore = useAllClasesMofStore();
+
+const { prefetchCatalogs } = usePrefetchCatalogs({
+  clasesStore,
+  nivelesStore,
+  tiposStore,
+  relacionesStore,
+  cargosStore,
+});
 
 // --- FORM COMPOSABLE ---
 const unitForm = useUnidadForm({
@@ -77,11 +86,7 @@ const search = ref("");
 onMounted(async () => {
   await Promise.all([
     unidadesStore.getFetchUnidades(),
-    tiposStore.getFetchTipos(),
-    nivelesStore.getFetchNiveles(),
-    relacionesStore.getFetchRelaciones(),
-    cargosStore.getFetchCargos(),
-    clasesStore.getFetchClases(),
+    prefetchCatalogs(),
   ]);
 });
 

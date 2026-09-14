@@ -48,6 +48,7 @@ import { useSnackbar } from "@/composables/useSnackbar";
 import { useUnidadDetails } from "@/composables/useUnidadDetails";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
+import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 
 // --- VUE FLOW COMPOSABLES ---
 const { nodes, edges, setNodes, setEdges, fitView, setCenter, findNode, onNodeClick } = useVueFlow();
@@ -61,6 +62,14 @@ const nivelesStore = useAllNivelesMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 const cargosStore = useAllCargosMofStore();
 const clasesStore = useAllClasesMofStore();
+
+const { prefetchCatalogs } = usePrefetchCatalogs({
+  clasesStore,
+  nivelesStore,
+  tiposStore,
+  relacionesStore,
+  cargosStore,
+});
 
 // --- FORM COMPOSABLE ---
 const unitForm = useUnidadForm({
@@ -261,14 +270,7 @@ const stats = computed(() => {
   const all = unidadesList.value;
 
   // Si no hay filtros aplicados y tenemos el resumen precalculado del backend, usarlo de inmediato
-  if (
-    backendResumen &&
-    !searchQuery.value &&
-    !selectedNivel.value &&
-    !selectedTipo.value &&
-    !selectedRelacion.value &&
-    !selectedClase.value
-  ) {
+  if (backendResumen && !hasAnyFilter.value) {
     return [
       {
         title: "Total Unidades",
@@ -706,11 +708,22 @@ async function exportarOrganigrama() {
     document.head.appendChild(styleTag);
 
     // 2. CAPTURA
+    // Ratio dinámico y adaptativo: 2 por defecto (óptima calidad visual),
+    // ajustándose de forma adaptativa en datasets masivos para evitar desbordamientos de memoria (OOM en Canvas con 1000+ unidades)
+    const nodeCount = nodes.value?.length || unidadesList.value?.length || 0;
+    let adaptivePixelRatio = 2;
+    if (nodeCount >= 500) {
+      adaptivePixelRatio = 1;
+    } else if (nodeCount >= 150) {
+      adaptivePixelRatio = 1.5;
+    }
+
     const dataUrl = await toPng(container, {
       backgroundColor: "#ffffff",
-      quality: 1,
-      pixelRatio: 3,
+      quality: 0.95,
+      pixelRatio: adaptivePixelRatio,
       cacheBust: true,
+      skipFonts: true,
       filter: (node) => {
         const exclusion = [
           "vue-flow__arrowhead",
@@ -780,8 +793,23 @@ async function exportarOrganigrama() {
       { align: "center" },
     );
 
-    pdf.save(`Organigrama_UMSA_${new Date().getTime()}.pdf`);
-    mostrar("¡PDF generado correctamente!", "success");
+    // Descarga directa y robusta con enlace adjunto al DOM (garantiza compatibilidad total en Edge, Chrome y Firefox)
+    const blob = pdf.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    const downloadLink = document.createElement("a");
+    downloadLink.href = blobUrl;
+    downloadLink.download = `Organigrama_UMSA_${Date.now()}.pdf`;
+    downloadLink.style.display = "none";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    setTimeout(() => {
+      if (document.body.contains(downloadLink)) {
+        document.body.removeChild(downloadLink);
+      }
+      URL.revokeObjectURL(blobUrl);
+    }, 2000);
+
+    mostrar("¡PDF generado y descargado correctamente!", "success");
   } catch (error) {
     mostrar("Error al exportar: " + error.message, "error");
   } finally {
@@ -1150,17 +1178,15 @@ onMounted(async () => {
   await Promise.all([
     unidadesStore.getFetchUnidades(),
     unidadesStore.getDashboardStats(),
-    tiposStore.getFetchTipos(),
-    nivelesStore.getFetchNiveles(),
-    relacionesStore.getFetchRelaciones(),
-    cargosStore.getFetchCargos(),
-    clasesStore.getFetchClases(),
+    prefetchCatalogs(),
   ]);
   const fetchError =
     unidadesStore.error ||
     tiposStore.error ||
     nivelesStore.error ||
-    relacionesStore.error;
+    relacionesStore.error ||
+    cargosStore.error ||
+    clasesStore.error;
   if (fetchError) {
     mostrar(fetchError, "error");
   }
@@ -1267,7 +1293,7 @@ function resetFilters() {
 
       <!-- FILTROS COLLAPSIBLE -->
       <v-expansion-panels v-model="activePanels" class="mb-1 rounded-lg border">
-        <v-expansion-panel elevation="2" class="rounded-lg">
+        <v-expansion-panel :value="0" elevation="2" class="rounded-lg">
           <v-expansion-panel-title
             class="py-2 px-4 font-weight-bold text-subtitle-2"
           >
