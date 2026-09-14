@@ -6,7 +6,7 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
-import { getClaseColor } from "@/utils/mofHelpers";
+import { getClaseColor, toBoolean } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
@@ -83,22 +83,12 @@ onMounted(async () => {
 // Listas para los selectores de filtros
 const listaClases = computed(() => {
   return clasesStore.clases
-    .filter(
-      (c) =>
-        c.activo === true ||
-        c.activo === 1 ||
-        String(c.activo).toLowerCase() === "true",
-    )
+    .filter((c) => toBoolean(c.activo))
     .map((c) => ({ title: c.descripcion, value: c.descripcion }));
 });
 const listaNiveles = computed(() =>
   nivelesStore.niveles
-    .filter(
-      (n) =>
-        n.activo === true ||
-        n.activo === 1 ||
-        String(n.activo).toLowerCase() === "true",
-    )
+    .filter((n) => toBoolean(n.activo))
     .map((n) => ({
       title: n.descripcion,
       value: n.descripcion,
@@ -106,22 +96,12 @@ const listaNiveles = computed(() =>
 );
 const listaTipos = computed(() =>
   tiposStore.tipos
-    .filter(
-      (t) =>
-        t.activo === true ||
-        t.activo === 1 ||
-        String(t.activo).toLowerCase() === "true",
-    )
+    .filter((t) => toBoolean(t.activo))
     .map((t) => ({ title: t.descripcion, value: t.descripcion })),
 );
 const listaRelaciones = computed(() =>
   relacionesStore.relaciones
-    .filter(
-      (r) =>
-        r.activo === true ||
-        r.activo === 1 ||
-        String(r.activo).toLowerCase() === "true",
-    )
+    .filter((r) => toBoolean(r.activo))
     .map((r) => ({
       title: r.descripcion,
       value: r.descripcion,

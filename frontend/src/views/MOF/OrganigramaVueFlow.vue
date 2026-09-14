@@ -189,7 +189,7 @@ const unidadesFiltradas = computed(() => {
   let expectedNivelDesc = "";
   if (activeNivelId) {
     const item = nivelesStore.niveles.find((n) => String(n.id) === activeNivelId);
-    expectedNivelDesc = item ? item.descripcion.toLowerCase().trim() : "";
+    expectedNivelDesc = item ? normalizeText(item.descripcion) : "";
   }
 
   let expectedTipoDesc = "";
@@ -201,7 +201,7 @@ const unidadesFiltradas = computed(() => {
   let expectedClaseDesc = "";
   if (activeClaseId) {
     const item = clasesStore.clases.find((c) => String(c.id) === activeClaseId);
-    expectedClaseDesc = item ? item.descripcion.toLowerCase().trim() : "";
+    expectedClaseDesc = item ? normalizeText(item.descripcion) : "";
   }
 
   const isEstricto = vistaModo.value === "estricto";
@@ -213,7 +213,7 @@ const unidadesFiltradas = computed(() => {
     if (searchNorm) {
       const uNombreNorm = normalizeText(u.nombre || u.denominacion);
       const uSiglaNorm = normalizeText(u.sigla);
-      const uCodigoNorm = String(u.codigo || "").toLowerCase();
+      const uCodigoNorm = normalizeText(u.codigo);
       if (
         !uNombreNorm.includes(searchNorm) &&
         !uSiglaNorm.includes(searchNorm) &&
@@ -224,7 +224,7 @@ const unidadesFiltradas = computed(() => {
     }
 
     if (activeNivelId) {
-      if (expectedNivelDesc !== String(u.nivel || "").toLowerCase().trim()) {
+      if (expectedNivelDesc !== normalizeText(u.nivel)) {
         return false;
       }
     }
@@ -236,7 +236,7 @@ const unidadesFiltradas = computed(() => {
     }
 
     if (activeClaseId) {
-      if (expectedClaseDesc !== String(u.clase || "").toLowerCase().trim()) {
+      if (expectedClaseDesc !== normalizeText(u.clase)) {
         return false;
       }
     }
@@ -930,7 +930,7 @@ const updateGraph = () => {
   const activeTipoId = getFilterId(filterTipo.value);
   const activeClaseId = getFilterId(filterInstancia.value);
   const activeRelacionId = getFilterId(filterRelacion.value);
-  const searchLower = (searchTerm.value || "").toLowerCase().trim();
+  const searchLower = normalizeText(searchTerm.value);
   const activesCount = [
     activeNivelId,
     activeTipoId,

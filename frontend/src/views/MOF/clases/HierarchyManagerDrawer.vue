@@ -6,7 +6,7 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { useAllCargosMofStore } from "@/stores/cargos_mof";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
-import { swatches, getUsedColors } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, toBoolean } from "@/utils/mofHelpers";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 const clasesStore = useAllClasesMofStore();
@@ -91,7 +91,7 @@ function getActiveCargoChildren(cargoId) {
     (c) =>
       c.parentId != null &&
       String(c.parentId) === String(cargoId) &&
-      (c.activo === true || c.activo === 1 || String(c.activo) === "true")
+      toBoolean(c.activo)
   );
 }
 
@@ -162,8 +162,8 @@ function openDialog(item = null) {
       descripcion: tab.value === 4
         ? (item.descripcion || "")
         : (item.descripcion || item.nombre || ""),
-      activo: item.activo === true || item.activo === 1 || String(item.activo) === 'true',
-      oficial: item.oficial === true || item.oficial === 1 || String(item.oficial) === 'true',
+      activo: toBoolean(item.activo),
+      oficial: toBoolean(item.oficial),
       color: item.color || "#1976D2",
       parentId: item.parentId != null ? Number(item.parentId) : null
     };

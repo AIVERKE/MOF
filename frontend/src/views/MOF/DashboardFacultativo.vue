@@ -200,7 +200,7 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
-import { getContrastingTextColor } from "@/utils/mofHelpers";
+import { getContrastingTextColor, toBoolean } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
@@ -246,12 +246,7 @@ onMounted(async () => {
 // Lista de Clases ordenada por peso para el primer dropdown
 const listaClasesOrdenadas = computed(() => {
   return [...clasesStore.clases]
-    .filter(
-      (c) =>
-        c.activo === true ||
-        c.activo === 1 ||
-        String(c.activo).toLowerCase() === "true",
-    )
+    .filter((c) => toBoolean(c.activo))
     .sort((a, b) => a.peso - b.peso);
 });
 

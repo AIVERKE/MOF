@@ -17,6 +17,7 @@ import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import {
   getContrastingTextColor,
   highlightText,
+  normalizeText,
 } from "@/utils/mofHelpers";
 
 // --- COMPOSABLES ---
@@ -103,11 +104,11 @@ const filteredUnidades = computed(() => {
   }
 
   if (search.value) {
-    const q = search.value.toLowerCase();
+    const q = normalizeText(search.value);
     list = list.filter(u => 
-      (u.nombre || u.denominacion || '').toLowerCase().includes(q) ||
-      (u.codigo || '').toLowerCase().includes(q) ||
-      (u.sigla || '').toLowerCase().includes(q)
+      normalizeText(u.nombre || u.denominacion).includes(q) ||
+      normalizeText(u.codigo).includes(q) ||
+      normalizeText(u.sigla).includes(q)
     );
   }
 
