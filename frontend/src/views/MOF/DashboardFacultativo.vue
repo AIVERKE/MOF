@@ -200,12 +200,9 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
-import {
-  getClaseNombre,
-  getClaseColor,
-  getContrastingTextColor,
-  isUnidadOficial,
-} from "@/utils/mofHelpers";
+import { getContrastingTextColor } from "@/utils/mofHelpers";
+import { useMofResolvers } from "@/composables/useMofResolvers";
+import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
@@ -216,14 +213,18 @@ const nivelesStore = useAllNivelesMofStore();
 const tiposStore = useAllTiposMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 
+const {
+  resolveClase,
+  resolveClaseColor,
+  checkOficial: isUnidadOficialCheck,
+} = useMofResolvers(clasesStore, nivelesStore, tiposStore, relacionesStore);
+
 const loading = ref(true);
 const loadingDescendientes = ref(false);
 const claseSeleccionada = ref(null);
 const unidadMadre = ref(null);
 const arbolDependencias = ref([]);
 const conteoDependientes = ref({});
-
-const isUnidadOficialCheck = (u) => isUnidadOficial(u, clasesStore.clases);
 
 onMounted(async () => {
   loading.value = true;
@@ -236,9 +237,6 @@ onMounted(async () => {
   ]);
   loading.value = false;
 });
-
-// Resolvers usando mofHelpers
-const resolveClase = (val) => getClaseNombre(val, clasesStore.clases);
 
 // Lista de Clases ordenada por peso para el primer dropdown
 const listaClasesOrdenadas = computed(() => {
@@ -296,24 +294,25 @@ const getRowClass = (item) => {
 };
 
 const chartOptions = computed(() => {
-  const textColor = isDark.value ? "#E2E8F0" : "#333333";
-  const labelColor = isDark.value ? "#94A3B8" : "#666666";
+  const baseOptions = getHighchartsBaseOptions(isDark, {
+    chart: { type: "bar" },
+  });
+  const { textColor, labelColor, gridLineColor, lineColor } = baseOptions._colors;
 
   return {
-    chart: { type: "bar", backgroundColor: "transparent" },
-    title: { text: null },
+    ...baseOptions,
     xAxis: {
       categories: Object.keys(conteoDependientes.value),
       crosshair: true,
       labels: { style: { color: textColor } },
-      lineColor: isDark.value ? "#475569" : "#CCD6EB",
-      tickColor: isDark.value ? "#475569" : "#CCD6EB"
+      lineColor: lineColor,
+      tickColor: lineColor,
     },
     yAxis: {
       title: { text: "Nro. de Unidades", style: { color: textColor } },
       labels: { style: { color: labelColor } },
-      gridLineColor: isDark.value ? "#334155" : "#E6E6E6",
-      min: 0
+      gridLineColor: gridLineColor,
+      min: 0,
     },
     plotOptions: {
       bar: {
@@ -321,18 +320,13 @@ const chartOptions = computed(() => {
         borderRadius: 4,
         dataLabels: {
           enabled: true,
-          style: { color: textColor, textOutline: "none" }
+          style: { color: textColor, textOutline: "none" },
         },
       },
     },
     series: [
       { name: "Dependientes", data: Object.values(conteoDependientes.value) },
     ],
-    legend: {
-      itemStyle: { color: textColor },
-      itemHoverStyle: { color: isDark.value ? "#FFFFFF" : "#000000" }
-    },
-    credits: { enabled: false },
   };
 });
 </script>

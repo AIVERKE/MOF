@@ -15,11 +15,7 @@ import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 
 // --- PLUGINS & UTILS ---
 import {
-  getClaseNombre,
-  getNivelNombre,
-  getTipoNombre,
-  getRelacionNombre,
-  getClaseColor,
+  buildHierarchyTree,
   highlightText,
 } from "@/utils/mofHelpers";
 
@@ -27,6 +23,8 @@ import {
 import { useUnidadForm } from "@/composables/useUnidadForm";
 import { useUnidadDetails } from "@/composables/useUnidadDetails";
 import { useSnackbar } from "@/composables/useSnackbar";
+import { useMofResolvers } from "@/composables/useMofResolvers";
+import { useUnidadActions } from "@/composables/useUnidadActions";
 
 const { mostrar } = useSnackbar();
 
@@ -87,36 +85,7 @@ onMounted(async () => {
   ]);
 });
 
-function buildTree(list) {
-  const map = {};
-  const roots = [];
-  list.forEach((item) => {
-    const claseVal = item.clase || item.tipo_unidad || item.tipoUnidad;
-    const nameVal = item.denominacion || item.nombre;
-    map[item.id] = {
-      ...item,
-      title: nameVal,
-      display_name: nameVal,
-      clase: claseVal,
-      children: [],
-    };
-  });
-  list.forEach((item) => {
-    let pId = null;
-    if (item.parent) {
-      pId = typeof item.parent === "object" ? item.parent.id : item.parent;
-    }
-
-    if (pId && map[pId]) {
-      map[pId].children.push(map[item.id]);
-    } else {
-      roots.push(map[item.id]);
-    }
-  });
-  return roots;
-}
-
-const treeItems = computed(() => buildTree(unidadesStore.unidades));
+const treeItems = computed(() => buildHierarchyTree(unidadesStore.unidades));
 
 async function editItem(id) {
   const item = unidadesStore.unidades.find((u) => String(u.id) === String(id));
@@ -133,42 +102,14 @@ function deleteItem(id) {
   deleteDialog.value = true;
 }
 
-async function confirmDelete() {
-  const id = itemToDelete.value.id;
-  const hasChildren = unidadesStore.unidades.some((u) => {
-    let pId = null;
-    if (u.parent) {
-      pId = typeof u.parent === "object" ? u.parent.id : u.parent;
-    }
-    return String(pId) === String(id);
-  });
-  if (hasChildren) {
-    mostrar("No se puede eliminar: tiene unidades dependientes.", "error");
-    deleteDialog.value = false;
-    return;
-  }
-  await unidadesStore.deletePersonalUnidad(id);
-  await unidadesStore.deleteUnidad(id);
-  if (!unidadesStore.error) {
-    mostrar("¡Unidad eliminada!", "success");
-    deleteDialog.value = false;
-    await unidadesStore.getFetchUnidades();
-  } else {
-    mostrar("Error: " + unidadesStore.error, "error");
-  }
-}
-
-async function confirmAddItem() {
-  mostrar("Procesando...", "info");
-  const result = await saveUnidad();
-  if (result.success) {
-    addDialog.value = false;
-    mostrar("¡Operación realizada con éxito!", "success");
-    await unidadesStore.getFetchUnidades();
-  } else {
-    mostrar("Error: " + result.error, "error");
-  }
-}
+const { confirmAddItem, confirmDelete } = useUnidadActions({
+  unidadesStore,
+  saveUnidad,
+  onRefresh: () => unidadesStore.getFetchUnidades(),
+  addDialog,
+  deleteDialog,
+  itemToDelete,
+});
 
 function openAddDialog(itemOrId) {
   let item = itemOrId;
@@ -182,12 +123,15 @@ function openAddDialog(itemOrId) {
   addDialog.value = true;
 }
 
-const resolveClaseColor = (val) => getClaseColor(val, clasesStore.clases);
-const resolveClase = (val) => getClaseNombre(val, clasesStore.clases);
-const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
-const resolveTipo = (val) => getTipoNombre(val, tiposStore.tipos);
-const resolveRelacion = (val) =>
-  getRelacionNombre(val, relacionesStore.relaciones);
+// --- HELPER WRAPPERS ---
+const {
+  resolveNivel,
+  resolveTipo,
+  resolveRelacion,
+  resolveClase,
+  resolveClaseColor,
+  checkOficial,
+} = useMofResolvers(clasesStore, nivelesStore, tiposStore, relacionesStore);
 
 const customTreeFilter = (value, query, item) => {
   if (!query) return true;

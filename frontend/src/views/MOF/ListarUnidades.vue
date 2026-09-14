@@ -15,20 +15,16 @@ import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 
 // --- PLUGINS & UTILS ---
 import {
-  getClaseNombre,
-  getNivelNombre,
-  getTipoNombre,
-  getRelacionNombre,
-  getClaseColor,
   getContrastingTextColor,
   highlightText,
-  isUnidadOficial
 } from "@/utils/mofHelpers";
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
 import { useUnidadDetails } from "@/composables/useUnidadDetails";
 import { useSnackbar } from "@/composables/useSnackbar";
+import { useMofResolvers } from "@/composables/useMofResolvers";
+import { useUnidadActions } from "@/composables/useUnidadActions";
 
 const unidadesStore = useAllUnidadesMofStore();
 const tiposStore = useAllTiposMofStore();
@@ -94,7 +90,7 @@ const filteredUnidades = computed(() => {
 
   // Filtro Estructural para Modo Estricto
   if (vistaModo.value === 'estricto') {
-    list = list.filter(u => isUnidadOficial(u, clasesStore.clases));
+    list = list.filter(u => checkOficial(u));
   }
 
   if (search.value) {
@@ -113,18 +109,22 @@ const filteredUnidades = computed(() => {
   }));
 });
 
+// --- HELPER WRAPPERS ---
+const {
+  resolveNivel,
+  resolveTipo,
+  resolveRelacion,
+  resolveClase,
+  resolveClaseColor,
+  checkOficial,
+} = useMofResolvers(clasesStore, nivelesStore, tiposStore, relacionesStore);
+
 const getFadedClass = (item) => {
-  if (vistaModo.value === 'analitico' && !isUnidadOficial(item, clasesStore.clases)) {
+  if (vistaModo.value === 'analitico' && !checkOficial(item)) {
     return 'opacity-60 grayscale';
   }
   return '';
 };
-
-const resolveClase = (val) => getClaseNombre(val, clasesStore.clases);
-const resolveNivel = (val) => getNivelNombre(val, nivelesStore.niveles);
-const resolveTipo = (val) => getTipoNombre(val, tiposStore.tipos);
-const resolveRelacion = (val) => getRelacionNombre(val, relacionesStore.relaciones);
-const resolveClaseColor = (val) => getClaseColor(val, clasesStore.clases);
 
 onMounted(async () => {
   await Promise.all([
@@ -144,42 +144,20 @@ async function openForm(nodeId = null, edit = false) {
   addDialog.value = true;
 }
 
-async function confirmAddItem() {
-  mostrar("Procesando...", "info");
-  const result = await saveUnidad();
-  if (result.success) {
-    addDialog.value = false;
-    mostrar("¡Operación realizada con éxito!", "success");
-    await unidadesStore.getFetchUnidades();
-  } else {
-    mostrar("Error: " + result.error, "error");
-  }
-}
-
 function deleteItem(id) {
   const item = unidadesStore.unidades.find((u) => String(u.id) === String(id));
   selectedNode.value = item || detailData.value;
   deleteDialog.value = true;
 }
 
-async function confirmDelete() {
-  if (!selectedNode.value) return;
-  const hasChildren = unidadesStore.unidades.some(u => String(u.parent) === String(selectedNode.value.id));
-  if (hasChildren) {
-    mostrar("No se puede eliminar: tiene unidades dependientes.", "error");
-    deleteDialog.value = false;
-    return;
-  }
-  await unidadesStore.deletePersonalUnidad(selectedNode.value.id);
-  await unidadesStore.deleteUnidad(selectedNode.value.id);
-  if (!unidadesStore.error) {
-    mostrar("¡Unidad eliminada!", "success");
-    await unidadesStore.getFetchUnidades();
-  } else {
-    mostrar("Error: " + unidadesStore.error, "error");
-  }
-  deleteDialog.value = false;
-}
+const { confirmAddItem, confirmDelete } = useUnidadActions({
+  unidadesStore,
+  saveUnidad,
+  onRefresh: () => unidadesStore.getFetchUnidades(),
+  addDialog,
+  deleteDialog,
+  selectedNode,
+});
 </script>
 
 <template>
@@ -304,8 +282,8 @@ async function confirmDelete() {
             <!-- Custom Slot: Estado -->
             <td class="text-center">
               <div class="d-flex align-center justify-center">
-                <span :class="isUnidadOficial(item, clasesStore.clases) ? 'text-success font-weight-bold' : 'text-grey'" style="font-size: 11px;">
-                  {{ isUnidadOficial(item, clasesStore.clases) ? 'OFICIAL' : 'NO OFICIAL' }}
+                <span :class="checkOficial(item) ? 'text-success font-weight-bold' : 'text-grey'" style="font-size: 11px;">
+                  {{ checkOficial(item) ? 'OFICIAL' : 'NO OFICIAL' }}
                 </span>
               </div>
             </td>

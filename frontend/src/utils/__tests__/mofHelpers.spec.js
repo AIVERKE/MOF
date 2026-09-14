@@ -80,3 +80,40 @@ describe("mofHelpers - isStaffNode", () => {
     expect(isStaffNode({ str_relacion: "LINEAL" }, relaciones)).toBe(false);
   });
 });
+
+describe("mofHelpers - buildHierarchyTree", () => {
+  it("retorna arreglo vacío si la lista es vacía o nula", () => {
+    const { buildHierarchyTree } = require("../mofHelpers");
+    expect(buildHierarchyTree([])).toEqual([]);
+    expect(buildHierarchyTree(null)).toEqual([]);
+  });
+
+  it("construye correctamente árbol con raíces e hijos anidados", () => {
+    const { buildHierarchyTree } = require("../mofHelpers");
+    const rawList = [
+      { id: 1, nombre: "Rectorado", parent: null, clase: 1 },
+      { id: 2, nombre: "Secretaría General", parent: 1, clase: 2 },
+      { id: 3, nombre: "Archivo Central", parent: 2, clase: 3 },
+      { id: 4, nombre: "Vicerrectorado", parent: { id: 1 }, clase: 1 },
+      { id: 5, nombre: "Unidad Independiente", parent: null, denominacion: "Indep" },
+    ];
+
+    const tree = buildHierarchyTree(rawList);
+    expect(tree).toHaveLength(2); // Rectorado e Independiente
+
+    const rectorado = tree.find((r) => r.id === 1);
+    expect(rectorado).toBeDefined();
+    expect(rectorado.title).toBe("Rectorado");
+    expect(rectorado.display_name).toBe("Rectorado");
+    expect(rectorado.children).toHaveLength(2); // Secretaría General y Vicerrectorado
+
+    const secGral = rectorado.children.find((c) => c.id === 2);
+    expect(secGral).toBeDefined();
+    expect(secGral.children).toHaveLength(1);
+    expect(secGral.children[0].id).toBe(3);
+
+    const indep = tree.find((r) => r.id === 5);
+    expect(indep.title).toBe("Indep");
+    expect(indep.children).toHaveLength(0);
+  });
+});
