@@ -1,11 +1,14 @@
 import { ref } from "vue";
 import { 
   getSafeId, 
-  parseDateFromApi, 
-  formatDateToString,
   getPesoReal,
-  resolveCatalogItem,
 } from "@/utils/mofHelpers";
+import {
+  getEmptyFormData,
+  mapBackendToForm,
+  mapFormToBackend,
+  mapPersonalToCargos,
+} from "@/utils/mofMappers";
 
 /**
  * Composable para gestionar la lógica del formulario de Unidades Administrativas (MOF)
@@ -22,37 +25,7 @@ export function useUnidadForm(stores) {
   } = stores;
 
   // --- ESTADO DEL FORMULARIO (Sincronizado con backend NestJS) ---
-  const formData = ref({
-    id: null,
-    nombre: "",
-    codigo: "",
-    sigla: "",
-    baseLegal: "",
-    resCreacion: "",
-    objetivo: "",
-    fecCreacion: null,
-    relacion: null,
-    cargos: [],
-    funciones: [],
-    dependenciasFuncionales: [],
-    tipo: null,
-    nivel: null,
-    clase: null,
-    parentId: null,
-    color: "#1976D2",
-    oficial: true,
-    es_troncal: false,
-    lado: "AUTOMATICO",
-    tramitesAtendidos: "",
-    ejecucionPoa: "",
-    ejecucionPresupuestaria: "",
-    cargaHorariaProgramada: "",
-    cargaHorariaEjecutada: "",
-    infraestructura: "",
-    ubicacion: "",
-    relacionesInternas: [],
-    relacionesExternas: []
-  });
+  const formData = ref(getEmptyFormData());
 
   const isEditMode = ref(false);
   const formValid = ref(false);
@@ -94,68 +67,18 @@ export function useUnidadForm(stores) {
         ]);
 
         if (fullData) {
-          const personalArray = Array.isArray(personalData) ? personalData : (personalData ? [personalData] : []);
-          const mappedCargos = personalArray.map(p => {
-            const cat = cargosStore.cargos.find(c => c.descripcion === p.descripcion);
-            return cat ? { catalogId: String(cat.id), assignmentId: String(p.id) } : null;
-          }).filter(Boolean);
+          const mappedCargos = mapPersonalToCargos(personalData, cargosStore.cargos);
 
-          // Helper para resolver IDs desde texto (usado en ListarUnidades)
-          const findIdByText = (catalog, text) => {
-            if (!text) return null;
-            const item = resolveCatalogItem(text, catalog);
-            return item ? (item.value || item.id) : text;
-          };
-
-          formData.value = {
-            id: fullData.id,
-            nombre: fullData.nombre || fullData.denominacion || "",
-            codigo: fullData.codigo || "",
-            sigla: fullData.sigla || "",
-            baseLegal: fullData.base_legal || fullData.baseLegal || "",
-            resCreacion: fullData.res_creacion || fullData.resCreacion || "",
-            objetivo: fullData.objetivo || fullData.objetivo_puesto || "",
-            funciones: (funcionesData || []).map(f => ({
-              id: f.id,
-              tempId: f.id ? String(f.id) : `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              funcion: f.funcion,
-              baseLegal: f.baseLegal || "",
-              orden: f.orden
-            })),
-            fecCreacion: parseDateFromApi(fullData.fec_creacion || fullData.fecCreacion),
-            dependenciasFuncionales: (fullData.dependenciasFuncionales || []).map(d => getSafeId(d)).filter(id => id !== null),
-            clase: getSafeId(fullData.clase) || findIdByText(clasesStore.clases, fullData.clase),
-            nivel: getSafeId(fullData.nivel) || findIdByText(nivelesStore.niveles, fullData.nivel),
-            tipo: getSafeId(fullData.tipo) || findIdByText(tiposStore.tipos, fullData.tipo),
-            relacion: getSafeId(fullData.relacion) || findIdByText(relacionesStore.relaciones, fullData.relacion),
-            parentId: getSafeId(fullData.parent || fullData.parentId),
-            cargos: mappedCargos.map(m => m.catalogId),
-            color: fullData.color || "#1976D2",
-            oficial: fullData.oficial !== false,
-            es_troncal: fullData.es_troncal === true,
-            lado: fullData.lado || "AUTOMATICO",
-            tramitesAtendidos: fullData.tramitesAtendidos || fullData.tramites_atendidos || "",
-            ejecucionPoa: fullData.ejecucionPoa || fullData.ejecucion_poa || "",
-            ejecucionPresupuestaria: fullData.ejecucionPresupuestaria || fullData.ejecucion_presupuestaria || "",
-            cargaHorariaProgramada: fullData.cargaHorariaProgramada || fullData.carga_horaria_programada || "",
-            cargaHorariaEjecutada: fullData.cargaHorariaEjecutada || fullData.carga_horaria_ejecutada || "",
-            infraestructura: fullData.infraestructura || fullData.infraestructura_fisica || "",
-            ubicacion: fullData.ubicacion || "",
-            relacionesInternas: (fullData.relacionesInternas || []).map(r => ({
-              id: r.id,
-              relacionadaId: r.relacionadaId || r.unidadDestinoId || r.id,
-              codigo: r.codigo,
-              nombre: r.nombre || r.unidadDestinoNombre,
-              sigla: r.sigla,
-              tipo: r.tipo || null,
-              descripcion: r.descripcion || null,
-            })),
-            relacionesExternas: (fullData.relacionesExternas || []).map(r => ({
-              id: r.id,
-              entidadExterna: r.entidadExterna || "",
-              descripcion: r.descripcion || (typeof r === "string" ? r : ""),
-            }))
-          };
+          formData.value = mapBackendToForm(fullData, {
+            catalogs: {
+              clases: clasesStore.clases,
+              niveles: nivelesStore.niveles,
+              tipos: tiposStore.tipos,
+              relaciones: relacionesStore.relaciones,
+            },
+            funcionesData,
+            mappedCargos,
+          });
 
           cargosOriginales.value = [...mappedCargos];
           funcionesOriginales.value = [...(funcionesData || [])];
@@ -164,37 +87,7 @@ export function useUnidadForm(stores) {
         }
       } else {
         // Reset para creación
-        formData.value = {
-          id: null,
-          nombre: "",
-          codigo: "",
-          sigla: "",
-          baseLegal: "",
-          resCreacion: "",
-          objetivo: "",
-          fecCreacion: null,
-          relacion: null,
-          cargos: [],
-          funciones: [],
-          dependenciasFuncionales: [],
-          tipo: null,
-          nivel: null,
-          clase: null,
-          parentId: node ? getSafeId(node.id) : null,
-          color: "#1976D2",
-          oficial: true,
-          es_troncal: false,
-          lado: "AUTOMATICO",
-          tramitesAtendidos: "",
-          ejecucionPoa: "",
-          ejecucionPresupuestaria: "",
-          cargaHorariaProgramada: "",
-          cargaHorariaEjecutada: "",
-          infraestructura: "",
-          ubicacion: "",
-          relacionesInternas: [],
-          relacionesExternas: []
-        };
+        formData.value = getEmptyFormData(node ? getSafeId(node.id) : null);
         cargosOriginales.value = [];
         funcionesOriginales.value = [];
         dependenciasOriginales.value = [];
@@ -233,40 +126,7 @@ export function useUnidadForm(stores) {
       }
     }
 
-    const isTroncal = formData.value.es_troncal === true;
-    const dataToSend = {
-      codigo: formData.value.codigo?.trim() || "",
-      sigla: formData.value.sigla?.trim() || "",
-      nombre: formData.value.nombre?.trim() || "",
-      baseLegal: formData.value.baseLegal?.trim() || "",
-      parentId: pIdVal || null,
-      tipo: getSafeId(formData.value.tipo) || 1,
-      nivel: getSafeId(formData.value.nivel) || 1,
-      relacion: getSafeId(formData.value.relacion) || 1,
-      resCreacion: formData.value.resCreacion?.trim() || "",
-      fecCreacion: formatDateToString(formData.value.fecCreacion) || null,
-      objetivo: formData.value.objetivo?.trim() || "",
-      color: formData.value.color || "#1976D2",
-      tipoUnidad: getSafeId(formData.value.clase) || 1,
-      oficial: formData.value.oficial !== false,
-      esTroncal: isTroncal,
-      lado: isTroncal ? "CENTRO" : (formData.value.lado || "AUTOMATICO"),
-      dependenciasFuncionales: (formData.value.dependenciasFuncionales || []).map(d => getSafeId(d)).filter(id => id !== null),
-      tramitesAtendidos: formData.value.tramitesAtendidos?.trim() || null,
-      ejecucionPoa: formData.value.ejecucionPoa?.trim() || null,
-      ejecucionPresupuestaria: formData.value.ejecucionPresupuestaria?.trim() || null,
-      cargaHorariaProgramada: formData.value.cargaHorariaProgramada?.trim() || null,
-      cargaHorariaEjecutada: formData.value.cargaHorariaEjecutada?.trim() || null,
-      infraestructura: formData.value.infraestructura?.trim() || null,
-      ubicacion: formData.value.ubicacion?.trim() || null,
-      relacionesInternas: (formData.value.relacionesInternas || []).map(r => ({
-        relacionadaId: Number(r.relacionadaId || r.id || r),
-        tipo: r.tipo || null,
-      })),
-      relacionesExternas: (formData.value.relacionesExternas || [])
-        .map(r => typeof r === 'object' ? r.descripcion?.trim() : String(r).trim())
-        .filter(Boolean),
-    };
+    const dataToSend = mapFormToBackend(formData.value);
 
     let success = false;
     let unidadId = formData.value.id;
