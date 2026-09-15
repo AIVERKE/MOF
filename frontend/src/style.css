@@ -160,7 +160,7 @@
   color: #FFFFFF !important;
 }
 
-/* Organigrama: Nodos Planos y Líneas/Flechas de Alto Contraste */
+/* Organigrama: Nodos Planos y Líneas de Alto Contraste */
 .custom-node {
   box-shadow: none !important;
 }
@@ -179,8 +179,7 @@
   stroke-width: 3px !important;
 }
 .vue-flow__arrowhead {
-  fill: #0f172a !important;
-  stroke: #0f172a !important;
+  display: none !important;
 }
 
 .v-theme--dark .vue-flow__edge-path {
@@ -188,7 +187,6 @@
   stroke-width: 3px !important;
 }
 .v-theme--dark .vue-flow__arrowhead {
-  fill: #e2e8f0 !important;
-  stroke: #e2e8f0 !important;
+  display: none !important;
 }
 

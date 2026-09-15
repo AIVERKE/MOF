@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from "vue";
-import { VueFlow, useVueFlow, Handle, MarkerType } from "@vue-flow/core";
+import { VueFlow, useVueFlow, Handle } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import dagre from "dagre";
@@ -693,14 +693,6 @@ async function exportarOrganigrama() {
     path.setAttribute("stroke-linecap", "round");
   });
 
-  const arrowheads = container.querySelectorAll(".vue-flow__arrowhead");
-  arrowheads.forEach((arrow) => {
-    arrow.style.fill = "#0f172a";
-    arrow.style.stroke = "#0f172a";
-    arrow.setAttribute("fill", "#0f172a");
-    arrow.setAttribute("stroke", "#0f172a");
-  });
-
   const styleTag = document.createElement("style");
   styleTag.innerHTML = `
     .vue-flow__edge-path {
@@ -711,8 +703,7 @@ async function exportarOrganigrama() {
       stroke-linecap: round !important;
     }
     .vue-flow__arrowhead {
-      fill: #0f172a !important;
-      stroke: #0f172a !important;
+      display: none !important;
     }
     .bridge-line {
       background-color: #0f172a !important;
@@ -730,6 +721,10 @@ async function exportarOrganigrama() {
       border: 2px solid rgba(15, 23, 42, 0.45) !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+    }
+    .title-line, .detail-line, .code-line, .code-badge {
+      color: #000000 !important;
+      font-weight: bold !important;
     }
   `;
 
@@ -1123,12 +1118,6 @@ const updateGraph = () => {
         targetHandle: targetH,
         data: {
           borderRadius: 0,
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 16,
-          height: 16,
-          color: edgeStrokeColor,
         },
         style: {
           stroke: edgeStrokeColor,
@@ -1715,7 +1704,23 @@ function resetFilters() {
                 'non-oficial-faded': data.isNonOficialInOficialView,
               }"
               :style="{
-                backgroundColor: data.color,
+                borderColor:
+                  (hasAnyFilter || mostrarDependencias) && !data.isMatch
+                    ? '#CBD5E1'
+                    : data.isNonOficialInOficialView
+                      ? '#94A3B8'
+                      : data.color,
+                borderLeftColor:
+                  (hasAnyFilter || mostrarDependencias) && !data.isMatch
+                    ? '#CBD5E1'
+                    : data.isNonOficialInOficialView
+                      ? '#64748B'
+                      : data.color,
+                background: data.isNonOficialInOficialView
+                  ? '#F1F5F9'
+                  : (hasAnyFilter || mostrarDependencias) && !data.isMatch
+                    ? '#FFFFFF'
+                    : `color-mix(in srgb, ${data.color} 10%, #FFFFFF)`,
                 '--node-color': data.color,
               }"
             >
@@ -1723,10 +1728,7 @@ function resetFilters() {
                 v-if="data.isStaff"
                 class="staff-badge-top"
                 :style="{
-                  backgroundColor:
-                    getContrastingTextColor(data.color) === '#FFFFFF'
-                      ? 'rgba(0, 0, 0, 0.28)'
-                      : 'rgba(255, 255, 255, 0.4)',
+                  backgroundColor: data.color,
                   color: getContrastingTextColor(data.color),
                 }"
               >
@@ -1746,98 +1748,54 @@ function resetFilters() {
               <div
                 v-else-if="data.isNonOficialInOficialView"
                 class="non-oficial-badge-top"
-                :style="{
-                  backgroundColor:
-                    getContrastingTextColor(data.color) === '#FFFFFF'
-                      ? 'rgba(0, 0, 0, 0.25)'
-                      : 'rgba(255, 255, 255, 0.35)',
-                  color: getContrastingTextColor(data.color),
-                }"
               >
-                <v-icon
-                  size="13"
-                  class="mr-1"
-                  :color="
-                    getContrastingTextColor(data.color) === '#FFFFFF'
-                      ? 'white'
-                      : 'grey-darken-4'
-                  "
-                >
+                <v-icon size="13" class="mr-1 text-slate-700">
                   mdi-alert-circle-outline
                 </v-icon>
-                <span>NO OFICIAL</span>
+                <span class="text-slate-800 font-weight-black">NO OFICIAL</span>
               </div>
+              <div
+                v-else
+                class="node-top-accent"
+                :style="{ backgroundColor: data.color }"
+              ></div>
               <div class="node-content" @click="showDetails(id)">
-                <div
-                  class="node-line code-line"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
-                  <span
-                    class="code-badge"
-                    :style="{
-                      backgroundColor:
-                        getContrastingTextColor(data.color) === '#FFFFFF'
-                          ? 'rgba(0, 0, 0, 0.22)'
-                          : 'rgba(255, 255, 255, 0.45)',
-                      color: getContrastingTextColor(data.color),
-                    }"
-                  >
+                <div class="node-line code-line">
+                  <span class="code-badge">
                     {{ data.codigo }}
                   </span>
                 </div>
-                <div
-                  class="node-line title-line"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
+                <div class="node-line title-line">
                   {{ data.nombre }}
                 </div>
                 <div
                   class="node-line detail-line"
                   v-if="data.sigla && data.sigla !== '-'"
-                  :style="{ color: getContrastingTextColor(data.color) }"
                 >
                   <v-icon
                     size="16"
                     class="mr-2"
-                    :color="
-                      getContrastingTextColor(data.color) === '#FFFFFF'
-                        ? 'white'
-                        : 'grey-darken-4'
-                    "
+                    :style="{ color: data.color }"
                   >
                     mdi-identifier
                   </v-icon>
                   <span>SIGLA: {{ data.sigla }}</span>
                 </div>
-                <div
-                  class="node-line detail-line"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
+                <div class="node-line detail-line">
                   <v-icon
                     size="16"
                     class="mr-2"
-                    :color="
-                      getContrastingTextColor(data.color) === '#FFFFFF'
-                        ? 'white'
-                        : 'grey-darken-4'
-                    "
+                    :style="{ color: data.color }"
                   >
                     mdi-layers-outline
                   </v-icon>
                   <span>{{ data.nivel }}</span>
                 </div>
-                <div
-                  class="node-line detail-line"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
+                <div class="node-line detail-line">
                   <v-icon
                     size="16"
                     class="mr-2"
-                    :color="
-                      getContrastingTextColor(data.color) === '#FFFFFF'
-                        ? 'white'
-                        : 'grey-darken-4'
-                    "
+                    :style="{ color: data.color }"
                   >
                     mdi-tag-outline
                   </v-icon>
@@ -1852,11 +1810,7 @@ function resetFilters() {
                   :unidad-id="id"
                   :show-quick-actions="false"
                   density="node"
-                  :activator-color="
-                    getContrastingTextColor(data.color) === '#FFFFFF'
-                      ? 'white'
-                      : 'grey-darken-4'
-                  "
+                  activator-color="grey-darken-4"
                   @details="showDetails"
                   @pdf="verReporte"
                   @dependencias="verDependencias"
@@ -1870,23 +1824,27 @@ function resetFilters() {
                 id="target-left"
                 type="target"
                 position="left"
+                :style="{ background: data.color }"
               />
               <Handle
                 v-else-if="data.isStaff && data.staffSide === 'left'"
                 id="target-right"
                 type="target"
                 position="right"
+                :style="{ background: data.color }"
               />
               <Handle
                 v-else
                 id="target-top"
                 type="target"
                 position="top"
+                :style="{ background: data.color }"
               />
               <Handle
                 id="source-bottom"
                 type="source"
                 position="bottom"
+                :style="{ background: data.color }"
               />
             </div>
           </template>
@@ -2034,17 +1992,19 @@ function resetFilters() {
   display: flex;
   flex-direction: column;
   border: 2px solid rgba(15, 23, 42, 0.35);
+  border-left: 10px solid var(--node-color) !important;
   transition: outline 0.15s ease, border-color 0.15s ease;
   overflow: hidden;
 }
 .v-theme--dark .custom-node {
   box-shadow: none !important;
   border: 2px solid rgba(255, 255, 255, 0.4);
+  border-left: 10px solid var(--node-color) !important;
 }
 .custom-node:hover {
   transform: none !important;
   box-shadow: none !important;
-  outline: 3px solid #0f172a;
+  outline: 3px solid #000000;
   outline-offset: 1px;
 }
 .v-theme--dark .custom-node:hover {
@@ -2078,14 +2038,21 @@ function resetFilters() {
   filter: none !important;
 }
 .staff-node {
-  border: 3px dashed #0f172a !important;
+  border: 3px dashed var(--node-color) !important;
+  border-left: 10px dashed var(--node-color) !important;
 }
 .v-theme--dark .staff-node {
-  border: 3px dashed #f8fafc !important;
+  border: 3px dashed var(--node-color) !important;
+  border-left: 10px dashed var(--node-color) !important;
+}
+.node-top-accent {
+  height: 6px;
+  width: 100%;
+  border: none !important;
 }
 .staff-badge-top,
 .non-oficial-badge-top {
-  height: 24px;
+  height: 26px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -2096,13 +2063,19 @@ function resetFilters() {
   letter-spacing: 0.5px;
   border: none !important;
 }
+.non-oficial-badge-top {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
 .code-badge {
   display: inline-block;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 4px;
-  font-weight: 850;
+  font-weight: 900;
   letter-spacing: 0.5px;
-  font-size: 12px;
+  font-size: 13px;
+  color: #000000 !important;
+  background-color: rgba(0, 0, 0, 0.08);
 }
 .node-content {
   padding: 10px 14px 28px 14px;
@@ -2124,8 +2097,9 @@ function resetFilters() {
   margin-bottom: 4px;
 }
 .title-line {
-  font-weight: 850;
-  font-size: 14px;
+  font-weight: 900;
+  font-size: 15px;
+  color: #000000 !important;
   text-transform: uppercase;
   margin-bottom: 6px;
   line-height: 1.25;
@@ -2137,8 +2111,9 @@ function resetFilters() {
   word-break: break-word;
 }
 .detail-line {
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000000 !important;
   display: flex;
   align-items: center;
   line-height: 1.25;
@@ -2178,17 +2153,9 @@ function resetFilters() {
   stroke: #0f172a !important;
   stroke-width: 3px !important;
 }
-:deep(.vue-flow__arrowhead) {
-  fill: #0f172a !important;
-  stroke: #0f172a !important;
-}
 .v-theme--dark :deep(.vue-flow__edge-path) {
   stroke: #e2e8f0 !important;
   stroke-width: 3px !important;
-}
-.v-theme--dark :deep(.vue-flow__arrowhead) {
-  fill: #e2e8f0 !important;
-  stroke: #e2e8f0 !important;
 }
 
 @media print {
