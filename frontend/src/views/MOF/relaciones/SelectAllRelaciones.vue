@@ -87,13 +87,30 @@ async function deleteRelacion(id) {
     }
   }
 }
+const normalizedModel = computed({
+  get: () => {
+    if (model.value == null || model.value === "") return null;
+    const directMatch = visibleItems.value.find(
+      (i) => i.id === model.value || String(i.id) === String(model.value)
+    );
+    if (directMatch) return directMatch.id;
+    const codeMatch = visibleItems.value.find(
+      (i) =>
+        String(i.codigo || i.value || "").toUpperCase() === String(model.value).toUpperCase()
+    );
+    return codeMatch ? codeMatch.id : model.value;
+  },
+  set: (val) => {
+    model.value = val;
+  },
+});
 </script>
 
 <template>
     <div class="d-flex align-center w-100">
         <v-autocomplete 
             v-bind="$attrs"
-            v-model="model"
+            v-model="normalizedModel"
             v-model:search="search"
             :label="label"
             :items="visibleItems" 
@@ -104,6 +121,10 @@ async function deleteRelacion(id) {
             :loading="relacionesStore.loading"
             class="flex-grow-1"
         >
+            <template v-slot:selection="{ item }">
+              <span>{{ item.raw?.descripcion || item.title || model }}</span>
+            </template>
+
             <template v-slot:no-data v-if="!hideCrud">
               <v-list-item @click="openDialog()">
                 <template v-slot:prepend>

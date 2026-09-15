@@ -96,6 +96,16 @@ export class UnidadesService {
       fec_creacion: u.fecCreacion,
       objetivo: u.objetivo,
       peso: u.tipoUnidad?.peso ?? null,
+      es_staff:
+        u.relacion?.codigo === 'S' ||
+        (u.relacion?.descripcion ?? '').toLowerCase().includes('staff') ||
+        (u.relacion?.descripcion ?? '').toLowerCase().includes('asesor'),
+      esStaff:
+        u.relacion?.codigo === 'S' ||
+        (u.relacion?.descripcion ?? '').toLowerCase().includes('staff') ||
+        (u.relacion?.descripcion ?? '').toLowerCase().includes('asesor'),
+      peso_real: u.tipoUnidad?.peso != null ? Number(u.tipoUnidad.peso) : 10,
+      pesoReal: u.tipoUnidad?.peso != null ? Number(u.tipoUnidad.peso) : 10,
     };
   }
 
@@ -202,6 +212,16 @@ export class UnidadesService {
       tipoUnidad: u.tipoUnidadId,
       clase: u.tipoUnidad?.descripcion ?? null,
       peso: u.tipoUnidad?.peso ?? null,
+      es_staff:
+        u.relacion?.codigo === 'S' ||
+        (u.relacion?.descripcion ?? '').toLowerCase().includes('staff') ||
+        (u.relacion?.descripcion ?? '').toLowerCase().includes('asesor'),
+      esStaff:
+        u.relacion?.codigo === 'S' ||
+        (u.relacion?.descripcion ?? '').toLowerCase().includes('staff') ||
+        (u.relacion?.descripcion ?? '').toLowerCase().includes('asesor'),
+      peso_real: u.tipoUnidad?.peso != null ? Number(u.tipoUnidad.peso) : 10,
+      pesoReal: u.tipoUnidad?.peso != null ? Number(u.tipoUnidad.peso) : 10,
       color: u.tipoUnidad?.color ?? null,
       funciones,
       dependenciasFuncionales: deps.map((d) => ({
@@ -1112,6 +1132,42 @@ export class UnidadesService {
       totalDependientes,
       conteoPorClase,
       arbol,
+    };
+  }
+
+  getConfig() {
+    return {
+      defaults: {
+        tipo: 1,
+        nivel: 1,
+        relacion: 1,
+        clase: 1,
+        color: '#1976D2',
+        lado: 'AUTOMATICO',
+        oficial: true,
+        es_troncal: false,
+      },
+      reglas: {
+        pesoNulo: 99,
+        pesoDefault: 10,
+        defaultClaseColor: '#757575',
+        staffRelacionCodigos: ['S'],
+        ladoTroncalForzado: 'CENTRO',
+      },
+      paleta: [
+        ['#1976D2', '#2196F3', '#03A9F4', '#00BCD4', '#00ACC1'],
+        ['#2E7D32', '#4CAF50', '#8BC34A', '#CDDC39', '#C0CA33'],
+        ['#FF8F00', '#FFA000', '#FFC107', '#FFEB3B', '#FDD835'],
+        ['#C62828', '#E53935', '#F44336', '#EF5350', '#E91E63'],
+        ['#6A1B9A', '#8E24AA', '#9C27B0', '#AB47BC', '#BA68C8'],
+        ['#E65100', '#EF6C00', '#F57C00', '#FB8C00', '#FF9800'],
+        ['#00695C', '#00796B', '#00897B', '#009688', '#26A69A'],
+        ['#1A237E', '#283593', '#303F9F', '#3949AB', '#3F51B5'],
+        ['#37474F', '#455A64', '#607D8B', '#78909C', '#90A4AE'],
+        ['#4E342E', '#5D4037', '#6D4C41', '#795548', '#8D6E63'],
+        ['#212121', '#424242', '#616161', '#757575', '#9E9E9E'],
+        ['#BF360C', '#D84315', '#E64A19', '#F4511E', '#FF5722'],
+      ],
     };
   }
 }
