@@ -159,3 +159,34 @@
 .v-theme--dark .card-metrica div {
   color: #FFFFFF !important;
 }
+
+/* Organigrama: Nodos Planos y Líneas/Flechas de Alto Contraste */
+.custom-node {
+  box-shadow: none !important;
+}
+.custom-node:hover {
+  box-shadow: none !important;
+}
+.v-theme--dark .custom-node {
+  box-shadow: none !important;
+}
+.v-theme--dark .custom-node:hover {
+  box-shadow: none !important;
+}
+
+.vue-flow__edge-path {
+  stroke: #000000 !important;
+  stroke-width: 3px !important;
+}
+.vue-flow__arrowhead {
+  display: none !important;
+}
+
+.v-theme--dark .vue-flow__edge-path {
+  stroke: #e2e8f0 !important;
+  stroke-width: 3px !important;
+}
+.v-theme--dark .vue-flow__arrowhead {
+  display: none !important;
+}
+
