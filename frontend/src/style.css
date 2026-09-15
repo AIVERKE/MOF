@@ -160,7 +160,7 @@
   color: #FFFFFF !important;
 }
 
-/* Organigrama: Nodos Planos y Líneas de Alto Contraste */
+/* Organigrama: Nodos Planos y Líneas/Flechas de Alto Contraste */
 .custom-node {
   box-shadow: none !important;
 }
@@ -175,7 +175,7 @@
 }
 
 .vue-flow__edge-path {
-  stroke: #0f172a !important;
+  stroke: #000000 !important;
   stroke-width: 3px !important;
 }
 .vue-flow__arrowhead {

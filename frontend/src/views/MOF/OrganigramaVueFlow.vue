@@ -683,11 +683,11 @@ async function exportarOrganigrama() {
   // --- PREPARACIÓN DEL SVG PARA EXPORTACIÓN DE ALTO CONTRASTE ---
   const paths = container.querySelectorAll(".vue-flow__edge-path");
   paths.forEach((path) => {
-    path.style.stroke = "#0f172a";
+    path.style.stroke = "#000000";
     path.style.strokeWidth = "3px";
     path.style.strokeLinejoin = "round";
     path.style.strokeLinecap = "round";
-    path.setAttribute("stroke", "#0f172a");
+    path.setAttribute("stroke", "#000000");
     path.setAttribute("stroke-width", "3");
     path.setAttribute("stroke-linejoin", "round");
     path.setAttribute("stroke-linecap", "round");
@@ -697,7 +697,7 @@ async function exportarOrganigrama() {
   styleTag.innerHTML = `
     .vue-flow__edge-path {
       fill: none !important;
-      stroke: #0f172a !important;
+      stroke: #000000 !important;
       stroke-width: 3px !important;
       stroke-linejoin: round !important;
       stroke-linecap: round !important;
@@ -706,11 +706,11 @@ async function exportarOrganigrama() {
       display: none !important;
     }
     .bridge-line {
-      background-color: #0f172a !important;
+      background-color: #000000 !important;
       width: 3px !important;
     }
     .bridge-line.dashed {
-      border-left: 3px dashed #0f172a !important;
+      border-left: 3px dashed #000000 !important;
     }
     .vue-flow__handle, .vue-flow__edge-text,
     .vue-flow__controls, .vue-flow__minimap, .vue-flow__background, .node-actions, .v-btn {
@@ -721,10 +721,6 @@ async function exportarOrganigrama() {
       border: 2px solid rgba(15, 23, 42, 0.45) !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-    }
-    .title-line, .detail-line, .code-line, .code-badge {
-      color: #000000 !important;
-      font-weight: bold !important;
     }
   `;
 
@@ -1102,7 +1098,7 @@ const updateGraph = () => {
 
   const finalNodes = baseNodes;
   const nodeIds = new Set(finalNodes.map((n) => String(n.id)));
-  const edgeStrokeColor = isDark.value ? "#e2e8f0" : "#0f172a";
+  const edgeStrokeColor = isDark.value ? "#e2e8f0" : "#000000";
   const flowEdges = finalNodes
     .filter((n) => n.parentId && nodeIds.has(String(n.parentId)))
     .map((n) => {
@@ -1711,9 +1707,23 @@ function resetFilters() {
               <div
                 v-if="data.isStaff"
                 class="staff-badge-top"
-                style="background-color: rgba(0, 0, 0, 0.18); color: #000000;"
+                :style="{
+                  backgroundColor:
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'rgba(0, 0, 0, 0.28)'
+                      : 'rgba(255, 255, 255, 0.4)',
+                  color: getContrastingTextColor(data.color),
+                }"
               >
-                <v-icon size="14" class="mr-1" color="#000000">
+                <v-icon
+                  size="14"
+                  class="mr-1"
+                  :color="
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'white'
+                      : 'grey-darken-4'
+                  "
+                >
                   mdi-account-tie-outline
                 </v-icon>
                 <span>STAFF - ASESORÍA</span>
@@ -1721,39 +1731,99 @@ function resetFilters() {
               <div
                 v-else-if="data.isNonOficialInOficialView"
                 class="non-oficial-badge-top"
-                style="background-color: rgba(0, 0, 0, 0.12); color: #000000;"
+                :style="{
+                  backgroundColor:
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'rgba(0, 0, 0, 0.25)'
+                      : 'rgba(255, 255, 255, 0.35)',
+                  color: getContrastingTextColor(data.color),
+                }"
               >
-                <v-icon size="13" class="mr-1" color="#000000">
+                <v-icon
+                  size="13"
+                  class="mr-1"
+                  :color="
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'white'
+                      : 'grey-darken-4'
+                  "
+                >
                   mdi-alert-circle-outline
                 </v-icon>
                 <span>NO OFICIAL</span>
               </div>
               <div class="node-content" @click="showDetails(id)">
-                <div class="node-line code-line">
-                  <span class="code-badge">
+                <div
+                  class="node-line code-line"
+                  :style="{ color: getContrastingTextColor(data.color) }"
+                >
+                  <span
+                    class="code-badge"
+                    :style="{
+                      backgroundColor:
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'rgba(0, 0, 0, 0.22)'
+                          : 'rgba(255, 255, 255, 0.45)',
+                      color: getContrastingTextColor(data.color),
+                    }"
+                  >
                     {{ data.codigo }}
                   </span>
                 </div>
-                <div class="node-line title-line">
+                <div
+                  class="node-line title-line"
+                  :style="{ color: getContrastingTextColor(data.color) }"
+                >
                   {{ data.nombre }}
                 </div>
                 <div
                   class="node-line detail-line"
                   v-if="data.sigla && data.sigla !== '-'"
+                  :style="{ color: getContrastingTextColor(data.color) }"
                 >
-                  <v-icon size="16" class="mr-2" color="#000000">
+                  <v-icon
+                    size="16"
+                    class="mr-2"
+                    :color="
+                      getContrastingTextColor(data.color) === '#FFFFFF'
+                        ? 'white'
+                        : 'grey-darken-4'
+                    "
+                  >
                     mdi-identifier
                   </v-icon>
                   <span>SIGLA: {{ data.sigla }}</span>
                 </div>
-                <div class="node-line detail-line">
-                  <v-icon size="16" class="mr-2" color="#000000">
+                <div
+                  class="node-line detail-line"
+                  :style="{ color: getContrastingTextColor(data.color) }"
+                >
+                  <v-icon
+                    size="16"
+                    class="mr-2"
+                    :color="
+                      getContrastingTextColor(data.color) === '#FFFFFF'
+                        ? 'white'
+                        : 'grey-darken-4'
+                    "
+                  >
                     mdi-layers-outline
                   </v-icon>
                   <span>{{ data.nivel }}</span>
                 </div>
-                <div class="node-line detail-line">
-                  <v-icon size="16" class="mr-2" color="#000000">
+                <div
+                  class="node-line detail-line"
+                  :style="{ color: getContrastingTextColor(data.color) }"
+                >
+                  <v-icon
+                    size="16"
+                    class="mr-2"
+                    :color="
+                      getContrastingTextColor(data.color) === '#FFFFFF'
+                        ? 'white'
+                        : 'grey-darken-4'
+                    "
+                  >
                     mdi-tag-outline
                   </v-icon>
                   <span>{{ data.tipo }}</span>
@@ -1767,7 +1837,11 @@ function resetFilters() {
                   :unidad-id="id"
                   :show-quick-actions="false"
                   density="node"
-                  activator-color="grey-darken-4"
+                  :activator-color="
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'white'
+                      : 'grey-darken-4'
+                  "
                   @details="showDetails"
                   @pdf="verReporte"
                   @dependencias="verDependencias"
@@ -1781,27 +1855,23 @@ function resetFilters() {
                 id="target-left"
                 type="target"
                 position="left"
-                :style="{ background: data.color }"
               />
               <Handle
                 v-else-if="data.isStaff && data.staffSide === 'left'"
                 id="target-right"
                 type="target"
                 position="right"
-                :style="{ background: data.color }"
               />
               <Handle
                 v-else
                 id="target-top"
                 type="target"
                 position="top"
-                :style="{ background: data.color }"
               />
               <Handle
                 id="source-bottom"
                 type="source"
                 position="bottom"
-                :style="{ background: data.color }"
               />
             </div>
           </template>
@@ -1926,14 +1996,14 @@ function resetFilters() {
 .bridge-line {
   width: 3px;
   height: 100%;
-  background-color: #0f172a;
+  background-color: #000000;
 }
 .v-theme--dark .bridge-line {
   background-color: #e2e8f0;
 }
 .bridge-line.dashed {
   background-color: transparent;
-  border-left: 3px dashed #0f172a;
+  border-left: 3px dashed #000000;
   width: 0;
 }
 .v-theme--dark .bridge-line.dashed {
@@ -1948,7 +2018,7 @@ function resetFilters() {
   position: relative;
   display: flex;
   flex-direction: column;
-  border: 2px solid rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(15, 23, 42, 0.35);
   transition: outline 0.15s ease, border-color 0.15s ease;
   overflow: hidden;
 }
@@ -1959,7 +2029,7 @@ function resetFilters() {
 .custom-node:hover {
   transform: none !important;
   box-shadow: none !important;
-  outline: 3px solid #000000;
+  outline: 3px solid #0f172a;
   outline-offset: 1px;
 }
 .v-theme--dark .custom-node:hover {
@@ -1985,22 +2055,32 @@ function resetFilters() {
   background-color: #1e293b !important;
 }
 .faded-node {
-  opacity: 0.35;
-  filter: none !important;
+  opacity: 0.25;
+  filter: grayscale(1);
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+.faded-node:hover {
+  opacity: 0.45;
+  filter: grayscale(0.7);
 }
 .non-oficial-faded {
-  opacity: 0.88;
-  filter: none !important;
+  opacity: 0.4;
+  filter: grayscale(1);
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+.non-oficial-faded:hover {
+  opacity: 0.65;
+  filter: grayscale(0.5);
 }
 .staff-node {
-  border: 3px dashed #000000 !important;
+  border: 3px dashed #0f172a !important;
 }
 .v-theme--dark .staff-node {
   border: 3px dashed #f8fafc !important;
 }
 .staff-badge-top,
 .non-oficial-badge-top {
-  height: 26px;
+  height: 24px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -2013,14 +2093,11 @@ function resetFilters() {
 }
 .code-badge {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 1px 7px;
   border-radius: 4px;
-  font-weight: 900;
+  font-weight: 850;
   letter-spacing: 0.5px;
-  font-size: 13px;
-  color: #000000 !important;
-  background-color: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(0, 0, 0, 0.25);
+  font-size: 12px;
 }
 .node-content {
   padding: 10px 14px 28px 14px;
@@ -2042,9 +2119,8 @@ function resetFilters() {
   margin-bottom: 4px;
 }
 .title-line {
-  font-weight: 900;
-  font-size: 15px;
-  color: #000000 !important;
+  font-weight: 850;
+  font-size: 14px;
   text-transform: uppercase;
   margin-bottom: 6px;
   line-height: 1.25;
@@ -2056,9 +2132,8 @@ function resetFilters() {
   word-break: break-word;
 }
 .detail-line {
-  font-size: 13px;
-  font-weight: 700;
-  color: #000000 !important;
+  font-size: 12px;
+  font-weight: 650;
   display: flex;
   align-items: center;
   line-height: 1.25;
@@ -2079,12 +2154,12 @@ function resetFilters() {
 :deep(.vue-flow__handle) {
   width: 10px;
   height: 10px;
-  background-color: #0f172a !important;
+  background-color: #000000 !important;
   border: 2px solid #ffffff !important;
 }
 .v-theme--dark :deep(.vue-flow__handle) {
   background-color: #e2e8f0 !important;
-  border: 2px solid #0f172a !important;
+  border: 2px solid #000000 !important;
 }
 :deep(.vue-flow__handle.vue-flow__handle-top) {
   left: 50% !important;
@@ -2095,12 +2170,18 @@ function resetFilters() {
   transform: translateX(-50%) !important;
 }
 :deep(.vue-flow__edge-path) {
-  stroke: #0f172a !important;
+  stroke: #000000 !important;
   stroke-width: 3px !important;
+}
+:deep(.vue-flow__arrowhead) {
+  display: none !important;
 }
 .v-theme--dark :deep(.vue-flow__edge-path) {
   stroke: #e2e8f0 !important;
   stroke-width: 3px !important;
+}
+.v-theme--dark :deep(.vue-flow__arrowhead) {
+  display: none !important;
 }
 
 @media print {
