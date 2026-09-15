@@ -20,9 +20,10 @@ import {
 import {
   BusinessException,
   notFound,
+  throwBusiness,
 } from '../../common/exceptions/business.exception';
-import { RestMessages } from '../../common/constants/rest-messages';
-import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
+import { ErrorCodes } from '../../common/errors';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
@@ -66,7 +67,7 @@ export class UnidadesService {
       where: { descripcion: code },
     });
     if (byDesc) return byDesc.id;
-    throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+    throwBusiness(ErrorCodes.CATALOG_REF_NOT_FOUND);
   }
 
   private mapListItem(
@@ -275,7 +276,7 @@ export class UnidadesService {
       where: { codigo: dto.codigo },
     });
     if (exists) {
-      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+      throwBusiness(ErrorCodes.UNIDAD_CODIGO_DUPLICADO);
     }
     const tipoId = await this.resolveCatalogId(this.tipoRepo, dto.tipo);
     const nivelId = await this.resolveCatalogId(this.nivelRepo, dto.nivel);
@@ -375,7 +376,7 @@ export class UnidadesService {
         where: { codigo: dto.codigo },
       });
       if (clash) {
-        throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+        throwBusiness(ErrorCodes.UNIDAD_CODIGO_DUPLICADO);
       }
       u.codigo = dto.codigo;
     }
@@ -514,13 +515,13 @@ export class UnidadesService {
   ) {
     if (parentId == null) return;
     if (Number(parentId) === Number(unidadId)) {
-      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+      throwBusiness(ErrorCodes.UNIDAD_PARENT_SELF);
     }
     let current: string | null = String(parentId);
     const seen = new Set<string>([String(unidadId)]);
     while (current) {
       if (seen.has(current)) {
-        throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+        throwBusiness(ErrorCodes.UNIDAD_PARENT_CYCLE);
       }
       seen.add(current);
       const node = await this.unidadRepo.findOne({ where: { id: current } });
@@ -667,7 +668,7 @@ export class UnidadesService {
     const idx = rows.findIndex((r) => Number(r.id) === Number(funcionId));
     if (idx < 0) notFound(funcionId);
     if (idx === 0) {
-      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+      throwBusiness(ErrorCodes.FUNCION_YA_PRIMERA);
     }
 
     // Normalizar si hay huecos o duplicados antes del swap
@@ -711,7 +712,7 @@ export class UnidadesService {
     const idx = rows.findIndex((r) => Number(r.id) === Number(funcionId));
     if (idx < 0) notFound(funcionId);
     if (idx === rows.length - 1) {
-      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+      throwBusiness(ErrorCodes.FUNCION_YA_ULTIMA);
     }
 
     // Normalizar si hay huecos o duplicados antes del swap
@@ -747,7 +748,7 @@ export class UnidadesService {
     });
     if (!u) notFound(unidadId);
     if (Number(dto.dependenciaId) === Number(unidadId)) {
-      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+      throwBusiness(ErrorCodes.DEPENDENCIA_SELF);
     }
     const dep = await this.unidadRepo.findOne({
       where: { id: String(dto.dependenciaId) },
@@ -760,7 +761,7 @@ export class UnidadesService {
       },
     });
     if (existing) {
-      throw new ConflictException(RestMessages.ERROR);
+      throwBusiness(ErrorCodes.DEPENDENCIA_DUPLICADA);
     }
     await this.depRepo.save(
       this.depRepo.create({

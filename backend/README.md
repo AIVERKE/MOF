@@ -112,6 +112,45 @@ Variables en `.env` (ver `.env.example`):
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`) |
 | `LEGACY_DB_*` | Solo para ScriptETL (BD temporal `umsa_legacy`) |
 
+## Envelope de respuesta y errores
+
+Éxito y fallo usan el mismo envelope:
+
+```json
+{
+  "timestamp": "2026-09-15T15:00:00.000Z",
+  "status": true,
+  "message": "Realizado correctamente",
+  "data": { }
+}
+```
+
+En errores, `status` es `false` y se agrega **`errorCode`** (código estable). `message` y `data` se mantienen por compatibilidad.
+
+Catálogo fuente: [`src/common/errors.ts`](src/common/errors.ts).
+
+| errorCode | HTTP | Mensaje (ES) | Acción frontend sugerida |
+|-----------|------|--------------|--------------------------|
+| `CATALOG_REF_NOT_FOUND` | 400 | Referencia de catálogo no encontrada | Mostrar mensaje |
+| `UNIDAD_CODIGO_DUPLICADO` | 400 | Ya existe una unidad con ese código | Mostrar mensaje / corregir código |
+| `UNIDAD_PARENT_SELF` | 400 | Una unidad no puede ser padre de sí misma | Mostrar mensaje |
+| `UNIDAD_PARENT_CYCLE` | 400 | La asignación generaría un ciclo en la jerarquía | Mostrar mensaje |
+| `FUNCION_YA_PRIMERA` | 400 | La función ya está en la primera posición | Mostrar mensaje |
+| `FUNCION_YA_ULTIMA` | 400 | La función ya está en la última posición | Mostrar mensaje |
+| `DEPENDENCIA_SELF` | 400 | No se puede depender de sí misma | Mostrar mensaje |
+| `DEPENDENCIA_DUPLICADA` | 409 | La dependencia funcional ya existe | Mostrar mensaje |
+| `CLASE_YA_PRIMERA` | 400 | La clase ya está en la primera posición | Mostrar mensaje |
+| `CLASE_YA_ULTIMA` | 400 | La clase ya está en la última posición | Mostrar mensaje |
+| `CARGO_YA_ASIGNADO_UNICO` | 400 | Ese cargo único ya está asignado en la unidad | Mostrar mensaje |
+| `VALIDATION_FAILED` | 400 | Error de validación | Traducir reglas class-validator |
+| `UNAUTHORIZED` | 401 | No autenticado | Logout + redirect a login |
+| `FORBIDDEN` | 403 | Sin permisos para realizar esta acción | Snackbar de permisos |
+| `NOT_FOUND` | 404 | Registro no encontrado | Mostrar mensaje |
+| `INTERNAL_ERROR` | 500 | Error de servidor | Mostrar mensaje genérico |
+| `REQUEST_ERROR` | 400 | Error en la solicitud | Mostrar message / fallback |
+
+El frontend (`parseApiError`) prioriza `errorCode` → mensaje amigable y degrada a `message` si el código no existe.
+
 ## Estructura
 
 ```

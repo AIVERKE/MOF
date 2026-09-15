@@ -6,9 +6,8 @@ import { CatalogoNivel } from './entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from './entities/catalogo-relacion.entity';
 import { TipoUnidad } from './entities/tipo-unidad.entity';
 import { CatalogoItemDto, ClaseDto } from './dto/catalogo.dto';
-import { BusinessException, notFound } from '../../common/exceptions/business.exception';
-import { RestMessages } from '../../common/constants/rest-messages';
-import { HttpStatus } from '@nestjs/common';
+import { notFound, throwBusiness } from '../../common/exceptions/business.exception';
+import { ErrorCodes } from '../../common/errors';
 
 type CatalogEntity = CatalogoTipo | CatalogoNivel | CatalogoRelacion;
 
@@ -197,7 +196,7 @@ export class CatalogosService {
     const idx = rows.findIndex((r) => r.id === id);
     if (idx < 0) notFound(id);
     if (idx === 0) {
-      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+      throwBusiness(ErrorCodes.CLASE_YA_PRIMERA);
     }
     const current = rows[idx];
     const prev = rows[idx - 1];
@@ -213,7 +212,7 @@ export class CatalogosService {
     const idx = rows.findIndex((r) => r.id === id);
     if (idx < 0) notFound(id);
     if (idx === rows.length - 1) {
-      throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+      throwBusiness(ErrorCodes.CLASE_YA_ULTIMA);
     }
     const current = rows[idx];
     const next = rows[idx + 1];

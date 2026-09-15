@@ -10,9 +10,9 @@ import { CargoDto, CargoSetParentDto, SetCargoDto } from './dto/cargo.dto';
 import {
   BusinessException,
   notFound,
+  throwBusiness,
 } from '../../common/exceptions/business.exception';
-import { RestMessages } from '../../common/constants/rest-messages';
-
+import { ErrorCodes } from '../../common/errors';
 @Injectable()
 export class CargosService {
   constructor(
@@ -284,7 +284,7 @@ export class CargosService {
         },
       });
       if (exists) {
-        throw new BusinessException(RestMessages.ERROR, HttpStatus.BAD_REQUEST);
+        throwBusiness(ErrorCodes.CARGO_YA_ASIGNADO_UNICO);
       }
     }
 
