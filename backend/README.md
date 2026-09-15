@@ -108,6 +108,7 @@ Variables en `.env` (ver `.env.example`):
 | Variable | Descripción |
 |----------|-------------|
 | `PORT` | Puerto HTTP (3000) |
+| `CORS_ORIGIN` | Orígenes permitidos (coma-separados). En producción obligatorio y no puede ser `*` |
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | PostgreSQL destino (`mof_db`) |
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`) |
 | `LEGACY_DB_*` | Solo para ScriptETL (BD temporal `umsa_legacy`) |

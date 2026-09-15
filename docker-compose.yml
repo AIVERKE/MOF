@@ -33,8 +33,10 @@ services:
       DB_DATABASE: mof_db
       JWT_SECRET: super_secret_key_random_string
       JWT_EXPIRES_IN: 1d
+      CORS_ORIGIN: http://localhost:5173
     ports:
       - "3000:3000"
+
 
   backend-cli:
     profiles: ["cli"]
