@@ -1704,43 +1704,16 @@ function resetFilters() {
                 'non-oficial-faded': data.isNonOficialInOficialView,
               }"
               :style="{
-                borderColor:
-                  (hasAnyFilter || mostrarDependencias) && !data.isMatch
-                    ? '#CBD5E1'
-                    : data.isNonOficialInOficialView
-                      ? '#94A3B8'
-                      : data.color,
-                borderLeftColor:
-                  (hasAnyFilter || mostrarDependencias) && !data.isMatch
-                    ? '#CBD5E1'
-                    : data.isNonOficialInOficialView
-                      ? '#64748B'
-                      : data.color,
-                background: data.isNonOficialInOficialView
-                  ? '#F1F5F9'
-                  : (hasAnyFilter || mostrarDependencias) && !data.isMatch
-                    ? '#FFFFFF'
-                    : `color-mix(in srgb, ${data.color} 10%, #FFFFFF)`,
+                backgroundColor: data.color,
                 '--node-color': data.color,
               }"
             >
               <div
                 v-if="data.isStaff"
                 class="staff-badge-top"
-                :style="{
-                  backgroundColor: data.color,
-                  color: getContrastingTextColor(data.color),
-                }"
+                style="background-color: rgba(0, 0, 0, 0.18); color: #000000;"
               >
-                <v-icon
-                  size="14"
-                  class="mr-1"
-                  :color="
-                    getContrastingTextColor(data.color) === '#FFFFFF'
-                      ? 'white'
-                      : 'grey-darken-4'
-                  "
-                >
+                <v-icon size="14" class="mr-1" color="#000000">
                   mdi-account-tie-outline
                 </v-icon>
                 <span>STAFF - ASESORÍA</span>
@@ -1748,17 +1721,13 @@ function resetFilters() {
               <div
                 v-else-if="data.isNonOficialInOficialView"
                 class="non-oficial-badge-top"
+                style="background-color: rgba(0, 0, 0, 0.12); color: #000000;"
               >
-                <v-icon size="13" class="mr-1 text-slate-700">
+                <v-icon size="13" class="mr-1" color="#000000">
                   mdi-alert-circle-outline
                 </v-icon>
-                <span class="text-slate-800 font-weight-black">NO OFICIAL</span>
+                <span>NO OFICIAL</span>
               </div>
-              <div
-                v-else
-                class="node-top-accent"
-                :style="{ backgroundColor: data.color }"
-              ></div>
               <div class="node-content" @click="showDetails(id)">
                 <div class="node-line code-line">
                   <span class="code-badge">
@@ -1772,31 +1741,19 @@ function resetFilters() {
                   class="node-line detail-line"
                   v-if="data.sigla && data.sigla !== '-'"
                 >
-                  <v-icon
-                    size="16"
-                    class="mr-2"
-                    :style="{ color: data.color }"
-                  >
+                  <v-icon size="16" class="mr-2" color="#000000">
                     mdi-identifier
                   </v-icon>
                   <span>SIGLA: {{ data.sigla }}</span>
                 </div>
                 <div class="node-line detail-line">
-                  <v-icon
-                    size="16"
-                    class="mr-2"
-                    :style="{ color: data.color }"
-                  >
+                  <v-icon size="16" class="mr-2" color="#000000">
                     mdi-layers-outline
                   </v-icon>
                   <span>{{ data.nivel }}</span>
                 </div>
                 <div class="node-line detail-line">
-                  <v-icon
-                    size="16"
-                    class="mr-2"
-                    :style="{ color: data.color }"
-                  >
+                  <v-icon size="16" class="mr-2" color="#000000">
                     mdi-tag-outline
                   </v-icon>
                   <span>{{ data.tipo }}</span>
@@ -1991,15 +1948,13 @@ function resetFilters() {
   position: relative;
   display: flex;
   flex-direction: column;
-  border: 2px solid rgba(15, 23, 42, 0.35);
-  border-left: 10px solid var(--node-color) !important;
+  border: 2px solid rgba(0, 0, 0, 0.4);
   transition: outline 0.15s ease, border-color 0.15s ease;
   overflow: hidden;
 }
 .v-theme--dark .custom-node {
   box-shadow: none !important;
   border: 2px solid rgba(255, 255, 255, 0.4);
-  border-left: 10px solid var(--node-color) !important;
 }
 .custom-node:hover {
   transform: none !important;
@@ -2038,17 +1993,10 @@ function resetFilters() {
   filter: none !important;
 }
 .staff-node {
-  border: 3px dashed var(--node-color) !important;
-  border-left: 10px dashed var(--node-color) !important;
+  border: 3px dashed #000000 !important;
 }
 .v-theme--dark .staff-node {
-  border: 3px dashed var(--node-color) !important;
-  border-left: 10px dashed var(--node-color) !important;
-}
-.node-top-accent {
-  height: 6px;
-  width: 100%;
-  border: none !important;
+  border: 3px dashed #f8fafc !important;
 }
 .staff-badge-top,
 .non-oficial-badge-top {
@@ -2063,10 +2011,6 @@ function resetFilters() {
   letter-spacing: 0.5px;
   border: none !important;
 }
-.non-oficial-badge-top {
-  background-color: #e2e8f0;
-  color: #1e293b;
-}
 .code-badge {
   display: inline-block;
   padding: 1px 8px;
@@ -2075,7 +2019,8 @@ function resetFilters() {
   letter-spacing: 0.5px;
   font-size: 13px;
   color: #000000 !important;
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.25);
 }
 .node-content {
   padding: 10px 14px 28px 14px;
