@@ -1,11 +1,12 @@
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from "vue";
-import { VueFlow, useVueFlow, Handle } from "@vue-flow/core";
+import { VueFlow, useVueFlow, Handle, MarkerType } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import dagre from "dagre";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
+import { useTheme } from "vuetify";
 
 // --- STORES & API ---
 import { ENDPOINTS } from "@/config/api";
@@ -25,6 +26,8 @@ import {
   highlightText,
   normalizeText,
   compareCodigos,
+  getContrastingTextColor,
+  getClaseColor,
 } from "@/utils/mofHelpers";
 
 import "@vue-flow/core/dist/style.css";
@@ -54,6 +57,25 @@ import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 const { nodes, edges, setNodes, setEdges, fitView, setCenter, findNode, onNodeClick } = useVueFlow();
 
 const { mostrar } = useSnackbar();
+
+const theme = useTheme();
+const isDark = computed(() => theme?.global?.current?.value?.dark ?? false);
+
+// --- PALETA DE COLORES INTENSOS SATURADOS (ALTO CONTRASTE PARA PROYECCIÓN) ---
+const FILTER_COLORS = {
+  selectedDep: "#16A34A", // Verde intenso saturado (Unidad Seleccionada)
+  depFuncional: "#DC2626", // Rojo intenso saturado (Dependencia Funcional)
+  multipleMatch: "#15803D", // Verde esmeralda intenso (Coincidencia múltiple)
+  searchMatch: "#D97706", // Ámbar/dorado profundo (Coincidencia por búsqueda)
+  nivelFilter: "#7E22CE", // Púrpura intenso saturado (Filtro por Nivel)
+  tipoFilter: "#0284C7", // Azul cian intenso saturado (Filtro por Tipo)
+  claseFilter: "#EA580C", // Naranja intenso saturado (Filtro por Instancia/Clase)
+  relacionFilter: "#BE185D", // Rosa/magenta intenso saturado (Filtro por Relación)
+  noMatch: "#CBD5E1", // Gris delimitado (Sin coincidencias)
+  noOficialAnalitico: "#94A3B8", // Gris medio delimitado (No oficial en vista analítica)
+  staffDefault: "#EA580C", // Naranja institucional para staff
+  claseDefault: "#1976D2", // Azul institucional
+};
 
 // --- STORES INSTANCES ---
 const unidadesStore = useAllUnidadesMofStore();
@@ -658,49 +680,56 @@ async function exportarOrganigrama() {
   const container = document.querySelector(".vue-flow");
   if (!container) throw new Error("No se detectó el lienzo");
 
-  // --- LIMPIEZA QUIRÚRGICA DEL SVG ---
-  const svgElement = container.querySelector("svg");
-  if (svgElement) {
-    const defs = svgElement.querySelectorAll("defs, marker");
-    defs.forEach((d) => d.remove());
-  }
-
-  const paths = container.querySelectorAll("path");
+  // --- PREPARACIÓN DEL SVG PARA EXPORTACIÓN DE ALTO CONTRASTE ---
+  const paths = container.querySelectorAll(".vue-flow__edge-path");
   paths.forEach((path) => {
-    path.setAttribute("fill", "none");
-    path.style.fill = "none";
-    path.removeAttribute("marker-end");
-    path.removeAttribute("marker-start");
+    path.style.stroke = "#0f172a";
+    path.style.strokeWidth = "3px";
     path.style.strokeLinejoin = "round";
     path.style.strokeLinecap = "round";
+    path.setAttribute("stroke", "#0f172a");
+    path.setAttribute("stroke-width", "3");
     path.setAttribute("stroke-linejoin", "round");
     path.setAttribute("stroke-linecap", "round");
+  });
+
+  const arrowheads = container.querySelectorAll(".vue-flow__arrowhead");
+  arrowheads.forEach((arrow) => {
+    arrow.style.fill = "#0f172a";
+    arrow.style.stroke = "#0f172a";
+    arrow.setAttribute("fill", "#0f172a");
+    arrow.setAttribute("stroke", "#0f172a");
   });
 
   const styleTag = document.createElement("style");
   styleTag.innerHTML = `
     .vue-flow__edge-path {
       fill: none !important;
-      stroke: #444444 !important;
-      stroke-width: 2px !important;
+      stroke: #0f172a !important;
+      stroke-width: 3px !important;
       stroke-linejoin: round !important;
       stroke-linecap: round !important;
-      stroke-miterlimit: 1 !important;
     }
-    .vue-flow__arrowhead, .vue-flow__handle, .vue-flow__edge-text, marker, defs,
-    .vue-flow__controls, .vue-flow__minimap, .vue-flow__background, .node-actions, .v-btn, .v-icon:not(.mr-2) {
+    .vue-flow__arrowhead {
+      fill: #0f172a !important;
+      stroke: #0f172a !important;
+    }
+    .bridge-line {
+      background-color: #0f172a !important;
+      width: 3px !important;
+    }
+    .bridge-line.dashed {
+      border-left: 3px dashed #0f172a !important;
+    }
+    .vue-flow__handle, .vue-flow__edge-text,
+    .vue-flow__controls, .vue-flow__minimap, .vue-flow__background, .node-actions, .v-btn {
       display: none !important;
     }
     .custom-node {
       box-shadow: none !important;
-      border: 3px solid var(--node-color) !important;
+      border: 2px solid rgba(15, 23, 42, 0.45) !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-    }
-    .title-line, .detail-line, .code-line {
-      color: #000000 !important;
-      text-shadow: none !important;
-      font-weight: bold !important;
     }
   `;
 
@@ -726,10 +755,10 @@ async function exportarOrganigrama() {
       skipFonts: true,
       filter: (node) => {
         const exclusion = [
-          "vue-flow__arrowhead",
           "vue-flow__handle",
           "vue-flow__controls",
           "vue-flow__minimap",
+          "node-actions",
         ];
         return !exclusion.some((cls) => node.classList?.contains(cls));
       },
@@ -852,7 +881,7 @@ let cachedPositions = null;
 let cachedEdges = null;
 
 function computeHierarchyKey(sourceData, modo) {
-  let key = `${modo}:${sourceData.length}:`;
+  let key = `${modo}:${isDark.value ? "dark" : "light"}:${sourceData.length}:`;
   for (let i = 0; i < sourceData.length; i++) {
     const u = sourceData[i];
     const pId = u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
@@ -881,26 +910,32 @@ function computeNodeVisuals({
     isNodeNonOficialInOficialView = true;
   }
 
-  let finalColor = u.color || (isStaff ? "#FF9800" : "#1976D2");
+  let finalColor =
+    u.color ||
+    getClaseColor(u.clase, clasesStore.clases) ||
+    (isStaff ? FILTER_COLORS.staffDefault : FILTER_COLORS.claseDefault);
 
   if (isDepMode) {
     const uIdStr = String(u.id);
-    if (uIdStr === selectedDepId) finalColor = "#14B34C";
-    else if (depsIdsSet.has(uIdStr)) finalColor = "#C62828";
-    else finalColor = "#E0E0E0";
+    if (uIdStr === selectedDepId) finalColor = FILTER_COLORS.selectedDep;
+    else if (depsIdsSet.has(uIdStr)) finalColor = FILTER_COLORS.depFuncional;
+    else finalColor = FILTER_COLORS.noMatch;
   } else if (isNodeNonOficialInOficialView) {
-    finalColor = "#9E9E9E"; // Gris claro para no oficiales en vista analítica
+    finalColor = FILTER_COLORS.noOficialAnalitico;
   } else if (hasAnyFilter.value) {
     if (!isMatch) {
-      finalColor = "#E0E0E0";
+      finalColor = FILTER_COLORS.noMatch;
     } else {
-      if (activesCount > 1) finalColor = "#4CAF50";
-      else if (searchActive) finalColor = "#FFD700";
-      else if (activeNivelId) finalColor = "#AA00FF";
-      else if (activeTipoId) finalColor = "#00B8D4";
-      else if (activeClaseId) finalColor = "#FF5722";
+      if (activesCount > 1) finalColor = FILTER_COLORS.multipleMatch;
+      else if (searchActive) finalColor = FILTER_COLORS.searchMatch;
+      else if (activeNivelId) finalColor = FILTER_COLORS.nivelFilter;
+      else if (activeTipoId) finalColor = FILTER_COLORS.tipoFilter;
+      else if (activeClaseId) finalColor = FILTER_COLORS.claseFilter;
       else if (activeRelacionId) {
-        finalColor = u.color || (isStaff ? "#FF9800" : "#E91E63");
+        finalColor =
+          u.color ||
+          getClaseColor(u.clase, clasesStore.clases) ||
+          (isStaff ? FILTER_COLORS.staffDefault : FILTER_COLORS.relacionFilter);
       }
     }
   }
@@ -1072,6 +1107,7 @@ const updateGraph = () => {
 
   const finalNodes = baseNodes;
   const nodeIds = new Set(finalNodes.map((n) => String(n.id)));
+  const edgeStrokeColor = isDark.value ? "#e2e8f0" : "#0f172a";
   const flowEdges = finalNodes
     .filter((n) => n.parentId && nodeIds.has(String(n.parentId)))
     .map((n) => {
@@ -1088,10 +1124,16 @@ const updateGraph = () => {
         data: {
           borderRadius: 0,
         },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 16,
+          height: 16,
+          color: edgeStrokeColor,
+        },
         style: {
-          stroke: "#94a3b8",
-          strokeWidth: 2.5,
-          strokeDasharray: n.data && n.data.isStaff ? "5 5" : "none",
+          stroke: edgeStrokeColor,
+          strokeWidth: 3,
+          strokeDasharray: n.data && n.data.isStaff ? "6 6" : "none",
         },
       };
     });
@@ -1128,6 +1170,11 @@ const updateGraph = () => {
     }
   });
 };
+
+watch(isDark, () => {
+  cachedHierarchyKey = "";
+  updateGraph();
+});
 
 /**
  * Vuela animadamente la cámara hacia uno o varios nodos (estilo Google Maps).
@@ -1486,12 +1533,12 @@ function resetFilters() {
               <!-- Modo Dependencias -->
               <template v-if="mostrarDependencias">
                 <div class="d-flex align-center">
-                  <v-avatar size="12" color="#14B34C" class="mr-2"></v-avatar>
-                  <span class="text-caption">Unidad Seleccionada</span>
+                  <v-avatar size="12" :color="FILTER_COLORS.selectedDep" class="mr-2"></v-avatar>
+                  <span class="text-caption font-weight-bold">Unidad Seleccionada</span>
                 </div>
                 <div class="d-flex align-center">
-                  <v-avatar size="12" color="#C62828" class="mr-2"></v-avatar>
-                  <span class="text-caption">Dependencia Funcional</span>
+                  <v-avatar size="12" :color="FILTER_COLORS.depFuncional" class="mr-2"></v-avatar>
+                  <span class="text-caption font-weight-bold">Dependencia Funcional</span>
                 </div>
               </template>
 
@@ -1509,35 +1556,35 @@ function resetFilters() {
                   "
                   class="d-flex align-center"
                 >
-                  <v-avatar size="12" color="#4CAF50" class="mr-2"></v-avatar>
+                  <v-avatar size="12" :color="FILTER_COLORS.multipleMatch" class="mr-2"></v-avatar>
                   <span class="text-caption font-weight-bold"
                     >Coincidencia Múltiple</span
                   >
                 </div>
                 <div v-if="searchTerm" class="d-flex align-center">
-                  <v-avatar size="12" color="#FFD700" class="mr-2"></v-avatar>
-                  <span class="text-caption">Coincidencia por nombre</span>
+                  <v-avatar size="12" :color="FILTER_COLORS.searchMatch" class="mr-2"></v-avatar>
+                  <span class="text-caption font-weight-bold">Coincidencia por nombre</span>
                 </div>
                 <div v-if="filterNivel" class="d-flex align-center">
-                  <v-avatar size="12" color="#AA00FF" class="mr-2"></v-avatar>
-                  <span class="text-caption">Filtrado por Nivel</span>
+                  <v-avatar size="12" :color="FILTER_COLORS.nivelFilter" class="mr-2"></v-avatar>
+                  <span class="text-caption font-weight-bold">Filtrado por Nivel</span>
                 </div>
                 <div v-if="filterTipo" class="d-flex align-center">
-                  <v-avatar size="12" color="#00B8D4" class="mr-2"></v-avatar>
-                  <span class="text-caption">Filtrado por Tipo</span>
+                  <v-avatar size="12" :color="FILTER_COLORS.tipoFilter" class="mr-2"></v-avatar>
+                  <span class="text-caption font-weight-bold">Filtrado por Tipo</span>
                 </div>
                 <div v-if="filterInstancia" class="d-flex align-center">
-                  <v-avatar size="12" color="#FF5722" class="mr-2"></v-avatar>
-                  <span class="text-caption">Filtrado por Instancia</span>
+                  <v-avatar size="12" :color="FILTER_COLORS.claseFilter" class="mr-2"></v-avatar>
+                  <span class="text-caption font-weight-bold">Filtrado por Instancia</span>
                 </div>
                 <div v-if="filterRelacion" class="d-flex align-center">
-                  <v-avatar size="12" color="#E91E63" class="mr-2"></v-avatar>
-                  <span class="text-caption">Filtrado por Relación</span>
+                  <v-avatar size="12" :color="FILTER_COLORS.relacionFilter" class="mr-2"></v-avatar>
+                  <span class="text-caption font-weight-bold">Filtrado por Relación</span>
                 </div>
               </template>
 
               <div class="d-flex align-center">
-                <v-avatar size="12" color="#E0E0E0" class="mr-2"></v-avatar>
+                <v-avatar size="12" :color="FILTER_COLORS.noMatch" class="mr-2"></v-avatar>
                 <span class="text-caption">Sin coincidencias</span>
               </div>
             </v-card-text>
@@ -1668,68 +1715,148 @@ function resetFilters() {
                 'non-oficial-faded': data.isNonOficialInOficialView,
               }"
               :style="{
-                borderColor:
-                  (hasAnyFilter || mostrarDependencias) && !data.isMatch
-                    ? '#E0E0E0'
-                    : data.isNonOficialInOficialView
-                      ? '#BDBDBD'
-                      : data.color,
+                backgroundColor: data.color,
                 '--node-color': data.color,
-                background: data.isNonOficialInOficialView
-                  ? '#f5f5f5'
-                  : (hasAnyFilter || mostrarDependencias) && !data.isMatch
-                    ? '#ffffff'
-                    : data.isStaff
-                      ? `color-mix(in srgb, ${data.color} 8%, #FFFFFF)`
-                      : `color-mix(in srgb, ${data.color} 15%, #FFFFFF)`,
-                borderLeft: `10px solid ${(hasAnyFilter || mostrarDependencias) && !data.isMatch ? '#E0E0E0' : data.isNonOficialInOficialView ? '#9E9E9E' : data.color}`,
               }"
             >
               <div
                 v-if="data.isStaff"
                 class="staff-badge-top"
-                :style="{ backgroundColor: data.color }"
+                :style="{
+                  backgroundColor:
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'rgba(0, 0, 0, 0.28)'
+                      : 'rgba(255, 255, 255, 0.4)',
+                  color: getContrastingTextColor(data.color),
+                }"
               >
-                <v-icon size="14" color="white" class="mr-1"
-                  >mdi-account-tie-outline</v-icon
-                ><span>STAFF</span>
+                <v-icon
+                  size="14"
+                  class="mr-1"
+                  :color="
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'white'
+                      : 'grey-darken-4'
+                  "
+                >
+                  mdi-account-tie-outline
+                </v-icon>
+                <span>STAFF - ASESORÍA</span>
               </div>
               <div
-                v-else
-                class="node-top-accent"
-                :style="{ backgroundColor: data.color }"
-              ></div>
+                v-else-if="data.isNonOficialInOficialView"
+                class="non-oficial-badge-top"
+                :style="{
+                  backgroundColor:
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'rgba(0, 0, 0, 0.25)'
+                      : 'rgba(255, 255, 255, 0.35)',
+                  color: getContrastingTextColor(data.color),
+                }"
+              >
+                <v-icon
+                  size="13"
+                  class="mr-1"
+                  :color="
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'white'
+                      : 'grey-darken-4'
+                  "
+                >
+                  mdi-alert-circle-outline
+                </v-icon>
+                <span>NO OFICIAL</span>
+              </div>
               <div class="node-content" @click="showDetails(id)">
-                <div class="node-line code-line">
-                  <span>{{ data.codigo }}</span>
+                <div
+                  class="node-line code-line"
+                  :style="{ color: getContrastingTextColor(data.color) }"
+                >
+                  <span
+                    class="code-badge"
+                    :style="{
+                      backgroundColor:
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'rgba(0, 0, 0, 0.22)'
+                          : 'rgba(255, 255, 255, 0.45)',
+                      color: getContrastingTextColor(data.color),
+                    }"
+                  >
+                    {{ data.codigo }}
+                  </span>
                 </div>
-                <div class="node-line title-line">
+                <div
+                  class="node-line title-line"
+                  :style="{ color: getContrastingTextColor(data.color) }"
+                >
                   {{ data.nombre }}
                 </div>
-                <div class="node-line detail-line" v-if="data.sigla && data.sigla !== '-'">
-                  <v-icon size="16" class="mr-2" :style="{ color: data.color }"
-                    >mdi-identifier</v-icon
-                  ><span>SIGLA: {{ data.sigla }}</span>
-                </div>
-                <div class="node-line detail-line">
-                  <v-icon size="16" class="mr-2" :style="{ color: data.color }"
-                    >mdi-layers-outline</v-icon
-                  >{{ data.nivel }}
-                </div>
-                <div class="node-line detail-line">
-                  <v-icon size="16" class="mr-2" :style="{ color: data.color }"
-                    >mdi-tag-outline</v-icon
-                  >{{ data.tipo }}
-                </div>
-                <v-tooltip activator="parent" location="top"
-                  >Ver detalles de {{ data.nombre }}</v-tooltip
+                <div
+                  class="node-line detail-line"
+                  v-if="data.sigla && data.sigla !== '-'"
+                  :style="{ color: getContrastingTextColor(data.color) }"
                 >
+                  <v-icon
+                    size="16"
+                    class="mr-2"
+                    :color="
+                      getContrastingTextColor(data.color) === '#FFFFFF'
+                        ? 'white'
+                        : 'grey-darken-4'
+                    "
+                  >
+                    mdi-identifier
+                  </v-icon>
+                  <span>SIGLA: {{ data.sigla }}</span>
+                </div>
+                <div
+                  class="node-line detail-line"
+                  :style="{ color: getContrastingTextColor(data.color) }"
+                >
+                  <v-icon
+                    size="16"
+                    class="mr-2"
+                    :color="
+                      getContrastingTextColor(data.color) === '#FFFFFF'
+                        ? 'white'
+                        : 'grey-darken-4'
+                    "
+                  >
+                    mdi-layers-outline
+                  </v-icon>
+                  <span>{{ data.nivel }}</span>
+                </div>
+                <div
+                  class="node-line detail-line"
+                  :style="{ color: getContrastingTextColor(data.color) }"
+                >
+                  <v-icon
+                    size="16"
+                    class="mr-2"
+                    :color="
+                      getContrastingTextColor(data.color) === '#FFFFFF'
+                        ? 'white'
+                        : 'grey-darken-4'
+                    "
+                  >
+                    mdi-tag-outline
+                  </v-icon>
+                  <span>{{ data.tipo }}</span>
+                </div>
+                <v-tooltip activator="parent" location="top">
+                  Ver detalles de {{ data.nombre }}
+                </v-tooltip>
               </div>
               <div class="node-actions pa-1 d-flex justify-end" @click.stop>
                 <UnidadActionsMenu
                   :unidad-id="id"
                   :show-quick-actions="false"
                   density="node"
+                  :activator-color="
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'white'
+                      : 'grey-darken-4'
+                  "
                   @details="showDetails"
                   @pdf="verReporte"
                   @dependencias="verDependencias"
@@ -1743,27 +1870,23 @@ function resetFilters() {
                 id="target-left"
                 type="target"
                 position="left"
-                :style="{ background: data.color }"
               />
               <Handle
                 v-else-if="data.isStaff && data.staffSide === 'left'"
                 id="target-right"
                 type="target"
                 position="right"
-                :style="{ background: data.color }"
               />
               <Handle
                 v-else
                 id="target-top"
                 type="target"
                 position="top"
-                :style="{ background: data.color }"
               />
               <Handle
                 id="source-bottom"
                 type="source"
                 position="bottom"
-                :style="{ background: data.color }"
               />
             </div>
           </template>
@@ -1886,51 +2009,50 @@ function resetFilters() {
   align-items: center;
 }
 .bridge-line {
-  width: 2.5px;
+  width: 3px;
   height: 100%;
-  background-color: #bbb;
+  background-color: #0f172a;
 }
 .v-theme--dark .bridge-line {
-  background-color: #475569;
+  background-color: #e2e8f0;
 }
 .bridge-line.dashed {
   background-color: transparent;
-  border-left: 2.5px dashed #bbb;
+  border-left: 3px dashed #0f172a;
   width: 0;
 }
 .v-theme--dark .bridge-line.dashed {
-  border-left: 2.5px dashed #475569;
+  border-left: 3px dashed #e2e8f0;
 }
 .custom-node {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: none !important;
   width: 320px;
   height: 210px;
   max-height: 210px;
   position: relative;
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  transition: all 0.25s ease;
+  border: 2px solid rgba(15, 23, 42, 0.35);
+  transition: outline 0.15s ease, border-color 0.15s ease;
   overflow: hidden;
 }
 .v-theme--dark .custom-node {
-  /* Mantenemos el fondo de la tarjeta claro y opaco */
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none !important;
+  border: 2px solid rgba(255, 255, 255, 0.4);
 }
 .custom-node:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 30px var(--node-color);
+  transform: none !important;
+  box-shadow: none !important;
+  outline: 3px solid #0f172a;
+  outline-offset: 1px;
 }
 .v-theme--dark .custom-node:hover {
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.8),
-    0 0 15px var(--node-color);
+  transform: none !important;
+  box-shadow: none !important;
+  outline: 3px solid #f8fafc;
+  outline-offset: 1px;
 }
-/* Removemos las sobreescrituras de textos claros (.code-line, .title-line, .detail-line) */
-/* para que el texto permanezca oscuro y legible sobre el fondo claro del nodo */
 .v-theme--dark .vue-flow__minimap {
   background-color: #0f172a !important;
 }
@@ -1948,37 +2070,42 @@ function resetFilters() {
   background-color: #1e293b !important;
 }
 .faded-node {
-  opacity: 0.25;
-  filter: grayscale(1);
+  opacity: 0.35;
+  filter: none !important;
 }
 .non-oficial-faded {
-  opacity: 0.4;
-  filter: grayscale(1);
-  background-color: #f5f5f5 !important;
+  opacity: 0.88;
+  filter: none !important;
 }
 .staff-node {
-  border-style: dashed !important;
-  border-width: 2.5px !important;
+  border: 3px dashed #0f172a !important;
 }
-.node-top-accent {
-  height: 10px;
-  width: 100%;
-  border: none !important;
+.v-theme--dark .staff-node {
+  border: 3px dashed #f8fafc !important;
 }
-.staff-badge-top {
-  height: 32px;
+.staff-badge-top,
+.non-oficial-badge-top {
+  height: 24px;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
   border: none !important;
 }
+.code-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-weight: 850;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+}
 .node-content {
-  padding: 12px 16px 36px 16px;
+  padding: 10px 14px 28px 14px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -1989,24 +2116,18 @@ function resetFilters() {
   overflow: hidden;
 }
 .node-line {
-  line-height: 1.35;
-  margin-bottom: 4px;
+  line-height: 1.3;
+  margin-bottom: 3px;
   border: none !important;
 }
 .code-line {
-  font-size: 13px;
-  font-weight: 800;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   margin-bottom: 4px;
 }
 .title-line {
   font-weight: 850;
-  font-size: 15px;
-  color: #0f172a;
+  font-size: 14px;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -2016,12 +2137,11 @@ function resetFilters() {
   word-break: break-word;
 }
 .detail-line {
-  font-size: 13px;
-  color: #334155;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 650;
   display: flex;
   align-items: center;
-  line-height: 1.3;
+  line-height: 1.25;
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -2029,17 +2149,22 @@ function resetFilters() {
 }
 .node-actions {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
+  bottom: 6px;
+  right: 6px;
   background: transparent !important;
   border: none !important;
   outline: none !important;
   z-index: 10;
 }
 :deep(.vue-flow__handle) {
-  width: 12px;
-  height: 12px;
-  border: 2px solid white;
+  width: 10px;
+  height: 10px;
+  background-color: #0f172a !important;
+  border: 2px solid #ffffff !important;
+}
+.v-theme--dark :deep(.vue-flow__handle) {
+  background-color: #e2e8f0 !important;
+  border: 2px solid #0f172a !important;
 }
 :deep(.vue-flow__handle.vue-flow__handle-top) {
   left: 50% !important;
@@ -2048,6 +2173,22 @@ function resetFilters() {
 :deep(.vue-flow__handle.vue-flow__handle-bottom) {
   left: 50% !important;
   transform: translateX(-50%) !important;
+}
+:deep(.vue-flow__edge-path) {
+  stroke: #0f172a !important;
+  stroke-width: 3px !important;
+}
+:deep(.vue-flow__arrowhead) {
+  fill: #0f172a !important;
+  stroke: #0f172a !important;
+}
+.v-theme--dark :deep(.vue-flow__edge-path) {
+  stroke: #e2e8f0 !important;
+  stroke-width: 3px !important;
+}
+.v-theme--dark :deep(.vue-flow__arrowhead) {
+  fill: #e2e8f0 !important;
+  stroke: #e2e8f0 !important;
 }
 
 @media print {
@@ -2076,7 +2217,7 @@ function resetFilters() {
   }
   .custom-node {
     box-shadow: none !important;
-    border: 2px solid #ccc !important;
+    border: 2px solid #0f172a !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
