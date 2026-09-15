@@ -8,6 +8,8 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ResultExceptionFilter } from './common/filters/result-exception.filter';
 import { ErrorCodes } from './common/errors';
+import { resolveCorsOrigins } from './common/cors.util';
+
 
 function flattenValidationErrors(errors: ValidationError[]): string[] {
   const messages: string[] = [];
@@ -24,8 +26,12 @@ function flattenValidationErrors(errors: ValidationError[]): string[] {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
+  app.enableCors({
+    origin: resolveCorsOrigins(),
+    credentials: true,
+  });
   app.useGlobalFilters(new ResultExceptionFilter());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
