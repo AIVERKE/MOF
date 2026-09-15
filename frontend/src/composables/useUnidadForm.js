@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { getActivePinia } from "pinia";
 import { 
   getSafeId, 
   getPesoReal,
@@ -9,6 +10,7 @@ import {
   mapFormToBackend,
   mapPersonalToCargos,
 } from "@/utils/mofMappers";
+import { useConfigMofStore } from "@/stores/config_mof";
 
 /**
  * Composable para gestionar la lógica del formulario de Unidades Administrativas (MOF)
@@ -21,11 +23,15 @@ export function useUnidadForm(stores) {
     clasesStore, 
     nivelesStore, 
     tiposStore, 
-    relacionesStore 
+    relacionesStore,
   } = stores;
 
+  const configStore =
+    stores.configStore ||
+    (getActivePinia() ? useConfigMofStore() : null);
+
   // --- ESTADO DEL FORMULARIO (Sincronizado con backend NestJS) ---
-  const formData = ref(getEmptyFormData());
+  const formData = ref(getEmptyFormData(null, configStore?.defaults));
 
   const isEditMode = ref(false);
   const formValid = ref(false);
@@ -55,7 +61,8 @@ export function useUnidadForm(stores) {
         nivelesStore.niveles.length === 0 ? nivelesStore.getFetchNiveles() : Promise.resolve(),
         tiposStore.tipos.length === 0 ? tiposStore.getFetchTipos() : Promise.resolve(),
         relacionesStore.relaciones.length === 0 ? relacionesStore.getFetchRelaciones() : Promise.resolve(),
-        cargosStore.cargos.length === 0 ? cargosStore.getFetchCargos() : Promise.resolve()
+        cargosStore.cargos.length === 0 ? cargosStore.getFetchCargos() : Promise.resolve(),
+        configStore?.fetchConfig ? configStore.fetchConfig() : Promise.resolve(),
       ]);
 
       if (edit && node) {
@@ -86,8 +93,8 @@ export function useUnidadForm(stores) {
           formValid.value = true;
         }
       } else {
-        // Reset para creación
-        formData.value = getEmptyFormData(node ? getSafeId(node.id) : null);
+        // Reset para creación con defaults dinámicos del backend
+        formData.value = getEmptyFormData(node ? getSafeId(node.id) : null, configStore?.defaults);
         cargosOriginales.value = [];
         funcionesOriginales.value = [];
         dependenciasOriginales.value = [];

@@ -59,7 +59,8 @@ import {
  * @param {number|string|null} parentId - ID de la unidad padre si se crea como hija
  * @returns {Object} Estado limpio del formulario
  */
-export function getEmptyFormData(parentId = null) {
+export function getEmptyFormData(parentId = null, customDefaults = null) {
+  const d = customDefaults || {};
   return {
     id: null,
     nombre: "",
@@ -69,18 +70,18 @@ export function getEmptyFormData(parentId = null) {
     resCreacion: "",
     objetivo: "",
     fecCreacion: null,
-    relacion: null,
+    relacion: d.relacion !== undefined ? d.relacion : null,
     cargos: [],
     funciones: [],
     dependenciasFuncionales: [],
-    tipo: null,
-    nivel: null,
-    clase: null,
+    tipo: d.tipo !== undefined ? d.tipo : null,
+    nivel: d.nivel !== undefined ? d.nivel : null,
+    clase: d.clase !== undefined ? d.clase : null,
     parentId: parentId ? getSafeId(parentId) : null,
-    color: "#1976D2",
-    oficial: true,
-    es_troncal: false,
-    lado: "AUTOMATICO",
+    color: d.color || "#1976D2",
+    oficial: d.oficial !== undefined ? d.oficial !== false : true,
+    es_troncal: d.es_troncal === true,
+    lado: d.lado || "AUTOMATICO",
     tramitesAtendidos: "",
     ejecucionPoa: "",
     ejecucionPresupuestaria: "",
@@ -95,6 +96,7 @@ export function getEmptyFormData(parentId = null) {
 
 /**
  * Resuelve un ID desde un valor numérico/objeto o por búsqueda de texto en catálogo
+ * Prioriza el ID numérico sobre el código para asegurar enlace correcto con v-autocomplete
  * 
  * @param {*} value - Valor de entrada (id, objeto o nombre en texto)
  * @param {Array} catalog - Lista de opciones del catálogo
@@ -105,7 +107,7 @@ export function resolveCatalogId(value, catalog = []) {
   const safe = getSafeId(value);
   if (safe != null) return safe;
   const item = resolveCatalogItem(value, catalog);
-  return item ? (item.value || item.id) : value;
+  return item ? (getSafeId(item.id) ?? item.id ?? item.value) : value;
 }
 
 /**

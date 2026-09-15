@@ -1,9 +1,11 @@
 import { ref, computed } from "vue";
+import { getActivePinia } from "pinia";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { useAllCargosMofStore } from "@/stores/cargos_mof";
+import { useConfigMofStore } from "@/stores/config_mof";
 
 /**
  * Registro a nivel de módulo para deduplicar peticiones concurrentes en vuelo.
@@ -28,11 +30,13 @@ export function resetInFlightCatalogs() {
  * @param {Object} [customStores] Opcional: inyección de stores (para pruebas unitarias).
  */
 export function usePrefetchCatalogs(customStores = {}) {
-  const clasesStore = customStores.clasesStore || useAllClasesMofStore();
-  const nivelesStore = customStores.nivelesStore || useAllNivelesMofStore();
-  const tiposStore = customStores.tiposStore || useAllTiposMofStore();
-  const relacionesStore = customStores.relacionesStore || useAllRelacionesMofStore();
-  const cargosStore = customStores.cargosStore || useAllCargosMofStore();
+  const hasPinia = Boolean(getActivePinia());
+  const clasesStore = customStores.clasesStore || (hasPinia ? useAllClasesMofStore() : {});
+  const nivelesStore = customStores.nivelesStore || (hasPinia ? useAllNivelesMofStore() : {});
+  const tiposStore = customStores.tiposStore || (hasPinia ? useAllTiposMofStore() : {});
+  const relacionesStore = customStores.relacionesStore || (hasPinia ? useAllRelacionesMofStore() : {});
+  const cargosStore = customStores.cargosStore || (hasPinia ? useAllCargosMofStore() : {});
+  const configStore = customStores.configStore || (hasPinia ? useConfigMofStore() : null);
 
   const loading = computed(
     () =>
@@ -152,6 +156,12 @@ export function usePrefetchCatalogs(customStores = {}) {
       );
     }
 
+    if (requestedCatalogs.includes("config") || options.includeConfig) {
+      tasks.push(
+        prefetchDynamicConfig(options).then((data) => ({ key: "config", data }))
+      );
+    }
+
     const results = await Promise.all(tasks);
     const catalogMap = {};
     for (const r of results) {
@@ -161,12 +171,12 @@ export function usePrefetchCatalogs(customStores = {}) {
   };
 
   /**
-   * Espacio reservado para MOF-023: precargar configuración dinámica
-   * (permite orquestar precargas de configuración y catálogos en un único flujo).
+   * Precarga la configuración dinámica del MOF (defaults, paleta, reglas) desde el backend
+   * con degradación segura a DEFAULT_CONFIG si falla la red.
    */
   const prefetchDynamicConfig = async (configOptions = {}) => {
-    // Extensible para ticket MOF-023
-    return null;
+    if (!configStore?.fetchConfig) return null;
+    return await configStore.fetchConfig(configOptions);
   };
 
   return {
@@ -177,6 +187,7 @@ export function usePrefetchCatalogs(customStores = {}) {
     tiposStore,
     relacionesStore,
     cargosStore,
+    configStore,
     loading,
     error,
   };

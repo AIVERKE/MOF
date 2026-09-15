@@ -44,6 +44,15 @@ export class MofUnidadesController {
     );
   }
 
+  @Get('config')
+  @ApiOperation({ summary: 'Configuración global y reglas de negocio dinámicas del MOF' })
+  async config() {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      this.unidadesService.getConfig(),
+    );
+  }
+
   @Get('dashboard/stats')
   @ApiOperation({ summary: 'Estadísticas agregadas para Dashboard y Organigrama' })
   async dashboardStats(

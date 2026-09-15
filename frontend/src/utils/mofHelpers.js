@@ -351,9 +351,22 @@ export const highlightText = (text, query) => {
 
 /**
  * Calcula el peso jerárquico real de una unidad.
+ * Prioriza peso_real devuelto por el backend si existe, con fallback a cálculo por clase.
  */
 export const getPesoReal = (unidad, clases = []) => {
   if (!unidad) return PESO_NULO;
+
+  // 1. Dinamización: Priorizar peso_real devuelto por el backend
+  if (unidad.peso_real !== null && unidad.peso_real !== undefined) {
+    const p = Number(unidad.peso_real);
+    if (!isNaN(p)) return p;
+  }
+  if (unidad.pesoReal !== null && unidad.pesoReal !== undefined) {
+    const p = Number(unidad.pesoReal);
+    if (!isNaN(p)) return p;
+  }
+
+  // 2. Fallbacks legacy
   if (unidad.peso !== null && unidad.peso !== undefined) return unidad.peso;
   if (unidad.orden !== null && unidad.orden !== undefined) return unidad.orden;
 
@@ -371,11 +384,21 @@ export const getPesoReal = (unidad, clases = []) => {
 };
 
 /**
- * Detecta si un nodo es de tipo STAFF (asesoría)
+ * Detecta si un nodo es de tipo STAFF (asesoría).
+ * Prioriza es_staff / esStaff del backend; si no viene, degrada a búsqueda por texto/catálogo.
  */
 export const isStaffNode = (unidad, relaciones = []) => {
   if (!unidad) return false;
 
+  // 1. Dinamización: Priorizar es_staff / esStaff del backend si está presente
+  if (unidad.es_staff !== null && unidad.es_staff !== undefined) {
+    return toBoolean(unidad.es_staff);
+  }
+  if (unidad.esStaff !== null && unidad.esStaff !== undefined) {
+    return toBoolean(unidad.esStaff);
+  }
+
+  // 2. Degradación segura por código o texto de relación
   const rel =
     unidad.relacion && typeof unidad.relacion === "object"
       ? unidad.relacion.id || unidad.relacion.codigo || unidad.relacion.descripcion
@@ -405,7 +428,7 @@ export const isStaffNode = (unidad, relaciones = []) => {
 };
 
 /**
- * Paleta de colores institucionales
+ * Paleta de colores institucionales (dinamizable desde GET /api/v1/mof/config)
  */
 export const swatches = [
   ["#1976D2", "#2196F3", "#03A9F4", "#00BCD4", "#00ACC1"], // Azules y Cianes
@@ -421,6 +444,16 @@ export const swatches = [
   ["#212121", "#424242", "#616161", "#757575", "#9E9E9E"], // Grises
   ["#BF360C", "#D84315", "#E64A19", "#F4511E", "#FF5722"], // Deep Orange
 ];
+
+/**
+ * Actualiza la paleta swatches en caliente manteniendo la misma referencia de array
+ * @param {Array<string[]>} newPalette 
+ */
+export function setSwatches(newPalette) {
+  if (Array.isArray(newPalette) && newPalette.length > 0) {
+    swatches.splice(0, swatches.length, ...newPalette);
+  }
+}
 
 /**
  * Extrae los colores únicos usados en el sistema
