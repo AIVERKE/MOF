@@ -25,6 +25,10 @@ export const ENDPOINTS = {
     CARGOS: `${API_BASE_URL}/api/v1/unidades/cargos`,
     PERSONAL: `${API_BASE_URL}/api/v1/unidades`,
   },
+  SEGURIDAD: {
+    USUARIOS: `${API_BASE_URL}/seguridad/usuarios`,
+    USUARIO_ESTADO: (id) => `${API_BASE_URL}/seguridad/usuarios/${id}/estado`,
+  },
 };
 
 /** Diccionario alineado a backend/src/common/errors.ts */
