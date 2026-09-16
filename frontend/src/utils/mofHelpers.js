@@ -556,3 +556,74 @@ export const buildHierarchyTree = (list = []) => {
   return roots;
 };
 
+/**
+ * Indica si una unidad coincide con el texto de búsqueda (nombre, sigla o código).
+ */
+export const unitMatchesQuery = (unit, query) => {
+  if (!query || !String(query).trim()) return true;
+  if (!unit) return false;
+  const searchNorm = normalizeText(query);
+  const nameNorm = normalizeText(
+    unit.display_name || unit.nombre || unit.denominacion,
+  );
+  const siglaNorm = normalizeText(unit.sigla);
+  const codigoNorm = normalizeText(unit.codigo);
+  return (
+    nameNorm.includes(searchNorm) ||
+    siglaNorm.includes(searchNorm) ||
+    codigoNorm.includes(searchNorm)
+  );
+};
+
+/**
+ * Poda el árbol a matches + ancestros (sin hijas/hermanas que no coincidan).
+ * Sin query devuelve el árbol intacto.
+ * @param {Array} nodes
+ * @param {string} query
+ * @returns {Array}
+ */
+export const filterHierarchyByQuery = (nodes = [], query = "") => {
+  if (!query || !String(query).trim()) return nodes || [];
+
+  const walk = (list) => {
+    const out = [];
+    for (const node of list || []) {
+      const filteredChildren = walk(node.children || []);
+      const selfMatch = unitMatchesQuery(node, query);
+      if (selfMatch || filteredChildren.length > 0) {
+        out.push({
+          ...node,
+          children: filteredChildren,
+        });
+      }
+    }
+    return out;
+  };
+
+  return walk(nodes);
+};
+
+/**
+ * Recolecta ids de todos los nodos del árbol (para abrir el treeview).
+ */
+export const collectTreeIds = (nodes = [], result = []) => {
+  for (const node of nodes || []) {
+    if (node?.id != null) result.push(node.id);
+    if (node.children?.length) collectTreeIds(node.children, result);
+  }
+  return result;
+};
+
+/**
+ * Primer nodo (DFS) que coincide con la query.
+ */
+export const findFirstMatchingUnit = (nodes = [], query = "") => {
+  if (!query || !String(query).trim()) return null;
+  for (const node of nodes || []) {
+    if (unitMatchesQuery(node, query)) return node;
+    const child = findFirstMatchingUnit(node.children || [], query);
+    if (child) return child;
+  }
+  return null;
+};
+

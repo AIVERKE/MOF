@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch, nextTick } from "vue";
 import { useAllUnidadesMofStore } from "../../stores/unidades_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
@@ -20,6 +20,9 @@ import { exportTreeUnidadesPdf, exportToCsv } from "@/utils/mofReport";
 import {
   buildHierarchyTree,
   normalizeText,
+  filterHierarchyByQuery,
+  collectTreeIds,
+  findFirstMatchingUnit,
 } from "@/utils/mofHelpers";
 
 // --- COMPOSABLES ---
@@ -85,6 +88,7 @@ const selectedItem = ref(null);
 const deleteDialog = ref(false);
 const itemToDelete = ref(null);
 const search = ref("");
+const openedIds = ref([]);
 
 onMounted(async () => {
   await Promise.all([
@@ -94,6 +98,27 @@ onMounted(async () => {
 });
 
 const treeItems = computed(() => buildHierarchyTree(unidadesStore.unidades));
+
+const filteredTreeItems = computed(() =>
+  filterHierarchyByQuery(treeItems.value, search.value),
+);
+
+watch(
+  filteredTreeItems,
+  async (nodes) => {
+    openedIds.value = collectTreeIds(nodes);
+    if (!search.value || !String(search.value).trim()) return;
+    await nextTick();
+    await nextTick();
+    const first = findFirstMatchingUnit(nodes, search.value);
+    if (!first?.id) return;
+    const el = document.querySelector(
+      `[data-tree-unit-id="${CSS.escape(String(first.id))}"]`,
+    );
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+  },
+  { immediate: true },
+);
 
 async function editItem(id) {
   const item = unidadesStore.unidades.find((u) => String(u.id) === String(id));
@@ -141,21 +166,6 @@ const {
   checkOficial,
 } = useMofResolvers(clasesStore, nivelesStore, tiposStore, relacionesStore);
 
-const customTreeFilter = (value, query, item) => {
-  if (!query) return true;
-  const searchNorm = normalizeText(query);
-  const raw = item?.raw || item || {};
-  const nameNorm = normalizeText(raw.display_name || raw.nombre || raw.denominacion);
-  const siglaNorm = normalizeText(raw.sigla);
-  const codigoNorm = normalizeText(raw.codigo);
-
-  return (
-    nameNorm.includes(searchNorm) ||
-    siglaNorm.includes(searchNorm) ||
-    codigoNorm.includes(searchNorm)
-  );
-};
-
 const loadingReport = ref(false);
 
 const activeFiltersList = computed(() => {
@@ -173,7 +183,9 @@ function flattenTree(nodes, depth = 0, parentItem = null, result = []) {
       _depth: depth,
       hasChildren: Boolean(node.children && node.children.length > 0),
       parent_codigo: parentItem ? parentItem.codigo : "-",
-      parent_nombre: parentItem ? (parentItem.nombre || parentItem.denominacion) : "-",
+      parent_nombre: parentItem
+        ? parentItem.nombre || parentItem.denominacion
+        : "-",
     });
     if (node.children && node.children.length > 0) {
       flattenTree(node.children, depth + 1, node, result);
@@ -183,7 +195,7 @@ function flattenTree(nodes, depth = 0, parentItem = null, result = []) {
 }
 
 const flatTreeList = computed(() => {
-  const flat = flattenTree(treeItems.value);
+  const flat = flattenTree(filteredTreeItems.value);
   if (!search.value || !search.value.trim()) return flat;
 
   const q = normalizeText(search.value);
@@ -220,13 +232,19 @@ const handleExportCsv = () => {
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
       { header: "NIVEL_JERARQUÍA", getter: (u) => u._depth ?? 0 },
-      { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.display_name || u.nombre || u.denominacion || "" },
+      {
+        header: "UNIDAD ADMINISTRATIVA",
+        getter: (u) => u.display_name || u.nombre || u.denominacion || "",
+      },
       { header: "SIGLA", getter: (u) => u.sigla || "-" },
       { header: "CÓDIGO_PADRE", getter: (u) => u.parent_codigo || "-" },
       { header: "UNIDAD_PADRE", getter: (u) => u.parent_nombre || "-" },
       { header: "INSTANCIA / CLASE", getter: (u) => resolveClase(u.clase) || "-" },
       { header: "NIVEL", getter: (u) => resolveNivel(u.nivel) || "-" },
-      { header: "ESTADO", getter: (u) => (checkOficial(u) ? "OFICIAL" : "NO OFICIAL") },
+      {
+        header: "ESTADO",
+        getter: (u) => (checkOficial(u) ? "OFICIAL" : "NO OFICIAL"),
+      },
     ];
 
     exportToCsv({
@@ -298,35 +316,45 @@ const handleExportCsv = () => {
 
       <v-card-text class="pa-2">
         <v-treeview
-          v-if="treeItems.length"
-          :items="treeItems"
-          :search="search"
-          :custom-filter="customTreeFilter"
+          v-if="filteredTreeItems.length"
+          v-model:opened="openedIds"
+          :items="filteredTreeItems"
           item-title="display_name"
           item-value="id"
           item-children="children"
-          open-all
           density="comfortable"
           class="simple-tree"
         >
           <template #prepend="{ item }">
             <v-icon
-              :color="(item?.raw || item).color || resolveClaseColor((item?.raw || item).clase)"
+              :color="
+                (item?.raw || item).color ||
+                resolveClaseColor((item?.raw || item).clase)
+              "
               size="24"
               class="mr-2 flex-shrink-0"
             >
               {{
-                (item?.raw || item).children?.length ? "mdi-sitemap" : "mdi-office-building"
+                (item?.raw || item).children?.length
+                  ? "mdi-sitemap"
+                  : "mdi-office-building"
               }}
             </v-icon>
           </template>
 
           <template #title="{ item }">
-            <HighlightedText
-              class="text-body-2 font-weight-bold text-slate-800"
-              :text="(item?.raw || item).display_name || (item?.raw || item).nombre"
-              :query="search"
-            />
+            <span
+              :data-tree-unit-id="(item?.raw || item).id"
+              class="d-inline-block tree-match-row"
+            >
+              <HighlightedText
+                class="text-body-2 font-weight-bold text-slate-800"
+                :text="
+                  (item?.raw || item).display_name || (item?.raw || item).nombre
+                "
+                :query="search"
+              />
+            </span>
           </template>
 
           <template #append="{ item }">
@@ -345,6 +373,16 @@ const handleExportCsv = () => {
             </div>
           </template>
         </v-treeview>
+
+        <div
+          v-else-if="!unidadesStore.loading && search && treeItems.length"
+          class="text-center py-8"
+        >
+          <v-icon size="48" color="grey-lighten-2">mdi-magnify-close</v-icon>
+          <p class="text-body-1 text-grey mt-2">
+            Sin coincidencias para la búsqueda
+          </p>
+        </div>
 
         <div v-else-if="!unidadesStore.loading" class="text-center py-8">
           <v-icon size="48" color="grey-lighten-2">mdi-database-off</v-icon>
@@ -420,5 +458,8 @@ const handleExportCsv = () => {
 }
 .simple-tree :deep(.v-treeview-node__root:hover) {
   background-color: #f8fafc;
+}
+.tree-match-row {
+  scroll-margin-block: 80px;
 }
 </style>
