@@ -11,8 +11,14 @@ import {
   Query,
   Res,
   StreamableFile,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiProduces,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { UnidadesService } from './unidades.service';
 import { UnidadPdfService } from './unidad-pdf.service';
@@ -26,8 +32,13 @@ import {
 } from './dto/unidad.dto';
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('MOF - Unidades')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/v1/mof')
 export class MofUnidadesController {
   constructor(
@@ -105,6 +116,7 @@ export class MofUnidadesController {
   }
 
   @Post('unidades')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Registrar unidad' })
   async create(@Body() dto: UnidadDto) {
     return ResultResponse.ok(
@@ -114,6 +126,7 @@ export class MofUnidadesController {
   }
 
   @Put('unidades/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar unidad' })
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UnidadDto) {
     return ResultResponse.ok(
@@ -123,6 +136,7 @@ export class MofUnidadesController {
   }
 
   @Delete('unidades/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar unidad (borrado lógico)' })
   async remove(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
@@ -132,6 +146,7 @@ export class MofUnidadesController {
   }
 
   @Put('unidades/:id/setparent')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Cambiar padre de la unidad' })
   async setParent(
     @Param('id', ParseIntPipe) id: number,
@@ -153,6 +168,7 @@ export class MofUnidadesController {
   }
 
   @Post('unidades/:id/funciones')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Agregar función' })
   async addFuncion(
     @Param('id', ParseIntPipe) id: number,
@@ -177,6 +193,7 @@ export class MofUnidadesController {
   }
 
   @Put('unidades/:id/funciones/:funcionId')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar función' })
   async updateFuncion(
     @Param('id', ParseIntPipe) id: number,
@@ -190,6 +207,7 @@ export class MofUnidadesController {
   }
 
   @Delete('unidades/:id/funciones/:funcionId')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar función' })
   async deleteFuncion(
     @Param('id', ParseIntPipe) id: number,
@@ -202,6 +220,7 @@ export class MofUnidadesController {
   }
 
   @Put('unidades/:id/funciones/:funcionId/subir')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Subir función en el orden' })
   async subirFuncion(
     @Param('id', ParseIntPipe) id: number,
@@ -214,6 +233,7 @@ export class MofUnidadesController {
   }
 
   @Put('unidades/:id/funciones/:funcionId/bajar')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Bajar función en el orden' })
   async bajarFuncion(
     @Param('id', ParseIntPipe) id: number,
@@ -226,6 +246,7 @@ export class MofUnidadesController {
   }
 
   @Post('unidades/:id/dependencias-funcionales')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Agregar dependencia funcional' })
   async addDependencia(
     @Param('id', ParseIntPipe) id: number,
@@ -238,6 +259,7 @@ export class MofUnidadesController {
   }
 
   @Delete('unidades/:id/dependencias-funcionales/:dependenciaId')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar dependencia funcional' })
   async removeDependencia(
     @Param('id', ParseIntPipe) id: number,
@@ -260,6 +282,7 @@ export class MofUnidadesController {
   }
 
   @Post('unidades/:id/relaciones-internas')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Agregar relación interna' })
   async addRelacionInterna(
     @Param('id', ParseIntPipe) id: number,
@@ -272,6 +295,7 @@ export class MofUnidadesController {
   }
 
   @Delete('unidades/:id/relaciones-internas/:relacionId')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar relación interna' })
   async removeRelacionInterna(
     @Param('id', ParseIntPipe) id: number,
@@ -294,6 +318,7 @@ export class MofUnidadesController {
   }
 
   @Post('unidades/:id/relaciones-externas')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Agregar relación externa' })
   async addRelacionExterna(
     @Param('id', ParseIntPipe) id: number,
@@ -306,6 +331,7 @@ export class MofUnidadesController {
   }
 
   @Put('unidades/:id/relaciones-externas/:relacionId')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar relación externa' })
   async updateRelacionExterna(
     @Param('id', ParseIntPipe) id: number,
@@ -319,6 +345,7 @@ export class MofUnidadesController {
   }
 
   @Delete('unidades/:id/relaciones-externas/:relacionId')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar relación externa' })
   async removeRelacionExterna(
     @Param('id', ParseIntPipe) id: number,

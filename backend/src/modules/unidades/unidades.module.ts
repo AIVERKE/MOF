@@ -7,6 +7,8 @@ import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity
 import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcional.entity';
 import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
 import { CatalogosModule } from '../catalogos/catalogos.module';
+import { AuthModule } from '../auth/auth.module';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { UnidadesService } from './unidades.service';
 import { UnidadPdfService } from './unidad-pdf.service';
 import { MofUnidadesController } from './mof-unidades.controller';
@@ -17,6 +19,7 @@ import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
 
 @Module({
   imports: [
+    AuthModule,
     CatalogosModule,
     TypeOrmModule.forFeature([
       Unidad,
@@ -32,7 +35,7 @@ import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
     ]),
   ],
   controllers: [MofUnidadesController],
-  providers: [UnidadesService, UnidadPdfService],
+  providers: [UnidadesService, UnidadPdfService, RolesGuard],
   exports: [TypeOrmModule, UnidadesService],
 })
 export class UnidadesModule {}

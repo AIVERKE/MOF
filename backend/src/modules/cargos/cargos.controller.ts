@@ -7,14 +7,20 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CargosService } from './cargos.service';
 import { CargoDto, CargoSetParentDto, SetCargoDto } from './dto/cargo.dto';
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('MOF - Cargos y personal')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/v1/unidades')
 export class CargosController {
   constructor(private readonly cargosService: CargosService) {}
@@ -29,6 +35,7 @@ export class CargosController {
   }
 
   @Post('cargos')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Crear cargo' })
   async create(@Body() dto: CargoDto) {
     return ResultResponse.ok(
@@ -47,6 +54,7 @@ export class CargosController {
   }
 
   @Put('cargos/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar cargo' })
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -59,6 +67,7 @@ export class CargosController {
   }
 
   @Delete('cargos/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar cargo (borrado lógico)' })
   async remove(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
@@ -68,6 +77,7 @@ export class CargosController {
   }
 
   @Put('cargos/:id/setparent')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Cambiar cargo padre (escribe historial de jerarquía)' })
   async setParent(
     @Param('id', ParseIntPipe) id: number,
@@ -89,6 +99,7 @@ export class CargosController {
   }
 
   @Post(':id/personal')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Asignar cargo a la unidad' })
   async asignar(
     @Param('id', ParseIntPipe) id: number,
@@ -101,6 +112,7 @@ export class CargosController {
   }
 
   @Delete(':id/personal')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Quitar todas las asignaciones de personal de la unidad (batch)' })
   async removerTodo(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
@@ -110,6 +122,7 @@ export class CargosController {
   }
 
   @Delete(':id/personal/:assignmentId')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Quitar asignación de cargo en la unidad' })
   async remover(
     @Param('id', ParseIntPipe) id: number,
