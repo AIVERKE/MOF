@@ -320,17 +320,20 @@ export const getContrastingTextColor = (hexColor) => {
   return yiq >= 145 ? "#0F172A" : "#FFFFFF";
 };
 
-export const highlightText = (text, query) => {
-  if (!query || !text) return text;
+/**
+ * Divide texto en segmentos para resaltar coincidencias de búsqueda sin HTML.
+ * @returns {{ text: string, match: boolean }[]}
+ */
+export const getHighlightSegments = (text, query) => {
+  if (text == null || text === "") return [];
   const strText = String(text);
+  if (!query) return [{ text: strText, match: false }];
   const strQuery = String(query).trim();
-  if (!strQuery) return strText;
+  if (!strQuery) return [{ text: strText, match: false }];
 
   try {
-    // Escapar caracteres especiales de regex
     const escaped = strQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 
-    // Mapear vocales y enes para coincidir con o sin tildes
     const accentPattern = escaped
       .replace(/[aáàäâ]/gi, "[aáàäâAÁÀÄÂ]")
       .replace(/[eéèëê]/gi, "[eéèëêEÉÈËÊ]")
@@ -340,12 +343,20 @@ export const highlightText = (text, query) => {
       .replace(/[nñ]/gi, "[nñNÑ]");
 
     const re = new RegExp(`(${accentPattern})`, "gi");
-    return strText.replace(
-      re,
-      '<mark style="background-color: #FFEB3B; color: #000000 !important; font-weight: bold; border-radius: 2px; padding: 0 2px;">$1</mark>',
-    );
-  } catch (e) {
-    return strText;
+    const parts = strText.split(re);
+    if (parts.length === 1) {
+      return [{ text: strText, match: false }];
+    }
+
+    const matchRe = new RegExp(`^(${accentPattern})$`, "i");
+    return parts
+      .filter((part) => part !== "")
+      .map((part) => ({
+        text: part,
+        match: matchRe.test(part),
+      }));
+  } catch {
+    return [{ text: strText, match: false }];
   }
 };
 

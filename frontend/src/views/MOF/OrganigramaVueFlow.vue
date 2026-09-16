@@ -23,7 +23,6 @@ import {
   getPesoReal,
   getSafeId,
   isStaffNode,
-  highlightText,
   normalizeText,
   compareCodigos,
   getContrastingTextColor,
@@ -44,6 +43,7 @@ import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
 import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDependencyDialog from "./unidades/UnidadDependencyDialog.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
+import HighlightedText from "@/components/HighlightedText.vue";
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
@@ -1682,10 +1682,12 @@ function resetFilters() {
               </td>
 
               <td class="text-caption">
-                <div
-                  class="font-weight-bold"
-                  v-html="highlightText(u.nombre || u.denominacion, searchTerm)"
-                ></div>
+                <div class="font-weight-bold">
+                  <HighlightedText
+                    :text="u.nombre || u.denominacion"
+                    :query="searchTerm"
+                  />
+                </div>
                 <div v-if="u.color" class="text-xxs text-grey-darken-1">
                   <v-icon size="10">mdi-palette</v-icon> Personalizado
                 </div>

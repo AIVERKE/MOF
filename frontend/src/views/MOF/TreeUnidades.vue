@@ -13,12 +13,12 @@ import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import MofReportMenu from "./common/MofReportMenu.vue";
+import HighlightedText from "@/components/HighlightedText.vue";
 import { exportTreeUnidadesPdf, exportToCsv } from "@/utils/mofReport";
 
 // --- PLUGINS & UTILS ---
 import {
   buildHierarchyTree,
-  highlightText,
   normalizeText,
 } from "@/utils/mofHelpers";
 
@@ -322,10 +322,11 @@ const handleExportCsv = () => {
           </template>
 
           <template #title="{ item }">
-            <span
+            <HighlightedText
               class="text-body-2 font-weight-bold text-slate-800"
-              v-html="highlightText((item?.raw || item).display_name || (item?.raw || item).nombre, search)"
-            ></span>
+              :text="(item?.raw || item).display_name || (item?.raw || item).nombre"
+              :query="search"
+            />
           </template>
 
           <template #append="{ item }">
