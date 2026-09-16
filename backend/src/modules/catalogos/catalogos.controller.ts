@@ -7,14 +7,20 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CatalogosService } from './catalogos.service';
 import { CatalogoItemDto, ClaseDto } from './dto/catalogo.dto';
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('MOF - Catálogos')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/v1/mof')
 export class CatalogosController {
   constructor(private readonly catalogosService: CatalogosService) {}
@@ -30,6 +36,7 @@ export class CatalogosController {
   }
 
   @Post('tipos')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Crear tipo' })
   async createTipo(@Body() dto: CatalogoItemDto) {
     return ResultResponse.ok(
@@ -39,6 +46,7 @@ export class CatalogosController {
   }
 
   @Put('tipos/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar tipo' })
   async updateTipo(
     @Param('id', ParseIntPipe) id: number,
@@ -51,6 +59,7 @@ export class CatalogosController {
   }
 
   @Delete('tipos/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar tipo (borrado lógico)' })
   async deleteTipo(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
@@ -70,6 +79,7 @@ export class CatalogosController {
   }
 
   @Post('niveles')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Crear nivel' })
   async createNivel(@Body() dto: CatalogoItemDto) {
     return ResultResponse.ok(
@@ -79,6 +89,7 @@ export class CatalogosController {
   }
 
   @Put('niveles/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar nivel' })
   async updateNivel(
     @Param('id', ParseIntPipe) id: number,
@@ -91,6 +102,7 @@ export class CatalogosController {
   }
 
   @Delete('niveles/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar nivel (borrado lógico)' })
   async deleteNivel(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
@@ -110,6 +122,7 @@ export class CatalogosController {
   }
 
   @Post('relaciones')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Crear relación' })
   async createRelacion(@Body() dto: CatalogoItemDto) {
     return ResultResponse.ok(
@@ -119,6 +132,7 @@ export class CatalogosController {
   }
 
   @Put('relaciones/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar relación' })
   async updateRelacion(
     @Param('id', ParseIntPipe) id: number,
@@ -131,6 +145,7 @@ export class CatalogosController {
   }
 
   @Delete('relaciones/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar relación (borrado lógico)' })
   async deleteRelacion(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
@@ -150,6 +165,7 @@ export class CatalogosController {
   }
 
   @Post('clases')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Crear clase' })
   async createClase(@Body() dto: ClaseDto) {
     return ResultResponse.ok(
@@ -159,6 +175,7 @@ export class CatalogosController {
   }
 
   @Put('clases/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar clase' })
   async updateClase(
     @Param('id', ParseIntPipe) id: number,
@@ -171,6 +188,7 @@ export class CatalogosController {
   }
 
   @Delete('clases/:id')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Eliminar clase (borrado lógico)' })
   async deleteClase(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
@@ -180,6 +198,7 @@ export class CatalogosController {
   }
 
   @Put('clases/:id/subir')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Subir clase en el orden (peso)' })
   async subirClase(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
@@ -189,6 +208,7 @@ export class CatalogosController {
   }
 
   @Put('clases/:id/bajar')
+  @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Bajar clase en el orden (peso)' })
   async bajarClase(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(

@@ -6,9 +6,12 @@ import { CatalogoRelacion } from './entities/catalogo-relacion.entity';
 import { TipoUnidad } from './entities/tipo-unidad.entity';
 import { CatalogosService } from './catalogos.service';
 import { CatalogosController } from './catalogos.controller';
+import { AuthModule } from '../auth/auth.module';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([
       CatalogoTipo,
       CatalogoNivel,
@@ -17,7 +20,7 @@ import { CatalogosController } from './catalogos.controller';
     ]),
   ],
   controllers: [CatalogosController],
-  providers: [CatalogosService],
+  providers: [CatalogosService, RolesGuard],
   exports: [TypeOrmModule, CatalogosService],
 })
 export class CatalogosModule {}
