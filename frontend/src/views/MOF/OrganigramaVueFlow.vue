@@ -674,43 +674,36 @@ async function exportarOrganigrama() {
   mostrar("Generando PDF institucional en alta resolución...", "info");
 
   // 1. AJUSTE DE CÁMARA
-  await fitView({ padding: 0.1, includeHiddenNodes: false });
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await fitView({ padding: 0.08, includeHiddenNodes: false });
+  await new Promise((resolve) => setTimeout(resolve, 800));
 
   const container = document.querySelector(".vue-flow");
   if (!container) throw new Error("No se detectó el lienzo");
 
-  // --- PREPARACIÓN DEL SVG PARA EXPORTACIÓN DE ALTO CONTRASTE ---
-  const paths = container.querySelectorAll(".vue-flow__edge-path");
-  paths.forEach((path) => {
-    path.style.stroke = "#000000";
-    path.style.strokeWidth = "3px";
-    path.style.strokeLinejoin = "round";
-    path.style.strokeLinecap = "round";
-    path.setAttribute("stroke", "#000000");
-    path.setAttribute("stroke-width", "3");
-    path.setAttribute("stroke-linejoin", "round");
-    path.setAttribute("stroke-linecap", "round");
-  });
-
+  // Inyectar estilos limpios y temporales para la captura
   const styleTag = document.createElement("style");
   styleTag.innerHTML = `
-    .vue-flow__edge-path {
+    .vue-flow__edge-path,
+    .vue-flow__edge path {
       fill: none !important;
       stroke: #000000 !important;
-      stroke-width: 3px !important;
+      stroke-width: 2px !important;
       stroke-linejoin: round !important;
       stroke-linecap: round !important;
     }
-    .vue-flow__arrowhead {
+    .vue-flow__edge-interaction {
       display: none !important;
+    }
+    marker, .vue-flow__arrowhead {
+      display: none !important;
+      visibility: hidden !important;
     }
     .bridge-line {
       background-color: #000000 !important;
-      width: 3px !important;
+      width: 2px !important;
     }
     .bridge-line.dashed {
-      border-left: 3px dashed #000000 !important;
+      border-left: 2px dashed #000000 !important;
     }
     .vue-flow__handle, .vue-flow__edge-text,
     .vue-flow__controls, .vue-flow__minimap, .vue-flow__background, .node-actions, .v-btn {
@@ -724,12 +717,53 @@ async function exportarOrganigrama() {
     }
   `;
 
+  // Remover temporalmente todos los elementos <marker> del SVG para que jamás aparezcan puntas de flecha
+  const originalMarkers = [];
+  container.querySelectorAll("marker").forEach((m) => {
+    originalMarkers.push({ parent: m.parentNode, el: m });
+    m.remove();
+  });
+
+  // Guardar y forzar fill: none y stroke: #000000 en todos los paths de aristas
+  const modifiedPaths = [];
+  container.querySelectorAll(".vue-flow__edge-path, .vue-flow__edge path").forEach((path) => {
+    const origStroke = path.getAttribute("stroke");
+    const origStrokeWidth = path.getAttribute("stroke-width");
+    const origFill = path.getAttribute("fill");
+    const origMarkerEnd = path.getAttribute("marker-end");
+    const origMarkerStart = path.getAttribute("marker-start");
+
+    modifiedPaths.push({
+      path,
+      origStroke,
+      origStrokeWidth,
+      origFill,
+      origMarkerEnd,
+      origMarkerStart,
+    });
+
+    path.setAttribute("fill", "none");
+    path.style.fill = "none";
+    path.setAttribute("stroke", "#000000");
+    path.style.stroke = "#000000";
+    path.setAttribute("stroke-width", "2");
+    path.style.strokeWidth = "2px";
+    path.style.strokeLinejoin = "round";
+    path.style.strokeLinecap = "round";
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("stroke-linecap", "round");
+    path.removeAttribute("marker-end");
+    path.removeAttribute("marker-start");
+    path.style.markerEnd = "none";
+    path.style.markerStart = "none";
+  });
+
   try {
     document.head.appendChild(styleTag);
 
     // 2. CAPTURA
     // Ratio dinámico y adaptativo: 2 por defecto (óptima calidad visual),
-    // ajustándose de forma adaptativa en datasets masivos para evitar desbordamientos de memoria (OOM en Canvas con 1000+ unidades)
+    // ajustándose de forma adaptativa en datasets masivos para evitar desbordamientos de memoria
     const nodeCount = nodes.value?.length || unidadesList.value?.length || 0;
     let adaptivePixelRatio = 2;
     if (nodeCount >= 500) {
@@ -749,6 +783,7 @@ async function exportarOrganigrama() {
           "vue-flow__handle",
           "vue-flow__controls",
           "vue-flow__minimap",
+          "vue-flow__edge-interaction",
           "node-actions",
         ];
         return !exclusion.some((cls) => node.classList?.contains(cls));
@@ -785,7 +820,7 @@ async function exportarOrganigrama() {
     await new Promise((r) => (img.onload = r));
 
     const availableWidth = pageWidth - margin * 2;
-    const availableHeight = pageHeight - 65;
+    const availableHeight = pageHeight - 55;
     const ratio = Math.min(
       availableWidth / img.width,
       availableHeight / img.height,
@@ -793,11 +828,14 @@ async function exportarOrganigrama() {
     const finalW = img.width * ratio;
     const finalH = img.height * ratio;
 
+    // Centrar verticalmente en el espacio disponible debajo del encabezado institucional
+    const topY = 40 + Math.max(0, (availableHeight - finalH) / 2);
+
     pdf.addImage(
       dataUrl,
       "PNG",
       (pageWidth - finalW) / 2,
-      45,
+      topY,
       finalW,
       finalH,
       undefined,
@@ -813,7 +851,7 @@ async function exportarOrganigrama() {
       { align: "center" },
     );
 
-    // Descarga directa y robusta con enlace adjunto al DOM (garantiza compatibilidad total en Edge, Chrome y Firefox)
+    // Descarga directa y robusta con enlace adjunto al DOM
     const blob = pdf.output("blob");
     const blobUrl = URL.createObjectURL(blob);
     const downloadLink = document.createElement("a");
@@ -834,6 +872,23 @@ async function exportarOrganigrama() {
     mostrar("Error al exportar: " + error.message, "error");
   } finally {
     if (document.head.contains(styleTag)) document.head.removeChild(styleTag);
+    // Restaurar atributos originales de los paths
+    modifiedPaths.forEach(({ path, origStroke, origStrokeWidth, origFill, origMarkerEnd, origMarkerStart }) => {
+      if (origFill !== null) path.setAttribute("fill", origFill); else path.removeAttribute("fill");
+      if (origStroke !== null) path.setAttribute("stroke", origStroke); else path.removeAttribute("stroke");
+      if (origStrokeWidth !== null) path.setAttribute("stroke-width", origStrokeWidth); else path.removeAttribute("stroke-width");
+      if (origMarkerEnd !== null) path.setAttribute("marker-end", origMarkerEnd);
+      if (origMarkerStart !== null) path.setAttribute("marker-start", origMarkerStart);
+      path.style.fill = "";
+      path.style.stroke = "";
+      path.style.strokeWidth = "";
+      path.style.markerEnd = "";
+      path.style.markerStart = "";
+    });
+    // Restaurar markers
+    originalMarkers.forEach(({ parent, el }) => {
+      if (parent && !parent.contains(el)) parent.appendChild(el);
+    });
     setTimeout(() => fitView({ padding: 0.1 }), 200);
   }
 }
@@ -1116,8 +1171,9 @@ const updateGraph = () => {
           borderRadius: 0,
         },
         style: {
+          fill: "none",
           stroke: edgeStrokeColor,
-          strokeWidth: 3,
+          strokeWidth: 2,
           strokeDasharray: n.data && n.data.isStaff ? "6 6" : "none",
         },
       };
@@ -2170,17 +2226,21 @@ function resetFilters() {
   transform: translateX(-50%) !important;
 }
 :deep(.vue-flow__edge-path) {
+  fill: none !important;
   stroke: #000000 !important;
-  stroke-width: 3px !important;
+  stroke-width: 2px !important;
 }
-:deep(.vue-flow__arrowhead) {
+:deep(.vue-flow__arrowhead),
+:deep(marker) {
   display: none !important;
 }
 .v-theme--dark :deep(.vue-flow__edge-path) {
+  fill: none !important;
   stroke: #e2e8f0 !important;
-  stroke-width: 3px !important;
+  stroke-width: 2px !important;
 }
-.v-theme--dark :deep(.vue-flow__arrowhead) {
+.v-theme--dark :deep(.vue-flow__arrowhead),
+.v-theme--dark :deep(marker) {
   display: none !important;
 }
 

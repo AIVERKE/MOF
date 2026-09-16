@@ -12,6 +12,8 @@ import UnidadFormDialog from "./unidades/UnidadFormDialog.vue";
 import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
+import MofReportMenu from "./common/MofReportMenu.vue";
+import { exportListarUnidadesPdf, exportToCsv } from "@/utils/mofReport";
 
 // --- PLUGINS & UTILS ---
 import {
@@ -136,6 +138,68 @@ const getFadedClass = (item) => {
   return '';
 };
 
+const loadingReport = ref(false);
+
+const activeFiltersList = computed(() => {
+  const modoLabels = {
+    integral: "INTEGRAL (TODAS)",
+    analitico: "ANALÍTICA",
+    estricto: "OFICIAL ESTRICTO",
+  };
+  const filters = [
+    { label: "Modo de Vista", value: modoLabels[vistaModo.value] || vistaModo.value.toUpperCase() },
+  ];
+  if (search.value && search.value.trim()) {
+    filters.push({ label: "Término de Búsqueda", value: search.value.trim() });
+  }
+  return filters;
+});
+
+const handleExportPdf = () => {
+  try {
+    loadingReport.value = true;
+    exportListarUnidadesPdf({
+      title: "Listado de Unidades Administrativas",
+      unidades: filteredUnidades.value,
+      activeFilters: activeFiltersList.value,
+      resolveClase,
+      resolveNivel,
+      resolveClaseColor,
+      isOficialCheck: checkOficial,
+    });
+  } catch (err) {
+    console.error("Error al exportar PDF en ListarUnidades:", err);
+  } finally {
+    loadingReport.value = false;
+  }
+};
+
+const handleExportCsv = () => {
+  try {
+    loadingReport.value = true;
+    const columns = [
+      { header: "CÓDIGO", key: "codigo" },
+      { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.display_name || u.nombre || u.denominacion || "" },
+      { header: "SIGLA", getter: (u) => u.sigla || "-" },
+      { header: "JERARQUÍA / CLASE", getter: (u) => resolveClase(u.clase) || "-" },
+      { header: "NIVEL", getter: (u) => resolveNivel(u.nivel) || "-" },
+      { header: "TIPO", getter: (u) => resolveTipo(u.tipo) || "-" },
+      { header: "RELACIÓN", getter: (u) => resolveRelacion(u.relacion) || "-" },
+      { header: "ESTADO", getter: (u) => (checkOficial(u) ? "OFICIAL" : "NO OFICIAL") },
+    ];
+
+    exportToCsv({
+      filename: `Listado_Unidades_${vistaModo.value}.csv`,
+      columns,
+      rows: filteredUnidades.value,
+    });
+  } catch (err) {
+    console.error("Error al exportar CSV en ListarUnidades:", err);
+  } finally {
+    loadingReport.value = false;
+  }
+};
+
 onMounted(async () => {
   await Promise.all([
     unidadesStore.getFetchUnidades(),
@@ -218,6 +282,15 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
             OFICIAL ESTRICTO
           </v-btn>
         </v-btn-toggle>
+
+        <MofReportMenu
+          :loading="loadingReport"
+          :has-pdf="true"
+          :has-csv="true"
+          class="mr-2"
+          @export-pdf="handleExportPdf"
+          @export-csv="handleExportCsv"
+        />
         
         <v-btn
           color="primary"

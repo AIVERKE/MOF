@@ -175,18 +175,22 @@
 }
 
 .vue-flow__edge-path {
+  fill: none !important;
   stroke: #000000 !important;
-  stroke-width: 3px !important;
+  stroke-width: 2px !important;
 }
-.vue-flow__arrowhead {
+.vue-flow__arrowhead,
+marker {
   display: none !important;
 }
 
 .v-theme--dark .vue-flow__edge-path {
+  fill: none !important;
   stroke: #e2e8f0 !important;
-  stroke-width: 3px !important;
+  stroke-width: 2px !important;
 }
-.v-theme--dark .vue-flow__arrowhead {
+.v-theme--dark .vue-flow__arrowhead,
+.v-theme--dark marker {
   display: none !important;
 }
 

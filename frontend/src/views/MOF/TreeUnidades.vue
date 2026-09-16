@@ -12,6 +12,8 @@ import UnidadFormDialog from "./unidades/UnidadFormDialog.vue";
 import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
+import MofReportMenu from "./common/MofReportMenu.vue";
+import { exportTreeUnidadesPdf, exportToCsv } from "@/utils/mofReport";
 
 // --- PLUGINS & UTILS ---
 import {
@@ -153,6 +155,91 @@ const customTreeFilter = (value, query, item) => {
     codigoNorm.includes(searchNorm)
   );
 };
+
+const loadingReport = ref(false);
+
+const activeFiltersList = computed(() => {
+  const filters = [];
+  if (search.value && search.value.trim()) {
+    filters.push({ label: "Término de Búsqueda", value: search.value.trim() });
+  }
+  return filters;
+});
+
+function flattenTree(nodes, depth = 0, parentItem = null, result = []) {
+  for (const node of nodes) {
+    result.push({
+      ...node,
+      _depth: depth,
+      hasChildren: Boolean(node.children && node.children.length > 0),
+      parent_codigo: parentItem ? parentItem.codigo : "-",
+      parent_nombre: parentItem ? (parentItem.nombre || parentItem.denominacion) : "-",
+    });
+    if (node.children && node.children.length > 0) {
+      flattenTree(node.children, depth + 1, node, result);
+    }
+  }
+  return result;
+}
+
+const flatTreeList = computed(() => {
+  const flat = flattenTree(treeItems.value);
+  if (!search.value || !search.value.trim()) return flat;
+
+  const q = normalizeText(search.value);
+  return flat.filter((u) => {
+    const name = normalizeText(u.display_name || u.nombre || u.denominacion);
+    const code = normalizeText(u.codigo);
+    const sigla = normalizeText(u.sigla);
+    return name.includes(q) || code.includes(q) || sigla.includes(q);
+  });
+});
+
+const handleExportPdf = () => {
+  try {
+    loadingReport.value = true;
+    exportTreeUnidadesPdf({
+      title: "Estructura Organizacional - Árbol de Unidades",
+      flatTreeRows: flatTreeList.value,
+      activeFilters: activeFiltersList.value,
+      resolveClase,
+      resolveNivel,
+      resolveClaseColor,
+      isOficialCheck: checkOficial,
+    });
+  } catch (err) {
+    console.error("Error al exportar PDF en TreeUnidades:", err);
+  } finally {
+    loadingReport.value = false;
+  }
+};
+
+const handleExportCsv = () => {
+  try {
+    loadingReport.value = true;
+    const columns = [
+      { header: "CÓDIGO", key: "codigo" },
+      { header: "NIVEL_JERARQUÍA", getter: (u) => u._depth ?? 0 },
+      { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.display_name || u.nombre || u.denominacion || "" },
+      { header: "SIGLA", getter: (u) => u.sigla || "-" },
+      { header: "CÓDIGO_PADRE", getter: (u) => u.parent_codigo || "-" },
+      { header: "UNIDAD_PADRE", getter: (u) => u.parent_nombre || "-" },
+      { header: "INSTANCIA / CLASE", getter: (u) => resolveClase(u.clase) || "-" },
+      { header: "NIVEL", getter: (u) => resolveNivel(u.nivel) || "-" },
+      { header: "ESTADO", getter: (u) => (checkOficial(u) ? "OFICIAL" : "NO OFICIAL") },
+    ];
+
+    exportToCsv({
+      filename: "Arbol_Estructura_Unidades_MOF.csv",
+      columns,
+      rows: flatTreeList.value,
+    });
+  } catch (err) {
+    console.error("Error al exportar CSV en TreeUnidades:", err);
+  } finally {
+    loadingReport.value = false;
+  }
+};
 </script>
 
 <template>
@@ -189,6 +276,14 @@ const customTreeFilter = (value, query, item) => {
           clearable
         ></v-text-field>
         <v-spacer></v-spacer>
+        <MofReportMenu
+          :loading="loadingReport"
+          :has-pdf="true"
+          :has-csv="true"
+          class="mr-2"
+          @export-pdf="handleExportPdf"
+          @export-csv="handleExportCsv"
+        />
         <v-btn
           v-if="!unidadesStore.unidades.length"
           color="primary"
