@@ -11,6 +11,7 @@ import {
   getClaseColor,
   getCampoClase,
   getPesoReal,
+  getHighlightSegments,
   PESO_NULO,
   PESO_DEFAULT,
   DEFAULT_CLASE_COLOR,
@@ -313,5 +314,43 @@ describe("mofHelpers - getPesoReal con constantes nombradas", () => {
   it("retorna PESO_DEFAULT si no encuentra la clase", () => {
     expect(getPesoReal({ clase: 999 }, clases)).toBe(PESO_DEFAULT);
     expect(PESO_DEFAULT).toBe(10);
+  });
+});
+
+describe("mofHelpers - getHighlightSegments", () => {
+  it("no cuelga ni lanza con query tipo ReDoS", () => {
+    const started = Date.now();
+    const segs = getHighlightSegments(
+      "Rectorado Universitario",
+      "((((a+)+)+)+",
+    );
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(Array.isArray(segs)).toBe(true);
+    expect(segs.some((s) => s.match)).toBe(false);
+    expect(segs.map((s) => s.text).join("")).toBe("Rectorado Universitario");
+  });
+
+  it("resalta RECTORADO / rectorado en el nombre", () => {
+    const segs = getHighlightSegments(
+      "Rectorado Universitario",
+      "RECTORADO",
+    );
+    expect(segs.some((s) => s.match && /rectorado/i.test(s.text))).toBe(true);
+    expect(segs.map((s) => s.text).join("")).toBe("Rectorado Universitario");
+
+    const segsLower = getHighlightSegments(
+      "Rectorado Universitario",
+      "rectorado",
+    );
+    expect(segsLower.some((s) => s.match)).toBe(true);
+  });
+
+  it("con query vacía devuelve un segmento sin match", () => {
+    expect(getHighlightSegments("Rectorado", "")).toEqual([
+      { text: "Rectorado", match: false },
+    ]);
+    expect(getHighlightSegments("Rectorado", "   ")).toEqual([
+      { text: "Rectorado", match: false },
+    ]);
   });
 });

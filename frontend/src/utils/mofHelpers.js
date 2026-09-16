@@ -320,44 +320,100 @@ export const getContrastingTextColor = (hexColor) => {
   return yiq >= 145 ? "#0F172A" : "#FFFFFF";
 };
 
+const HIGHLIGHT_QUERY_MAX_LEN = 64;
+
+/** Fold for accent/case-insensitive highlight (no RegExp / no user-built patterns). */
+function foldForHighlight(s) {
+  return String(s)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 /**
- * Divide texto en segmentos para resaltar coincidencias de búsqueda sin HTML.
+ * Builds folded string + maps from each folded index to original [start, end) code-point span.
+ */
+function foldWithIndexMap(str) {
+  let folded = "";
+  const startAt = [];
+  const endAt = [];
+  const s = String(str);
+  for (let i = 0; i < s.length; ) {
+    const cp = s.codePointAt(i);
+    const ch = String.fromCodePoint(cp);
+    const next = i + ch.length;
+    const piece = foldForHighlight(ch);
+    for (let k = 0; k < piece.length; k++) {
+      folded += piece[k];
+      startAt.push(i);
+      endAt.push(next);
+    }
+    i = next;
+  }
+  return { folded, startAt, endAt };
+}
+
+/**
+ * Divide texto en segmentos para resaltar coincidencias de búsqueda sin HTML ni RegExp.
  * @returns {{ text: string, match: boolean }[]}
  */
 export const getHighlightSegments = (text, query) => {
   if (text == null || text === "") return [];
   const strText = String(text);
   if (!query) return [{ text: strText, match: false }];
-  const strQuery = String(query).trim();
+
+  let strQuery = String(query).trim();
   if (!strQuery) return [{ text: strText, match: false }];
+  if (strQuery.length > HIGHLIGHT_QUERY_MAX_LEN) {
+    strQuery = strQuery.slice(0, HIGHLIGHT_QUERY_MAX_LEN);
+  }
 
-  try {
-    const escaped = strQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const needle = foldForHighlight(strQuery);
+  if (!needle) return [{ text: strText, match: false }];
 
-    const accentPattern = escaped
-      .replace(/[aáàäâ]/gi, "[aáàäâAÁÀÄÂ]")
-      .replace(/[eéèëê]/gi, "[eéèëêEÉÈËÊ]")
-      .replace(/[iíìïî]/gi, "[iíìïîIÍÌÏÎ]")
-      .replace(/[oóòöô]/gi, "[oóòöôOÓÒÖÔ]")
-      .replace(/[uúùüû]/gi, "[uúùüûUÚÙÜÛ]")
-      .replace(/[nñ]/gi, "[nñNÑ]");
+  const { folded, startAt, endAt } = foldWithIndexMap(strText);
+  if (!folded) return [{ text: strText, match: false }];
 
-    const re = new RegExp(`(${accentPattern})`, "gi");
-    const parts = strText.split(re);
-    if (parts.length === 1) {
-      return [{ text: strText, match: false }];
-    }
+  const ranges = [];
+  let from = 0;
+  while (from <= folded.length - needle.length) {
+    const idx = folded.indexOf(needle, from);
+    if (idx === -1) break;
+    const origStart = startAt[idx];
+    const origEnd = endAt[idx + needle.length - 1];
+    ranges.push([origStart, origEnd]);
+    from = idx + Math.max(needle.length, 1);
+  }
 
-    const matchRe = new RegExp(`^(${accentPattern})$`, "i");
-    return parts
-      .filter((part) => part !== "")
-      .map((part) => ({
-        text: part,
-        match: matchRe.test(part),
-      }));
-  } catch {
+  if (ranges.length === 0) {
     return [{ text: strText, match: false }];
   }
+
+  // Merge overlapping / adjacent ranges
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const [a, b] of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && a <= last[1]) {
+      last[1] = Math.max(last[1], b);
+    } else {
+      merged.push([a, b]);
+    }
+  }
+
+  const segments = [];
+  let cursor = 0;
+  for (const [a, b] of merged) {
+    if (cursor < a) {
+      segments.push({ text: strText.slice(cursor, a), match: false });
+    }
+    segments.push({ text: strText.slice(a, b), match: true });
+    cursor = b;
+  }
+  if (cursor < strText.length) {
+    segments.push({ text: strText.slice(cursor), match: false });
+  }
+  return segments.filter((seg) => seg.text !== "");
 };
 
 /**
