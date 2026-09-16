@@ -54,7 +54,7 @@ import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 
 // --- VUE FLOW COMPOSABLES ---
-const { nodes, edges, setNodes, setEdges, fitView, setCenter, findNode, onNodeClick } = useVueFlow();
+const { nodes, edges, setNodes, setEdges, fitView, onNodeClick } = useVueFlow();
 
 const { mostrar } = useSnackbar();
 
@@ -1219,13 +1219,20 @@ watch(isDark, () => {
 
 /**
  * Vuela animadamente la cámara hacia uno o varios nodos (estilo Google Maps).
- * - 1 match: Centra el nodo con zoom ~1.25x y animación suave (800ms).
- * - N matches: Encuadra conjuntamente todos los nodos coincidentes con padding 0.2 (800ms).
- * - 0 matches o vacío: Restaura el encuadre general del organigrama con fitView (800ms).
+ * - 1 match: Encuadra el nodo con padding suficiente (maxZoom 1.25).
+ * - N matches: Encuadra conjuntamente todos los nodos coincidentes.
+ * - 0 matches o vacío: Restaura el encuadre general del organigrama.
  *
  * @param {Array<string|number>} ids - Lista de IDs de nodos a enfocar
  */
 const volarANodos = async (ids = []) => {
+  await nextTick();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("resize"));
+  }
+  // Dejar que VueFlow remida el viewport tras el resize
+  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
   if (!ids || ids.length === 0) {
     await fitView({ padding: 0.1, duration: 800 });
     return;
@@ -1234,28 +1241,16 @@ const volarANodos = async (ids = []) => {
   const strIds = ids.map((id) => String(id));
 
   if (strIds.length === 1) {
-    const targetId = strIds[0];
-    let node = findNode ? findNode(targetId) : null;
-    if (!node && nodes.value) {
-      node = nodes.value.find((n) => String(n.id) === targetId);
-    }
-
-    if (node && node.position) {
-      const nodeWidth = node.dimensions?.width || 320;
-      const nodeHeight = node.dimensions?.height || 240;
-      const centerX = node.position.x + nodeWidth / 2;
-      const centerY = node.position.y + nodeHeight / 2;
-
-      await setCenter(centerX, centerY, { duration: 800, zoom: 1.25 });
-      return;
-    }
-
-    // Fallback a fitView enfocado en el nodo individual
-    await fitView({ nodes: [targetId], duration: 800, padding: 0.2 });
-  } else {
-    // Encuadre conjunto para múltiples resultados
-    await fitView({ nodes: strIds, duration: 800, padding: 0.2 });
+    await fitView({
+      nodes: [strIds[0]],
+      padding: 0.35,
+      duration: 800,
+      maxZoom: 1.25,
+    });
+    return;
   }
+
+  await fitView({ nodes: strIds, duration: 800, padding: 0.2, maxZoom: 1.25 });
 };
 
 // --- EVENTS ---
@@ -1635,11 +1630,10 @@ function resetFilters() {
     </div>
 
     <!-- RESULTS TABLE -->
-    <div v-if="hasAnyFilter" class="flex-none mb-1 px-1">
+    <div v-if="hasAnyFilter" class="flex-none mb-1 px-1 filter-results">
       <v-card
         elevation="3"
-        class="rounded-lg border-primary border-t-2"
-        style="max-height: 200px; overflow-y: auto"
+        class="rounded-lg border-primary border-t-2 filter-results-card"
       >
         <v-table density="comfortable">
           <thead>
@@ -1715,7 +1709,7 @@ function resetFilters() {
     <!-- FLOW CONTAINER -->
     <v-card
       elevation="3"
-      class="flex-grow-1 rounded-lg overflow-hidden border mb-0 position-relative d-flex flex-column"
+      class="flow-card flex-grow-1 rounded-lg overflow-hidden border mb-0 position-relative d-flex flex-column"
     >
       <v-progress-linear
         v-if="unidadesStore.loading"
@@ -2035,11 +2029,26 @@ function resetFilters() {
   height: calc(100vh - 120px) !important;
   max-height: calc(100vh - 120px) !important;
 }
+.filter-results-card {
+  max-height: 160px;
+  overflow-y: auto;
+}
+.flow-card {
+  flex: 1 1 0;
+  min-height: 0;
+}
 .flow-container {
   width: 100%;
-  flex-grow: 1;
-  min-height: 500px;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
   background: #f8f9fa;
+}
+@media (min-width: 961px) {
+  .flow-container {
+    min-height: 280px;
+  }
 }
 .v-theme--dark .flow-container {
   background: #030712 !important;
