@@ -1,16 +1,27 @@
 <template>
   <v-container fluid class="pa-0">
     <!-- Header & Breadcrumb -->
-    <div class="mb-6">
-      <h1 class="text-h4 font-weight-black mb-1 text-slate-800">
-        Dashboard Facultativo
-      </h1>
-      <div class="text-body-2 d-flex align-center text-slate-500">
-        <v-icon size="18" class="mr-2">mdi-chart-bar</v-icon>
-        <span>Reportes</span>
-        <v-icon size="16" class="mx-1">mdi-chevron-right</v-icon>
-        <span class="font-weight-bold text-primary">Consolidado Facultativo</span>
+    <div class="mb-6 d-flex justify-space-between align-center flex-wrap gap-2">
+      <div>
+        <h1 class="text-h4 font-weight-black mb-1 text-slate-800">
+          Dashboard Facultativo
+        </h1>
+        <div class="text-body-2 d-flex align-center text-slate-500">
+          <v-icon size="18" class="mr-2">mdi-chart-bar</v-icon>
+          <span>Reportes</span>
+          <v-icon size="16" class="mx-1">mdi-chevron-right</v-icon>
+          <span class="font-weight-bold text-primary">Consolidado Facultativo</span>
+        </div>
       </div>
+      <MofReportMenu
+        :loading="loadingReport"
+        :disabled="!unidadMadre"
+        :has-pdf="true"
+        :has-csv="true"
+        tooltip="Exportar reporte de la unidad y sus dependencias"
+        @export-pdf="handleExportPdf"
+        @export-csv="handleExportCsv"
+      />
     </div>
 
     <!-- ENTRADA: Selección en Cascada -->
@@ -204,6 +215,8 @@ import { getContrastingTextColor, toBoolean } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
+import MofReportMenu from "./common/MofReportMenu.vue";
+import { exportDashboardFacultativoPdf, exportToCsv } from "@/utils/mofReport";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
@@ -226,6 +239,70 @@ const {
   resolveClaseColor,
   checkOficial: isUnidadOficialCheck,
 } = useMofResolvers(clasesStore, nivelesStore, tiposStore, relacionesStore);
+
+const loadingReport = ref(false);
+
+const activeFiltersList = computed(() => {
+  const filters = [];
+  if (claseSeleccionada.value) {
+    filters.push({ label: "Tipo de Instancia", value: claseSeleccionada.value });
+  }
+  if (unidadMadre.value) {
+    filters.push({
+      label: "Unidad Principal",
+      value: unidadMadre.value.nombre || unidadMadre.value.denominacion,
+    });
+  }
+  return filters;
+});
+
+const handleExportPdf = () => {
+  if (!unidadMadre.value) return;
+  try {
+    loadingReport.value = true;
+    exportDashboardFacultativoPdf({
+      title: "Dashboard Facultativo - Consolidado de Dependencias",
+      unidadMadre: unidadMadre.value,
+      conteoDependientes: conteoDependientes.value,
+      arbolDependencias: arbolDependencias.value,
+      activeFilters: activeFiltersList.value,
+      resolveClase,
+      resolveClaseColor,
+    });
+  } catch (err) {
+    console.error("Error al exportar PDF en Dashboard Facultativo:", err);
+  } finally {
+    loadingReport.value = false;
+  }
+};
+
+const handleExportCsv = () => {
+  if (!unidadMadre.value) return;
+  try {
+    loadingReport.value = true;
+    const columns = [
+      { header: "CÓDIGO", key: "codigo" },
+      { header: "NIVEL EN ÁRBOL", getter: (u) => `Nivel ${u.level ?? 0}` },
+      { header: "UNIDAD DEPENDIENTE", getter: (u) => u.nombre || u.denominacion || "" },
+      { header: "SIGLA", getter: (u) => u.sigla || "-" },
+      { header: "TIPO DE INSTANCIA", getter: (u) => resolveClase(u.clase) || "-" },
+      { header: "UNIDAD MADRE", getter: () => unidadMadre.value.nombre || unidadMadre.value.denominacion || "" },
+      { header: "ESTADO", getter: (u) => (isUnidadOficialCheck(u) ? "OFICIAL" : "NO OFICIAL") },
+    ];
+
+    const safeName = (unidadMadre.value.sigla || unidadMadre.value.codigo || "Facultativo").replace(/[^a-zA-Z0-9_-]/g, "_");
+
+    exportToCsv({
+      filename: `Reporte_Facultativo_${safeName}.csv`,
+      columns,
+      rows: arbolDependencias.value,
+    });
+  } catch (err) {
+    console.error("Error al exportar CSV en Dashboard Facultativo:", err);
+  } finally {
+    loadingReport.value = false;
+  }
+};
 
 const loading = ref(true);
 const loadingDescendientes = ref(false);

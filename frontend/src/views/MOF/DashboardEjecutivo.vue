@@ -10,6 +10,8 @@ import { getClaseColor, toBoolean } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
+import MofReportMenu from "./common/MofReportMenu.vue";
+import { exportDashboardEjecutivoPdf, exportToCsv } from "@/utils/mofReport";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
@@ -297,23 +299,94 @@ const getChartOptions = (key, chartInfo) => {
     };
   }
 };
+
+const loadingReport = ref(false);
+
+const activeFiltersList = computed(() => {
+  const filters = [];
+  if (filtroClase.value) filters.push({ label: "Tipo de Instancia", value: filtroClase.value });
+  if (filtroNivel.value) filters.push({ label: "Nivel Jerárquico", value: filtroNivel.value });
+  if (filtroTipo.value) filters.push({ label: "Tipo de Unidad", value: filtroTipo.value });
+  if (filtroRelacion.value) filters.push({ label: "Relación", value: filtroRelacion.value });
+  return filters;
+});
+
+const handleExportPdf = () => {
+  try {
+    loadingReport.value = true;
+    const formattedUnits = unidadesFiltradas.value.map((u) => ({
+      ...u,
+      claseNombre: resolveClase(u.clase),
+      nivelNombre: resolveNivel(u.nivel),
+      relacionNombre: resolveRelacion(u.relacion),
+      isOficial: isUnidadOficialCheck(u),
+    }));
+
+    exportDashboardEjecutivoPdf({
+      title: "Reporte Ejecutivo - Consolidado Institucional",
+      resumen: dashboardData.value?.resumen || { total: unidadesFiltradas.value.length },
+      agrupaciones: agrupaciones.value,
+      unidades: formattedUnits,
+      activeFilters: activeFiltersList.value,
+      resolveClaseColor,
+    });
+  } catch (err) {
+    console.error("Error al exportar PDF en Dashboard Ejecutivo:", err);
+  } finally {
+    loadingReport.value = false;
+  }
+};
+
+const handleExportCsv = () => {
+  try {
+    loadingReport.value = true;
+    const columns = [
+      { header: "CÓDIGO", key: "codigo" },
+      { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.nombre || u.denominacion || "" },
+      { header: "SIGLA", getter: (u) => u.sigla || "-" },
+      { header: "TIPO DE INSTANCIA", getter: (u) => resolveClase(u.clase) || "-" },
+      { header: "NIVEL", getter: (u) => resolveNivel(u.nivel) || "-" },
+      { header: "RELACIÓN", getter: (u) => resolveRelacion(u.relacion) || "-" },
+      { header: "ESTADO", getter: (u) => (isUnidadOficialCheck(u) ? "OFICIAL" : "NO OFICIAL") },
+    ];
+
+    exportToCsv({
+      filename: "Reporte_Ejecutivo_Unidades_MOF.csv",
+      columns,
+      rows: unidadesFiltradas.value,
+    });
+  } catch (err) {
+    console.error("Error al exportar CSV en Dashboard Ejecutivo:", err);
+  } finally {
+    loadingReport.value = false;
+  }
+};
 </script>
 
 <template>
   <v-container fluid class="pa-0">
     <!-- Header & Breadcrumb -->
-    <div class="mb-6">
-      <h1 class="text-h4 font-weight-black mb-1 text-slate-800">
-        Reporte Ejecutivo
-      </h1>
-      <div class="text-body-2 d-flex align-center text-slate-500">
-        <v-icon size="18" class="mr-2">mdi-chart-bar</v-icon>
-        <span>Reportes</span>
-        <v-icon size="16" class="mx-1">mdi-chevron-right</v-icon>
-        <span class="font-weight-bold text-primary"
-          >Consolidado Institucional</span
-        >
+    <div class="mb-6 d-flex justify-space-between align-center flex-wrap gap-2">
+      <div>
+        <h1 class="text-h4 font-weight-black mb-1 text-slate-800">
+          Reporte Ejecutivo
+        </h1>
+        <div class="text-body-2 d-flex align-center text-slate-500">
+          <v-icon size="18" class="mr-2">mdi-chart-bar</v-icon>
+          <span>Reportes</span>
+          <v-icon size="16" class="mx-1">mdi-chevron-right</v-icon>
+          <span class="font-weight-bold text-primary"
+            >Consolidado Institucional</span
+          >
+        </div>
       </div>
+      <MofReportMenu
+        :loading="loadingReport"
+        :has-pdf="true"
+        :has-csv="true"
+        @export-pdf="handleExportPdf"
+        @export-csv="handleExportCsv"
+      />
     </div>
 
     <!-- Filtros de Entrada -->
