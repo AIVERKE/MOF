@@ -129,7 +129,7 @@ async function deleteClase(id) {
             class="flex-grow-1"
         >
             <template #label>
-              <span class="d-inline-flex align-center">
+              <span class="d-inline-flex align-center" style="pointer-events: auto;">
                 {{ label }}
                 <HelpTooltip v-if="helpTooltip" :text="helpTooltip" />
               </span>

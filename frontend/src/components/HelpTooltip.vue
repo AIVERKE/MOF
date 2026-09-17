@@ -24,32 +24,50 @@ defineProps({
 </script>
 
 <template>
-  <v-tooltip :location="location" :text="text" :max-width="maxWidth">
-    <template #activator="{ props: tipProps }">
-      <v-icon
-        v-bind="tipProps"
-        :size="size"
-        :color="color"
-        class="ml-1 cursor-pointer help-tooltip-icon"
-        tabindex="-1"
-        role="button"
-        aria-label="Ayuda conceptual"
-        @click.stop.prevent
+  <span
+    class="help-tooltip-wrapper ml-1"
+    :title="text"
+    @click.stop.prevent
+  >
+    <v-icon
+      :size="size"
+      :color="color"
+      class="help-tooltip-icon"
+      tabindex="0"
+      role="button"
+      aria-label="Ayuda conceptual"
+    >
+      mdi-help-circle-outline
+      <v-tooltip
+        activator="parent"
+        :location="location"
+        :max-width="maxWidth"
+        open-on-hover
+        open-on-click
       >
-        mdi-help-circle-outline
-      </v-icon>
-    </template>
-  </v-tooltip>
+        {{ text }}
+      </v-tooltip>
+    </v-icon>
+  </span>
 </template>
 
 <style scoped>
+.help-tooltip-wrapper {
+  display: inline-flex;
+  align-items: center;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  user-select: none;
+}
 .help-tooltip-icon {
-  opacity: 0.75;
+  opacity: 0.85;
   transition: opacity 0.2s ease, transform 0.2s ease;
   vertical-align: middle;
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
 .help-tooltip-icon:hover {
   opacity: 1;
-  transform: scale(1.15);
+  transform: scale(1.18);
 }
 </style>

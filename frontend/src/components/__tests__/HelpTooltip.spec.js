@@ -4,8 +4,8 @@ import HelpTooltip from "../HelpTooltip.vue";
 
 const stubs = {
   "v-tooltip": {
-    props: ["location", "text", "maxWidth"],
-    template: `<span class="v-tooltip" :data-text="text"><slot /><slot name="activator" :props="{ 'aria-describedby': 'tip' }" /></span>`,
+    props: ["location", "maxWidth", "openOnHover", "openOnClick"],
+    template: `<span class="v-tooltip"><slot /></span>`,
   },
   "v-icon": {
     props: ["size", "color"],
@@ -23,10 +23,13 @@ describe("HelpTooltip component", () => {
 
     const tooltip = wrapper.find(".v-tooltip");
     expect(tooltip.exists()).toBe(true);
-    expect(tooltip.attributes("data-text")).toBe(text);
+    expect(tooltip.text()).toContain(text);
 
     const icon = wrapper.find(".help-tooltip-icon");
     expect(icon.exists()).toBe(true);
     expect(icon.text()).toContain("mdi-help-circle-outline");
+
+    const spanWrapper = wrapper.find(".help-tooltip-wrapper");
+    expect(spanWrapper.attributes("title")).toBe(text);
   });
 });

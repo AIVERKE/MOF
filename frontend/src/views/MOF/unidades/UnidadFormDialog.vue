@@ -739,7 +739,7 @@ function moverAbajo(index) {
             autocomplete="off"
           >
             <template #label>
-              <span class="d-inline-flex align-center">
+              <span class="d-inline-flex align-center" style="pointer-events: auto;">
                 Base Legal
                 <HelpTooltip :text="hints.conceptos.baseLegal" />
               </span>
