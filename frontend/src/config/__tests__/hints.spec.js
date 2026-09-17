@@ -70,10 +70,15 @@ describe("hints configuration", () => {
   it("contiene hints para login y usuarios", () => {
     expect(hints.login.email).toBeTruthy();
     expect(hints.login.password).toBeTruthy();
+    expect(hints.login.ci).toBeTruthy();
+    expect(hints.login.passwordNueva).toBeTruthy();
+    expect(hints.login.passwordConfirmacion).toBeTruthy();
 
-    expect(hints.usuarios.nombre).toBeTruthy();
+    expect(hints.usuarios.ci).toBeTruthy();
+    expect(hints.usuarios.nombres).toBeTruthy();
+    expect(hints.usuarios.apellidoPaterno).toBeTruthy();
+    expect(hints.usuarios.apellidoMaterno).toBeTruthy();
     expect(hints.usuarios.email).toBeTruthy();
-    expect(hints.usuarios.password).toBeTruthy();
     expect(hints.usuarios.passwordEdit).toBeTruthy();
     expect(hints.usuarios.rol).toBeTruthy();
     expect(hints.usuarios.estado).toBeTruthy();

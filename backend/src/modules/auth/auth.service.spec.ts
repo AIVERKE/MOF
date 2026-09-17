@@ -3,15 +3,18 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
-import { AuthService } from './auth.service';
+import { ErrorCodes } from '../../common/errors';
+import { AuthService, PROPOSITO_CAMBIO_PASSWORD } from './auth.service';
 import { Usuario } from './entities/usuario.entity';
 
 jest.mock('bcryptjs');
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usuarioRepository: jest.Mocked<Pick<Repository<Usuario>, 'findOne'>>;
-  let jwtService: jest.Mocked<Pick<JwtService, 'sign'>>;
+  let usuarioRepository: jest.Mocked<
+    Pick<Repository<Usuario>, 'findOne' | 'save'>
+  >;
+  let jwtService: jest.Mocked<Pick<JwtService, 'sign' | 'verifyAsync'>>;
 
   const mockUser = {
     id: '1',
@@ -19,15 +22,18 @@ describe('AuthService', () => {
     passwordHash: '$2a$10$hashed',
     nombre: 'Administrador',
     enabled: true,
+    debeCambiarPassword: false,
     usuarioRoles: [{ rol: { codigo: 'ADMIN' } }],
   };
 
   beforeEach(async () => {
     usuarioRepository = {
       findOne: jest.fn(),
+      save: jest.fn(),
     };
     jwtService = {
       sign: jest.fn().mockReturnValue('signed.jwt.token'),
+      verifyAsync: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -96,6 +102,20 @@ describe('AuthService', () => {
       expect(result).toBeNull();
       expect(bcrypt.compare).not.toHaveBeenCalled();
     });
+
+    it('blocks login while the first access is pending', async () => {
+      usuarioRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        debeCambiarPassword: true,
+      } as Usuario);
+
+      await expect(
+        service.validateUser('admin@admin.com', 'admin123'),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCodes.PRIMER_ACCESO_REQUERIDO,
+      });
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+    });
   });
 
   describe('login', () => {
@@ -117,6 +137,111 @@ describe('AuthService', () => {
       expect(result).toEqual({
         access_token: 'signed.jwt.token',
         user: authUser,
+      });
+    });
+  });
+
+  describe('primerAcceso', () => {
+    const pendiente = {
+      id: '10',
+      email: 'op@test.com',
+      enabled: true,
+      debeCambiarPassword: true,
+      persona: { ci: '8123456' },
+    } as unknown as Usuario;
+
+    it('returns a single-purpose token when the ci matches', async () => {
+      usuarioRepository.findOne.mockResolvedValue(pendiente);
+
+      const result = await service.primerAcceso({
+        email: 'op@test.com',
+        ci: '8123456',
+      });
+
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        { sub: '10', purpose: PROPOSITO_CAMBIO_PASSWORD },
+        { expiresIn: '15m' },
+      );
+      expect(result).toEqual({ token: 'signed.jwt.token' });
+    });
+
+    it('rejects a ci that does not match', async () => {
+      usuarioRepository.findOne.mockResolvedValue(pendiente);
+
+      await expect(
+        service.primerAcceso({ email: 'op@test.com', ci: '0000000' }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCodes.PRIMER_ACCESO_INVALIDO,
+      });
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('rejects users that already defined their password', async () => {
+      usuarioRepository.findOne.mockResolvedValue({
+        ...pendiente,
+        debeCambiarPassword: false,
+      });
+
+      await expect(
+        service.primerAcceso({ email: 'op@test.com', ci: '8123456' }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCodes.PRIMER_ACCESO_INVALIDO,
+      });
+    });
+  });
+
+  describe('cambiarPassword', () => {
+    it('stores the new hash and clears the pending flag', async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: '10',
+        purpose: PROPOSITO_CAMBIO_PASSWORD,
+      });
+      usuarioRepository.findOne.mockResolvedValue({
+        id: '10',
+        enabled: true,
+        debeCambiarPassword: true,
+      } as Usuario);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-new');
+
+      await service.cambiarPassword({
+        token: 'temp.token',
+        password: 'miClave123',
+      });
+
+      expect(bcrypt.hash).toHaveBeenCalledWith('miClave123', 10);
+      expect(usuarioRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          passwordHash: 'hashed-new',
+          debeCambiarPassword: false,
+        }),
+      );
+    });
+
+    it('rejects a token without the change-password purpose', async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: '10',
+        email: 'op@test.com',
+        roles: ['USER'],
+      });
+
+      await expect(
+        service.cambiarPassword({
+          token: 'session.token',
+          password: 'x123456',
+        }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCodes.PRIMER_ACCESO_INVALIDO,
+      });
+      expect(usuarioRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invalid or expired token', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      await expect(
+        service.cambiarPassword({ token: 'bad.token', password: 'x123456' }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCodes.PRIMER_ACCESO_INVALIDO,
       });
     });
   });
