@@ -1,11 +1,16 @@
 <script setup>
 import { onMounted, computed, ref } from 'vue';
 import { useAllCargosMofStore } from '../../../stores/cargos_mof';
+import { hints } from "@/config/hints";
 
 const props = defineProps({
   modelValue: {
     type: Array,
     default: () => []
+  },
+  hint: {
+    type: String,
+    default: () => hints.cargos.select
   }
 });
 const emit = defineEmits(['update:modelValue']);
@@ -135,9 +140,12 @@ onMounted(async () => {
 <template>
     <div class="d-flex align-center">
         <v-autocomplete 
+            v-bind="$attrs"
             v-model="value"
             v-model:search="search"
             label="Cargos del Personal" 
+            :hint="hint"
+            :persistent-hint="false"
             :items="uniqueCargos" 
             item-title="nombre" 
             item-value="id" 
@@ -238,6 +246,8 @@ onMounted(async () => {
                         autofocus
                         maxlength="255"
                         counter="255"
+                        :hint="hints.cargos.nombre"
+                        :persistent-hint="false"
                         :rules="[v => !!String(v || '').trim() || 'El nombre es obligatorio']"
                         class="mb-4"
                     ></v-text-field>
@@ -248,6 +258,8 @@ onMounted(async () => {
                         rows="2"
                         maxlength="512"
                         counter="512"
+                        :hint="hints.cargos.descripcion"
+                        :persistent-hint="false"
                         hide-details="auto"
                         class="mb-6"
                     ></v-textarea>

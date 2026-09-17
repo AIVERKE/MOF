@@ -24,6 +24,19 @@
       />
     </div>
 
+    <!-- Nota informativa descartable -->
+    <v-alert
+      v-if="showInfoAlert"
+      type="info"
+      variant="tonal"
+      closable
+      class="mb-6 rounded-lg border-info"
+      density="comfortable"
+      :title="hints.dashboards.facultativo.title"
+      :text="hints.dashboards.facultativo.text"
+      @click:close="showInfoAlert = false"
+    />
+
     <!-- ENTRADA: Selección en Cascada -->
     <v-card class="mb-6 rounded-lg" elevation="2" border>
       <v-card-title
@@ -218,11 +231,13 @@ import { useAccessibilityStore } from "@/stores/accessibility";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 import MofReportMenu from "./common/MofReportMenu.vue";
 import { exportDashboardFacultativoPdf, exportToCsv } from "@/utils/mofReport";
+import { hints } from "@/config/hints";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
 const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
+const showInfoAlert = ref(true);
 
 const unidadesStore = useAllUnidadesMofStore();
 const clasesStore = useAllClasesMofStore();

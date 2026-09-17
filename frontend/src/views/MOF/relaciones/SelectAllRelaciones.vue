@@ -3,11 +3,15 @@ import { onMounted, ref, computed } from 'vue';
 import { useAllRelacionesMofStore } from '../../../stores/relaciones_mof';
 import { useAllUnidadesMofStore } from '../../../stores/unidades_mof';
 import { useSnackbar } from "@/composables/useSnackbar";
+import { hints } from "@/config/hints";
+import HelpTooltip from "@/components/HelpTooltip.vue";
 
 const props = defineProps({
   variant: { type: String, default: 'underlined' },
   label: { type: String, default: 'Relación' },
-  hideCrud: { type: Boolean, default: false }
+  hideCrud: { type: Boolean, default: false },
+  hint: { type: String, default: () => hints.relaciones.select },
+  helpTooltip: { type: String, default: () => hints.conceptos.relacion }
 });
 
 const model = defineModel();
@@ -113,6 +117,8 @@ const normalizedModel = computed({
             v-model="normalizedModel"
             v-model:search="search"
             :label="label"
+            :hint="hint"
+            :persistent-hint="false"
             :items="visibleItems" 
             item-title="descripcion" 
             item-value="id" 
@@ -121,6 +127,13 @@ const normalizedModel = computed({
             :loading="relacionesStore.loading"
             class="flex-grow-1"
         >
+            <template #label>
+              <span class="d-inline-flex align-center" style="pointer-events: auto;">
+                {{ label }}
+                <HelpTooltip v-if="helpTooltip" :text="helpTooltip" />
+              </span>
+            </template>
+
             <template v-slot:selection="{ item }">
               <span>{{ item.raw?.descripcion || item.title || model }}</span>
             </template>
@@ -191,8 +204,10 @@ const normalizedModel = computed({
                         label="Descripción de la Relación"
                         variant="outlined"
                         autofocus
-                        hide-details
-                        class="mb-6"
+                        :hint="hints.relaciones.nombre"
+                        :persistent-hint="false"
+                        hide-details="auto"
+                        class="mb-4"
                         @keyup.enter="saveRelacion"
                     ></v-text-field>
                     

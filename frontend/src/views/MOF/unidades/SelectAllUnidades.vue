@@ -76,7 +76,7 @@ const autocompleteProps = computed(() => {
         item-title="nombre" 
         item-value="id" 
         variant="underlined" 
-        v-bind="autocompleteProps"
+        v-bind="{ ...autocompleteProps, ...$attrs }"
         :loading="undadesAllUnidadesStore.loading"
     />
 </template>

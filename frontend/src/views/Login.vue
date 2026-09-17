@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { rules } from '../utils/rules';
+import { hints } from '../config/hints';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -126,6 +127,8 @@ const handleLogin = async () => {
                     variant="outlined"
                     density="comfortable"
                     class="mb-4"
+                    :hint="hints.login.email"
+                    :persistent-hint="false"
                     :rules="[rules.email]"
                     :disabled="loading"
                     autocomplete="username"
@@ -140,6 +143,8 @@ const handleLogin = async () => {
                     variant="outlined"
                     density="comfortable"
                     class="mb-6"
+                    :hint="hints.login.password"
+                    :persistent-hint="false"
                     :rules="[rules.required, rules.minLength(6)]"
                     :disabled="loading"
                     autocomplete="current-password"

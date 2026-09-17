@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUsuariosStore } from '@/stores/usuarios'
 import { useSnackbar } from '@/composables/useSnackbar'
+import { hints } from '@/config/hints'
 
 const usuariosStore = useUsuariosStore()
 const { showSnackbar } = useSnackbar()
@@ -289,6 +290,8 @@ const handleDelete = async () => {
                 label="Nombre Completo"
                 variant="outlined"
                 prepend-inner-icon="mdi-account"
+                :hint="hints.usuarios.nombre"
+                :persistent-hint="false"
                 class="mb-2"
               ></v-text-field>
             </v-col>
@@ -299,6 +302,8 @@ const handleDelete = async () => {
                 variant="outlined"
                 prepend-inner-icon="mdi-email"
                 type="email"
+                :hint="hints.usuarios.email"
+                :persistent-hint="false"
                 class="mb-2"
               ></v-text-field>
             </v-col>
@@ -311,8 +316,8 @@ const handleDelete = async () => {
                 type="password"
                 autocomplete="new-password"
                 class="mb-2"
-                :hint="selectedUser ? 'Déjalo vacío para no cambiarla' : 'Mínimo 6 caracteres'"
-                persistent-hint
+                :hint="selectedUser ? hints.usuarios.passwordEdit : hints.usuarios.password"
+                :persistent-hint="false"
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="6">
@@ -321,6 +326,8 @@ const handleDelete = async () => {
                 :items="roles"
                 label="Rol de Sistema"
                 variant="outlined"
+                :hint="hints.usuarios.rol"
+                :persistent-hint="false"
               ></v-select>
             </v-col>
             <v-col cols="12" md="6">
@@ -329,6 +336,8 @@ const handleDelete = async () => {
                 :items="['Activo', 'Inactivo']"
                 label="Estado Actual"
                 variant="outlined"
+                :hint="hints.usuarios.estado"
+                :persistent-hint="false"
               ></v-select>
             </v-col>
           </v-row>
