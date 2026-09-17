@@ -16,6 +16,7 @@ import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { useAllCargosMofStore } from "@/stores/cargos_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
+import { useAccessibilityStore } from "@/stores/accessibility";
 
 // --- PLUGINS & UTILS ---
 import {
@@ -76,6 +77,28 @@ const FILTER_COLORS = {
   staffDefault: "#EA580C", // Naranja institucional para staff
   claseDefault: "#1976D2", // Azul institucional
 };
+
+// --- PALETA COLORBLIND-SAFE OKABE-ITO (WONG, 2011) ---
+const FILTER_COLORS_COLORBLIND = {
+  selectedDep: "#0072B2", // Azul Okabe-Ito (Unidad Seleccionada / Origen)
+  depFuncional: "#D55E00", // Bermellón Okabe-Ito (Dependencia Funcional)
+  multipleMatch: "#009E73", // Verde azulado Okabe-Ito (Coincidencia múltiple)
+  searchMatch: "#E69F00", // Naranja cálido Okabe-Ito (Coincidencia por búsqueda)
+  nivelFilter: "#0072B2", // Azul Okabe-Ito (Filtro por Nivel)
+  tipoFilter: "#56B4E9", // Azul cielo Okabe-Ito (Filtro por Tipo)
+  claseFilter: "#D55E00", // Bermellón Okabe-Ito (Filtro por Instancia)
+  relacionFilter: "#CC79A7", // Púrpura rojizo Okabe-Ito (Filtro por Relación)
+  noMatch: "#CBD5E1", // Gris delimitado (Sin coincidencias)
+  noOficialAnalitico: "#94A3B8", // Gris medio delimitado
+  staffDefault: "#D55E00", // Bermellón institucional para staff
+  claseDefault: "#0072B2", // Azul accesible para clase
+};
+
+const accessibilityStore = useAccessibilityStore();
+const isColorblind = computed(() => accessibilityStore.colorblindMode);
+const activeFilterColors = computed(() =>
+  isColorblind.value ? FILTER_COLORS_COLORBLIND : FILTER_COLORS,
+);
 
 // --- STORES INSTANCES ---
 const unidadesStore = useAllUnidadesMofStore();
@@ -950,43 +973,97 @@ function computeNodeVisuals({
   activeTipoId,
   activeClaseId,
   activeRelacionId,
+  isColorblindMode,
 }) {
   let isNodeNonOficialInOficialView = false;
   if (vistaModo.value === "analitico" && !oficialStatus) {
     isNodeNonOficialInOficialView = true;
   }
 
+  const colors = isColorblindMode ? FILTER_COLORS_COLORBLIND : FILTER_COLORS;
+
   let finalColor =
-    u.color ||
-    getClaseColor(u.clase, clasesStore.clases) ||
-    (isStaff ? FILTER_COLORS.staffDefault : FILTER_COLORS.claseDefault);
+    (isColorblindMode ? null : u.color) ||
+    getClaseColor(u.clase, clasesStore.clases, isColorblindMode) ||
+    (isStaff ? colors.staffDefault : colors.claseDefault);
+
+  let visualReinforcement = null;
 
   if (isDepMode) {
     const uIdStr = String(u.id);
-    if (uIdStr === selectedDepId) finalColor = FILTER_COLORS.selectedDep;
-    else if (depsIdsSet.has(uIdStr)) finalColor = FILTER_COLORS.depFuncional;
-    else finalColor = FILTER_COLORS.noMatch;
+    if (uIdStr === selectedDepId) {
+      finalColor = colors.selectedDep;
+      visualReinforcement = {
+        role: "dep-selected",
+        icon: "mdi-bullseye-arrow",
+        badgeText: "ORIGEN",
+      };
+    } else if (depsIdsSet.has(uIdStr)) {
+      finalColor = colors.depFuncional;
+      visualReinforcement = {
+        role: "dep-funcional",
+        icon: "mdi-transit-connection-variant",
+        badgeText: "DEP. FUNCIONAL",
+      };
+    } else {
+      finalColor = colors.noMatch;
+    }
   } else if (isNodeNonOficialInOficialView) {
-    finalColor = FILTER_COLORS.noOficialAnalitico;
+    finalColor = colors.noOficialAnalitico;
   } else if (hasAnyFilter.value) {
     if (!isMatch) {
-      finalColor = FILTER_COLORS.noMatch;
+      finalColor = colors.noMatch;
     } else {
-      if (activesCount > 1) finalColor = FILTER_COLORS.multipleMatch;
-      else if (searchActive) finalColor = FILTER_COLORS.searchMatch;
-      else if (activeNivelId) finalColor = FILTER_COLORS.nivelFilter;
-      else if (activeTipoId) finalColor = FILTER_COLORS.tipoFilter;
-      else if (activeClaseId) finalColor = FILTER_COLORS.claseFilter;
-      else if (activeRelacionId) {
+      if (activesCount > 1) {
+        finalColor = colors.multipleMatch;
+        visualReinforcement = {
+          role: "filter-multiple",
+          icon: "mdi-check-all",
+          badgeText: "MÚLTIPLE",
+        };
+      } else if (searchActive) {
+        finalColor = colors.searchMatch;
+        visualReinforcement = {
+          role: "filter-search",
+          icon: "mdi-magnify",
+          badgeText: "BÚSQUEDA",
+        };
+      } else if (activeNivelId) {
+        finalColor = colors.nivelFilter;
+        visualReinforcement = {
+          role: "filter-nivel",
+          icon: "mdi-layers-outline",
+          badgeText: "NIVEL",
+        };
+      } else if (activeTipoId) {
+        finalColor = colors.tipoFilter;
+        visualReinforcement = {
+          role: "filter-tipo",
+          icon: "mdi-tag-outline",
+          badgeText: "TIPO",
+        };
+      } else if (activeClaseId) {
+        finalColor = colors.claseFilter;
+        visualReinforcement = {
+          role: "filter-clase",
+          icon: "mdi-domain",
+          badgeText: "INSTANCIA",
+        };
+      } else if (activeRelacionId) {
         finalColor =
-          u.color ||
-          getClaseColor(u.clase, clasesStore.clases) ||
-          (isStaff ? FILTER_COLORS.staffDefault : FILTER_COLORS.relacionFilter);
+          (isColorblindMode ? null : u.color) ||
+          getClaseColor(u.clase, clasesStore.clases, isColorblindMode) ||
+          (isStaff ? colors.staffDefault : colors.relacionFilter);
+        visualReinforcement = {
+          role: "filter-relacion",
+          icon: "mdi-vector-polyline",
+          badgeText: "RELACIÓN",
+        };
       }
     }
   }
 
-  return { finalColor, isNodeNonOficialInOficialView };
+  return { finalColor, isNodeNonOficialInOficialView, visualReinforcement };
 }
 
 const updateGraph = () => {
@@ -1044,25 +1121,28 @@ const updateGraph = () => {
       const oficialStatus = node.data?.isOficial ?? checkOficial(u);
       const isMatch = filteredUnitIdsSet.value.has(node.id);
 
-      const { finalColor, isNodeNonOficialInOficialView } = computeNodeVisuals({
-        u,
-        isMatch,
-        isStaff,
-        oficialStatus,
-        isDepMode,
-        selectedDepId,
-        depsIdsSet,
-        activesCount,
-        searchActive: !!searchLower,
-        activeNivelId,
-        activeTipoId,
-        activeClaseId,
-        activeRelacionId,
-      });
+      const { finalColor, isNodeNonOficialInOficialView, visualReinforcement } =
+        computeNodeVisuals({
+          u,
+          isMatch,
+          isStaff,
+          oficialStatus,
+          isDepMode,
+          selectedDepId,
+          depsIdsSet,
+          activesCount,
+          searchActive: !!searchLower,
+          activeNivelId,
+          activeTipoId,
+          activeClaseId,
+          activeRelacionId,
+          isColorblindMode: isColorblind.value,
+        });
 
       node.data.color = finalColor;
       node.data.isMatch = isMatch;
       node.data.isNonOficialInOficialView = isNodeNonOficialInOficialView;
+      node.data.visualReinforcement = visualReinforcement;
     }
 
     // Control de cámara inteligente inmediato sin setTimeout
@@ -1094,21 +1174,23 @@ const updateGraph = () => {
     const oficialStatus = checkOficial(u);
     const isMatch = filteredUnitIdsSet.value.has(String(u.id));
 
-    const { finalColor, isNodeNonOficialInOficialView } = computeNodeVisuals({
-      u,
-      isMatch,
-      isStaff,
-      oficialStatus,
-      isDepMode,
-      selectedDepId,
-      depsIdsSet,
-      activesCount,
-      searchActive: !!searchLower,
-      activeNivelId,
-      activeTipoId,
-      activeClaseId,
-      activeRelacionId,
-    });
+    const { finalColor, isNodeNonOficialInOficialView, visualReinforcement } =
+      computeNodeVisuals({
+        u,
+        isMatch,
+        isStaff,
+        oficialStatus,
+        isDepMode,
+        selectedDepId,
+        depsIdsSet,
+        activesCount,
+        searchActive: !!searchLower,
+        activeNivelId,
+        activeTipoId,
+        activeClaseId,
+        activeRelacionId,
+        isColorblindMode: isColorblind.value,
+      });
 
     return {
       id: String(u.id),
@@ -1127,6 +1209,7 @@ const updateGraph = () => {
         orden: getPesoReal(u, clasesStore.clases),
         isMatch: isMatch,
         isNonOficialInOficialView: isNodeNonOficialInOficialView,
+        visualReinforcement: visualReinforcement,
         isOficial: oficialStatus,
         esTroncal: u.es_troncal === true || u.esTroncal === true,
         lado: u.lado || "AUTOMATICO",
@@ -1286,6 +1369,7 @@ watch(
   [
     () => unidadesList.value,
     () => clasesStore.clases,
+    () => accessibilityStore.colorblindMode,
     vistaModo,
     hasAnyFilter,
     filterNivel,
@@ -1295,6 +1379,7 @@ watch(
     searchTerm,
   ],
   () => {
+    cachedHierarchyKey = "";
     updateGraph();
   },
 );
@@ -1569,12 +1654,16 @@ function resetFilters() {
               <!-- Modo Dependencias -->
               <template v-if="mostrarDependencias">
                 <div class="d-flex align-center">
-                  <v-avatar size="12" :color="FILTER_COLORS.selectedDep" class="mr-2"></v-avatar>
-                  <span class="text-caption font-weight-bold">Unidad Seleccionada</span>
+                  <v-avatar size="16" :color="activeFilterColors.selectedDep" class="mr-2">
+                    <v-icon size="11" color="white">mdi-bullseye-arrow</v-icon>
+                  </v-avatar>
+                  <span class="text-caption font-weight-bold">Unidad Seleccionada [ORIGEN]</span>
                 </div>
                 <div class="d-flex align-center">
-                  <v-avatar size="12" :color="FILTER_COLORS.depFuncional" class="mr-2"></v-avatar>
-                  <span class="text-caption font-weight-bold">Dependencia Funcional</span>
+                  <v-avatar size="16" :color="activeFilterColors.depFuncional" class="mr-2" style="border: 1px dashed white;">
+                    <v-icon size="11" color="white">mdi-transit-connection-variant</v-icon>
+                  </v-avatar>
+                  <span class="text-caption font-weight-bold">Dependencia Funcional [DESTINO]</span>
                 </div>
               </template>
 
@@ -1592,35 +1681,49 @@ function resetFilters() {
                   "
                   class="d-flex align-center"
                 >
-                  <v-avatar size="12" :color="FILTER_COLORS.multipleMatch" class="mr-2"></v-avatar>
+                  <v-avatar size="16" :color="activeFilterColors.multipleMatch" class="mr-2">
+                    <v-icon size="11" color="white">mdi-check-all</v-icon>
+                  </v-avatar>
                   <span class="text-caption font-weight-bold"
                     >Coincidencia Múltiple</span
                   >
                 </div>
                 <div v-if="searchTerm" class="d-flex align-center">
-                  <v-avatar size="12" :color="FILTER_COLORS.searchMatch" class="mr-2"></v-avatar>
+                  <v-avatar size="16" :color="activeFilterColors.searchMatch" class="mr-2">
+                    <v-icon size="11" color="white">mdi-magnify</v-icon>
+                  </v-avatar>
                   <span class="text-caption font-weight-bold">Coincidencia por nombre</span>
                 </div>
                 <div v-if="filterNivel" class="d-flex align-center">
-                  <v-avatar size="12" :color="FILTER_COLORS.nivelFilter" class="mr-2"></v-avatar>
+                  <v-avatar size="16" :color="activeFilterColors.nivelFilter" class="mr-2">
+                    <v-icon size="11" color="white">mdi-layers-outline</v-icon>
+                  </v-avatar>
                   <span class="text-caption font-weight-bold">Filtrado por Nivel</span>
                 </div>
                 <div v-if="filterTipo" class="d-flex align-center">
-                  <v-avatar size="12" :color="FILTER_COLORS.tipoFilter" class="mr-2"></v-avatar>
+                  <v-avatar size="16" :color="activeFilterColors.tipoFilter" class="mr-2">
+                    <v-icon size="11" color="white">mdi-tag-outline</v-icon>
+                  </v-avatar>
                   <span class="text-caption font-weight-bold">Filtrado por Tipo</span>
                 </div>
                 <div v-if="filterInstancia" class="d-flex align-center">
-                  <v-avatar size="12" :color="FILTER_COLORS.claseFilter" class="mr-2"></v-avatar>
+                  <v-avatar size="16" :color="activeFilterColors.claseFilter" class="mr-2">
+                    <v-icon size="11" color="white">mdi-domain</v-icon>
+                  </v-avatar>
                   <span class="text-caption font-weight-bold">Filtrado por Instancia</span>
                 </div>
                 <div v-if="filterRelacion" class="d-flex align-center">
-                  <v-avatar size="12" :color="FILTER_COLORS.relacionFilter" class="mr-2"></v-avatar>
+                  <v-avatar size="16" :color="activeFilterColors.relacionFilter" class="mr-2">
+                    <v-icon size="11" color="white">mdi-vector-polyline</v-icon>
+                  </v-avatar>
                   <span class="text-caption font-weight-bold">Filtrado por Relación</span>
                 </div>
               </template>
 
               <div class="d-flex align-center">
-                <v-avatar size="12" :color="FILTER_COLORS.noMatch" class="mr-2"></v-avatar>
+                <v-avatar size="16" :color="activeFilterColors.noMatch" class="mr-2">
+                  <v-icon size="11" color="grey-darken-3">mdi-minus</v-icon>
+                </v-avatar>
                 <span class="text-caption">Sin coincidencias</span>
               </div>
             </v-card-text>
@@ -1750,6 +1853,9 @@ function resetFilters() {
                 'faded-node':
                   (hasAnyFilter || mostrarDependencias) && !data.isMatch,
                 'non-oficial-faded': data.isNonOficialInOficialView,
+                'dep-selected-node': data.visualReinforcement?.role === 'dep-selected',
+                'dep-funcional-node': data.visualReinforcement?.role === 'dep-funcional',
+                'filter-match-node': data.visualReinforcement && String(data.visualReinforcement.role).startsWith('filter-'),
               }"
               :style="{
                 backgroundColor: data.color,
@@ -1803,6 +1909,30 @@ function resetFilters() {
                   mdi-alert-circle-outline
                 </v-icon>
                 <span>NO OFICIAL</span>
+              </div>
+              <div
+                v-else-if="data.visualReinforcement"
+                class="reinforcement-badge-top"
+                :style="{
+                  backgroundColor:
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'rgba(0, 0, 0, 0.28)'
+                      : 'rgba(255, 255, 255, 0.4)',
+                  color: getContrastingTextColor(data.color),
+                }"
+              >
+                <v-icon
+                  size="13"
+                  class="mr-1"
+                  :color="
+                    getContrastingTextColor(data.color) === '#FFFFFF'
+                      ? 'white'
+                      : 'grey-darken-4'
+                  "
+                >
+                  {{ data.visualReinforcement.icon }}
+                </v-icon>
+                <span>{{ data.visualReinforcement.badgeText }}</span>
               </div>
               <div class="node-content" @click="showDetails(id)">
                 <div
@@ -2104,6 +2234,41 @@ function resetFilters() {
   box-shadow: none !important;
   outline: 3px solid #f8fafc;
   outline-offset: 1px;
+}
+.custom-node.dep-selected-node {
+  outline: 3px solid #0072b2 !important;
+  outline-offset: 2px;
+}
+.v-theme--dark .custom-node.dep-selected-node {
+  outline: 3px solid #56b4e9 !important;
+  outline-offset: 2px;
+}
+.custom-node.dep-funcional-node {
+  border: 3px dashed #ffffff !important;
+  outline: 2px solid #d55e00 !important;
+}
+.v-theme--dark .custom-node.dep-funcional-node {
+  border: 3px dashed #ffffff !important;
+  outline: 2px solid #d55e00 !important;
+}
+.custom-node.filter-match-node {
+  outline: 2px solid #0072b2 !important;
+  outline-offset: 1px;
+}
+.v-theme--dark .custom-node.filter-match-node {
+  outline: 2px solid #56b4e9 !important;
+  outline-offset: 1px;
+}
+.reinforcement-badge-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 4px;
+  width: 100%;
 }
 .v-theme--dark .vue-flow__minimap {
   background-color: #0f172a !important;

@@ -15,6 +15,7 @@ import {
   PESO_NULO,
   PESO_DEFAULT,
   DEFAULT_CLASE_COLOR,
+  OKABE_ITO_PALETTE,
 } from "../mofHelpers";
 
 describe("mofHelpers - isUnidadOficial", () => {
@@ -272,6 +273,24 @@ describe("mofHelpers - consistencia getClaseNombre y getClaseColor", () => {
   it("usa DEFAULT_CLASE_COLOR para valores desconocidos", () => {
     expect(getClaseColor("DESCONOCIDO", clases)).toBe(DEFAULT_CLASE_COLOR);
     expect(getClaseColor(null, clases)).toBe(DEFAULT_CLASE_COLOR);
+  });
+
+  it("en modo daltónico (isColorblind: true), remapea clases a la paleta Okabe-Ito sin alterar el dato", () => {
+    // Clase 0 -> OKABE_ITO_PALETTE[0]
+    expect(getClaseColor(1, clases, true)).toBe(OKABE_ITO_PALETTE[0]);
+    expect(getClaseColor("DIRECCIÓN", clases, true)).toBe(OKABE_ITO_PALETTE[0]);
+
+    // Clase 1 -> OKABE_ITO_PALETTE[1]
+    expect(getClaseColor(2, clases, true)).toBe(OKABE_ITO_PALETTE[1]);
+    expect(getClaseColor("DEPARTAMENTO", clases, true)).toBe(OKABE_ITO_PALETTE[1]);
+
+    // Comprueba que los objetos originales no se alteraron
+    expect(clases[0].color).toBe("#1976D2");
+    expect(clases[1].color).toBe("#4CAF50");
+
+    // Con isColorblind: false, mantiene el color guardado intacto
+    expect(getClaseColor(1, clases, false)).toBe("#1976D2");
+    expect(getClaseColor(2, clases, false)).toBe("#4CAF50");
   });
 });
 

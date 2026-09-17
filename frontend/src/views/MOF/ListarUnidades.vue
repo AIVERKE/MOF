@@ -29,6 +29,13 @@ import { useSnackbar } from "@/composables/useSnackbar";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
+import { useAccessibilityStore } from "@/stores/accessibility";
+import { useTheme } from "vuetify";
+
+const theme = useTheme();
+const isDark = computed(() => theme.global.current.value.dark);
+const accessibilityStore = useAccessibilityStore();
+const isColorblind = computed(() => accessibilityStore.colorblindMode);
 
 const unidadesStore = useAllUnidadesMofStore();
 const tiposStore = useAllTiposMofStore();
@@ -166,6 +173,7 @@ const handleExportPdf = () => {
       resolveNivel,
       resolveClaseColor,
       isOficialCheck: checkOficial,
+      isColorblind: isColorblind.value,
     });
   } catch (err) {
     console.error("Error al exportar PDF en ListarUnidades:", err);
@@ -319,7 +327,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
             <!-- Custom Slot: Código -->
             <td class="text-start">
               <div class="d-flex align-center">
-                <div :style="{ backgroundColor: item.color || resolveClaseColor(item.clase), height: '24px', width: '4px' }" class="mr-2 rounded-pill"></div>
+                <div :style="{ backgroundColor: isColorblind ? resolveClaseColor(item.clase) : item.color || resolveClaseColor(item.clase), height: '24px', width: '4px' }" class="mr-2 rounded-pill"></div>
                 <span class="font-weight-black text-caption text-slate-800">
                   {{ item.codigo }}
                 </span>
@@ -361,7 +369,18 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
             <!-- Custom Slot: Estado -->
             <td class="text-center">
               <div class="d-flex align-center justify-center">
-                <span :class="checkOficial(item) ? 'text-success font-weight-bold' : 'text-grey'" style="font-size: 11px;">
+                <span
+                  :class="
+                    checkOficial(item)
+                      ? isColorblind
+                        ? isDark
+                          ? 'text-light-blue-lighten-2 font-weight-black'
+                          : 'text-blue-darken-3 font-weight-black'
+                        : 'text-success font-weight-bold'
+                      : 'text-grey'
+                  "
+                  style="font-size: 11px;"
+                >
                   {{ checkOficial(item) ? 'OFICIAL' : 'NO OFICIAL' }}
                 </span>
               </div>

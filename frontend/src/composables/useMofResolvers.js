@@ -6,6 +6,7 @@ import {
   getClaseColor,
   isUnidadOficial,
 } from "@/utils/mofHelpers";
+import { useAccessibilityStore } from "@/stores/accessibility";
 
 /**
  * Composable que centraliza los resolvers de catálogo MOF (nombres, colores y oficialidad).
@@ -44,12 +45,25 @@ export function useMofResolvers(
     rStore = clasesStore.relacionesStore;
   }
 
+  let aStore = null;
+  try {
+    aStore = useAccessibilityStore();
+  } catch {
+    // Entorno sin Pinia activo
+  }
+
   const resolveNivel = (val) => getNivelNombre(val, nStore?.niveles ?? []);
   const resolveTipo = (val) => getTipoNombre(val, tStore?.tipos ?? []);
   const resolveRelacion = (val) =>
     getRelacionNombre(val, rStore?.relaciones ?? []);
   const resolveClase = (val) => getClaseNombre(val, cStore?.clases ?? []);
-  const resolveClaseColor = (val) => getClaseColor(val, cStore?.clases ?? []);
+  const resolveClaseColor = (val, overrideColorblind) => {
+    const isColorblind =
+      overrideColorblind !== undefined
+        ? Boolean(overrideColorblind)
+        : Boolean(aStore?.colorblindMode);
+    return getClaseColor(val, cStore?.clases ?? [], isColorblind);
+  };
   const checkOficial = (u) => isUnidadOficial(u, cStore?.clases ?? []);
 
   return {

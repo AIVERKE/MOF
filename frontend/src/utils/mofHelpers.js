@@ -48,6 +48,20 @@ export const PESO_NULO = 99;
 export const PESO_DEFAULT = 10;
 export const DEFAULT_CLASE_COLOR = "#757575";
 
+/**
+ * Paleta estándar universal Okabe-Ito (Wong, 2011) optimizada para
+ * deficiencias de percepción cromática (deuteranopia, protanopia, tritanopia).
+ */
+export const OKABE_ITO_PALETTE = [
+  "#0072B2", // Blue (Azul institucional accesible)
+  "#E69F00", // Orange (Naranja cálido)
+  "#009E73", // Bluish Green (Verde azulado)
+  "#D55E00", // Vermilion (Bermellón)
+  "#CC79A7", // Reddish Purple (Púrpura rojizo)
+  "#56B4E9", // Sky Blue (Azul cielo)
+  "#F0E442", // Yellow (Amarillo)
+];
+
 const NORMALIZE_CACHE_MAX_SIZE = 1000;
 const normalizeCache = new Map();
 
@@ -292,8 +306,30 @@ export const getClaseNombre = (val, clases = []) => {
     : val;
 };
 
-export const getClaseColor = (val, clases = []) => {
+export const getClaseColor = (val, clases = [], isColorblind = false) => {
   if (val === null || val === undefined || val === "") return DEFAULT_CLASE_COLOR;
+
+  if (isColorblind) {
+    const target = getCampoClase(val) ?? val;
+    const item = resolveCatalogItem(target, clases);
+    if (item && Array.isArray(clases) && clases.length > 0) {
+      const idx = clases.findIndex(
+        (c) =>
+          c === item ||
+          (item.id != null && c.id != null && String(c.id) === String(item.id)) ||
+          (item.codigo && c.codigo && c.codigo === item.codigo) ||
+          (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
+      );
+      if (idx !== -1) {
+        return OKABE_ITO_PALETTE[idx % OKABE_ITO_PALETTE.length];
+      }
+    }
+    if (!item) {
+      return DEFAULT_CLASE_COLOR;
+    }
+    return OKABE_ITO_PALETTE[0];
+  }
+
   if (typeof val === "object" && val.color) return val.color;
   const target = getCampoClase(val) ?? val;
   const item = resolveCatalogItem(target, clases);

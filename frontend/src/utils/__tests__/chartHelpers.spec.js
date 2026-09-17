@@ -43,4 +43,25 @@ describe("chartHelpers - getHighchartsBaseOptions", () => {
     expect(opts.tooltip.enabled).toBe(true);
     expect(opts.credits.enabled).toBe(false);
   });
+
+  it("aplica la paleta accesible Okabe-Ito cuando isColorblind es true", () => {
+    const opts = getHighchartsBaseOptions(false, {}, true);
+    expect(opts.colors).toBeDefined();
+    expect(opts.colors.length).toBeGreaterThanOrEqual(7);
+    expect(opts.colors[0]).toBe("#0072B2"); // Blue
+    expect(opts._colors.accentColor).toBe("#0072B2");
+  });
+
+  it("acepta un ref booleano { value: true } para isColorblind", () => {
+    const isColorblindRef = { value: true };
+    const opts = getHighchartsBaseOptions(false, {}, isColorblindRef);
+    expect(opts.colors[0]).toBe("#0072B2");
+    expect(opts._colors.accentColor).toBe("#0072B2");
+  });
+
+  it("mantiene colores estándar cuando isColorblind es false", () => {
+    const opts = getHighchartsBaseOptions(false, {}, false);
+    expect(opts.colors).toBeUndefined();
+    expect(opts._colors.accentColor).toBe("#F57C00");
+  });
 });
