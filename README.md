@@ -17,6 +17,7 @@ Desde la raíz del proyecto:
 ```bash
 docker compose up --build -d
 docker compose run --rm backend npm run migration:run:prod
+docker compose --profile cli run --rm backend-cli npm run seed:auth
 docker compose --profile cli run --rm backend-cli npm run seed
 docker compose up -d backend frontend
 ```
@@ -25,6 +26,13 @@ Abrir:
 
 - Frontend: `http://localhost:5173`
 - Swagger: `http://localhost:3000/api`
+
+Primer acceso (credenciales de desarrollo):
+
+- Email: `admin@admin.com`
+- Password: `admin123`
+
+Estas credenciales son solo para desarrollo y permiten el acceso inicial al sistema. Los demás usuarios se crean desde la interfaz.
 
 ## Qué incluye el repositorio
 
@@ -72,6 +80,12 @@ Luego ejecuta migraciones (obligatorio la primera vez o con BD vacía):
 
 ```bash
 docker compose run --rm backend npm run migration:run:prod
+```
+
+Crea el usuario administrador inicial (credenciales de desarrollo: `admin@admin.com` / `admin123`). Los demás usuarios se crean desde la interfaz del sistema:
+
+```bash
+docker compose --profile cli run --rm backend-cli npm run seed:auth
 ```
 
 Carga el snapshot del organigrama (el servicio `backend-cli` usa el stage de build, que incluye `ts-node`):
@@ -166,12 +180,15 @@ Copy-Item .env.example .env
 
 4. Asegura que PostgreSQL esté encendido y crea la base configurada en `.env` (por defecto `mof_db`).
 
-5. Ejecuta migraciones y el seed:
+5. Ejecuta migraciones y los seeds:
 
 ```bash
 npm run migration:run
+npm run seed:auth
 npm run seed
 ```
+
+`seed:auth` crea el usuario administrador de desarrollo (`admin@admin.com` / `admin123`) para el primer acceso. Los demás usuarios se crean desde la interfaz del sistema.
 
 6. Inicia backend:
 
@@ -221,7 +238,8 @@ Ambos se ejecutan en `push` y `pull_request` a `main`, con filtros `paths` para 
 - `Container ... is restarting` al correr `docker compose exec backend ...`
   - El backend está en crash-loop. Corre migraciones con:
   - `docker compose run --rm backend npm run migration:run:prod`
-  - Luego el seed: `docker compose --profile cli run --rm backend-cli npm run seed`
+  - Luego el seed de auth: `docker compose --profile cli run --rm backend-cli npm run seed:auth`
+  - Luego el seed de organigrama: `docker compose --profile cli run --rm backend-cli npm run seed`
   - Luego: `docker compose up -d backend frontend`.
 - Error de conexión a PostgreSQL en backend manual
   - Revisa `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` en `backend/.env`.
