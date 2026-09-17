@@ -30,7 +30,10 @@ import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 import { useAccessibilityStore } from "@/stores/accessibility";
+import { useTheme } from "vuetify";
 
+const theme = useTheme();
+const isDark = computed(() => theme.global.current.value.dark);
 const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
 
@@ -370,7 +373,9 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
                   :class="
                     checkOficial(item)
                       ? isColorblind
-                        ? 'text-blue-darken-3 font-weight-black'
+                        ? isDark
+                          ? 'text-light-blue-lighten-2 font-weight-black'
+                          : 'text-blue-darken-3 font-weight-black'
                         : 'text-success font-weight-bold'
                       : 'text-grey'
                   "

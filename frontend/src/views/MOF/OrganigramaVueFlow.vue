@@ -2251,6 +2251,14 @@ function resetFilters() {
   border: 3px dashed #ffffff !important;
   outline: 2px solid #d55e00 !important;
 }
+.custom-node.filter-match-node {
+  outline: 2px solid #0072b2 !important;
+  outline-offset: 1px;
+}
+.v-theme--dark .custom-node.filter-match-node {
+  outline: 2px solid #56b4e9 !important;
+  outline-offset: 1px;
+}
 .reinforcement-badge-top {
   display: flex;
   align-items: center;
