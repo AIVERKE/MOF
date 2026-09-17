@@ -4,11 +4,15 @@ import { useAllClasesMofStore } from '../../../stores/clases_mof';
 import { useAllUnidadesMofStore } from '../../../stores/unidades_mof';
 import { swatches, getUsedColors, toBoolean } from "@/utils/mofHelpers";
 import { useSnackbar } from "@/composables/useSnackbar";
+import { hints } from "@/config/hints";
+import HelpTooltip from "@/components/HelpTooltip.vue";
 
 const props = defineProps({
   variant: { type: String, default: 'underlined' },
   label: { type: String, default: 'Clase' },
-  hideCrud: { type: Boolean, default: false }
+  hideCrud: { type: Boolean, default: false },
+  hint: { type: String, default: () => hints.clases.select },
+  helpTooltip: { type: String, default: () => hints.conceptos.clase }
 });
 
 const model = defineModel();
@@ -114,6 +118,8 @@ async function deleteClase(id) {
             v-model="model"
             v-model:search="search"
             :label="label"
+            :hint="hint"
+            :persistent-hint="false"
             :items="visibleItems" 
             item-title="descripcion" 
             item-value="id" 
@@ -122,6 +128,13 @@ async function deleteClase(id) {
             :loading="clasesStore.loading"
             class="flex-grow-1"
         >
+            <template #label>
+              <span class="d-inline-flex align-center">
+                {{ label }}
+                <HelpTooltip v-if="helpTooltip" :text="helpTooltip" />
+              </span>
+            </template>
+
             <template v-slot:no-data v-if="!hideCrud">
               <v-list-item @click="openDialog()">
                 <template v-slot:prepend>
@@ -196,8 +209,10 @@ async function deleteClase(id) {
                         label="Nombre de la Clase (Ej: Facultad)"
                         variant="outlined"
                         autofocus
-                        hide-details
-                        class="mb-6"
+                        :hint="hints.clases.nombre"
+                        :persistent-hint="false"
+                        hide-details="auto"
+                        class="mb-4"
                         @keyup.enter="saveClase"
                     ></v-text-field>
                     

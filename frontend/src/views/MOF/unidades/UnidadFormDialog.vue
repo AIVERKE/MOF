@@ -12,6 +12,8 @@ import SelectAllNiveles from "../niveles/SelectAllNiveles.vue";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
 import SelectAllCargos from "../cargos/SelectAllCargos.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
+import { hints } from "@/config/hints";
+import HelpTooltip from "@/components/HelpTooltip.vue";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -205,6 +207,8 @@ function moverAbajo(index) {
               <v-text-field
                 v-model="formData.nombre"
                 label="Nombre de la Unidad"
+                :hint="hints.unidadForm.nombre"
+                :persistent-hint="false"
                 :rules="[rules.required, rules.minLength(4)]"
                 variant="underlined"
                 autocomplete="off"
@@ -214,6 +218,8 @@ function moverAbajo(index) {
               <v-text-field
                 v-model="formData.sigla"
                 label="Sigla (ej: FCPN)"
+                :hint="hints.unidadForm.sigla"
+                :persistent-hint="false"
                 variant="underlined"
                 autocomplete="off"
               />
@@ -222,6 +228,8 @@ function moverAbajo(index) {
               <v-text-field
                 v-model="formData.codigo"
                 label="Código"
+                :hint="hints.unidadForm.codigo"
+                :persistent-hint="false"
                 :rules="[rules.codigo, rules.minLength(2)]"
                 variant="underlined"
                 autocomplete="off"
@@ -231,6 +239,8 @@ function moverAbajo(index) {
               <v-text-field
                 v-model="formData.resCreacion"
                 label="Nro de Resolución"
+                :hint="hints.unidadForm.resCreacion"
+                :persistent-hint="false"
                 variant="underlined"
                 autocomplete="off"
               />
@@ -239,6 +249,8 @@ function moverAbajo(index) {
               <v-date-input
                 v-model="formData.fecCreacion"
                 label="Fecha de Creación"
+                :hint="hints.unidadForm.fecCreacion"
+                :persistent-hint="false"
                 variant="underlined"
                 autocomplete="off"
               />
@@ -247,6 +259,8 @@ function moverAbajo(index) {
               <v-textarea
                 v-model="formData.objetivo"
                 label="Objetivo Institucional"
+                :hint="hints.unidadForm.objetivo"
+                :persistent-hint="false"
                 variant="underlined"
                 rows="2"
                 auto-grow
@@ -354,6 +368,8 @@ function moverAbajo(index) {
                 v-model="formData.dependenciasFuncionales"
                 type="autocomplete"
                 label="Dependencia"
+                :hint="hints.unidadForm.dependenciasFuncionales"
+                :persistent-hint="false"
                 multiple
                 :exclude-id="formData.id"
               />
@@ -362,6 +378,8 @@ function moverAbajo(index) {
               <SelectAllTipos
                 v-model="formData.tipo"
                 label="Tipo de Unidad"
+                :hint="hints.unidadForm.tipo"
+                :persistent-hint="false"
                 :rules="[rules.required]"
               />
             </v-col>
@@ -369,22 +387,32 @@ function moverAbajo(index) {
               <SelectAllNiveles
                 v-model="formData.nivel"
                 label="Nivel Jerárquico"
+                :hint="hints.unidadForm.nivel"
+                :persistent-hint="false"
                 :rules="[rules.required]"
               />
             </v-col>
             <v-col cols="12" md="4">
               <SelectAllRelaciones
                 v-model="formData.relacion"
+                :hint="hints.unidadForm.relacion"
+                :persistent-hint="false"
                 :rules="[rules.required]"
               />
             </v-col>
-            <v-col cols="12" md="6"
-              ><SelectAllCargos v-model="formData.cargos"
-            /></v-col>
+            <v-col cols="12" md="6">
+              <SelectAllCargos
+                v-model="formData.cargos"
+                :hint="hints.unidadForm.cargos"
+                :persistent-hint="false"
+              />
+            </v-col>
             <v-col cols="12" md="6">
               <SelectAllClases
                 v-model="formData.clase"
                 label="Instancia"
+                :hint="hints.unidadForm.clase"
+                :persistent-hint="false"
                 :rules="[rules.required]"
               />
             </v-col>
@@ -449,6 +477,8 @@ function moverAbajo(index) {
                 <v-text-field
                   v-model="formData.ejecucionPoa"
                   label="Ejecución POA"
+                  :hint="hints.unidadForm.ejecucionPoa"
+                  :persistent-hint="false"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -458,6 +488,8 @@ function moverAbajo(index) {
                 <v-text-field
                   v-model="formData.ejecucionPresupuestaria"
                   label="Ejecución Presupuestaria"
+                  :hint="hints.unidadForm.ejecucionPresupuestaria"
+                  :persistent-hint="false"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -467,6 +499,8 @@ function moverAbajo(index) {
                 <v-text-field
                   v-model="formData.cargaHorariaProgramada"
                   label="Carga Horaria Programada"
+                  :hint="hints.unidadForm.cargaHorariaProgramada"
+                  :persistent-hint="false"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -476,6 +510,8 @@ function moverAbajo(index) {
                 <v-text-field
                   v-model="formData.cargaHorariaEjecutada"
                   label="Carga Horaria Ejecutada"
+                  :hint="hints.unidadForm.cargaHorariaEjecutada"
+                  :persistent-hint="false"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -485,6 +521,8 @@ function moverAbajo(index) {
                 <v-text-field
                   v-model="formData.ubicacion"
                   label="Ubicación"
+                  :hint="hints.unidadForm.ubicacion"
+                  :persistent-hint="false"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -494,6 +532,8 @@ function moverAbajo(index) {
                 <v-text-field
                   v-model="formData.infraestructura"
                   label="Infraestructura Física Utilizada"
+                  :hint="hints.unidadForm.infraestructura"
+                  :persistent-hint="false"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -503,6 +543,8 @@ function moverAbajo(index) {
                 <v-textarea
                   v-model="formData.tramitesAtendidos"
                   label="Trámites Atendidos"
+                  :hint="hints.unidadForm.tramitesAtendidos"
+                  :persistent-hint="false"
                   variant="underlined"
                   rows="2"
                   density="compact"
@@ -525,6 +567,8 @@ function moverAbajo(index) {
                   v-model="internalRelUnitIds"
                   type="autocomplete"
                   label="Coordinación Interna (Unidades relacionadas)"
+                  :hint="hints.unidadForm.coordinacionInterna"
+                  :persistent-hint="false"
                   multiple
                   :exclude-id="formData.id"
                 />
@@ -537,9 +581,10 @@ function moverAbajo(index) {
                   <v-text-field
                     v-model="nuevaRelacionExterna"
                     label="Nueva entidad o coordinación externa..."
+                    :hint="hints.unidadForm.coordinacionExterna"
+                    :persistent-hint="false"
                     variant="underlined"
                     density="compact"
-                    hide-details
                     autocomplete="off"
                     @keydown.enter.prevent="agregarRelacionExterna"
                   />
@@ -679,16 +724,27 @@ function moverAbajo(index) {
           <v-text-field
             v-model="formFuncion.funcion"
             label="Función"
+            :hint="hints.unidadForm.funcion"
+            :persistent-hint="false"
             variant="underlined"
             autocomplete="off"
           />
           <v-text-field
             v-model="formFuncion.baseLegal"
             label="Base Legal"
+            :hint="hints.unidadForm.baseLegal"
+            :persistent-hint="false"
             variant="underlined"
             class="mt-4"
             autocomplete="off"
-          />
+          >
+            <template #label>
+              <span class="d-inline-flex align-center">
+                Base Legal
+                <HelpTooltip :text="hints.conceptos.baseLegal" />
+              </span>
+            </template>
+          </v-text-field>
         </v-card-text>
         <v-card-actions>
           <v-spacer />

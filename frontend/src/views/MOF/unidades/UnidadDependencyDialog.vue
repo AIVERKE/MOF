@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { rules } from "@/utils/rules";
+import { hints } from "@/config/hints";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
 
 const props = defineProps({
@@ -51,6 +52,8 @@ function confirm() {
               :model-value="unidadACambiar"
               @update:model-value="val => emit('update:unidadACambiar', val)"
               label="Unidad a cambiar"
+              :hint="hints.unidadDependency.unidadACambiar"
+              :persistent-hint="false"
               :items="unidadesNoRaiz"
             />
           </v-col>
@@ -59,6 +62,8 @@ function confirm() {
               :model-value="unidadDestino"
               @update:model-value="val => emit('update:unidadDestino', val)"
               label="Unidad destino"
+              :hint="hints.unidadDependency.unidadDestino"
+              :persistent-hint="false"
               :disabled="!unidadACambiar"
               :items="unidadesDestinoFiltradas"
             />
@@ -71,6 +76,8 @@ function confirm() {
           variant="underlined"
           rows="2"
           class="mt-4"
+          :hint="hints.unidadDependency.razon"
+          :persistent-hint="false"
           :rules="[rules.required, rules.minLength(6)]"
           autocomplete="off"
         />
