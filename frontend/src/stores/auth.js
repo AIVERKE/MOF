@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { ENDPOINTS } from "../config/api";
+import { ENDPOINTS, parseApiError } from "../config/api";
 
 function safeParseUser() {
   const raw = localStorage.getItem("user");
@@ -28,7 +28,13 @@ export const useAuthStore = defineStore("auth", () => {
       });
 
       if (!response.ok) {
-        throw new Error("Credenciales inválidas o error de conexión");
+        // El backend distingue el caso "todavía no definió su contraseña"
+        // mediante errorCode; conservarlo evita el mensaje genérico.
+        throw new Error(
+          await parseApiError(response, {
+            default400Message: "Credenciales inválidas o error de conexión",
+          }),
+        );
       }
 
       const data = await response.json();
@@ -55,6 +61,44 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
+  /**
+   * Primer acceso: identifica al usuario nuevo con email + C.I. y devuelve el
+   * token temporal para definir su contraseña. No crea sesión.
+   */
+  async function primerAcceso(email, ci) {
+    const response = await fetch(ENDPOINTS.AUTH.PRIMER_ACCESO, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, ci }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiError(response));
+    }
+
+    const data = await response.json();
+    const tempToken = data.token || (data.data && data.data.token);
+    if (!tempToken) {
+      throw new Error("No se pudo iniciar el primer acceso");
+    }
+    return tempToken;
+  }
+
+  /** Define la contraseña definitiva usando el token temporal. */
+  async function cambiarPassword(tempToken, password) {
+    const response = await fetch(ENDPOINTS.AUTH.CAMBIAR_PASSWORD, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: tempToken, password }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiError(response));
+    }
+
+    return true;
+  }
+
   function logout() {
     token.value = null;
     user.value = null;
@@ -66,5 +110,13 @@ export const useAuthStore = defineStore("auth", () => {
     return token.value ? { Authorization: `Bearer ${token.value}` } : {};
   }
 
-  return { token, user, login, logout, getAuthHeader };
+  return {
+    token,
+    user,
+    login,
+    primerAcceso,
+    cambiarPassword,
+    logout,
+    getAuthHeader,
+  };
 });

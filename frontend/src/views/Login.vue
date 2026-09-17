@@ -13,7 +13,47 @@ const password = ref('');
 const showPassword = ref(false);
 const loading = ref(false);
 const error = ref('');
+const success = ref('');
 const formValid = ref(false);
+
+/** 'login' | 'primer-acceso' | 'definir-password' */
+const step = ref('login');
+const ci = ref('');
+const passwordNueva = ref('');
+const passwordConfirmacion = ref('');
+const tempToken = ref('');
+
+const titulos = {
+  login: {
+    titulo: 'Iniciar Sesión',
+    subtitulo: 'Ingrese sus credenciales para acceder',
+  },
+  'primer-acceso': {
+    titulo: 'Primer Acceso',
+    subtitulo: 'Identifíquese con su correo y carnet de identidad',
+  },
+  'definir-password': {
+    titulo: 'Defina su Contraseña',
+    subtitulo: 'Será la que use de ahora en adelante para ingresar',
+  },
+};
+
+const passwordsCoinciden = (value) =>
+  value === passwordNueva.value || 'Las contraseñas no coinciden';
+
+function irA(destino) {
+  step.value = destino;
+  error.value = '';
+  success.value = '';
+  formValid.value = false;
+  password.value = '';
+  passwordNueva.value = '';
+  passwordConfirmacion.value = '';
+  if (destino === 'login') {
+    ci.value = '';
+    tempToken.value = '';
+  }
+}
 
 const handleLogin = async () => {
   if (!formValid.value) {
@@ -29,6 +69,46 @@ const handleLogin = async () => {
     router.push('/dashboard');
   } catch (err) {
     error.value = err.message || 'Credenciales inválidas';
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handlePrimerAcceso = async () => {
+  if (!formValid.value) {
+    error.value = 'Por favor complete el formulario correctamente';
+    return;
+  }
+
+  loading.value = true;
+  error.value = '';
+
+  try {
+    tempToken.value = await authStore.primerAcceso(email.value, ci.value.trim());
+    step.value = 'definir-password';
+    formValid.value = false;
+  } catch (err) {
+    error.value = err.message || 'No se pudo validar el primer acceso';
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleDefinirPassword = async () => {
+  if (!formValid.value) {
+    error.value = 'Por favor complete el formulario correctamente';
+    return;
+  }
+
+  loading.value = true;
+  error.value = '';
+
+  try {
+    await authStore.cambiarPassword(tempToken.value, passwordNueva.value);
+    irA('login');
+    success.value = 'Contraseña definida. Ya puede ingresar con su correo y contraseña.';
+  } catch (err) {
+    error.value = err.message || 'No se pudo definir la contraseña';
   } finally {
     loading.value = false;
   }
@@ -96,9 +176,11 @@ const handleLogin = async () => {
               </div>
 
               <div class="d-none d-md-block mb-6">
-                <h3 class="text-h5 font-weight-bold text-grey-darken-3">Iniciar Sesión</h3>
+                <h3 class="text-h5 font-weight-bold text-grey-darken-3">
+                  {{ titulos[step].titulo }}
+                </h3>
                 <p class="text-body-2 text-grey-darken-1">
-                  Ingrese sus credenciales para acceder
+                  {{ titulos[step].subtitulo }}
                 </p>
               </div>
 
@@ -118,7 +200,27 @@ const handleLogin = async () => {
                   </v-alert>
                 </v-fade-transition>
 
-                <v-form v-model="formValid" class="w-100" @submit.prevent="handleLogin">
+                <v-fade-transition>
+                  <v-alert
+                    v-if="success"
+                    type="success"
+                    variant="tonal"
+                    density="comfortable"
+                    closable
+                    class="mb-5 rounded-lg text-body-2 font-weight-medium"
+                    prepend-icon="mdi-check-circle"
+                    @click:close="success = ''"
+                  >
+                    {{ success }}
+                  </v-alert>
+                </v-fade-transition>
+
+                <v-form
+                  v-if="step === 'login'"
+                  v-model="formValid"
+                  class="w-100"
+                  @submit.prevent="handleLogin"
+                >
                   <v-text-field
                     v-model="email"
                     label="Email"
@@ -170,6 +272,144 @@ const handleLogin = async () => {
                       <span class="ml-3">Verificando...</span>
                     </template>
                     INGRESAR AL SISTEMA
+                  </v-btn>
+
+                  <v-btn
+                    variant="text"
+                    color="primary"
+                    block
+                    class="mt-3 text-none"
+                    :disabled="loading"
+                    @click="irA('primer-acceso')"
+                  >
+                    Primer acceso al sistema
+                  </v-btn>
+                </v-form>
+
+                <v-form
+                  v-else-if="step === 'primer-acceso'"
+                  v-model="formValid"
+                  class="w-100"
+                  @submit.prevent="handlePrimerAcceso"
+                >
+                  <p class="text-body-2 text-grey-darken-1 mb-4">
+                    Si es su primera vez, ingrese el correo y el carnet de identidad con
+                    los que el administrador registró su cuenta para definir su contraseña.
+                  </p>
+
+                  <v-text-field
+                    v-model="email"
+                    label="Email"
+                    type="email"
+                    prepend-inner-icon="mdi-email-outline"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-4"
+                    :hint="hints.login.email"
+                    :persistent-hint="false"
+                    :rules="[rules.email]"
+                    :disabled="loading"
+                    autocomplete="username"
+                  />
+
+                  <v-text-field
+                    v-model="ci"
+                    label="Carnet de Identidad"
+                    prepend-inner-icon="mdi-card-account-details-outline"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-6"
+                    :hint="hints.login.ci"
+                    :persistent-hint="false"
+                    :rules="[rules.required]"
+                    :disabled="loading"
+                  />
+
+                  <v-btn
+                    type="submit"
+                    color="primary"
+                    size="large"
+                    block
+                    :loading="loading"
+                    :disabled="loading || !formValid"
+                    elevation="3"
+                    class="rounded-lg text-button font-weight-bold py-6 text-none"
+                  >
+                    CONTINUAR
+                  </v-btn>
+
+                  <v-btn
+                    variant="text"
+                    color="primary"
+                    block
+                    class="mt-3 text-none"
+                    :disabled="loading"
+                    @click="irA('login')"
+                  >
+                    Volver al inicio de sesión
+                  </v-btn>
+                </v-form>
+
+                <v-form
+                  v-else
+                  v-model="formValid"
+                  class="w-100"
+                  @submit.prevent="handleDefinirPassword"
+                >
+                  <v-text-field
+                    v-model="passwordNueva"
+                    label="Nueva contraseña"
+                    prepend-inner-icon="mdi-lock-outline"
+                    :type="showPassword ? 'text' : 'password'"
+                    :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-4"
+                    :hint="hints.login.passwordNueva"
+                    :persistent-hint="false"
+                    :rules="[rules.required, rules.minLength(6)]"
+                    :disabled="loading"
+                    autocomplete="new-password"
+                    @click:append-inner="showPassword = !showPassword"
+                  />
+
+                  <v-text-field
+                    v-model="passwordConfirmacion"
+                    label="Confirmar contraseña"
+                    prepend-inner-icon="mdi-lock-check-outline"
+                    :type="showPassword ? 'text' : 'password'"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-6"
+                    :hint="hints.login.passwordConfirmacion"
+                    :persistent-hint="false"
+                    :rules="[rules.required, passwordsCoinciden]"
+                    :disabled="loading"
+                    autocomplete="new-password"
+                  />
+
+                  <v-btn
+                    type="submit"
+                    color="primary"
+                    size="large"
+                    block
+                    :loading="loading"
+                    :disabled="loading || !formValid"
+                    elevation="3"
+                    class="rounded-lg text-button font-weight-bold py-6 text-none"
+                  >
+                    GUARDAR CONTRASEÑA
+                  </v-btn>
+
+                  <v-btn
+                    variant="text"
+                    color="primary"
+                    block
+                    class="mt-3 text-none"
+                    :disabled="loading"
+                    @click="irA('login')"
+                  >
+                    Cancelar
                   </v-btn>
                 </v-form>
               </div>

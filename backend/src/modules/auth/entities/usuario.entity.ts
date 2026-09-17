@@ -40,6 +40,13 @@ export class Usuario extends AuditableEntity {
   @Column({ type: 'boolean', default: true })
   enabled: boolean;
 
+  /**
+   * El usuario todavía no definió su contraseña: el admin lo creó sin una y
+   * solo puede entrar por el primer acceso (email + C.I.).
+   */
+  @Column({ name: 'debe_cambiar_password', type: 'boolean', default: true })
+  debeCambiarPassword: boolean;
+
   @OneToMany(() => UsuarioRol, (usuarioRol) => usuarioRol.usuario)
   usuarioRoles: UsuarioRol[];
 }

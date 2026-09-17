@@ -5,28 +5,47 @@ import {
   IsBoolean,
   IsEmail,
   IsIn,
+  IsNotEmpty,
   IsOptional,
   IsString,
-  MinLength,
+  MaxLength,
 } from 'class-validator';
 
 export const USUARIO_ROLE_CODES = ['ADMIN', 'OPERADOR', 'USER'] as const;
 export type UsuarioRoleCode = (typeof USUARIO_ROLE_CODES)[number];
 
+/**
+ * El alta no lleva contraseña: el usuario la define él mismo en el primer
+ * acceso, identificándose con este email y este C.I.
+ */
 export class CreateUsuarioDto {
   @ApiProperty({ example: 'operador@umsa.bo' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: 'password123', minLength: 6 })
+  @ApiProperty({ example: '8123456' })
   @IsString()
-  @MinLength(6)
-  password: string;
+  @IsNotEmpty()
+  @MaxLength(32)
+  ci: string;
 
-  @ApiPropertyOptional({ example: 'Operador MOF' })
+  @ApiProperty({ example: 'Juan Carlos' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  nombres: string;
+
+  @ApiPropertyOptional({ example: 'Pérez' })
   @IsOptional()
   @IsString()
-  nombre?: string;
+  @MaxLength(128)
+  apellidoPaterno?: string;
+
+  @ApiPropertyOptional({ example: 'Gutiérrez' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  apellidoMaterno?: string;
 
   @ApiProperty({
     example: ['OPERADOR'],

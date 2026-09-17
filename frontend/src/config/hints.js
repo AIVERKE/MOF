@@ -157,18 +157,28 @@ export const hints = {
       "Ingrese su correo institucional habilitado (ej: usuario@umsa.bo)",
     password:
       "Ingrese su contraseña de acceso al sistema (mínimo 6 caracteres)",
+    ci:
+      "Número de carnet de identidad registrado por el administrador al crear su cuenta",
+    passwordNueva:
+      "Defina su contraseña personal de acceso (mínimo 6 caracteres)",
+    passwordConfirmacion:
+      "Repita la contraseña para confirmar que coincide",
   },
 
   /**
    * Gestión de usuarios del sistema (Usuarios.vue)
    */
   usuarios: {
-    nombre:
-      "Nombre completo del funcionario o responsable de la cuenta",
+    ci:
+      "Carnet de identidad del funcionario; lo usará para su primer acceso al sistema",
+    nombres:
+      "Nombres de pila del funcionario, sin apellidos",
+    apellidoPaterno:
+      "Apellido paterno del funcionario",
+    apellidoMaterno:
+      "Apellido materno del funcionario (opcional)",
     email:
       "Correo electrónico institucional que servirá como usuario de acceso",
-    password:
-      "Contraseña de acceso inicial con un mínimo de 6 caracteres",
     passwordEdit:
       "Deje en blanco si desea conservar la contraseña actual del usuario",
     rol:

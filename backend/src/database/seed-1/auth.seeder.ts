@@ -31,6 +31,7 @@ export default class AuthSeeder implements Seeder {
           passwordHash,
           nombre: 'Administrador',
           enabled: true,
+          debeCambiarPassword: false,
         }),
       );
       console.log(`Usuario admin creado: ${ADMIN_EMAIL}`);
@@ -38,6 +39,7 @@ export default class AuthSeeder implements Seeder {
       admin.passwordHash = passwordHash;
       admin.nombre = admin.nombre ?? 'Administrador';
       admin.enabled = true;
+      admin.debeCambiarPassword = false;
       admin = await usuarioRepo.save(admin);
       console.log(`Usuario admin actualizado: ${ADMIN_EMAIL}`);
     }
