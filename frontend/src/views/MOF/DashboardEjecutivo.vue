@@ -6,15 +6,18 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
-import { getClaseColor, toBoolean } from "@/utils/mofHelpers";
+import { getClaseColor, toBoolean, getContrastingTextColor } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
+import { useAccessibilityStore } from "@/stores/accessibility";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 import MofReportMenu from "./common/MofReportMenu.vue";
 import { exportDashboardEjecutivoPdf, exportToCsv } from "@/utils/mofReport";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
+const accessibilityStore = useAccessibilityStore();
+const isColorblind = computed(() => accessibilityStore.colorblindMode);
 
 const unidadesStore = useAllUnidadesMofStore();
 const clasesStore = useAllClasesMofStore();
@@ -191,7 +194,9 @@ const getChartOptions = (key, chartInfo) => {
         .map((c) => ({
           name: c.descripcion,
           y: c.count,
-          color: c.color || getClaseColor(c.descripcion, clasesStore.clases),
+          color: isColorblind.value
+            ? getClaseColor(c.descripcion, clasesStore.clases, true)
+            : c.color || getClaseColor(c.descripcion, clasesStore.clases, false),
         }));
     } else if (key === "nivel" && dashboardData.value.porNivel) {
       data = dashboardData.value.porNivel
@@ -223,21 +228,27 @@ const getChartOptions = (key, chartInfo) => {
       name: name,
       y: items.length,
       color:
-        key === "clase" ? getClaseColor(name, clasesStore.clases) : undefined,
+        key === "clase"
+          ? getClaseColor(name, clasesStore.clases, isColorblind.value)
+          : undefined,
     }));
   }
 
-  const baseOptions = getHighchartsBaseOptions(isDark, {
-    chart: {
-      type: type,
-      height: 350,
+  const baseOptions = getHighchartsBaseOptions(
+    isDark,
+    {
+      chart: {
+        type: type,
+        height: 350,
+      },
+      tooltip: {
+        headerFormat: '<span style="font-size:10px">{point.key}</span><br>',
+        pointFormat:
+          '<span style="color:{point.color}">\u25CF</span> <b>{point.y}</b> unidades ({point.percentage:.1f}%)',
+      },
     },
-    tooltip: {
-      headerFormat: '<span style="font-size:10px">{point.key}</span><br>',
-      pointFormat:
-        '<span style="color:{point.color}">\u25CF</span> <b>{point.y}</b> unidades ({point.percentage:.1f}%)',
-    },
-  });
+    isColorblind,
+  );
   const { textColor, labelColor } = baseOptions._colors;
 
   if (type === "column") {
@@ -329,6 +340,7 @@ const handleExportPdf = () => {
       unidades: formattedUnits,
       activeFilters: activeFiltersList.value,
       resolveClaseColor,
+      isColorblind: isColorblind.value,
     });
   } catch (err) {
     console.error("Error al exportar PDF en Dashboard Ejecutivo:", err);
@@ -564,12 +576,9 @@ const handleExportCsv = () => {
                               <div
                                 :style="{
                                   backgroundColor:
-                                    u.color ||
-                                    getClaseColor(
-                                      u.clase,
-                                      clasesStore.clases,
-                                    ) ||
-                                    '#1976D2',
+                                    isColorblind
+                                      ? resolveClaseColor(u.clase)
+                                      : u.color || resolveClaseColor(u.clase),
                                   width: '6px',
                                   height: '6px',
                                 }"
@@ -702,7 +711,9 @@ const handleExportCsv = () => {
                   <div
                     :style="{
                       backgroundColor:
-                        u.color || getClaseColor(u.clase, clasesStore.clases),
+                        isColorblind
+                          ? resolveClaseColor(u.clase)
+                          : u.color || resolveClaseColor(u.clase),
                       width: '4px',
                       height: '20px',
                     }"
@@ -733,8 +744,8 @@ const handleExportCsv = () => {
                   label
                   class="font-weight-bold"
                   :style="{
-                    backgroundColor: getClaseColor(u.clase, clasesStore.clases),
-                    color: 'white',
+                    backgroundColor: resolveClaseColor(u.clase),
+                    color: getContrastingTextColor(resolveClaseColor(u.clase)),
                   }"
                 >
                   {{ resolveClase(u.clase) }}

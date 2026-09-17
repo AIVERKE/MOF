@@ -70,4 +70,13 @@ describe("useMofResolvers", () => {
     expect(resolvers.resolveClase(null)).toBe("---");
     expect(resolvers.checkOficial(null)).toBe(false);
   });
+
+  it("permite overrideColorblind en resolveClaseColor", () => {
+    const resolvers = useMofResolvers({ clasesStore });
+    // Sin modo daltónico
+    expect(resolvers.resolveClaseColor(1, false)).toBe("#1976D2");
+    // Con modo daltónico
+    expect(resolvers.resolveClaseColor(1, true)).toBe("#0072B2");
+    expect(resolvers.resolveClaseColor(2, true)).toBe("#E69F00");
+  });
 });

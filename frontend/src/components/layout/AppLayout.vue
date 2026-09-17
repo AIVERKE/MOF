@@ -9,12 +9,14 @@ import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useTheme } from "vuetify";
 import { useSnackbar } from "@/composables/useSnackbar";
+import { useAccessibilityStore } from "@/stores/accessibility";
 
 const route = useRoute();
 const router = useRouter();
 const theme = useTheme();
 const drawer = ref(true);
 const authStore = useAuthStore();
+const accessibilityStore = useAccessibilityStore();
 const { isVisible, text, color, timeout, cerrar } = useSnackbar();
 
 const toggleTheme = () => {
@@ -118,7 +120,7 @@ const handleLogout = async () => {
       <v-spacer></v-spacer>
 
       <!-- Icono de Tema (Dark/Light) -->
-      <v-btn icon variant="text" class="mr-2" @click="toggleTheme">
+      <v-btn icon variant="text" class="mr-1" @click="toggleTheme">
         <v-icon>{{
           theme.global.current.value.dark
             ? "mdi-weather-sunny"
@@ -127,6 +129,28 @@ const handleLogout = async () => {
         <v-tooltip activator="parent" location="bottom">
           Cambiar a modo
           {{ theme.global.current.value.dark ? "claro" : "oscuro" }}
+        </v-tooltip>
+      </v-btn>
+
+      <!-- Toggle Modo Daltónico (Accesibilidad Colorblind-Safe) -->
+      <v-btn
+        icon
+        variant="text"
+        class="mr-2"
+        :color="accessibilityStore.colorblindMode ? 'primary' : undefined"
+        @click="accessibilityStore.toggleColorblindMode"
+      >
+        <v-icon>{{
+          accessibilityStore.colorblindMode
+            ? "mdi-eye-check"
+            : "mdi-eye-outline"
+        }}</v-icon>
+        <v-tooltip activator="parent" location="bottom">
+          {{
+            accessibilityStore.colorblindMode
+              ? "Desactivar modo daltónico (accesible)"
+              : "Activar modo daltónico (accesible)"
+          }}
         </v-tooltip>
       </v-btn>
 

@@ -278,12 +278,13 @@ export function drawOfficeBuildingIcon(doc, x, y, [r, g, b]) {
  * @param {number} y
  * @param {Function} [resolveColor]
  */
-export function drawMofUnitIcon(doc, item, x, y, resolveColor) {
-  let hexColor = item?.color;
+export function drawMofUnitIcon(doc, item, x, y, resolveColor, isColorblind = false) {
+  let hexColor = isColorblind ? null : item?.color;
   if (!hexColor && typeof resolveColor === "function") {
     hexColor = resolveColor(item?.clase);
   }
-  const rgb = hexToRgb(hexColor, [59, 130, 246]);
+  const defaultRgb = isColorblind ? [0, 114, 178] : [59, 130, 246];
+  const rgb = hexToRgb(hexColor, defaultRgb);
 
   const hasChildren = Boolean(
     (item?.children && item.children.length > 0) ||
@@ -453,6 +454,7 @@ export function drawPurePdfTable(doc, {
   startY = 35,
   title = null,
   headerOptions = null,
+  isColorblind = false,
 }) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -598,7 +600,11 @@ export function drawPurePdfTable(doc, {
       if (col.key === "estado" || col.key === "oficial" || col.header.toLowerCase().includes("estado")) {
         const textVal = (lines[0] || "").toUpperCase();
         if (textVal.includes("OFICIAL") && !textVal.includes("NO")) {
-          doc.setTextColor(22, 101, 52); // Verde bosque institucional
+          if (isColorblind) {
+            doc.setTextColor(0, 114, 178); // Azul Okabe-Ito
+          } else {
+            doc.setTextColor(22, 101, 52); // Verde bosque institucional
+          }
           doc.setFont("helvetica", "bold");
         } else {
           doc.setTextColor(100, 116, 139); // Gris slate
@@ -645,6 +651,7 @@ export function exportDashboardEjecutivoPdf({
   unidades = [],
   activeFilters = [],
   resolveClaseColor = (c) => "#3B82F6",
+  isColorblind = false,
 }) {
   const doc = createBasePdf("l"); // Landscape para tabla ancha
   const headerOptions = { title, activeFilters, subtitle: "Indicadores globales y listado filtrado de unidades administrativas" };
@@ -660,13 +667,13 @@ export function exportDashboardEjecutivoPdf({
   doc.text("RESUMEN CONSOLIDADO DE INDICADORES", marginX, currentY);
   currentY += 4;
 
-  // Dibujar bloques KPI horizontales
+  // Dibujar bloques KPI horizontales (paleta accesible Okabe-Ito si isColorblind)
   const kpis = [
-    { label: "UNIVERSO TOTAL DE UNIDADES", val: resumen.total ?? unidades.length, color: [30, 58, 138] },
-    { label: "INSTANCIAS / CLASES", val: agrupaciones.clases?.items?.length ?? 0, color: [234, 88, 12] },
-    { label: "NIVELES JERÁRQUICOS", val: agrupaciones.niveles?.items?.length ?? 0, color: [126, 34, 206] },
-    { label: "TIPOS DE UNIDAD", val: agrupaciones.tipos?.items?.length ?? 0, color: [2, 132, 199] },
-    { label: "RELACIONES", val: agrupaciones.relaciones?.items?.length ?? 0, color: [190, 24, 93] },
+    { label: "UNIVERSO TOTAL DE UNIDADES", val: resumen.total ?? unidades.length, color: isColorblind ? [0, 114, 178] : [30, 58, 138] },
+    { label: "INSTANCIAS / CLASES", val: agrupaciones.clases?.items?.length ?? 0, color: isColorblind ? [213, 94, 0] : [234, 88, 12] },
+    { label: "NIVELES JERÁRQUICOS", val: agrupaciones.niveles?.items?.length ?? 0, color: isColorblind ? [0, 158, 115] : [126, 34, 206] },
+    { label: "TIPOS DE UNIDAD", val: agrupaciones.tipos?.items?.length ?? 0, color: isColorblind ? [86, 180, 233] : [2, 132, 199] },
+    { label: "RELACIONES", val: agrupaciones.relaciones?.items?.length ?? 0, color: isColorblind ? [204, 121, 167] : [190, 24, 93] },
   ];
 
   const kpiWidth = (pageWidth - marginX * 2 - (kpis.length - 1) * 3) / kpis.length;
@@ -702,7 +709,7 @@ export function exportDashboardEjecutivoPdf({
       header: "UNIDAD ADMINISTRATIVA",
       getter: (u) => u.nombre || u.denominacion || "-",
       iconDrawer: (doc, item, x, y) => {
-        drawMofUnitIcon(doc, item, x, y, resolveClaseColor);
+        drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
       width: 85,
@@ -721,6 +728,7 @@ export function exportDashboardEjecutivoPdf({
     startY: currentY,
     title: `DETALLE DE UNIDADES ADMINISTRATIVAS (${unidades.length} REGISTROS)`,
     headerOptions,
+    isColorblind,
   });
 
   addReportFooters(doc);
@@ -738,6 +746,7 @@ export function exportDashboardFacultativoPdf({
   activeFilters = [],
   resolveClase = (c) => c,
   resolveClaseColor = (c) => "#3B82F6",
+  isColorblind = false,
 }) {
   const doc = createBasePdf("p"); // Portrait para lectura de árbol
   const headerOptions = {
@@ -817,7 +826,7 @@ export function exportDashboardFacultativoPdf({
         return depth * 3.5;
       },
       iconDrawer: (doc, item, x, y) => {
-        drawMofUnitIcon(doc, item, x, y, resolveClaseColor);
+        drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
       width: 98,
@@ -833,6 +842,7 @@ export function exportDashboardFacultativoPdf({
     startY: currentY,
     title: `ÁRBOL DE DEPENDENCIAS DIRECTAS E INDIRECTAS (${arbolDependencias.length} TOTAL)`,
     headerOptions,
+    isColorblind,
   });
 
   addReportFooters(doc);
@@ -850,6 +860,7 @@ export function exportListarUnidadesPdf({
   resolveNivel = (n) => n,
   resolveClaseColor = (c) => "#3B82F6",
   isOficialCheck = () => true,
+  isColorblind = false,
 }) {
   const doc = createBasePdf("l"); // Landscape para tabla de 6 columnas
   const headerOptions = { title, activeFilters, subtitle: "Relación general de unidades administrativas registradas en el MOF" };
@@ -863,7 +874,7 @@ export function exportListarUnidadesPdf({
       header: "UNIDAD ADMINISTRATIVA",
       getter: (u) => u.display_name || u.nombre || u.denominacion || "-",
       iconDrawer: (doc, item, x, y) => {
-        drawMofUnitIcon(doc, item, x, y, resolveClaseColor);
+        drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
       width: 115,
@@ -881,6 +892,7 @@ export function exportListarUnidadesPdf({
     startY: currentY,
     title: `REGISTROS ENCONTRADOS (${unidades.length})`,
     headerOptions,
+    isColorblind,
   });
 
   addReportFooters(doc);
@@ -898,6 +910,7 @@ export function exportTreeUnidadesPdf({
   resolveNivel = (n) => n,
   resolveClaseColor = (c) => "#3B82F6",
   isOficialCheck = () => true,
+  isColorblind = false,
 }) {
   const doc = createBasePdf("l"); // Landscape para árbol con sangría milimétrica y metadatos
   const headerOptions = { title, activeFilters, subtitle: "Visualización jerárquica indentada de la estructura organizacional institucional" };
@@ -917,7 +930,7 @@ export function exportTreeUnidadesPdf({
         return depth * 3.5;
       },
       iconDrawer: (doc, item, x, y) => {
-        drawMofUnitIcon(doc, item, x, y, resolveClaseColor);
+        drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
       width: 116,
@@ -935,6 +948,7 @@ export function exportTreeUnidadesPdf({
     startY: currentY,
     title: `NODOS ESTRUCTURALES DEL ÁRBOL (${flatTreeRows.length} REGISTROS)`,
     headerOptions,
+    isColorblind,
   });
 
   addReportFooters(doc);

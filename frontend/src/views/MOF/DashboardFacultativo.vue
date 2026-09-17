@@ -164,9 +164,9 @@
                     size="small"
                     :color="
                       item.level === 0
-                        ? item.color ||
-                          getClaseColor(item.clase, clasesStore.clases) ||
-                          'indigo'
+                        ? isColorblind
+                          ? resolveClaseColor(item.clase)
+                          : item.color || resolveClaseColor(item.clase) || 'indigo'
                         : 'grey-darken-1'
                     "
                   >
@@ -187,8 +187,8 @@
                     label
                     class="font-weight-bold"
                     :style="{
-                      backgroundColor: getClaseColor(item.clase, clasesStore.clases),
-                      color: getContrastingTextColor(getClaseColor(item.clase, clasesStore.clases)),
+                      backgroundColor: resolveClaseColor(item.clase),
+                      color: getContrastingTextColor(resolveClaseColor(item.clase)),
                     }"
                   >
                     {{ resolveClase(item.clase) }}
@@ -214,12 +214,15 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { getContrastingTextColor, toBoolean } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
+import { useAccessibilityStore } from "@/stores/accessibility";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 import MofReportMenu from "./common/MofReportMenu.vue";
 import { exportDashboardFacultativoPdf, exportToCsv } from "@/utils/mofReport";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
+const accessibilityStore = useAccessibilityStore();
+const isColorblind = computed(() => accessibilityStore.colorblindMode);
 
 const unidadesStore = useAllUnidadesMofStore();
 const clasesStore = useAllClasesMofStore();
@@ -268,6 +271,7 @@ const handleExportPdf = () => {
       activeFilters: activeFiltersList.value,
       resolveClase,
       resolveClaseColor,
+      isColorblind: isColorblind.value,
     });
   } catch (err) {
     console.error("Error al exportar PDF en Dashboard Facultativo:", err);
@@ -371,10 +375,15 @@ const getRowClass = (item) => {
 };
 
 const chartOptions = computed(() => {
-  const baseOptions = getHighchartsBaseOptions(isDark, {
-    chart: { type: "bar" },
-  });
-  const { textColor, labelColor, gridLineColor, lineColor } = baseOptions._colors;
+  const baseOptions = getHighchartsBaseOptions(
+    isDark,
+    {
+      chart: { type: "bar" },
+    },
+    isColorblind,
+  );
+  const { textColor, labelColor, gridLineColor, lineColor, accentColor } =
+    baseOptions._colors;
 
   return {
     ...baseOptions,
@@ -393,7 +402,7 @@ const chartOptions = computed(() => {
     },
     plotOptions: {
       bar: {
-        color: "#F57C00",
+        color: accentColor || "#F57C00",
         borderRadius: 4,
         dataLabels: {
           enabled: true,

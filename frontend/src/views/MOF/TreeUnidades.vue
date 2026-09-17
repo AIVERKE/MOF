@@ -32,6 +32,10 @@ import { useSnackbar } from "@/composables/useSnackbar";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
+import { useAccessibilityStore } from "@/stores/accessibility";
+
+const accessibilityStore = useAccessibilityStore();
+const isColorblind = computed(() => accessibilityStore.colorblindMode);
 
 const { mostrar } = useSnackbar();
 
@@ -218,6 +222,7 @@ const handleExportPdf = () => {
       resolveNivel,
       resolveClaseColor,
       isOficialCheck: checkOficial,
+      isColorblind: isColorblind.value,
     });
   } catch (err) {
     console.error("Error al exportar PDF en TreeUnidades:", err);
@@ -328,8 +333,10 @@ const handleExportCsv = () => {
           <template #prepend="{ item }">
             <v-icon
               :color="
-                (item?.raw || item).color ||
-                resolveClaseColor((item?.raw || item).clase)
+                isColorblind
+                  ? resolveClaseColor((item?.raw || item).clase)
+                  : (item?.raw || item).color ||
+                    resolveClaseColor((item?.raw || item).clase)
               "
               size="24"
               class="mr-2 flex-shrink-0"
