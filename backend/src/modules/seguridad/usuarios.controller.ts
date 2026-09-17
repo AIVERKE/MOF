@@ -7,13 +7,13 @@ import {
   Patch,
   Post,
   Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+/** Forma que JwtStrategy deja en `req.user`. */
+type UsuarioAutenticado = { userId: string };
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -42,11 +42,16 @@ export class UsuariosController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Crear usuario y asignar roles' })
-  async create(@Body() dto: CreateUsuarioDto) {
+  @ApiOperation({
+    summary: 'Crear usuario con su persona y asignar roles',
+    description:
+      'El usuario nace sin contraseña: la define en el primer acceso con su email y C.I.',
+  })
+  async create(@Req() req: Request, @Body() dto: CreateUsuarioDto) {
+    const admin = req.user as UsuarioAutenticado | undefined;
     return ResultResponse.ok(
       RestMessages.PERSIST_SUCCESSFULLY,
-      await this.usuariosService.crear(dto),
+      await this.usuariosService.crear(dto, admin?.userId ?? null),
     );
   }
 

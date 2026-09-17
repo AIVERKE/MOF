@@ -5,7 +5,7 @@ import { useSnackbar } from '@/composables/useSnackbar'
 import { hints } from '@/config/hints'
 
 const usuariosStore = useUsuariosStore()
-const { showSnackbar } = useSnackbar()
+const { mostrar: showSnackbar } = useSnackbar()
 
 const search = ref('')
 const dialog = ref(false)
@@ -15,6 +15,7 @@ const saving = ref(false)
 
 const headers = [
   { title: 'USUARIO', key: 'nombre', align: 'start' },
+  { title: 'C.I.', key: 'ci' },
   { title: 'CORREO ELECTRÓNICO', key: 'email' },
   { title: 'ROL DE ACCESO', key: 'roles' },
   { title: 'ESTADO', key: 'estado' },
@@ -27,18 +28,24 @@ const tableItems = computed(() =>
   (Array.isArray(usuariosStore.usuarios) ? usuariosStore.usuarios : []).map((u) => ({
     ...u,
     nombre: u.nombre || u.email || '',
+    apellidos: [u.apellidoPaterno, u.apellidoMaterno].filter(Boolean).join(' '),
     estado: u.enabled ? 'Activo' : 'Inactivo',
     rol: Array.isArray(u.roles) && u.roles.length ? u.roles[0] : 'USER',
   })),
 )
 
-const form = ref({
-  nombre: '',
+const emptyForm = () => ({
+  ci: '',
+  nombres: '',
+  apellidoPaterno: '',
+  apellidoMaterno: '',
   email: '',
   password: '',
   rol: 'USER',
   estado: 'Activo',
 })
+
+const form = ref(emptyForm())
 
 function initials(nameOrEmail) {
   const text = (nameOrEmail || '').trim()
@@ -64,7 +71,10 @@ const openUserDialog = (item = null) => {
   if (item) {
     selectedUser.value = item
     form.value = {
-      nombre: item.nombre || '',
+      ci: item.ci || '',
+      nombres: item.nombres || '',
+      apellidoPaterno: item.apellidoPaterno || '',
+      apellidoMaterno: item.apellidoMaterno || '',
       email: item.email || '',
       password: '',
       rol: item.rol || (item.roles?.[0] ?? 'USER'),
@@ -72,13 +82,7 @@ const openUserDialog = (item = null) => {
     }
   } else {
     selectedUser.value = null
-    form.value = {
-      nombre: '',
-      email: '',
-      password: '',
-      rol: 'USER',
-      estado: 'Activo',
-    }
+    form.value = emptyForm()
   }
   dialog.value = true
 }
@@ -93,8 +97,12 @@ const handleSave = async () => {
     showSnackbar('El correo es obligatorio', 'warning')
     return
   }
-  if (!selectedUser.value && (!form.value.password || form.value.password.length < 6)) {
-    showSnackbar('La contraseña debe tener al menos 6 caracteres', 'warning')
+  if (!form.value.ci?.trim()) {
+    showSnackbar('El C.I. es obligatorio', 'warning')
+    return
+  }
+  if (!form.value.nombres?.trim()) {
+    showSnackbar('Los nombres son obligatorios', 'warning')
     return
   }
   if (selectedUser.value && form.value.password && form.value.password.length < 6) {
@@ -106,12 +114,18 @@ const handleSave = async () => {
   try {
     const enabled = form.value.estado === 'Activo'
     const rolesPayload = [form.value.rol]
+    const datosPersona = {
+      ci: form.value.ci.trim(),
+      nombres: form.value.nombres.trim(),
+      apellidoPaterno: form.value.apellidoPaterno?.trim() || undefined,
+      apellidoMaterno: form.value.apellidoMaterno?.trim() || undefined,
+    }
 
     let ok = false
     if (selectedUser.value) {
       const payload = {
         email: form.value.email.trim(),
-        nombre: form.value.nombre?.trim() || undefined,
+        ...datosPersona,
         roles: rolesPayload,
         enabled,
       }
@@ -120,10 +134,10 @@ const handleSave = async () => {
       }
       ok = await usuariosStore.updateUsuario(selectedUser.value.id, payload)
     } else {
+      // Sin contraseña: el usuario la define en su primer acceso con el C.I.
       ok = await usuariosStore.createUsuario({
         email: form.value.email.trim(),
-        password: form.value.password,
-        nombre: form.value.nombre?.trim() || undefined,
+        ...datosPersona,
         roles: rolesPayload,
         enabled,
       })
@@ -132,7 +146,9 @@ const handleSave = async () => {
     if (ok) {
       dialog.value = false
       showSnackbar(
-        selectedUser.value ? 'Usuario actualizado' : 'Usuario creado',
+        selectedUser.value
+          ? 'Usuario actualizado'
+          : 'Usuario creado. Debe ingresar por primer acceso con su correo y C.I. para definir su contraseña.',
         'success',
       )
     } else if (usuariosStore.error) {
@@ -216,8 +232,20 @@ const handleDelete = async () => {
                 {{ initials(item.nombre || item.email) }}
               </span>
             </v-avatar>
-            <span class="font-weight-bold text-slate-800">{{ item.nombre || item.email }}</span>
+            <div class="d-flex flex-column">
+              <span class="font-weight-bold text-slate-800">
+                {{ item.nombres || item.nombre || item.email }}
+              </span>
+              <span v-if="item.apellidos" class="text-caption text-slate-500">
+                {{ item.apellidos }}
+              </span>
+            </div>
           </div>
+        </template>
+
+        <template v-slot:item.ci="{ item }">
+          <span v-if="item.ci" class="text-body-2">{{ item.ci }}</span>
+          <span v-else class="text-grey">—</span>
         </template>
 
         <template v-slot:item.roles="{ item }">
@@ -286,11 +314,42 @@ const handleDelete = async () => {
           <v-row dense>
             <v-col cols="12">
               <v-text-field
-                v-model="form.nombre"
-                label="Nombre Completo"
+                v-model="form.ci"
+                label="C.I."
+                variant="outlined"
+                prepend-inner-icon="mdi-card-account-details"
+                :hint="hints.usuarios.ci"
+                :persistent-hint="false"
+                class="mb-2"
+              ></v-text-field>
+            </v-col>
+            <v-col cols="12">
+              <v-text-field
+                v-model="form.nombres"
+                label="Nombres"
                 variant="outlined"
                 prepend-inner-icon="mdi-account"
-                :hint="hints.usuarios.nombre"
+                :hint="hints.usuarios.nombres"
+                :persistent-hint="false"
+                class="mb-2"
+              ></v-text-field>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="form.apellidoPaterno"
+                label="Apellido Paterno"
+                variant="outlined"
+                :hint="hints.usuarios.apellidoPaterno"
+                :persistent-hint="false"
+                class="mb-2"
+              ></v-text-field>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="form.apellidoMaterno"
+                label="Apellido Materno"
+                variant="outlined"
+                :hint="hints.usuarios.apellidoMaterno"
                 :persistent-hint="false"
                 class="mb-2"
               ></v-text-field>
@@ -307,18 +366,30 @@ const handleDelete = async () => {
                 class="mb-2"
               ></v-text-field>
             </v-col>
-            <v-col cols="12">
+            <v-col v-if="selectedUser" cols="12">
               <v-text-field
                 v-model="form.password"
-                :label="selectedUser ? 'Nueva contraseña (opcional)' : 'Contraseña'"
+                label="Nueva contraseña (opcional)"
                 variant="outlined"
                 prepend-inner-icon="mdi-lock"
                 type="password"
                 autocomplete="new-password"
                 class="mb-2"
-                :hint="selectedUser ? hints.usuarios.passwordEdit : hints.usuarios.password"
+                :hint="hints.usuarios.passwordEdit"
                 :persistent-hint="false"
               ></v-text-field>
+            </v-col>
+            <v-col v-else cols="12">
+              <v-alert
+                type="info"
+                variant="tonal"
+                density="comfortable"
+                class="mb-2 rounded-lg text-body-2"
+                prepend-icon="mdi-information-outline"
+              >
+                No se define contraseña aquí: el usuario ingresará por
+                <strong>primer acceso</strong> con su correo y C.I. para crearla.
+              </v-alert>
             </v-col>
             <v-col cols="12" md="6">
               <v-select

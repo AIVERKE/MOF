@@ -12,6 +12,9 @@ export const ErrorCodes = {
   CLASE_YA_PRIMERA: 'CLASE_YA_PRIMERA',
   CLASE_YA_ULTIMA: 'CLASE_YA_ULTIMA',
   CARGO_YA_ASIGNADO_UNICO: 'CARGO_YA_ASIGNADO_UNICO',
+  USUARIO_CI_DUPLICADO: 'USUARIO_CI_DUPLICADO',
+  PRIMER_ACCESO_REQUERIDO: 'PRIMER_ACCESO_REQUERIDO',
+  PRIMER_ACCESO_INVALIDO: 'PRIMER_ACCESO_INVALIDO',
   VALIDATION_FAILED: 'VALIDATION_FAILED',
   UNAUTHORIZED: 'UNAUTHORIZED',
   FORBIDDEN: 'FORBIDDEN',
@@ -84,6 +87,22 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     httpStatus: HttpStatus.BAD_REQUEST,
     message: 'Ese cargo único ya está asignado en la unidad',
   },
+  USUARIO_CI_DUPLICADO: {
+    code: ErrorCodes.USUARIO_CI_DUPLICADO,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'Ya existe una persona registrada con ese C.I.',
+  },
+  PRIMER_ACCESO_REQUERIDO: {
+    code: ErrorCodes.PRIMER_ACCESO_REQUERIDO,
+    httpStatus: HttpStatus.UNAUTHORIZED,
+    message:
+      'Debe completar el primer acceso con su correo y C.I. para definir su contraseña',
+  },
+  PRIMER_ACCESO_INVALIDO: {
+    code: ErrorCodes.PRIMER_ACCESO_INVALIDO,
+    httpStatus: HttpStatus.UNAUTHORIZED,
+    message: 'Los datos de primer acceso no son válidos',
+  },
   VALIDATION_FAILED: {
     code: ErrorCodes.VALIDATION_FAILED,
     httpStatus: HttpStatus.BAD_REQUEST,
@@ -107,8 +126,7 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
   INTERNAL_ERROR: {
     code: ErrorCodes.INTERNAL_ERROR,
     httpStatus: HttpStatus.INTERNAL_SERVER_ERROR,
-    message:
-      'Se genero un error en el servidor, contacte con administracion',
+    message: 'Se genero un error en el servidor, contacte con administracion',
   },
   REQUEST_ERROR: {
     code: ErrorCodes.REQUEST_ERROR,

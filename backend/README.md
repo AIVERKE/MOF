@@ -29,6 +29,7 @@ cp .env.example .env          # ajustar DB_PASSWORD si tu Postgres no usa 123456
 createdb -U postgres mof_db   # omitir si la BD ya existe
 npm install
 npm run migration:run         # crea el esquema
+npm run seed:auth             # crea el usuario administrador inicial
 npm run seed                  # carga organigrama, cargos y personas
 npm run start:dev
 ```
@@ -81,12 +82,63 @@ npm run seed:export            # opcional: congela resultado en etl-snapshot.sql
 
 El dataset versionable es [`seed-1/cargos-dataset.json`](src/database/seed-1/cargos-dataset.json). Re-ejecutar `seed:cargos` no duplica: match por `codigo` o alias (p.ej. `RECTORA` ↔ `RECTOR/A`).
 
+### Usuario administrador y alta de usuarios
+
+`npm run seed:auth` ([`src/database/seed-1/auth.seeder.ts`](src/database/seed-1/auth.seeder.ts)) crea el primer usuario con rol `ADMIN` (`admin@admin.com` / `admin123`, credenciales de desarrollo). Es el único usuario con contraseña predefinida: entra directo por el login normal. Los demás se crean desde la interfaz.
+
+**Alta de un usuario (rol ADMIN, `POST /seguridad/usuarios`)**
+
+El administrador registra la identidad de la persona, no una contraseña:
+
+```json
+{
+  "email": "operador@umsa.bo",
+  "ci": "8123456",
+  "nombres": "Juan Carlos",
+  "apellidoPaterno": "Pérez",
+  "apellidoMaterno": "Gutiérrez",
+  "roles": ["OPERADOR"],
+  "enabled": true
+}
+```
+
+El alta, en una sola transacción:
+
+1. Inserta el registro en `persona` y lo vincula en `usuario.id_persona`.
+2. Deriva `usuario.nombre` de los nombres y apellidos.
+3. Guarda un hash aleatorio en `password_hash` (columna `NOT NULL`) y marca `debe_cambiar_password = true`. Nadie conoce ese texto plano, así que la cuenta no es accesible por login.
+4. Asigna los roles.
+5. Registra la creación en `auditoria_cambio` (`tabla_afectada='usuario'`, `accion='CREATE'`, `id_usuario` = administrador autenticado).
+
+El email es el único identificador de acceso: no existe un campo `username`.
+
+**Primer acceso del usuario nuevo**
+
+Mientras `debe_cambiar_password` sea `true`, `POST /auth/login` responde `401` con `errorCode` `PRIMER_ACCESO_REQUERIDO`. La secuencia es:
+
+```bash
+# 1) Identificarse con email + C.I. -> token temporal (15 min, solo sirve para esto)
+curl -X POST http://localhost:3000/auth/primer-acceso \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"operador@umsa.bo","ci":"8123456"}'
+
+# 2) Definir la contraseña con ese token
+curl -X POST http://localhost:3000/auth/cambiar-password \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"<token>","password":"miClaveSegura123"}'
+
+# 3) A partir de aquí, login normal con email + contraseña
+```
+
+El token temporal lleva un `purpose` propio y `JwtStrategy` lo rechaza en cualquier ruta protegida, así que no vale como sesión. Si el administrador define una contraseña al editar el usuario (`password` en `PUT /seguridad/usuarios/:id`), el primer acceso deja de ser necesario.
+
 ### Otros seeders
 
 | Script | Uso |
 |--------|-----|
 | `npm run seed` | Snapshot ETL (recomendado al clonar) |
 | `npm run seed -- --force` | Trunca tablas de dominio y recarga el snapshot |
+| `npm run seed:auth` | Crea el primer usuario administrador (`admin@admin.com`) |
 | `npm run seed:catalogos` | Solo catálogos mínimos (A/B/C, D/E/O, L/S), sin organigrama |
 | `npm run seed:cargos:extract` | Lee el Excel y escribe `cargos-dataset.json` |
 | `npm run seed:cargos` | Upsert idempotente de cargos desde el JSON |
@@ -143,6 +195,9 @@ Catálogo fuente: [`src/common/errors.ts`](src/common/errors.ts).
 | `CLASE_YA_PRIMERA` | 400 | La clase ya está en la primera posición | Mostrar mensaje |
 | `CLASE_YA_ULTIMA` | 400 | La clase ya está en la última posición | Mostrar mensaje |
 | `CARGO_YA_ASIGNADO_UNICO` | 400 | Ese cargo único ya está asignado en la unidad | Mostrar mensaje |
+| `USUARIO_CI_DUPLICADO` | 400 | Ya existe una persona registrada con ese C.I. | Mostrar mensaje / corregir C.I. |
+| `PRIMER_ACCESO_REQUERIDO` | 401 | Debe completar el primer acceso con su correo y C.I. | Ofrecer la pantalla de primer acceso |
+| `PRIMER_ACCESO_INVALIDO` | 401 | Los datos de primer acceso no son válidos | Mostrar mensaje |
 | `VALIDATION_FAILED` | 400 | Error de validación | Traducir reglas class-validator |
 | `UNAUTHORIZED` | 401 | No autenticado | Logout + redirect a login |
 | `FORBIDDEN` | 403 | Sin permisos para realizar esta acción | Snackbar de permisos |
@@ -195,6 +250,7 @@ backend/
 | `npm run migration:revert` | Revierte última migración |
 | `npm run seed` | Carga el snapshot ETL |
 | `npm run seed -- --force` | Trunca y recarga el snapshot |
+| `npm run seed:auth` | Usuario administrador inicial |
 | `npm run seed:catalogos` | Solo catálogos mínimos |
 | `npm run seed:export` | Regenera `seed-1/etl-snapshot.sql` desde `mof_db` |
 | `npm run seed:cargos:extract` | Excel → `cargos-dataset.json` |

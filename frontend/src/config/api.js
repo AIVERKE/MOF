@@ -9,6 +9,8 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localho
 export const ENDPOINTS = {
   AUTH: {
     LOGIN: `${API_BASE_URL}/auth/login`,
+    PRIMER_ACCESO: `${API_BASE_URL}/auth/primer-acceso`,
+    CAMBIAR_PASSWORD: `${API_BASE_URL}/auth/cambiar-password`,
   },
   MOF: {
     TIPOS: `${API_BASE_URL}/api/v1/mof/tipos`,
@@ -44,6 +46,10 @@ export const ERROR_CODE_MESSAGES = {
   CLASE_YA_PRIMERA: "La clase ya está en la primera posición",
   CLASE_YA_ULTIMA: "La clase ya está en la última posición",
   CARGO_YA_ASIGNADO_UNICO: "Ese cargo único ya está asignado en la unidad",
+  USUARIO_CI_DUPLICADO: "Ya existe una persona registrada con ese C.I.",
+  PRIMER_ACCESO_REQUERIDO:
+    "Debe completar el primer acceso con su correo y C.I. para definir su contraseña",
+  PRIMER_ACCESO_INVALIDO: "Los datos de primer acceso no son válidos",
   VALIDATION_FAILED: "Error de validación",
   UNAUTHORIZED: "No autenticado",
   FORBIDDEN: "Sin permisos para realizar esta acción",
