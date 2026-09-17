@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from "pinia";
 import {
   useAccessibilityStore,
   STORAGE_KEY_COLORBLIND,
+  STORAGE_KEY_THEME,
 } from "../accessibility";
 
 describe("accessibility store - Modo Daltónico", () => {
@@ -50,5 +51,43 @@ describe("accessibility store - Modo Daltónico", () => {
     store.setColorblindMode(false);
     expect(store.colorblindMode).toBe(false);
     expect(localStorage.getItem(STORAGE_KEY_COLORBLIND)).toBe("false");
+  });
+});
+
+describe("accessibility store - Tema", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("inicializa en light por defecto", () => {
+    const store = useAccessibilityStore();
+    expect(store.themeMode).toBe("light");
+  });
+
+  it("inicializa en dark si localStorage lo indica", () => {
+    localStorage.setItem(STORAGE_KEY_THEME, "dark");
+    const store = useAccessibilityStore();
+    expect(store.themeMode).toBe("dark");
+  });
+
+  it("toggleThemeMode alterna y persiste", () => {
+    const store = useAccessibilityStore();
+    store.toggleThemeMode();
+    expect(store.themeMode).toBe("dark");
+    expect(localStorage.getItem(STORAGE_KEY_THEME)).toBe("dark");
+
+    store.toggleThemeMode();
+    expect(store.themeMode).toBe("light");
+    expect(localStorage.getItem(STORAGE_KEY_THEME)).toBe("light");
+  });
+
+  it("setThemeMode normaliza valores inválidos a light", () => {
+    const store = useAccessibilityStore();
+    store.setThemeMode("dark");
+    expect(store.themeMode).toBe("dark");
+    store.setThemeMode("otro");
+    expect(store.themeMode).toBe("light");
   });
 });

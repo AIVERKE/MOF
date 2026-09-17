@@ -20,8 +20,12 @@ const accessibilityStore = useAccessibilityStore();
 const { isVisible, text, color, timeout, cerrar } = useSnackbar();
 
 const toggleTheme = () => {
-  theme.global.name.value = theme.global.current.value.dark ? "light" : "dark";
+  accessibilityStore.toggleThemeMode();
+  theme.global.name.value = accessibilityStore.themeMode;
 };
+
+// Aplica el tema persistido al montar el layout (p. ej. tras login).
+theme.global.name.value = accessibilityStore.themeMode;
 
 // --- Lógica de Redimensionamiento ---
 const drawerWidth = ref(260);
@@ -105,6 +109,8 @@ const handleLogout = async () => {
   authStore.logout();
   await router.push("/");
 };
+
+const isAdmin = computed(() => authStore.isAdmin());
 </script>
 <template>
   <v-app>
@@ -184,6 +190,7 @@ const handleLogout = async () => {
             prepend-icon="mdi-cog"
             title="Configuración"
             value="settings"
+            to="/configuracion"
           ></v-list-item>
           <v-divider></v-divider>
           <v-list-item
@@ -212,6 +219,7 @@ const handleLogout = async () => {
             to="/dashboard"
           ></v-list-item>
           <v-list-item
+            v-if="isAdmin"
             prepend-icon="mdi-account-multiple"
             title="Usuarios"
             to="/usuarios"
@@ -239,14 +247,14 @@ const handleLogout = async () => {
 
             <v-list-item
               prepend-icon="mdi-view-dashboard-outline"
-              title="DASHBOARD EJECUTIVO"
+              title="EJECUTIVO"
               to="/reportes/ejecutivo"
             >
             </v-list-item>
 
             <v-list-item
               prepend-icon="mdi-domain"
-              title="DASHBOARD FACULTATIVO"
+              title="FACULTATIVO"
               to="/reportes/facultativo"
             >
             </v-list-item>
