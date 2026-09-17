@@ -1,4 +1,6 @@
 <script setup>
+import { ref, watch } from "vue";
+
 defineProps({
   unidadId: { type: [String, Number], required: true },
   showQuickActions: { type: Boolean, default: false },
@@ -20,7 +22,14 @@ const emit = defineEmits([
   "add-child",
   "edit",
   "delete",
+  "update:menuOpen",
 ]);
+
+const menuOpen = ref(false);
+
+watch(menuOpen, (open) => {
+  emit("update:menuOpen", open);
+});
 </script>
 
 <template>
@@ -32,10 +41,10 @@ const emit = defineEmits([
         variant="text"
         :size="density === 'node' ? '32' : 'small'"
         color="blue-darken-2"
+        title="Ver ficha"
         @click.stop="emit('details', unidadId)"
       >
         <v-icon :size="density === 'node' ? 24 : 20">mdi-eye</v-icon>
-        <v-tooltip activator="parent" location="top">Ver ficha</v-tooltip>
       </v-btn>
       <v-btn
         v-if="showPdf"
@@ -43,14 +52,18 @@ const emit = defineEmits([
         variant="text"
         :size="density === 'node' ? '32' : 'small'"
         color="red-darken-2"
+        title="Generar PDF"
         @click.stop="emit('pdf', unidadId)"
       >
         <v-icon :size="density === 'node' ? 24 : 20">mdi-file-pdf-box</v-icon>
-        <v-tooltip activator="parent" location="top">Generar PDF</v-tooltip>
       </v-btn>
     </template>
 
-    <v-menu location="bottom end" transition="scale-transition">
+    <v-menu
+      v-model="menuOpen"
+      location="bottom end"
+      transition="scale-transition"
+    >
       <template v-slot:activator="{ props: menuProps }">
         <v-btn
           v-bind="menuProps"
@@ -58,12 +71,10 @@ const emit = defineEmits([
           variant="text"
           :color="activatorColor"
           :size="density === 'node' ? '32' : 'small'"
+          title="Opciones de la unidad"
           @click.stop
         >
           <v-icon :size="density === 'node' ? 24 : 20">mdi-dots-vertical</v-icon>
-          <v-tooltip activator="parent" location="top"
-            >Opciones de la unidad</v-tooltip
-          >
         </v-btn>
       </template>
       <v-list

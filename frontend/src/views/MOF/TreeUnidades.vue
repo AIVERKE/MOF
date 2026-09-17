@@ -93,6 +93,9 @@ const deleteDialog = ref(false);
 const itemToDelete = ref(null);
 const search = ref("");
 const openedIds = ref([]);
+/** Unidad cuyo menú de acciones está montado (hover/focus o menú abierto). */
+const activeActionsUnitId = ref(null);
+const actionsMenuOpen = ref(false);
 
 onMounted(async () => {
   await Promise.all([
@@ -107,11 +110,14 @@ const filteredTreeItems = computed(() =>
   filterHierarchyByQuery(treeItems.value, search.value),
 );
 
+const hasSearchQuery = computed(() => Boolean(String(search.value || "").trim()));
+
 watch(
   filteredTreeItems,
   async (nodes) => {
+    const q = String(search.value || "").trim();
+    if (!q) return;
     openedIds.value = collectTreeIds(nodes);
-    if (!search.value || !String(search.value).trim()) return;
     await nextTick();
     await nextTick();
     const first = findFirstMatchingUnit(nodes, search.value);
@@ -123,6 +129,48 @@ watch(
   },
   { immediate: true },
 );
+
+function unitIdOf(item) {
+  return (item?.raw || item)?.id;
+}
+
+function isActionsVisible(id) {
+  return id != null && String(activeActionsUnitId.value) === String(id);
+}
+
+let actionsLeaveTimer = null;
+
+function onActionsEnter(id) {
+  if (actionsLeaveTimer != null) {
+    clearTimeout(actionsLeaveTimer);
+    actionsLeaveTimer = null;
+  }
+  activeActionsUnitId.value = id;
+}
+
+function onActionsLeave(id) {
+  if (actionsLeaveTimer != null) clearTimeout(actionsLeaveTimer);
+  actionsLeaveTimer = setTimeout(() => {
+    actionsLeaveTimer = null;
+    if (actionsMenuOpen.value) return;
+    if (String(activeActionsUnitId.value) === String(id)) {
+      activeActionsUnitId.value = null;
+    }
+  }, 120);
+}
+
+function onActionsMenuOpen(id, open) {
+  actionsMenuOpen.value = open;
+  if (open) {
+    if (actionsLeaveTimer != null) {
+      clearTimeout(actionsLeaveTimer);
+      actionsLeaveTimer = null;
+    }
+    activeActionsUnitId.value = id;
+  } else if (String(activeActionsUnitId.value) === String(id)) {
+    activeActionsUnitId.value = null;
+  }
+}
 
 async function editItem(id) {
   const item = unidadesStore.unidades.find((u) => String(u.id) === String(id));
@@ -355,21 +403,37 @@ const handleExportCsv = () => {
               class="d-inline-block tree-match-row"
             >
               <HighlightedText
+                v-if="hasSearchQuery"
                 class="text-body-2 font-weight-bold text-slate-800"
                 :text="
                   (item?.raw || item).display_name || (item?.raw || item).nombre
                 "
                 :query="search"
               />
+              <span
+                v-else
+                class="text-body-2 font-weight-bold text-slate-800"
+              >
+                {{
+                  (item?.raw || item).display_name || (item?.raw || item).nombre
+                }}
+              </span>
             </span>
           </template>
 
           <template #append="{ item }">
-            <div class="d-flex align-center" @click.stop>
+            <div
+              class="d-flex align-center tree-actions-slot"
+              @click.stop
+              @mouseenter="onActionsEnter(unitIdOf(item))"
+              @mouseleave="onActionsLeave(unitIdOf(item))"
+            >
               <UnidadActionsMenu
-                :unidad-id="(item?.raw || item).id"
+                v-if="isActionsVisible(unitIdOf(item))"
+                :unidad-id="unitIdOf(item)"
                 show-quick-actions
                 density="compact"
+                @update:menu-open="(open) => onActionsMenuOpen(unitIdOf(item), open)"
                 @details="showDetails"
                 @pdf="verReporte"
                 @dependencias="showDependenciasInDrawer"
@@ -468,5 +532,10 @@ const handleExportCsv = () => {
 }
 .tree-match-row {
   scroll-margin-block: 80px;
+}
+.tree-actions-slot {
+  min-width: 108px;
+  min-height: 32px;
+  justify-content: flex-end;
 }
 </style>
