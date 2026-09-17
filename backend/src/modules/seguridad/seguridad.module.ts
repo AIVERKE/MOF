@@ -6,6 +6,7 @@ import { Rol } from '../auth/entities/rol.entity';
 import { UsuarioRol } from '../auth/entities/usuario-rol.entity';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Persona } from '../personas/entities/persona.entity';
+import { MofConfig } from '../unidades/entities/mof-config.entity';
 import { VersionesModule } from '../versiones/versiones.module';
 import { UsuariosController } from './usuarios.controller';
 import { UsuariosService } from './usuarios.service';
@@ -15,7 +16,7 @@ import { UsuariosService } from './usuarios.service';
     AuthModule,
     // Aporta AuditoriaService: el alta de usuarios deja rastro de quién la hizo.
     VersionesModule,
-    TypeOrmModule.forFeature([Usuario, Rol, UsuarioRol, Persona]),
+    TypeOrmModule.forFeature([Usuario, Rol, UsuarioRol, Persona, MofConfig]),
   ],
   controllers: [UsuariosController],
   providers: [UsuariosService, RolesGuard],

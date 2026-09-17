@@ -8,6 +8,7 @@ import { Usuario } from '../auth/entities/usuario.entity';
 import { Rol } from '../auth/entities/rol.entity';
 import { UsuarioRol } from '../auth/entities/usuario-rol.entity';
 import { Persona } from '../personas/entities/persona.entity';
+import { MofConfig } from '../unidades/entities/mof-config.entity';
 import { AuditoriaService } from '../versiones/auditoria.service';
 import { UsuariosService } from './usuarios.service';
 
@@ -29,6 +30,7 @@ describe('UsuariosService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
+  let mofConfigRepo: { findOne: jest.Mock };
   let auditoria: { registrarCambio: jest.Mock };
   let dataSource: { transaction: jest.Mock };
 
@@ -54,6 +56,9 @@ describe('UsuariosService', () => {
       findOne: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
+    };
+    mofConfigRepo = {
+      findOne: jest.fn().mockResolvedValue({ passwordPolicy: { minLength: 6 } }),
     };
     auditoria = { registrarCambio: jest.fn() };
 
@@ -84,6 +89,7 @@ describe('UsuariosService', () => {
           useValue: usuarioRolRepo,
         },
         { provide: getRepositoryToken(Persona), useValue: personaRepo },
+        { provide: getRepositoryToken(MofConfig), useValue: mofConfigRepo },
         { provide: DataSource, useValue: dataSource },
         { provide: AuditoriaService, useValue: auditoria },
       ],

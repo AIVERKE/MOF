@@ -31,6 +31,10 @@ export const ENDPOINTS = {
     USUARIOS: `${API_BASE_URL}/seguridad/usuarios`,
     USUARIO_ESTADO: (id) => `${API_BASE_URL}/seguridad/usuarios/${id}/estado`,
   },
+  VERSIONES: {
+    LIST: `${API_BASE_URL}/versiones`,
+    DETAIL: (id) => `${API_BASE_URL}/versiones/${id}`,
+  },
 };
 
 /** Diccionario alineado a backend/src/common/errors.ts */

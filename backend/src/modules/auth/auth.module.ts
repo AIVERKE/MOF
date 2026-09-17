@@ -10,11 +10,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { Usuario } from './entities/usuario.entity';
 import { Rol } from './entities/rol.entity';
 import { UsuarioRol } from './entities/usuario-rol.entity';
+import { MofConfig } from '../unidades/entities/mof-config.entity';
 import { resolveJwtSecret } from './jwt-secret.util';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuario, Rol, UsuarioRol]),
+    TypeOrmModule.forFeature([Usuario, Rol, UsuarioRol, MofConfig]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
