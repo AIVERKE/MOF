@@ -33,9 +33,11 @@ import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 import { useAccessibilityStore } from "@/stores/accessibility";
+import { useResponsive } from "@/composables/useResponsive";
 
 const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
+const { isMobile } = useResponsive();
 
 const { mostrar } = useSnackbar();
 
@@ -97,11 +99,22 @@ const openedIds = ref([]);
 const activeActionsUnitId = ref(null);
 const actionsMenuOpen = ref(false);
 
+const expandAll = () => {
+  openedIds.value = collectTreeIds(filteredTreeItems.value);
+};
+
+const collapseAll = () => {
+  openedIds.value = [];
+};
+
 onMounted(async () => {
   await Promise.all([
     unidadesStore.getFetchUnidades(),
     prefetchCatalogs(),
   ]);
+  if (isMobile.value && filteredTreeItems.value?.length) {
+    openedIds.value = collectTreeIds(filteredTreeItems.value);
+  }
 });
 
 const treeItems = computed(() => buildHierarchyTree(unidadesStore.unidades));
@@ -347,6 +360,28 @@ const handleExportCsv = () => {
           clearable
         ></v-text-field>
         <v-spacer></v-spacer>
+        <v-btn
+          variant="tonal"
+          size="small"
+          density="comfortable"
+          class="mr-1"
+          aria-label="Expandir todos los nodos del árbol"
+          @click="expandAll"
+        >
+          <v-icon start size="16">mdi-arrow-expand-all</v-icon>
+          <span class="d-none d-sm-inline">Expandir</span>
+        </v-btn>
+        <v-btn
+          variant="tonal"
+          size="small"
+          density="comfortable"
+          class="mr-2"
+          aria-label="Contraer todos los nodos del árbol"
+          @click="collapseAll"
+        >
+          <v-icon start size="16">mdi-arrow-collapse-all</v-icon>
+          <span class="d-none d-sm-inline">Contraer</span>
+        </v-btn>
         <MofReportMenu
           :loading="loadingReport"
           :has-pdf="true"

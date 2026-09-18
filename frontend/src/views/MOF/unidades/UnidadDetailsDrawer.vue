@@ -33,12 +33,12 @@ const customWidth = ref(520);
 const isResizing = ref(false);
 
 const drawerWidth = computed(() => {
-  if (display.xs.value) return "100%";
+  if (display.smAndDown.value) return "100%";
   return customWidth.value;
 });
 
 const drawerStyle = computed(() => {
-  if (display.xs.value) {
+  if (display.smAndDown.value) {
     return { width: "100% !important", maxWidth: "100vw !important" };
   }
   return {
@@ -386,7 +386,7 @@ const panels = computed(() => {
   >
     <!-- Asa lateral izquierda para redimensionar arrastrando con el mouse -->
     <div
-      v-if="!display.xs.value"
+      v-if="!display.smAndDown.value"
       class="resize-handle"
       @mousedown.prevent="startResizing"
       @touchstart.prevent="startResizingTouch"

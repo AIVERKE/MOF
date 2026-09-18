@@ -46,11 +46,10 @@ export const formatDateForDisplay = (dateStr) => {
  */
 export const PESO_NULO = 99;
 export const PESO_DEFAULT = 10;
-export const DEFAULT_CLASE_COLOR = "#757575";
+export const DEFAULT_CLASE_COLOR = "#4338CA"; // Indigo 700 intenso y saturado
 
 /**
- * Paleta estándar universal Okabe-Ito (Wong, 2011) optimizada para
- * deficiencias de percepción cromática (deuteranopia, protanopia, tritanopia).
+ * Paletas daltónicas universales optimizadas basadas en d3 Well_palettes y Wong (2011)
  */
 export const OKABE_ITO_PALETTE = [
   "#0072B2", // Blue (Azul institucional accesible)
@@ -60,6 +59,47 @@ export const OKABE_ITO_PALETTE = [
   "#CC79A7", // Reddish Purple (Púrpura rojizo)
   "#56B4E9", // Sky Blue (Azul cielo)
   "#F0E442", // Yellow (Amarillo)
+];
+
+export const PROTANOPIA_PALETTE = [
+  "#0072B2",
+  "#E69F00",
+  "#56B4E9",
+  "#009E73",
+  "#F0E442",
+  "#D55E00",
+  "#CC79A7",
+];
+
+export const DEUTERANOPIA_PALETTE = [
+  "#0072B2",
+  "#CC79A7",
+  "#D55E00",
+  "#56B4E9",
+  "#E69F00",
+  "#009E73",
+  "#F0E442",
+];
+
+export const TRITANOPIA_PALETTE = [
+  "#D55E00",
+  "#009E73",
+  "#CC79A7",
+  "#E69F00",
+  "#0072B2",
+  "#56B4E9",
+  "#B91C1C",
+];
+
+export const INTENSE_NODE_PALETTE = [
+  "#1D4ED8", // Azul 700 intenso
+  "#B91C1C", // Rojo 700 intenso
+  "#047857", // Esmeralda 700 intenso
+  "#B45309", // Ámbar 700 intenso
+  "#6D28D9", // Violeta 700 intenso
+  "#BE185D", // Rosa 700 intenso
+  "#0369A1", // Cielo 700 intenso
+  "#C2410C", // Naranja 700 intenso
 ];
 
 const NORMALIZE_CACHE_MAX_SIZE = 1000;
@@ -310,6 +350,13 @@ export const getClaseColor = (val, clases = [], isColorblind = false) => {
   if (val === null || val === undefined || val === "") return DEFAULT_CLASE_COLOR;
 
   if (isColorblind) {
+    let palette = OKABE_ITO_PALETTE;
+    if (typeof isColorblind === "string") {
+      const mode = isColorblind.toLowerCase();
+      if (mode.includes("protan")) palette = PROTANOPIA_PALETTE;
+      else if (mode.includes("deuteran")) palette = DEUTERANOPIA_PALETTE;
+      else if (mode.includes("tritan")) palette = TRITANOPIA_PALETTE;
+    }
     const target = getCampoClase(val) ?? val;
     const item = resolveCatalogItem(target, clases);
     if (item && Array.isArray(clases) && clases.length > 0) {
@@ -321,13 +368,13 @@ export const getClaseColor = (val, clases = [], isColorblind = false) => {
           (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
       );
       if (idx !== -1) {
-        return OKABE_ITO_PALETTE[idx % OKABE_ITO_PALETTE.length];
+        return palette[idx % palette.length];
       }
     }
     if (!item) {
       return DEFAULT_CLASE_COLOR;
     }
-    return OKABE_ITO_PALETTE[0];
+    return palette[0];
   }
 
   if (typeof val === "object" && val.color) return val.color;

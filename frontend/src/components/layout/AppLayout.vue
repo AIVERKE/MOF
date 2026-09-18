@@ -4,28 +4,41 @@
  mail: jperezbenavides@gmail.com
  -->
 <script setup>
-import { ref, computed, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useTheme } from "vuetify";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useAccessibilityStore } from "@/stores/accessibility";
+import { useThemeStore } from "@/stores/theme";
+import { useResponsive } from "@/composables/useResponsive";
 
 const route = useRoute();
 const router = useRouter();
 const theme = useTheme();
-const drawer = ref(true);
 const authStore = useAuthStore();
 const accessibilityStore = useAccessibilityStore();
+const themeStore = useThemeStore();
 const { isVisible, text, color, timeout, cerrar } = useSnackbar();
+const { isMobile, mdAndDown } = useResponsive();
+
+// En móvil y tablet (mdAndDown) inicia colapsado, en desktop abierto
+const drawer = ref(!mdAndDown.value);
+
+watch(mdAndDown, (val) => {
+  if (val) drawer.value = false;
+});
 
 const toggleTheme = () => {
-  accessibilityStore.toggleThemeMode();
-  theme.global.name.value = accessibilityStore.themeMode;
+  const next = theme.global.current.value.dark ? "light" : "dark";
+  themeStore.setTheme(next, theme);
 };
 
-// Aplica el tema persistido al montar el layout (p. ej. tras login).
-theme.global.name.value = accessibilityStore.themeMode;
+onMounted(() => {
+  if (themeStore.currentTheme && theme?.global) {
+    theme.global.name.value = themeStore.currentTheme;
+  }
+});
 
 // --- Lógica de Redimensionamiento ---
 const drawerWidth = ref(260);
@@ -115,8 +128,11 @@ const isAdmin = computed(() => authStore.isAdmin());
 <template>
   <v-app>
     <!-- Barra superior -->
-    <v-app-bar v-if="!isLoginPage" height="70">
-      <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+    <v-app-bar v-if="!isLoginPage" height="70" role="banner" aria-label="Barra de herramientas superior">
+      <v-app-bar-nav-icon
+        aria-label="Alternar menú lateral"
+        @click="drawer = !drawer"
+      ></v-app-bar-nav-icon>
       <v-app-bar-title>
         <v-icon color="primary" size="32" class="mr-2"
           >mdi-view-dashboard</v-icon
@@ -125,43 +141,57 @@ const isAdmin = computed(() => authStore.isAdmin());
       </v-app-bar-title>
       <v-spacer></v-spacer>
 
-      <!-- Icono de Tema (Dark/Light) -->
-      <v-btn icon variant="text" class="mr-1" @click="toggleTheme">
-        <v-icon>{{
-          theme.global.current.value.dark
-            ? "mdi-weather-sunny"
-            : "mdi-weather-night"
-        }}</v-icon>
-        <v-tooltip activator="parent" location="bottom">
-          Cambiar a modo
-          {{ theme.global.current.value.dark ? "claro" : "oscuro" }}
-        </v-tooltip>
-      </v-btn>
+      <!-- Menú Selector de 5 Temas y Accesibilidad Daltónica -->
+      <v-menu location="bottom end" transition="scale-transition">
+        <template v-slot:activator="{ props }">
+          <v-btn
+            icon
+            variant="text"
+            v-bind="props"
+            class="mr-2"
+            aria-label="Seleccionar tema visual y accesibilidad"
+          >
+            <v-icon :color="themeStore.isColorblind ? 'primary' : undefined">
+              {{ themeStore.activeThemeInfo.icon }}
+            </v-icon>
+            <v-tooltip activator="parent" location="bottom">
+              Tema: {{ themeStore.activeThemeInfo.name }}
+            </v-tooltip>
+          </v-btn>
+        </template>
+        <v-list density="compact" elevation="4" class="rounded-lg py-1" min-width="230" role="menu">
+          <v-list-subheader class="font-weight-black text-uppercase text-caption">
+            Temas y Accesibilidad
+          </v-list-subheader>
+          <v-list-item
+            v-for="t in themeStore.themeList"
+            :key="t.id"
+            :value="t.id"
+            :class="{ 'bg-primary-lighten-5 font-weight-bold text-primary': themeStore.currentTheme === t.id }"
+            class="cursor-pointer"
+            role="menuitem"
+            @click="themeStore.setTheme(t.id, theme)"
+          >
+            <template v-slot:prepend>
+              <v-icon :color="themeStore.currentTheme === t.id ? 'primary' : 'grey-darken-1'" class="mr-2">
+                {{ t.icon }}
+              </v-icon>
+            </template>
+            <v-list-item-title class="font-weight-bold text-caption">
+              {{ t.name }}
+            </v-list-item-title>
+            <v-list-item-subtitle style="font-size: 10px;">
+              {{ t.desc }}
+            </v-list-item-subtitle>
+            <template v-slot:append v-if="themeStore.currentTheme === t.id">
+              <v-icon color="primary" size="16">mdi-check</v-icon>
+            </template>
+          </v-list-item>
+        </v-list>
+      </v-menu>
 
-      <!-- Toggle Modo Daltónico (Accesibilidad Colorblind-Safe) -->
-      <v-btn
-        icon
-        variant="text"
-        class="mr-2"
-        :color="accessibilityStore.colorblindMode ? 'primary' : undefined"
-        @click="accessibilityStore.toggleColorblindMode"
-      >
-        <v-icon>{{
-          accessibilityStore.colorblindMode
-            ? "mdi-eye-check"
-            : "mdi-eye-outline"
-        }}</v-icon>
-        <v-tooltip activator="parent" location="bottom">
-          {{
-            accessibilityStore.colorblindMode
-              ? "Desactivar modo daltónico (accesible)"
-              : "Activar modo daltónico (accesible)"
-          }}
-        </v-tooltip>
-      </v-btn>
-
-      <!-- Notificaciones (Sin contador hardcodeado) -->
-      <v-btn icon variant="text" class="mr-2">
+      <!-- Notificaciones -->
+      <v-btn icon variant="text" class="mr-2" aria-label="Notificaciones">
         <v-icon>mdi-bell-outline</v-icon>
         <v-tooltip activator="parent" location="bottom"
           >Notificaciones</v-tooltip
@@ -208,7 +238,8 @@ const isAdmin = computed(() => authStore.isAdmin());
       v-if="!isLoginPage"
       v-model="drawer"
       app
-      :width="actualDrawerWidth"
+      :temporary="mdAndDown"
+      :width="mdAndDown ? 280 : actualDrawerWidth"
       class="resizable-drawer"
     >
       <div class="pa-2">
@@ -293,15 +324,20 @@ const isAdmin = computed(() => authStore.isAdmin());
         </div>
       </template>
 
-      <!-- Manejador para redimensionar -->
-      <div class="resize-handle" @mousedown="startResizing" @touchstart="startResizingTouch"></div>
+      <!-- Manejador para redimensionar (solo en escritorio) -->
+      <div
+        v-if="!mdAndDown"
+        class="resize-handle"
+        @mousedown="startResizing"
+        @touchstart="startResizingTouch"
+      ></div>
     </v-navigation-drawer>
 
     <!-- Contenido principal -->
     <v-main>
       <v-container
         fluid
-        :class="isLoginPage ? 'pa-0' : 'pa-6'"
+        :class="isLoginPage ? 'pa-0' : (isMobile ? 'pa-2' : 'pa-6')"
         class="fill-height"
       >
         <router-view />

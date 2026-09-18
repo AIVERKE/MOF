@@ -177,7 +177,7 @@
 .vue-flow__edge-path {
   fill: none !important;
   stroke: #000000 !important;
-  stroke-width: 2px !important;
+  stroke-width: 3px !important;
 }
 .vue-flow__arrowhead,
 marker {
@@ -187,7 +187,7 @@ marker {
 .v-theme--dark .vue-flow__edge-path {
   fill: none !important;
   stroke: #e2e8f0 !important;
-  stroke-width: 2px !important;
+  stroke-width: 3px !important;
 }
 .v-theme--dark .vue-flow__arrowhead,
 .v-theme--dark marker {
