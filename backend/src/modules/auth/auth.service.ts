@@ -151,4 +151,11 @@ export class AuthService {
     user.debeCambiarPassword = false;
     await this.usuarioRepository.save(user);
   }
+
+  /** Política pública (login / primer acceso) sin exponer el resto de mof_config. */
+  async getPasswordPolicy(): Promise<{ minLength: number }> {
+    return {
+      minLength: await resolvePasswordMinLength(this.mofConfigRepo),
+    };
+  }
 }

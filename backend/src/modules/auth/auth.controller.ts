@@ -71,6 +71,17 @@ export class AuthController {
     await this.authService.cambiarPassword(dto);
   }
 
+  @Get('password-policy')
+  @ApiOperation({
+    summary: 'Política de contraseñas (público)',
+    description:
+      'Longitud mínima configurada en mof_config. Usado por Login antes de autenticarse.',
+  })
+  @ApiResponse({ status: 200, description: 'Política de contraseña' })
+  getPasswordPolicy() {
+    return this.authService.getPasswordPolicy();
+  }
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('profile')

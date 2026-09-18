@@ -254,4 +254,16 @@ describe('AuthService', () => {
       });
     });
   });
+
+  describe('getPasswordPolicy', () => {
+    it('returns minLength from mof_config', async () => {
+      mofConfigRepo.findOne.mockResolvedValue({
+        passwordPolicy: { minLength: 10 },
+      });
+
+      await expect(service.getPasswordPolicy()).resolves.toEqual({
+        minLength: 10,
+      });
+    });
+  });
 });
