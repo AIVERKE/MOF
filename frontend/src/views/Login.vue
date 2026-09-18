@@ -1,7 +1,8 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { ENDPOINTS } from '../config/api';
 import { rules } from '../utils/rules';
 import { hints } from '../config/hints';
 
@@ -22,6 +23,21 @@ const ci = ref('');
 const passwordNueva = ref('');
 const passwordConfirmacion = ref('');
 const tempToken = ref('');
+
+/** Longitud mínima desde mof_config (público). Fallback 6 si el API no responde. */
+const passwordMinLength = ref(6);
+
+const passwordRules = computed(() => [
+  rules.required,
+  rules.minLength(passwordMinLength.value),
+]);
+
+const hintPassword = computed(() =>
+  hints.login.password(passwordMinLength.value),
+);
+const hintPasswordNueva = computed(() =>
+  hints.login.passwordNueva(passwordMinLength.value),
+);
 
 const titulos = {
   login: {
@@ -54,6 +70,24 @@ function irA(destino) {
     tempToken.value = '';
   }
 }
+
+async function loadPasswordPolicy() {
+  try {
+    const response = await fetch(ENDPOINTS.AUTH.PASSWORD_POLICY);
+    if (!response.ok) return;
+    const data = await response.json();
+    const n = Number(data?.minLength ?? data?.data?.minLength);
+    if (Number.isFinite(n) && n >= 6) {
+      passwordMinLength.value = n;
+    }
+  } catch {
+    // Degradación: se mantiene el fallback 6
+  }
+}
+
+onMounted(() => {
+  loadPasswordPolicy();
+});
 
 const handleLogin = async () => {
   if (!formValid.value) {
@@ -245,9 +279,9 @@ const handleDefinirPassword = async () => {
                     variant="outlined"
                     density="comfortable"
                     class="mb-6"
-                    :hint="hints.login.password"
-                    :persistent-hint="false"
-                    :rules="[rules.required, rules.minLength(6)]"
+                    :hint="hintPassword"
+                    :persistent-hint="true"
+                    :rules="passwordRules"
                     :disabled="loading"
                     autocomplete="current-password"
                     @click:append-inner="showPassword = !showPassword"
@@ -365,9 +399,9 @@ const handleDefinirPassword = async () => {
                     variant="outlined"
                     density="comfortable"
                     class="mb-4"
-                    :hint="hints.login.passwordNueva"
-                    :persistent-hint="false"
-                    :rules="[rules.required, rules.minLength(6)]"
+                    :hint="hintPasswordNueva"
+                    :persistent-hint="true"
+                    :rules="passwordRules"
                     :disabled="loading"
                     autocomplete="new-password"
                     @click:append-inner="showPassword = !showPassword"

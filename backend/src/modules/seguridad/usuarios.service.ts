@@ -14,6 +14,8 @@ import { Rol } from '../auth/entities/rol.entity';
 import { UsuarioRol } from '../auth/entities/usuario-rol.entity';
 import { Persona } from '../personas/entities/persona.entity';
 import { AuditoriaService } from '../versiones/auditoria.service';
+import { MofConfig } from '../unidades/entities/mof-config.entity';
+import { resolvePasswordMinLength } from '../../common/password-policy.util';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 
@@ -53,6 +55,8 @@ export class UsuariosService {
     private readonly usuarioRolRepo: Repository<UsuarioRol>,
     @InjectRepository(Persona)
     private readonly personaRepo: Repository<Persona>,
+    @InjectRepository(MofConfig)
+    private readonly mofConfigRepo: Repository<MofConfig>,
     private readonly dataSource: DataSource,
     private readonly auditoria: AuditoriaService,
   ) {}
@@ -249,6 +253,13 @@ export class UsuariosService {
     }
 
     if (dto.password) {
+      const minLength = await resolvePasswordMinLength(this.mofConfigRepo);
+      if (dto.password.length < minLength) {
+        throw new BusinessException(
+          `La contraseña debe tener al menos ${minLength} caracteres`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       user.passwordHash = await bcrypt.hash(dto.password, 10);
       // El admin le dio una contraseña conocida: ya no necesita el primer acceso.
       user.debeCambiarPassword = false;

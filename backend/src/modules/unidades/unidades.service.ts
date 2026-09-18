@@ -10,6 +10,12 @@ import { CatalogoNivel } from '../catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../catalogos/entities/catalogo-relacion.entity';
 import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
 import {
+  MofConfig,
+  type MofConfigDefaults,
+  type MofConfigReglas,
+  type MofPasswordPolicy,
+} from './entities/mof-config.entity';
+import {
   DependenciaFuncionalDto,
   SetParentDto,
   UnidadDto,
@@ -17,6 +23,7 @@ import {
   UnidadRelacionExternaDto,
   UnidadRelacionInternaDto,
 } from './dto/unidad.dto';
+import { UpdateMofConfigDto } from './dto/mof-config.dto';
 import {
   BusinessException,
   notFound,
@@ -25,6 +32,42 @@ import {
 import { ErrorCodes } from '../../common/errors';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+
+/** Valores históricos usados cuando aún no hay fila en mof_config. */
+export const MOF_CONFIG_FALLBACK = {
+  defaults: {
+    tipo: 1,
+    nivel: 1,
+    relacion: 1,
+    clase: 1,
+    color: '#1976D2',
+    lado: 'AUTOMATICO',
+    oficial: true,
+    es_troncal: false,
+  } as MofConfigDefaults,
+  reglas: {
+    pesoNulo: 99,
+    pesoDefault: 10,
+    defaultClaseColor: '#757575',
+    staffRelacionCodigos: ['S'],
+    ladoTroncalForzado: 'CENTRO',
+  } as MofConfigReglas,
+  paleta: [
+    ['#1976D2', '#2196F3', '#03A9F4', '#00BCD4', '#00ACC1'],
+    ['#2E7D32', '#4CAF50', '#8BC34A', '#CDDC39', '#C0CA33'],
+    ['#FF8F00', '#FFA000', '#FFC107', '#FFEB3B', '#FDD835'],
+    ['#C62828', '#E53935', '#F44336', '#EF5350', '#E91E63'],
+    ['#6A1B9A', '#8E24AA', '#9C27B0', '#AB47BC', '#BA68C8'],
+    ['#E65100', '#EF6C00', '#F57C00', '#FB8C00', '#FF9800'],
+    ['#00695C', '#00796B', '#00897B', '#009688', '#26A69A'],
+    ['#1A237E', '#283593', '#303F9F', '#3949AB', '#3F51B5'],
+    ['#37474F', '#455A64', '#607D8B', '#78909C', '#90A4AE'],
+    ['#4E342E', '#5D4037', '#6D4C41', '#795548', '#8D6E63'],
+    ['#212121', '#424242', '#616161', '#757575', '#9E9E9E'],
+    ['#BF360C', '#D84315', '#E64A19', '#F4511E', '#FF5722'],
+  ] as string[][],
+  passwordPolicy: { minLength: 6 } as MofPasswordPolicy,
+};
 
 @Injectable()
 export class UnidadesService {
@@ -49,6 +92,8 @@ export class UnidadesService {
     private readonly relacionRepo: Repository<CatalogoRelacion>,
     @InjectRepository(TipoUnidad)
     private readonly claseRepo: Repository<TipoUnidad>,
+    @InjectRepository(MofConfig)
+    private readonly mofConfigRepo: Repository<MofConfig>,
   ) {}
 
   private async resolveCatalogId(
@@ -1136,39 +1181,66 @@ export class UnidadesService {
     };
   }
 
-  getConfig() {
+  async getConfig() {
+    const row = await this.mofConfigRepo.findOne({ where: { id: 1 } });
+    if (!row) {
+      return { ...MOF_CONFIG_FALLBACK };
+    }
     return {
-      defaults: {
-        tipo: 1,
-        nivel: 1,
-        relacion: 1,
-        clase: 1,
-        color: '#1976D2',
-        lado: 'AUTOMATICO',
-        oficial: true,
-        es_troncal: false,
+      defaults: { ...MOF_CONFIG_FALLBACK.defaults, ...(row.defaults || {}) },
+      reglas: { ...MOF_CONFIG_FALLBACK.reglas, ...(row.reglas || {}) },
+      paleta:
+        Array.isArray(row.paleta) && row.paleta.length > 0
+          ? row.paleta
+          : MOF_CONFIG_FALLBACK.paleta,
+      passwordPolicy: {
+        ...MOF_CONFIG_FALLBACK.passwordPolicy,
+        ...(row.passwordPolicy || {}),
       },
-      reglas: {
-        pesoNulo: 99,
-        pesoDefault: 10,
-        defaultClaseColor: '#757575',
-        staffRelacionCodigos: ['S'],
-        ladoTroncalForzado: 'CENTRO',
-      },
-      paleta: [
-        ['#1976D2', '#2196F3', '#03A9F4', '#00BCD4', '#00ACC1'],
-        ['#2E7D32', '#4CAF50', '#8BC34A', '#CDDC39', '#C0CA33'],
-        ['#FF8F00', '#FFA000', '#FFC107', '#FFEB3B', '#FDD835'],
-        ['#C62828', '#E53935', '#F44336', '#EF5350', '#E91E63'],
-        ['#6A1B9A', '#8E24AA', '#9C27B0', '#AB47BC', '#BA68C8'],
-        ['#E65100', '#EF6C00', '#F57C00', '#FB8C00', '#FF9800'],
-        ['#00695C', '#00796B', '#00897B', '#009688', '#26A69A'],
-        ['#1A237E', '#283593', '#303F9F', '#3949AB', '#3F51B5'],
-        ['#37474F', '#455A64', '#607D8B', '#78909C', '#90A4AE'],
-        ['#4E342E', '#5D4037', '#6D4C41', '#795548', '#8D6E63'],
-        ['#212121', '#424242', '#616161', '#757575', '#9E9E9E'],
-        ['#BF360C', '#D84315', '#E64A19', '#F4511E', '#FF5722'],
-      ],
     };
+  }
+
+  async getPasswordMinLength(): Promise<number> {
+    const config = await this.getConfig();
+    const min = Number(config.passwordPolicy?.minLength);
+    return Number.isFinite(min) && min >= 6 ? min : 6;
+  }
+
+  async updateConfig(dto: UpdateMofConfigDto) {
+    let row = await this.mofConfigRepo.findOne({ where: { id: 1 } });
+    if (!row) {
+      row = this.mofConfigRepo.create({
+        id: 1,
+        ...MOF_CONFIG_FALLBACK,
+      });
+    }
+
+    if (dto.defaults) {
+      row.defaults = { ...row.defaults, ...dto.defaults };
+    }
+    if (dto.reglas) {
+      row.reglas = { ...row.reglas, ...dto.reglas };
+    }
+    if (dto.paleta) {
+      for (const fila of dto.paleta) {
+        if (!Array.isArray(fila) || fila.some((c) => typeof c !== 'string')) {
+          throw new BusinessException(
+            'La paleta debe ser una grilla de colores hexadecimales',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+      row.paleta = dto.paleta;
+    }
+    if (dto.passwordPolicy) {
+      row.passwordPolicy = {
+        ...MOF_CONFIG_FALLBACK.passwordPolicy,
+        ...row.passwordPolicy,
+        ...dto.passwordPolicy,
+      };
+    }
+
+    await this.mofConfigRepo.save(row);
+    return this.getConfig();
   }
 }

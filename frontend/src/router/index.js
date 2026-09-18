@@ -20,7 +20,13 @@ const router = createRouter({
       path: '/usuarios',
       name: 'usuarios',
       component: () => import('../views/Usuarios.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, roles: ['ADMIN'] }
+    },
+    {
+      path: '/auditoria',
+      name: 'auditoria',
+      component: () => import('../views/Auditoria.vue'),
+      meta: { requiresAuth: true, roles: ['ADMIN'] }
     },
     {
       path: '/productos',
@@ -79,11 +85,28 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next('/')
-  } else if (to.path === '/' && isAuthenticated) {
-    next('/dashboard')
-  } else {
-    next()
+    return
   }
+
+  if (to.path === '/' && isAuthenticated) {
+    next('/dashboard')
+    return
+  }
+
+  const requiredRoles = to.meta.roles
+  if (
+    Array.isArray(requiredRoles) &&
+    requiredRoles.length > 0 &&
+    isAuthenticated
+  ) {
+    const allowed = requiredRoles.some((role) => authStore.hasRole(role))
+    if (!allowed) {
+      next('/dashboard')
+      return
+    }
+  }
+
+  next()
 })
 
 export default router

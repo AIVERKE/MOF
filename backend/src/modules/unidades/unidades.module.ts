@@ -16,6 +16,7 @@ import { CatalogoTipo } from '../catalogos/entities/catalogo-tipo.entity';
 import { CatalogoNivel } from '../catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../catalogos/entities/catalogo-relacion.entity';
 import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
+import { MofConfig } from './entities/mof-config.entity';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
       CatalogoNivel,
       CatalogoRelacion,
       TipoUnidad,
+      MofConfig,
     ]),
   ],
   controllers: [MofUnidadesController],

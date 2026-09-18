@@ -1,15 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { ErrorCodes } from '../../common/errors';
-import { throwBusiness } from '../../common/exceptions/business.exception';
+import {
+  BusinessException,
+  throwBusiness,
+} from '../../common/exceptions/business.exception';
+import { resolvePasswordMinLength } from '../../common/password-policy.util';
 import { CambiarPasswordDto } from './dto/cambiar-password.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { PrimerAccesoDto } from './dto/primer-acceso.dto';
 import { PrimerAccesoResponseDto } from './dto/primer-acceso-response.dto';
 import { Usuario } from './entities/usuario.entity';
+import { MofConfig } from '../unidades/entities/mof-config.entity';
 
 export type AuthUser = {
   id: string;
@@ -32,6 +37,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @InjectRepository(Usuario)
     private readonly usuarioRepository: Repository<Usuario>,
+    @InjectRepository(MofConfig)
+    private readonly mofConfigRepo: Repository<MofConfig>,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<AuthUser | null> {
@@ -132,8 +139,23 @@ export class AuthService {
       throwBusiness(ErrorCodes.PRIMER_ACCESO_INVALIDO);
     }
 
+    const minLength = await resolvePasswordMinLength(this.mofConfigRepo);
+    if (!dto.password || dto.password.length < minLength) {
+      throw new BusinessException(
+        `La contraseña debe tener al menos ${minLength} caracteres`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     user.passwordHash = await bcrypt.hash(dto.password, 10);
     user.debeCambiarPassword = false;
     await this.usuarioRepository.save(user);
+  }
+
+  /** Política pública (login / primer acceso) sin exponer el resto de mof_config. */
+  async getPasswordPolicy(): Promise<{ minLength: number }> {
+    return {
+      minLength: await resolvePasswordMinLength(this.mofConfigRepo),
+    };
   }
 }
