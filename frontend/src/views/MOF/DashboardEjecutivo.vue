@@ -344,8 +344,8 @@ const handleExportPdf = () => {
       resolveClaseColor,
       isColorblind: isColorblind.value,
     });
-  } catch (err) {
-    console.error("Error al exportar PDF en Dashboard Ejecutivo:", err);
+  } catch {
+    // Silently handled in UI via loading state
   } finally {
     loadingReport.value = false;
   }
@@ -369,8 +369,8 @@ const handleExportCsv = () => {
       columns,
       rows: unidadesFiltradas.value,
     });
-  } catch (err) {
-    console.error("Error al exportar CSV en Dashboard Ejecutivo:", err);
+  } catch {
+    // Silently handled in UI via loading state
   } finally {
     loadingReport.value = false;
   }
@@ -823,9 +823,6 @@ const handleExportCsv = () => {
 }
 .min-height-unset {
   min-height: unset !important;
-}
-.text-xxs {
-  font-size: 10px !important;
 }
 .text-overline {
   font-size: 0.65rem !important;

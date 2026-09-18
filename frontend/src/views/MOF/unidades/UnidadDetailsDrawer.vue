@@ -895,12 +895,6 @@ const panels = computed(() => {
   overflow-x: hidden;
 }
 
-.text-xxs {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
 .unidad-accordion {
   width: 100%;
 }
