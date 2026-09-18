@@ -30,6 +30,7 @@ import {
   UnidadRelacionExternaDto,
   UnidadRelacionInternaDto,
 } from './dto/unidad.dto';
+import { UpdateMofConfigDto } from './dto/mof-config.dto';
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -60,7 +61,19 @@ export class MofUnidadesController {
   async config() {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
-      this.unidadesService.getConfig(),
+      await this.unidadesService.getConfig(),
+    );
+  }
+
+  @Put('config')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'Actualizar configuración MOF (defaults, reglas, paleta, política de contraseña)',
+  })
+  async updateConfig(@Body() dto: UpdateMofConfigDto) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.updateConfig(dto),
     );
   }
 

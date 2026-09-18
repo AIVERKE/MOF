@@ -11,6 +11,7 @@ export const ENDPOINTS = {
     LOGIN: `${API_BASE_URL}/auth/login`,
     PRIMER_ACCESO: `${API_BASE_URL}/auth/primer-acceso`,
     CAMBIAR_PASSWORD: `${API_BASE_URL}/auth/cambiar-password`,
+    PASSWORD_POLICY: `${API_BASE_URL}/auth/password-policy`,
   },
   MOF: {
     TIPOS: `${API_BASE_URL}/api/v1/mof/tipos`,
@@ -30,6 +31,10 @@ export const ENDPOINTS = {
   SEGURIDAD: {
     USUARIOS: `${API_BASE_URL}/seguridad/usuarios`,
     USUARIO_ESTADO: (id) => `${API_BASE_URL}/seguridad/usuarios/${id}/estado`,
+  },
+  VERSIONES: {
+    LIST: `${API_BASE_URL}/versiones`,
+    DETAIL: (id) => `${API_BASE_URL}/versiones/${id}`,
   },
 };
 

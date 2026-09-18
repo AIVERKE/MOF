@@ -22,7 +22,10 @@ const vuetify = createVuetify({
         messages: { es },       //
     },
     theme: {
-        defaultTheme: 'light',
+        defaultTheme:
+            typeof localStorage !== "undefined"
+                ? (localStorage.getItem("mof_theme_mode") || localStorage.getItem("mof_theme") || "light")
+                : "light",
         themes,
     }
 })

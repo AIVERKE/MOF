@@ -155,12 +155,12 @@ export const hints = {
   login: {
     email:
       "Ingrese su correo institucional habilitado (ej: usuario@umsa.bo)",
-    password:
-      "Ingrese su contraseña de acceso al sistema (mínimo 6 caracteres)",
+    password: (minLength = 6) =>
+      `Ingrese su contraseña de acceso al sistema (mínimo ${minLength} caracteres)`,
     ci:
       "Número de carnet de identidad registrado por el administrador al crear su cuenta",
-    passwordNueva:
-      "Defina su contraseña personal de acceso (mínimo 6 caracteres)",
+    passwordNueva: (minLength = 6) =>
+      `Defina su contraseña personal de acceso (mínimo ${minLength} caracteres)`,
     passwordConfirmacion:
       "Repita la contraseña para confirmar que coincide",
   },

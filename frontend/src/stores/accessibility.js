@@ -2,10 +2,17 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export const STORAGE_KEY_COLORBLIND = "mof_colorblind_mode";
+export const STORAGE_KEY_THEME = "mof_theme";
 
 function readStoredColorblindMode() {
   if (typeof window === "undefined" || !window.localStorage) return false;
   return localStorage.getItem(STORAGE_KEY_COLORBLIND) === "true";
+}
+
+function readStoredThemeMode() {
+  if (typeof window === "undefined" || !window.localStorage) return "light";
+  const stored = localStorage.getItem(STORAGE_KEY_THEME);
+  return stored === "dark" ? "dark" : "light";
 }
 
 function updateRootClass(enabled) {
@@ -20,8 +27,9 @@ function updateRootClass(enabled) {
 
 export const useAccessibilityStore = defineStore("accessibility", () => {
   const colorblindMode = ref(readStoredColorblindMode());
+  /** Preferencia de tema Vuetify: 'light' | 'dark' (persistida). */
+  const themeMode = ref(readStoredThemeMode());
 
-  // Inicializar clase raíz al cargar la tienda
   updateRootClass(colorblindMode.value);
 
   function setColorblindMode(value) {
@@ -36,9 +44,23 @@ export const useAccessibilityStore = defineStore("accessibility", () => {
     setColorblindMode(!colorblindMode.value);
   }
 
+  function setThemeMode(mode) {
+    themeMode.value = mode === "dark" ? "dark" : "light";
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem(STORAGE_KEY_THEME, themeMode.value);
+    }
+  }
+
+  function toggleThemeMode() {
+    setThemeMode(themeMode.value === "dark" ? "light" : "dark");
+  }
+
   return {
     colorblindMode,
+    themeMode,
     setColorblindMode,
     toggleColorblindMode,
+    setThemeMode,
+    toggleThemeMode,
   };
 });

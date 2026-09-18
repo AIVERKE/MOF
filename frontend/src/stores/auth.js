@@ -110,6 +110,15 @@ export const useAuthStore = defineStore("auth", () => {
     return token.value ? { Authorization: `Bearer ${token.value}` } : {};
   }
 
+  function hasRole(codigo) {
+    const roles = user.value?.roles;
+    return Array.isArray(roles) && roles.includes(codigo);
+  }
+
+  function isAdmin() {
+    return hasRole("ADMIN");
+  }
+
   return {
     token,
     user,
@@ -118,5 +127,7 @@ export const useAuthStore = defineStore("auth", () => {
     cambiarPassword,
     logout,
     getAuthHeader,
+    hasRole,
+    isAdmin,
   };
 });

@@ -1,10 +1,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useUsuariosStore } from '@/stores/usuarios'
+import { useConfigMofStore } from '@/stores/config_mof'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { hints } from '@/config/hints'
 
 const usuariosStore = useUsuariosStore()
+const configStore = useConfigMofStore()
 const { mostrar: showSnackbar } = useSnackbar()
 
 const search = ref('')
@@ -65,6 +67,7 @@ function roleColor(rol) {
 
 onMounted(() => {
   usuariosStore.fetchUsuarios()
+  configStore.fetchConfig()
 })
 
 const openUserDialog = (item = null) => {
@@ -105,8 +108,15 @@ const handleSave = async () => {
     showSnackbar('Los nombres son obligatorios', 'warning')
     return
   }
-  if (selectedUser.value && form.value.password && form.value.password.length < 6) {
-    showSnackbar('La contraseña debe tener al menos 6 caracteres', 'warning')
+  if (
+    selectedUser.value &&
+    form.value.password &&
+    form.value.password.length < configStore.passwordMinLength
+  ) {
+    showSnackbar(
+      `La contraseña debe tener al menos ${configStore.passwordMinLength} caracteres`,
+      'warning',
+    )
     return
   }
 
@@ -375,7 +385,7 @@ const handleDelete = async () => {
                 type="password"
                 autocomplete="new-password"
                 class="mb-2"
-                :hint="hints.usuarios.passwordEdit"
+                :hint="`Opcional. Mínimo ${configStore.passwordMinLength} caracteres.`"
                 :persistent-hint="false"
               ></v-text-field>
             </v-col>

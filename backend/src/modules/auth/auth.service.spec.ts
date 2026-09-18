@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { ErrorCodes } from '../../common/errors';
 import { AuthService, PROPOSITO_CAMBIO_PASSWORD } from './auth.service';
 import { Usuario } from './entities/usuario.entity';
+import { MofConfig } from '../unidades/entities/mof-config.entity';
 
 jest.mock('bcryptjs');
 
@@ -14,6 +15,7 @@ describe('AuthService', () => {
   let usuarioRepository: jest.Mocked<
     Pick<Repository<Usuario>, 'findOne' | 'save'>
   >;
+  let mofConfigRepo: { findOne: jest.Mock };
   let jwtService: jest.Mocked<Pick<JwtService, 'sign' | 'verifyAsync'>>;
 
   const mockUser = {
@@ -31,6 +33,9 @@ describe('AuthService', () => {
       findOne: jest.fn(),
       save: jest.fn(),
     };
+    mofConfigRepo = {
+      findOne: jest.fn().mockResolvedValue({ passwordPolicy: { minLength: 6 } }),
+    };
     jwtService = {
       sign: jest.fn().mockReturnValue('signed.jwt.token'),
       verifyAsync: jest.fn(),
@@ -43,6 +48,10 @@ describe('AuthService', () => {
         {
           provide: getRepositoryToken(Usuario),
           useValue: usuarioRepository,
+        },
+        {
+          provide: getRepositoryToken(MofConfig),
+          useValue: mofConfigRepo,
         },
       ],
     }).compile();
@@ -242,6 +251,18 @@ describe('AuthService', () => {
         service.cambiarPassword({ token: 'bad.token', password: 'x123456' }),
       ).rejects.toMatchObject({
         errorCode: ErrorCodes.PRIMER_ACCESO_INVALIDO,
+      });
+    });
+  });
+
+  describe('getPasswordPolicy', () => {
+    it('returns minLength from mof_config', async () => {
+      mofConfigRepo.findOne.mockResolvedValue({
+        passwordPolicy: { minLength: 10 },
+      });
+
+      await expect(service.getPasswordPolicy()).resolves.toEqual({
+        minLength: 10,
       });
     });
   });
