@@ -302,6 +302,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
           variant="outlined"
           density="comfortable"
           rounded="lg"
+          aria-label="Alternar vista de tabla o tarjetas"
           @update:model-value="toggleCardView"
         >
           <v-btn value="table" class="px-2">
