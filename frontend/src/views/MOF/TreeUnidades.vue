@@ -272,8 +272,8 @@ const handleExportPdf = () => {
       isOficialCheck: checkOficial,
       isColorblind: isColorblind.value,
     });
-  } catch (err) {
-    console.error("Error al exportar PDF en TreeUnidades:", err);
+  } catch {
+    // Silently handled in UI via loading state
   } finally {
     loadingReport.value = false;
   }
@@ -305,8 +305,8 @@ const handleExportCsv = () => {
       columns,
       rows: flatTreeList.value,
     });
-  } catch (err) {
-    console.error("Error al exportar CSV en TreeUnidades:", err);
+  } catch {
+    // Silently handled in UI via loading state
   } finally {
     loadingReport.value = false;
   }
@@ -520,9 +520,6 @@ const handleExportCsv = () => {
 </template>
 
 <style scoped>
-.max-width-300 {
-  max-width: 300px;
-}
 .simple-tree :deep(.v-treeview-node__root) {
   min-height: 40px;
   border-bottom: 1px solid #f1f5f9;

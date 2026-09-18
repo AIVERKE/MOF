@@ -196,13 +196,13 @@ const stats = computed(() => [
               <v-col cols="6">
                 <v-btn block variant="tonal" color="indigo" height="80" class="flex-column" to="/mof/listar-unidades">
                   <v-icon size="28" class="mb-1">mdi-format-list-bulleted</v-icon>
-                  <span class="text-xxs">Lista</span>
+                  <span class="text-xxs text-uppercase">Lista</span>
                 </v-btn>
               </v-col>
               <v-col cols="6">
                 <v-btn block variant="tonal" color="teal" height="80" class="flex-column" to="/configuracion">
                   <v-icon size="28" class="mb-1">mdi-cog-outline</v-icon>
-                  <span class="text-xxs">Ajustes</span>
+                  <span class="text-xxs text-uppercase">Ajustes</span>
                 </v-btn>
               </v-col>
             </v-row>
@@ -215,7 +215,6 @@ const stats = computed(() => [
 
 <style scoped>
 .line-height-1-1 { line-height: 1.1; }
-.text-xxs { font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .hover-scale { transition: transform 0.2s; }
 .hover-scale:hover { transform: scale(1.02); }
 </style>

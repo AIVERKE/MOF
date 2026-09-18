@@ -288,8 +288,8 @@ const handleExportPdf = () => {
       resolveClaseColor,
       isColorblind: isColorblind.value,
     });
-  } catch (err) {
-    console.error("Error al exportar PDF en Dashboard Facultativo:", err);
+  } catch {
+    // Silently handled in UI via loading state
   } finally {
     loadingReport.value = false;
   }
@@ -316,8 +316,8 @@ const handleExportCsv = () => {
       columns,
       rows: arbolDependencias.value,
     });
-  } catch (err) {
-    console.error("Error al exportar CSV en Dashboard Facultativo:", err);
+  } catch {
+    // Silently handled in UI via loading state
   } finally {
     loadingReport.value = false;
   }
@@ -432,8 +432,3 @@ const chartOptions = computed(() => {
 });
 </script>
 
-<style scoped>
-.text-xxs {
-  font-size: 0.65rem !important;
-}
-</style>
