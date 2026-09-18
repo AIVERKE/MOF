@@ -21,6 +21,9 @@ const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
 const showInfoAlert = ref(true);
 
+import { useResponsiveTable } from "@/composables/useResponsiveTable";
+const { isCardView, toggleCardView, smAndDown } = useResponsiveTable();
+
 const unidadesStore = useAllUnidadesMofStore();
 const clasesStore = useAllClasesMofStore();
 const nivelesStore = useAllNivelesMofStore();
@@ -697,11 +700,131 @@ const handleExportCsv = () => {
             color="primary"
             variant="flat"
             size="small"
-            class="font-weight-black px-4"
+            class="font-weight-black px-4 mr-2"
             >{{ unidadesFiltradas.length }} ITEMS</v-chip
           >
+          <v-btn-toggle
+            :model-value="isCardView ? 'cards' : 'table'"
+            mandatory
+            color="primary"
+            variant="outlined"
+            density="compact"
+            rounded="lg"
+            @update:model-value="toggleCardView"
+          >
+            <v-btn value="table" size="small" class="px-2">
+              <v-icon size="16">mdi-table</v-icon>
+              <v-tooltip activator="parent" location="top">Vista de tabla</v-tooltip>
+            </v-btn>
+            <v-btn value="cards" size="small" class="px-2">
+              <v-icon size="16">mdi-view-grid-outline</v-icon>
+              <v-tooltip activator="parent" location="top">Vista de tarjetas (móvil)</v-tooltip>
+            </v-btn>
+          </v-btn-toggle>
         </v-card-title>
-        <v-table density="compact" fixed-header height="500px" hover>
+
+        <!-- VISTA DE TARJETAS PARA DISPOSITIVOS MÓVILES (xs/sm) -->
+        <div v-if="isCardView" class="pa-4 bg-slate-50">
+          <v-row v-if="unidadesFiltradas.length" dense>
+            <v-col
+              v-for="u in unidadesFiltradas"
+              :key="u.id"
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-card
+                class="rounded-xl border position-relative overflow-hidden"
+                elevation="1"
+                :class="getRowClass(u)"
+              >
+                <!-- Indicador de color lateral -->
+                <div
+                  :style="{
+                    backgroundColor: isColorblind
+                      ? resolveClaseColor(u.clase)
+                      : u.color || resolveClaseColor(u.clase),
+                    width: '6px',
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                  }"
+                ></div>
+
+                <div class="pa-3 pl-4">
+                  <div class="d-flex align-center justify-space-between mb-1">
+                    <span class="font-weight-black text-caption text-slate-800">
+                      {{ u.codigo }}
+                    </span>
+                    <span
+                      :class="
+                        isUnidadOficialCheck(u)
+                          ? 'text-success font-weight-bold'
+                          : 'text-grey'
+                      "
+                      style="font-size: 10px;"
+                    >
+                      {{ isUnidadOficialCheck(u) ? 'OFICIAL' : 'NO OFICIAL' }}
+                    </span>
+                  </div>
+
+                  <div class="text-body-2 font-weight-bold text-slate-900 mb-2">
+                    {{ u.nombre || u.denominacion }}
+                    <v-chip
+                      v-if="u.sigla && u.sigla !== '-'"
+                      size="x-small"
+                      label
+                      variant="outlined"
+                      color="primary"
+                      class="font-weight-bold text-xxs ml-1"
+                    >
+                      {{ u.sigla }}
+                    </v-chip>
+                  </div>
+
+                  <div class="d-flex align-center flex-wrap gap-1 mt-1">
+                    <v-chip
+                      size="x-small"
+                      label
+                      class="font-weight-bold"
+                      :style="{
+                        backgroundColor: resolveClaseColor(u.clase),
+                        color: getContrastingTextColor(resolveClaseColor(u.clase)),
+                      }"
+                    >
+                      {{ resolveClase(u.clase) }}
+                    </v-chip>
+                    <v-chip
+                      size="x-small"
+                      label
+                      variant="tonal"
+                      color="teal-darken-2"
+                      class="font-weight-bold chip-nivel"
+                    >
+                      {{ resolveNivel(u.nivel) }}
+                    </v-chip>
+                    <v-chip
+                      size="x-small"
+                      label
+                      variant="outlined"
+                      color="deep-purple"
+                      class="font-weight-bold chip-relacion"
+                    >
+                      {{ resolveRelacion(u.relacion) }}
+                    </v-chip>
+                  </div>
+                </div>
+              </v-card>
+            </v-col>
+          </v-row>
+          <div v-else class="text-center py-6 text-grey">
+            No hay unidades para mostrar con los filtros aplicados
+          </div>
+        </div>
+
+        <!-- VISTA DE TABLA HORIZONTAL (DESKTOP) -->
+        <v-table v-else density="compact" fixed-header height="500px" hover>
           <thead>
             <tr class="bg-indigo-lighten-5">
               <th class="text-xxs font-weight-black px-4">CÓDIGO</th>

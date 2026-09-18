@@ -218,11 +218,11 @@ const normalizedModel = computed({
                 </v-card-text>
                 <v-card-actions class="pa-4">
                     <v-spacer></v-spacer>
-                    <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
-                    <v-btn color="primary" variant="elevated" @click="saveRelacion" :loading="relacionesStore.loading" :disabled="!relacionName.trim()">
+                    <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="dialog = false">Cancelar</v-btn>
+                    <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" @click="saveRelacion" :loading="relacionesStore.loading" :disabled="!relacionName.trim()">
                         Guardar
                     </v-btn>
-                    <v-btn v-if="editingRelacion" color="error" variant="tonal" @click="deleteRelacion(editingRelacion.id)" :loading="relacionesStore.loading">
+                    <v-btn v-if="editingRelacion" color="error" variant="tonal" class="rounded-lg font-weight-bold px-4" @click="deleteRelacion(editingRelacion.id)" :loading="relacionesStore.loading">
                         Eliminar
                     </v-btn>
                 </v-card-actions>

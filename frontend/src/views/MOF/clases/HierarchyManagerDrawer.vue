@@ -872,10 +872,11 @@ const getDependencies = (item) => {
         </v-card-text>
         <v-card-actions class="pa-4 pt-0">
           <v-spacer />
-          <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
+          <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="dialog = false">Cancelar</v-btn>
           <v-btn
             color="primary"
-            variant="elevated"
+            variant="flat"
+            class="rounded-lg font-weight-bold px-4"
             @click="handleSave"
             :loading="loading"
             :disabled="tab === 4 ? !String(form.nombre || '').trim() : !String(form.descripcion || '').trim()"
@@ -915,9 +916,9 @@ const getDependencies = (item) => {
         <v-divider></v-divider>
         <v-card-actions class="pa-4 bg-grey-lighten-4">
           <v-spacer></v-spacer>
-          <v-btn variant="text" @click="deleteConfirmDialog = false" :disabled="loading" class="font-weight-bold">CANCELAR</v-btn>
-          <v-btn color="red-darken-2" variant="elevated" @click="confirmDelete" :loading="loading" class="px-6 font-weight-bold">
-            SÍ, ELIMINAR PERMANENTEMENTE
+          <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="deleteConfirmDialog = false" :disabled="loading">Cancelar</v-btn>
+          <v-btn color="error" variant="flat" class="rounded-lg font-weight-bold px-4" @click="confirmDelete" :loading="loading">
+            Eliminar Permanentemente
           </v-btn>
         </v-card-actions>
       </v-card>

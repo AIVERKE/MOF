@@ -7,14 +7,18 @@
 import { ref, computed, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import { useTheme } from "vuetify";
+import { useTheme, useDisplay } from "vuetify";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useAccessibilityStore } from "@/stores/accessibility";
 
 const route = useRoute();
 const router = useRouter();
 const theme = useTheme();
-const drawer = ref(true);
+const display = useDisplay();
+const { smAndDown } = display;
+
+// En móvil inicia cerrado como overlay, en desktop abierto permanentemente
+const drawer = ref(!display.smAndDown.value);
 const authStore = useAuthStore();
 const accessibilityStore = useAccessibilityStore();
 const { isVisible, text, color, timeout, cerrar } = useSnackbar();
@@ -201,7 +205,9 @@ const handleLogout = async () => {
       v-if="!isLoginPage"
       v-model="drawer"
       app
-      :width="actualDrawerWidth"
+      :temporary="smAndDown"
+      :permanent="!smAndDown"
+      :width="smAndDown ? Math.min(280, actualDrawerWidth) : actualDrawerWidth"
       class="resizable-drawer"
     >
       <div class="pa-2">
@@ -285,20 +291,49 @@ const handleLogout = async () => {
         </div>
       </template>
 
-      <!-- Manejador para redimensionar -->
-      <div class="resize-handle" @mousedown="startResizing" @touchstart="startResizingTouch"></div>
+      <!-- Manejador para redimensionar (solo en pantallas grandes) -->
+      <div v-if="!smAndDown" class="resize-handle" @mousedown="startResizing" @touchstart="startResizingTouch"></div>
     </v-navigation-drawer>
 
     <!-- Contenido principal -->
     <v-main>
       <v-container
         fluid
-        :class="isLoginPage ? 'pa-0' : 'pa-6'"
+        :class="isLoginPage ? 'pa-0' : 'pa-3 pa-md-6'"
+        :style="smAndDown && !isLoginPage ? 'padding-bottom: 76px !important;' : ''"
         class="fill-height"
       >
         <router-view />
       </v-container>
     </v-main>
+
+    <!-- Barra de navegación inferior táctil para dispositivos móviles (xs/sm) -->
+    <v-bottom-navigation
+      v-if="smAndDown && !isLoginPage"
+      grow
+      fixed
+      color="primary"
+      elevation="8"
+      class="border-t"
+      density="comfortable"
+    >
+      <v-btn to="/dashboard" value="dashboard">
+        <v-icon size="20">mdi-view-dashboard</v-icon>
+        <span style="font-size: 10px;">Inicio</span>
+      </v-btn>
+      <v-btn to="/mof/organigrama-unidades" value="organigrama">
+        <v-icon size="20">mdi-sitemap</v-icon>
+        <span style="font-size: 10px;">Organigrama</span>
+      </v-btn>
+      <v-btn to="/mof/listar-unidades" value="lista">
+        <v-icon size="20">mdi-list-box</v-icon>
+        <span style="font-size: 10px;">Lista</span>
+      </v-btn>
+      <v-btn to="/mof/arbol-unidades" value="arbol">
+        <v-icon size="20">mdi-tree</v-icon>
+        <span style="font-size: 10px;">Árbol</span>
+      </v-btn>
+    </v-bottom-navigation>
 
     <!-- Alerta Snackbar Global Centralizada -->
     <v-snackbar
