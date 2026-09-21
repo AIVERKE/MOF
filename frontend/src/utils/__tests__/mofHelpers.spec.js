@@ -9,13 +9,19 @@ import {
   resolveCatalogItem,
   getClaseNombre,
   getClaseColor,
+  getIntenseNodeColor,
   getCampoClase,
   getPesoReal,
   getHighlightSegments,
+  getContrastingTextColor,
   PESO_NULO,
   PESO_DEFAULT,
   DEFAULT_CLASE_COLOR,
   OKABE_ITO_PALETTE,
+  INTENSE_NODE_PALETTE,
+  PROTANOPIA_PALETTE,
+  DEUTERANOPIA_PALETTE,
+  TRITANOPIA_PALETTE,
 } from "../mofHelpers";
 
 describe("mofHelpers - isUnidadOficial", () => {
@@ -373,3 +379,60 @@ describe("mofHelpers - getHighlightSegments", () => {
     ]);
   });
 });
+
+describe("mofHelpers - getIntenseNodeColor con INTENSE_NODE_PALETTE", () => {
+  const clases = [
+    { id: 1, descripcion: "RECTORADO", color: "#9E9E9E" }, // Color gris legacy
+    { id: 2, descripcion: "FACULTAD", color: "#CCCCCC" }, // Color gris legacy
+    { id: 3, descripcion: "CARRERA" }, // Sin color
+  ];
+
+  it("asigna colores de INTENSE_NODE_PALETTE a clases según su posición", () => {
+    expect(getIntenseNodeColor(1, clases)).toBe(INTENSE_NODE_PALETTE[0]);
+    expect(getIntenseNodeColor(2, clases)).toBe(INTENSE_NODE_PALETTE[1]);
+    expect(getIntenseNodeColor(3, clases)).toBe(INTENSE_NODE_PALETTE[2]);
+  });
+
+  it("en modo daltónico delega a la paleta daltónica correspondiente", () => {
+    expect(getIntenseNodeColor(1, clases, true)).toBe(OKABE_ITO_PALETTE[0]);
+    expect(getIntenseNodeColor(2, clases, true)).toBe(OKABE_ITO_PALETTE[1]);
+  });
+});
+
+describe("mofHelpers - getContrastingTextColor y cumplimiento WCAG AA", () => {
+  function sRGBtoLin(c) {
+    c = c / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+  function getLuminance(hex) {
+    hex = hex.replace("#", "");
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return 0.2126 * sRGBtoLin(r) + 0.7152 * sRGBtoLin(g) + 0.0722 * sRGBtoLin(b);
+  }
+  function calcContrast(hex1, hex2) {
+    const l1 = getLuminance(hex1);
+    const l2 = getLuminance(hex2);
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  it("todos los colores de INTENSE_NODE_PALETTE superan el ratio WCAG AA (>= 4.5:1)", () => {
+    for (const color of INTENSE_NODE_PALETTE) {
+      const textColor = getContrastingTextColor(color);
+      const ratio = calcContrast(color, textColor);
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("todos los colores de OKABE_ITO_PALETTE superan el ratio WCAG AA (>= 4.5:1)", () => {
+    for (const color of OKABE_ITO_PALETTE) {
+      const textColor = getContrastingTextColor(color);
+      const ratio = calcContrast(color, textColor);
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+

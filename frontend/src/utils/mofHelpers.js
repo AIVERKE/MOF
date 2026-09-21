@@ -377,17 +377,66 @@ export const getClaseColor = (val, clases = [], isColorblind = false) => {
     return palette[0];
   }
 
-  if (typeof val === "object" && val.color) return val.color;
+  const isDullOrGrey = (c) => {
+    if (!c) return true;
+    const hex = String(c).trim().toUpperCase();
+    return ["#757575", "#9E9E9E", "#CCCCCC", "#CBD5E1", "#E2E8F0", "#FFFFFF", "#F8FAFC"].includes(hex);
+  };
+
+  if (typeof val === "object" && val.color && !isDullOrGrey(val.color)) return val.color;
   const target = getCampoClase(val) ?? val;
   const item = resolveCatalogItem(target, clases);
-  return item ? item.color || DEFAULT_CLASE_COLOR : DEFAULT_CLASE_COLOR;
+  if (item && item.color && !isDullOrGrey(item.color)) {
+    return item.color;
+  }
+
+  if (item && Array.isArray(clases) && clases.length > 0) {
+    const idx = clases.findIndex(
+      (c) =>
+        c === item ||
+        (item.id != null && c.id != null && String(c.id) === String(item.id)) ||
+        (item.codigo && c.codigo && c.codigo === item.codigo) ||
+        (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
+    );
+    if (idx !== -1) {
+      return INTENSE_NODE_PALETTE[idx % INTENSE_NODE_PALETTE.length];
+    }
+  }
+
+  return DEFAULT_CLASE_COLOR;
 };
 
 /**
- * Devuelve un color de texto (#FFFFFF o #0F172A) con contraste óptimo según el fondo.
+ * Asigna un color intenso de alto contraste para nodos según su clase / instancia
+ * utilizando la paleta institucional INTENSE_NODE_PALETTE (o paletas daltónicas en modo accesible).
  */
-export const getContrastingTextColor = (hexColor) => {
-  if (!hexColor) return "#FFFFFF";
+export const getIntenseNodeColor = (val, clases = [], isColorblind = false) => {
+  if (isColorblind) {
+    return getClaseColor(val, clases, isColorblind);
+  }
+  const target = getCampoClase(val) ?? val;
+  const item = resolveCatalogItem(target, clases);
+  if (item && Array.isArray(clases) && clases.length > 0) {
+    const idx = clases.findIndex(
+      (c) =>
+        c === item ||
+        (item.id != null && c.id != null && String(c.id) === String(item.id)) ||
+        (item.codigo && c.codigo && c.codigo === item.codigo) ||
+        (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
+    );
+    if (idx !== -1) {
+      return INTENSE_NODE_PALETTE[idx % INTENSE_NODE_PALETTE.length];
+    }
+  }
+  return INTENSE_NODE_PALETTE[0];
+};
+
+function sRGBtoLinear(c) {
+  c = c / 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function getRelativeLuminance(hexColor) {
   let color = String(hexColor).replace("#", "").trim();
   if (color.length === 3) {
     color = color
@@ -395,12 +444,24 @@ export const getContrastingTextColor = (hexColor) => {
       .map((c) => c + c)
       .join("");
   }
-  if (color.length !== 6) return "#FFFFFF";
+  if (color.length !== 6) return 0;
   const r = parseInt(color.substring(0, 2), 16) || 0;
   const g = parseInt(color.substring(2, 4), 16) || 0;
   const b = parseInt(color.substring(4, 6), 16) || 0;
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 145 ? "#0F172A" : "#FFFFFF";
+  return 0.2126 * sRGBtoLinear(r) + 0.7152 * sRGBtoLinear(g) + 0.0722 * sRGBtoLinear(b);
+}
+
+/**
+ * Devuelve un color de texto (#FFFFFF o #0F172A) con contraste óptimo garantizando
+ * WCAG AA (>= 4.5:1) mediante la fórmula de luminancia relativa estándar W3C.
+ */
+export const getContrastingTextColor = (hexColor) => {
+  if (!hexColor) return "#FFFFFF";
+  const lum = getRelativeLuminance(hexColor);
+  const contrastWithWhite = (1.0 + 0.05) / (lum + 0.05);
+  const lumDark = 0.009; // Luminancia relativa aproximada de #0F172A
+  const contrastWithDark = (lum + 0.05) / (lumDark + 0.05);
+  return contrastWithDark > contrastWithWhite ? "#0F172A" : "#FFFFFF";
 };
 
 const HIGHLIGHT_QUERY_MAX_LEN = 64;

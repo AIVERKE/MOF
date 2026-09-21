@@ -53,7 +53,7 @@ export const darkTheme = {
     'neutral-200': '#1E293B',
     'neutral-300': '#334155',
     'neutral-400': '#475569',
-    'neutral-500': '#64748B',
+    'neutral-500': '#94A3B8',
     'neutral-600': '#94A3B8',
     'neutral-700': '#CBD5E1',
     'neutral-800': '#E2E8F0',
@@ -134,11 +134,11 @@ export const deuteranopiaTheme = {
 export const tritanopiaTheme = {
   dark: false,
   colors: {
-    primary: '#D55E00', // Bermellón brillante
+    primary: '#C2410C', // Bermellón accesible WCAG AA
     secondary: '#009E73', // Verde azulado profundo
     accent: '#CC79A7', // Púrpura
     success: '#009E73', // Verde azulado
-    warning: '#D55E00', // Bermellón advertencia
+    warning: '#C2410C', // Bermellón advertencia
     error: '#B91C1C', // Rojo oscuro contrastado
     info: '#009E73', // Verde azulado
     background: '#F8FAFC',
