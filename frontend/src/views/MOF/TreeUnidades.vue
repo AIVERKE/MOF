@@ -400,7 +400,7 @@ const handleExportCsv = () => {
           <template #title="{ item }">
             <span
               :data-tree-unit-id="(item?.raw || item).id"
-              class="d-inline-block tree-match-row"
+              class="d-inline-flex align-center gap-1 tree-match-row"
             >
               <HighlightedText
                 v-if="hasSearchQuery"
@@ -418,6 +418,24 @@ const handleExportCsv = () => {
                   (item?.raw || item).display_name || (item?.raw || item).nombre
                 }}
               </span>
+
+              <v-chip
+                v-if="(item?.raw || item).sigla"
+                size="x-small"
+                label
+                variant="outlined"
+                color="primary"
+                class="font-weight-black ml-1 text-xxs"
+              >
+                <HighlightedText
+                  v-if="hasSearchQuery"
+                  :text="(item?.raw || item).sigla"
+                  :query="search"
+                />
+                <template v-else>
+                  {{ (item?.raw || item).sigla }}
+                </template>
+              </v-chip>
             </span>
           </template>
 
@@ -537,5 +555,9 @@ const handleExportCsv = () => {
   min-width: 108px;
   min-height: 32px;
   justify-content: flex-end;
+}
+.text-xxs {
+  font-size: 9px;
+  font-weight: bold;
 }
 </style>
