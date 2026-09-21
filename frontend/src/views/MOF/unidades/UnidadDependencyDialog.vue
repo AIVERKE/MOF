@@ -91,11 +91,13 @@ function confirm() {
           autocomplete="off"
         />
       </v-card-text>
-      <v-card-actions>
+      <v-card-actions class="pa-4">
         <v-spacer />
-        <v-btn text @click="close">Cerrar</v-btn>
+        <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="close">Cerrar</v-btn>
         <v-btn
           color="primary"
+          variant="flat"
+          class="rounded-lg font-weight-bold px-4"
           :disabled="!unidadACambiar || !unidadDestino || !razon"
           @click="confirm"
         >

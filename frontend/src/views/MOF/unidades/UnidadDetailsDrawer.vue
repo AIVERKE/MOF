@@ -384,7 +384,7 @@ const panels = computed(() => {
     elevation="10"
     :class="['unidad-details-drawer', { 'is-resizing': isResizing }]"
   >
-    <!-- Asa lateral izquierda para redimensionar arrastrando con el mouse -->
+    <!-- Asa lateral izquierda para redimensionar arrastrando con el mouse (solo en desktop) -->
     <div
       v-if="!display.smAndDown.value"
       class="resize-handle"
@@ -398,9 +398,9 @@ const panels = computed(() => {
     <v-toolbar :color="detailData?.color || 'primary'" dark density="compact">
       <v-toolbar-title class="text-caption font-weight-bold">Detalles de la Unidad</v-toolbar-title>
       <v-spacer />
-      <!-- Botón para alternar ancho normal (520px) o expandido (850px) -->
+      <!-- Botón para alternar ancho normal (520px) o expandido (850px) en desktop -->
       <v-btn
-        v-if="!display.xs.value"
+        v-if="!display.smAndDown.value"
         icon
         size="small"
         @click="customWidth = customWidth > 650 ? 520 : 850"

@@ -268,11 +268,11 @@ async function deleteClase(id) {
                 </v-card-text>
                 <v-card-actions class="pa-4">
                     <v-spacer></v-spacer>
-                    <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
-                    <v-btn color="primary" variant="elevated" @click="saveClase" :loading="clasesStore.loading" :disabled="!claseName.trim()">
+                    <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="dialog = false">Cancelar</v-btn>
+                    <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" @click="saveClase" :loading="clasesStore.loading" :disabled="!claseName.trim()">
                         Guardar
                     </v-btn>
-                    <v-btn v-if="editingClase" color="error" variant="tonal" @click="deleteClase(editingClase.id)" :loading="clasesStore.loading">
+                    <v-btn v-if="editingClase" color="error" variant="tonal" class="rounded-lg font-weight-bold px-4" @click="deleteClase(editingClase.id)" :loading="clasesStore.loading">
                         Eliminar
                     </v-btn>
                 </v-card-actions>

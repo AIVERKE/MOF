@@ -180,8 +180,9 @@ function moverAbajo(index) {
   <v-dialog
     :model-value="modelValue"
     @update:model-value="(val) => emit('update:modelValue', val)"
-    :max-width="smAndDown ? undefined : '800px'"
     :fullscreen="smAndDown"
+    :max-width="smAndDown ? '100vw' : '800px'"
+    :transition="smAndDown ? 'dialog-bottom-transition' : 'dialog-transition'"
     scrollable
     persistent
   >
@@ -281,6 +282,8 @@ function moverAbajo(index) {
               size="small"
               prepend-icon="mdi-plus"
               color="primary"
+              variant="flat"
+              class="rounded-lg font-weight-bold"
               @click="abrirModalFuncion()"
             >
               Agregar Función
@@ -705,10 +708,10 @@ function moverAbajo(index) {
           </v-row>
         </v-form>
       </v-card-text>
-      <v-card-actions>
+      <v-card-actions class="pa-4">
         <v-spacer />
-        <v-btn text @click="close">Cancelar</v-btn>
-        <v-btn color="primary" :disabled="!localFormValid" @click="confirm">
+        <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="close">Cancelar</v-btn>
+        <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" :disabled="!localFormValid" @click="confirm">
           Guardar Unidad
           <v-tooltip activator="parent" location="top"
             >Persistir cambios en el manual</v-tooltip
@@ -751,10 +754,10 @@ function moverAbajo(index) {
             </template>
           </v-text-field>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer />
-          <v-btn text @click="modalFuncionDialog = false">Cancelar</v-btn>
-          <v-btn color="primary" @click="guardarFuncion">Guardar</v-btn>
+          <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="modalFuncionDialog = false">Cancelar</v-btn>
+          <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" @click="guardarFuncion">Guardar</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

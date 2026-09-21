@@ -9,7 +9,6 @@ import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useTheme } from "vuetify";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { useAccessibilityStore } from "@/stores/accessibility";
 import { useThemeStore } from "@/stores/theme";
 import { useResponsive } from "@/composables/useResponsive";
 
@@ -17,10 +16,9 @@ const route = useRoute();
 const router = useRouter();
 const theme = useTheme();
 const authStore = useAuthStore();
-const accessibilityStore = useAccessibilityStore();
 const themeStore = useThemeStore();
 const { isVisible, text, color, timeout, cerrar } = useSnackbar();
-const { isMobile, mdAndDown } = useResponsive();
+const { isMobile, mdAndDown, smAndDown } = useResponsive();
 
 // En móvil y tablet (mdAndDown) inicia colapsado, en desktop abierto
 const drawer = ref(!mdAndDown.value);
@@ -28,11 +26,6 @@ const drawer = ref(!mdAndDown.value);
 watch(mdAndDown, (val) => {
   if (val) drawer.value = false;
 });
-
-const toggleTheme = () => {
-  const next = theme.global.current.value.dark ? "light" : "dark";
-  themeStore.setTheme(next, theme);
-};
 
 onMounted(() => {
   if (themeStore.currentTheme && theme?.global) {
@@ -239,7 +232,8 @@ const isAdmin = computed(() => authStore.isAdmin());
       v-model="drawer"
       app
       :temporary="mdAndDown"
-      :width="mdAndDown ? 280 : actualDrawerWidth"
+      :permanent="!mdAndDown"
+      :width="mdAndDown ? Math.min(280, actualDrawerWidth) : actualDrawerWidth"
       class="resizable-drawer"
     >
       <div class="pa-2">
@@ -338,11 +332,40 @@ const isAdmin = computed(() => authStore.isAdmin());
       <v-container
         fluid
         :class="isLoginPage ? 'pa-0' : (isMobile ? 'pa-2' : 'pa-6')"
+        :style="smAndDown && !isLoginPage ? 'padding-bottom: 76px !important;' : ''"
         class="fill-height"
       >
         <router-view />
       </v-container>
     </v-main>
+
+    <!-- Barra de navegación inferior táctil para dispositivos móviles (xs/sm) -->
+    <v-bottom-navigation
+      v-if="smAndDown && !isLoginPage"
+      grow
+      fixed
+      color="primary"
+      elevation="8"
+      class="border-t"
+      density="comfortable"
+    >
+      <v-btn to="/dashboard" value="dashboard">
+        <v-icon size="20">mdi-view-dashboard</v-icon>
+        <span style="font-size: 10px;">Inicio</span>
+      </v-btn>
+      <v-btn to="/mof/organigrama-unidades" value="organigrama">
+        <v-icon size="20">mdi-sitemap</v-icon>
+        <span style="font-size: 10px;">Organigrama</span>
+      </v-btn>
+      <v-btn to="/mof/listar-unidades" value="lista">
+        <v-icon size="20">mdi-list-box</v-icon>
+        <span style="font-size: 10px;">Lista</span>
+      </v-btn>
+      <v-btn to="/mof/arbol-unidades" value="arbol">
+        <v-icon size="20">mdi-tree</v-icon>
+        <span style="font-size: 10px;">Árbol</span>
+      </v-btn>
+    </v-bottom-navigation>
 
     <!-- Alerta Snackbar Global Centralizada -->
     <v-snackbar

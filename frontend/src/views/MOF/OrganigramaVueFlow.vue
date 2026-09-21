@@ -1627,13 +1627,14 @@ function resetFilters() {
                     cols="12"
                     lg="5"
                     md="4"
-                    class="d-flex gap-1 justify-end flex-wrap mt-2 mt-md-0"
+                    class="d-flex gap-2 justify-end flex-wrap mt-2 mt-md-0 align-center"
                   >
                     <v-btn
                       prepend-icon="mdi-file-export"
-                      color="deep-purple-darken-1"
-                      variant="flat"
-                      size="small"
+                      color="primary"
+                      variant="tonal"
+                      density="comfortable"
+                      class="rounded-lg font-weight-bold"
                       @click="exportarOrganigrama"
                     >
                       PDF
@@ -1643,9 +1644,10 @@ function resetFilters() {
                     </v-btn>
                     <v-btn
                       prepend-icon="mdi-format-list-numbered"
-                      color="info"
-                      variant="flat"
-                      size="small"
+                      color="secondary"
+                      variant="tonal"
+                      density="comfortable"
+                      class="rounded-lg font-weight-bold"
                       @click="hierarchyDrawer = true"
                     >
                       Jerarquías
@@ -1655,9 +1657,10 @@ function resetFilters() {
                     </v-btn>
                     <v-btn
                       prepend-icon="mdi-filter-off"
-                      variant="tonal"
-                      color="grey-darken-1"
-                      size="small"
+                      variant="outlined"
+                      color="grey-darken-2"
+                      density="comfortable"
+                      class="rounded-lg font-weight-bold"
                       @click="resetFilters"
                     >
                       Limpiar
@@ -1667,9 +1670,10 @@ function resetFilters() {
                     </v-btn>
                     <v-btn
                       prepend-icon="mdi-swap-horizontal"
-                      color="secondary"
-                      variant="elevated"
-                      size="small"
+                      color="primary"
+                      variant="flat"
+                      density="comfortable"
+                      class="rounded-lg font-weight-bold"
                       @click="dialog_nodo_chance = true"
                     >
                       Dependencia
