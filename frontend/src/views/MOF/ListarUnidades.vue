@@ -30,12 +30,15 @@ import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 import { useAccessibilityStore } from "@/stores/accessibility";
+import { useResponsiveTable } from "@/composables/useResponsiveTable";
 import { useTheme } from "vuetify";
 
 const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
 const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
+
+const { isCardView, toggleCardView, tableDensity, smAndDown } = useResponsiveTable();
 
 const unidadesStore = useAllUnidadesMofStore();
 const tiposStore = useAllTiposMofStore();
@@ -291,6 +294,27 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
           </v-btn>
         </v-btn-toggle>
 
+        <!-- Alternador Vista Tarjetas / Tabla (Responsivo) -->
+        <v-btn-toggle
+          :model-value="isCardView ? 'cards' : 'table'"
+          mandatory
+          color="primary"
+          variant="outlined"
+          density="comfortable"
+          rounded="lg"
+          aria-label="Alternar vista de tabla o tarjetas"
+          @update:model-value="toggleCardView"
+        >
+          <v-btn value="table" class="px-2">
+            <v-icon size="18">mdi-table</v-icon>
+            <v-tooltip activator="parent" location="top">Vista de tabla</v-tooltip>
+          </v-btn>
+          <v-btn value="cards" class="px-2">
+            <v-icon size="18">mdi-view-grid-outline</v-icon>
+            <v-tooltip activator="parent" location="top">Vista de tarjetas (móvil)</v-tooltip>
+          </v-btn>
+        </v-btn-toggle>
+
         <MofReportMenu
           :loading="loadingReport"
           :has-pdf="true"
@@ -302,8 +326,10 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
         
         <v-btn
           color="primary"
+          variant="flat"
+          density="comfortable"
           prepend-icon="mdi-plus"
-          class="rounded-lg font-weight-bold"
+          class="rounded-lg font-weight-bold px-4"
           @click="openForm(null, false)"
         >
           Nueva Unidad
@@ -313,12 +339,124 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 
       <v-divider></v-divider>
 
+      <!-- VISTA DE TARJETAS APILABLES EN MÓVIL / TABLET -->
+      <div v-if="isCardView" class="pa-4 bg-slate-50">
+        <v-row v-if="filteredUnidades.length" dense>
+          <v-col
+            v-for="item in filteredUnidades"
+            :key="item.id"
+            cols="12"
+            sm="6"
+            md="4"
+          >
+            <v-card
+              class="rounded-xl border position-relative overflow-hidden card-unidad-touch"
+              elevation="1"
+              :class="getFadedClass(item)"
+              @click="showDetails(item.id)"
+            >
+              <!-- Indicador de color lateral -->
+              <div
+                :style="{
+                  backgroundColor: isColorblind
+                    ? resolveClaseColor(item.clase)
+                    : item.color || resolveClaseColor(item.clase),
+                  width: '6px',
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                }"
+              ></div>
+
+              <div class="pa-3 pl-4">
+                <div class="d-flex align-center justify-space-between mb-1">
+                  <span class="font-weight-black text-caption text-slate-800">
+                    {{ item.codigo }}
+                  </span>
+                  <div class="d-flex align-center gap-1" @click.stop>
+                    <span
+                      :class="
+                        checkOficial(item)
+                          ? isColorblind
+                            ? isDark
+                              ? 'text-light-blue-lighten-2 font-weight-black'
+                              : 'text-blue-darken-3 font-weight-black'
+                            : 'text-success font-weight-bold'
+                          : 'text-grey'
+                      "
+                      style="font-size: 10px;"
+                    >
+                      {{ checkOficial(item) ? 'OFICIAL' : 'NO OFICIAL' }}
+                    </span>
+                    <UnidadActionsMenu
+                      :unidad-id="item.id"
+                      show-quick-actions
+                      density="compact"
+                      @details="showDetails"
+                      @pdf="verReporte"
+                      @dependencias="showDependenciasInDrawer"
+                      @add-child="(id) => openForm(id, false)"
+                      @edit="(id) => openForm(id, true)"
+                      @delete="deleteItem"
+                    />
+                  </div>
+                </div>
+
+                <div class="text-body-2 font-weight-bold text-slate-900 mb-2">
+                  <HighlightedText :text="item.display_name" :query="search" />
+                  <v-chip
+                    v-if="item.sigla"
+                    size="x-small"
+                    label
+                    variant="outlined"
+                    color="primary"
+                    class="font-weight-black ml-1 text-xxs"
+                  >
+                    {{ item.sigla }}
+                  </v-chip>
+                </div>
+
+                <div class="d-flex align-center flex-wrap gap-1 mt-2">
+                  <v-chip
+                    size="x-small"
+                    label
+                    class="font-weight-bold"
+                    :style="{
+                      backgroundColor: resolveClaseColor(item.clase),
+                      color: getContrastingTextColor(resolveClaseColor(item.clase)),
+                    }"
+                  >
+                    {{ resolveClase(item.clase) }}
+                  </v-chip>
+                  <v-chip
+                    size="x-small"
+                    label
+                    variant="tonal"
+                    color="indigo-darken-2"
+                    class="font-weight-bold"
+                  >
+                    {{ resolveNivel(item.nivel) }}
+                  </v-chip>
+                </div>
+              </div>
+            </v-card>
+          </v-col>
+        </v-row>
+        <div v-else class="text-center py-8 text-grey">
+          <v-icon size="40" class="mb-2">mdi-database-search</v-icon>
+          <div>No hay unidades para mostrar</div>
+        </div>
+      </div>
+
+      <!-- VISTA DE TABLA TRADICIONAL (DESKTOP) -->
       <v-data-table
+        v-else
         :headers="headers"
         :items="filteredUnidades"
         :search="search"
         hover
-        density="comfortable"
+        :density="tableDensity"
         class="bg-transparent"
       >
         <!-- Custom Row Rendering for Fading -->
@@ -453,4 +591,12 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 .max-width-400 { max-width: 400px; }
 .shadow-sm { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important; }
 .text-xxs { font-size: 10px; font-weight: 700; }
+.card-unidad-touch {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+.card-unidad-touch:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+}
 </style>

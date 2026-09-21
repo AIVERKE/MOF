@@ -33,7 +33,10 @@ import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 import { useAccessibilityStore } from "@/stores/accessibility";
+import { useDisplay } from "vuetify";
 
+const display = useDisplay();
+const { smAndDown } = display;
 const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
 
@@ -126,6 +129,25 @@ watch(
       `[data-tree-unit-id="${CSS.escape(String(first.id))}"]`,
     );
     el?.scrollIntoView({ block: "center", behavior: "smooth" });
+  },
+  { immediate: true },
+);
+
+function expandAll() {
+  openedIds.value = collectTreeIds(filteredTreeItems.value);
+}
+
+function collapseAll() {
+  openedIds.value = [];
+}
+
+// En pantallas pequeñas (móviles/tablets), expandir automáticamente la jerarquía para fácil scroll
+watch(
+  () => unidadesStore.unidades,
+  (units) => {
+    if (units?.length && smAndDown.value) {
+      expandAll();
+    }
   },
   { immediate: true },
 );
@@ -347,6 +369,18 @@ const handleExportCsv = () => {
           clearable
         ></v-text-field>
         <v-spacer></v-spacer>
+        <!-- Botones Expandir / Contraer Todo (Móvil y Desktop) -->
+        <v-btn-group density="comfortable" variant="outlined" color="primary" class="mr-2 rounded-lg">
+          <v-btn prepend-icon="mdi-arrow-expand-vertical" class="px-3" @click="expandAll">
+            <span class="d-none d-sm-inline">Expandir</span>
+            <v-tooltip activator="parent" location="top">Expandir todos los nodos</v-tooltip>
+          </v-btn>
+          <v-btn prepend-icon="mdi-arrow-collapse-vertical" class="px-3" @click="collapseAll">
+            <span class="d-none d-sm-inline">Contraer</span>
+            <v-tooltip activator="parent" location="top">Contraer todos los nodos</v-tooltip>
+          </v-btn>
+        </v-btn-group>
+
         <MofReportMenu
           :loading="loadingReport"
           :has-pdf="true"
@@ -358,10 +392,14 @@ const handleExportCsv = () => {
         <v-btn
           v-if="!unidadesStore.unidades.length"
           color="primary"
+          variant="flat"
+          density="comfortable"
+          class="rounded-lg font-weight-bold px-4"
           prepend-icon="mdi-plus"
           @click="openAddDialog(null)"
         >
           Añadir Raíz
+          <v-tooltip activator="parent" location="top">Crear la primera unidad raíz</v-tooltip>
         </v-btn>
       </v-card-title>
 

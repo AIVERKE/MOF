@@ -22,7 +22,7 @@ defineProps({
   },
   variant: {
     type: String,
-    default: "elevated",
+    default: "tonal",
   },
   density: {
     type: String,
@@ -54,7 +54,7 @@ defineEmits(["export-pdf", "export-csv"]);
         prepend-icon="mdi-file-download-outline"
         append-icon="mdi-chevron-down"
         class="rounded-lg font-weight-bold"
-        elevation="2"
+        :elevation="variant === 'elevated' ? 2 : 0"
       >
         {{ label }}
         <v-tooltip activator="parent" location="top">

@@ -22,10 +22,10 @@ function confirm() {
       <v-card-text>
         ¿Está seguro que desea eliminar <strong>{{ nombreUnidad }}</strong>?
       </v-card-text>
-      <v-card-actions>
+      <v-card-actions class="pa-4">
         <v-spacer />
-        <v-btn text @click="close">Cancelar</v-btn>
-        <v-btn color="error" variant="flat" @click="confirm">Eliminar</v-btn>
+        <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="close">Cancelar</v-btn>
+        <v-btn color="error" variant="flat" class="rounded-lg font-weight-bold px-4" @click="confirm">Eliminar</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

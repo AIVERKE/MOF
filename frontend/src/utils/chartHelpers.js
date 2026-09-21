@@ -46,6 +46,26 @@ export function getHighchartsBaseOptions(
     chart: {
       backgroundColor: "transparent",
       style: { fontFamily: "inherit", color: colors.textColor },
+      reflow: true,
+    },
+    responsive: {
+      rules: [
+        {
+          condition: {
+            maxWidth: 600,
+          },
+          chartOptions: {
+            chart: {
+              height: 280,
+            },
+            legend: {
+              layout: "horizontal",
+              align: "center",
+              verticalAlign: "bottom",
+            },
+          },
+        },
+      ],
     },
     title: { text: null },
     credits: { enabled: false },
