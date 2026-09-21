@@ -33,12 +33,11 @@ import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
 import { useAccessibilityStore } from "@/stores/accessibility";
-import { useDisplay } from "vuetify";
+import { useResponsive } from "@/composables/useResponsive";
 
-const display = useDisplay();
-const { smAndDown } = display;
 const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
+const { isMobile, smAndDown } = useResponsive();
 
 const { mostrar } = useSnackbar();
 
@@ -100,11 +99,22 @@ const openedIds = ref([]);
 const activeActionsUnitId = ref(null);
 const actionsMenuOpen = ref(false);
 
+const expandAll = () => {
+  openedIds.value = collectTreeIds(filteredTreeItems.value);
+};
+
+const collapseAll = () => {
+  openedIds.value = [];
+};
+
 onMounted(async () => {
   await Promise.all([
     unidadesStore.getFetchUnidades(),
     prefetchCatalogs(),
   ]);
+  if (isMobile.value && filteredTreeItems.value?.length) {
+    openedIds.value = collectTreeIds(filteredTreeItems.value);
+  }
 });
 
 const treeItems = computed(() => buildHierarchyTree(unidadesStore.unidades));
@@ -132,14 +142,6 @@ watch(
   },
   { immediate: true },
 );
-
-function expandAll() {
-  openedIds.value = collectTreeIds(filteredTreeItems.value);
-}
-
-function collapseAll() {
-  openedIds.value = [];
-}
 
 // En pantallas pequeñas (móviles/tablets), expandir automáticamente la jerarquía para fácil scroll
 watch(
@@ -369,13 +371,22 @@ const handleExportCsv = () => {
           clearable
         ></v-text-field>
         <v-spacer></v-spacer>
-        <!-- Botones Expandir / Contraer Todo (Móvil y Desktop) -->
         <v-btn-group density="comfortable" variant="outlined" color="primary" class="mr-2 rounded-lg">
-          <v-btn prepend-icon="mdi-arrow-expand-vertical" class="px-3" @click="expandAll">
+          <v-btn
+            prepend-icon="mdi-arrow-expand-vertical"
+            class="px-3"
+            aria-label="Expandir todos los nodos del árbol"
+            @click="expandAll"
+          >
             <span class="d-none d-sm-inline">Expandir</span>
             <v-tooltip activator="parent" location="top">Expandir todos los nodos</v-tooltip>
           </v-btn>
-          <v-btn prepend-icon="mdi-arrow-collapse-vertical" class="px-3" @click="collapseAll">
+          <v-btn
+            prepend-icon="mdi-arrow-collapse-vertical"
+            class="px-3"
+            aria-label="Contraer todos los nodos del árbol"
+            @click="collapseAll"
+          >
             <span class="d-none d-sm-inline">Contraer</span>
             <v-tooltip activator="parent" location="top">Contraer todos los nodos</v-tooltip>
           </v-btn>

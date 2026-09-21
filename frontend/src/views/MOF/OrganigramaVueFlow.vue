@@ -28,6 +28,9 @@ import {
   compareCodigos,
   getContrastingTextColor,
   getClaseColor,
+  getIntenseNodeColor,
+  INTENSE_NODE_PALETTE,
+  toBoolean,
 } from "@/utils/mofHelpers";
 
 import "@vue-flow/core/dist/style.css";
@@ -53,9 +56,43 @@ import { useUnidadDetails } from "@/composables/useUnidadDetails";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { useUnidadActions } from "@/composables/useUnidadActions";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
+import { useResponsive } from "@/composables/useResponsive";
+import { useRouter } from "vue-router";
 
 // --- VUE FLOW COMPOSABLES ---
-const { nodes, edges, setNodes, setEdges, fitView, onNodeClick } = useVueFlow();
+const { nodes, edges, setNodes, setEdges, fitView, zoomIn, zoomOut, onNodeClick } = useVueFlow();
+
+const router = useRouter();
+const { isMobile, isPortrait } = useResponsive();
+const showMobileOrientationAlert = ref(true);
+const isRotated90 = ref(false);
+
+function handleZoomIn() {
+  zoomIn({ duration: 250 });
+}
+
+function handleZoomOut() {
+  zoomOut({ duration: 250 });
+}
+
+function handleResetZoom() {
+  fitView({ padding: 0.2, duration: 350 });
+}
+
+function toggleRotation() {
+  isRotated90.value = !isRotated90.value;
+  nextTick(() => {
+    fitView({ padding: 0.15, duration: 300 });
+  });
+}
+
+function handleVolver() {
+  if (typeof window !== "undefined" && window.history.length > 1) {
+    router.back();
+  } else {
+    router.push("/mof/listar-unidades");
+  }
+}
 
 const { mostrar } = useSnackbar();
 
@@ -64,18 +101,18 @@ const isDark = computed(() => theme?.global?.current?.value?.dark ?? false);
 
 // --- PALETA DE COLORES INTENSOS SATURADOS (ALTO CONTRASTE PARA PROYECCIÓN) ---
 const FILTER_COLORS = {
-  selectedDep: "#16A34A", // Verde intenso saturado (Unidad Seleccionada)
-  depFuncional: "#DC2626", // Rojo intenso saturado (Dependencia Funcional)
-  multipleMatch: "#15803D", // Verde esmeralda intenso (Coincidencia múltiple)
-  searchMatch: "#D97706", // Ámbar/dorado profundo (Coincidencia por búsqueda)
-  nivelFilter: "#7E22CE", // Púrpura intenso saturado (Filtro por Nivel)
-  tipoFilter: "#0284C7", // Azul cian intenso saturado (Filtro por Tipo)
-  claseFilter: "#EA580C", // Naranja intenso saturado (Filtro por Instancia/Clase)
-  relacionFilter: "#BE185D", // Rosa/magenta intenso saturado (Filtro por Relación)
+  selectedDep: INTENSE_NODE_PALETTE[2], // #047857 Verde esmeralda intenso (Unidad Seleccionada)
+  depFuncional: INTENSE_NODE_PALETTE[1], // #B91C1C Rojo 700 intenso (Dependencia Funcional)
+  multipleMatch: INTENSE_NODE_PALETTE[2], // #047857 Verde esmeralda intenso (Coincidencia múltiple)
+  searchMatch: INTENSE_NODE_PALETTE[3], // #B45309 Ámbar 700 intenso (Coincidencia por búsqueda)
+  nivelFilter: INTENSE_NODE_PALETTE[4], // #6D28D9 Violeta 700 intenso (Filtro por Nivel)
+  tipoFilter: INTENSE_NODE_PALETTE[6], // #0369A1 Cielo 700 intenso (Filtro por Tipo)
+  claseFilter: INTENSE_NODE_PALETTE[7], // #C2410C Naranja 700 intenso (Filtro por Instancia/Clase)
+  relacionFilter: INTENSE_NODE_PALETTE[5], // #BE185D Rosa 700 intenso (Filtro por Relación)
   noMatch: "#CBD5E1", // Gris delimitado (Sin coincidencias)
   noOficialAnalitico: "#94A3B8", // Gris medio delimitado (No oficial en vista analítica)
-  staffDefault: "#EA580C", // Naranja institucional para staff
-  claseDefault: "#1976D2", // Azul institucional
+  staffDefault: INTENSE_NODE_PALETTE[7], // #C2410C Naranja institucional para staff
+  claseDefault: INTENSE_NODE_PALETTE[0], // #1D4ED8 Azul 700 intenso
 };
 
 // --- PALETA COLORBLIND-SAFE OKABE-ITO (WONG, 2011) ---
@@ -372,6 +409,14 @@ const stats = computed(() => {
       color: "orange-darken-2",
     },
   ];
+});
+
+/** Clases activas principales ordenadas jerárquicamente para la guía de colores (leyenda estándar) */
+const activeClasesForLegend = computed(() => {
+  return (clasesStore.clases || [])
+    .filter((c) => toBoolean(c.activo))
+    .sort((a, b) => (Number(a.peso) || 99) - (Number(b.peso) || 99))
+    .slice(0, 8);
 });
 
 // --- ESTRUCTURA VISUAL & LAYOUT ---
@@ -710,7 +755,7 @@ async function exportarOrganigrama() {
     .vue-flow__edge path {
       fill: none !important;
       stroke: #000000 !important;
-      stroke-width: 2px !important;
+      stroke-width: 3px !important;
       stroke-linejoin: round !important;
       stroke-linecap: round !important;
     }
@@ -723,10 +768,10 @@ async function exportarOrganigrama() {
     }
     .bridge-line {
       background-color: #000000 !important;
-      width: 2px !important;
+      width: 3px !important;
     }
     .bridge-line.dashed {
-      border-left: 2px dashed #000000 !important;
+      border-left: 3px dashed #000000 !important;
     }
     .vue-flow__handle, .vue-flow__edge-text,
     .vue-flow__controls, .vue-flow__minimap, .vue-flow__background, .node-actions, .v-btn {
@@ -769,8 +814,8 @@ async function exportarOrganigrama() {
     path.style.fill = "none";
     path.setAttribute("stroke", "#000000");
     path.style.stroke = "#000000";
-    path.setAttribute("stroke-width", "2");
-    path.style.strokeWidth = "2px";
+    path.setAttribute("stroke-width", "3");
+    path.style.strokeWidth = "3px";
     path.style.strokeLinejoin = "round";
     path.style.strokeLinecap = "round";
     path.setAttribute("stroke-linejoin", "round");
@@ -983,8 +1028,8 @@ function computeNodeVisuals({
   const colors = isColorblindMode ? FILTER_COLORS_COLORBLIND : FILTER_COLORS;
 
   let finalColor =
-    (isColorblindMode ? null : u.color) ||
-    getClaseColor(u.clase, clasesStore.clases, isColorblindMode) ||
+    (isColorblindMode ? null : (u.color && !["#757575", "#9E9E9E", "#CCCCCC", "#CBD5E1", "#E2E8F0", "#FFFFFF", "#F8FAFC"].includes(String(u.color).trim().toUpperCase()) ? u.color : null)) ||
+    getIntenseNodeColor(u.clase, clasesStore.clases, isColorblindMode) ||
     (isStaff ? colors.staffDefault : colors.claseDefault);
 
   let visualReinforcement = null;
@@ -1051,8 +1096,8 @@ function computeNodeVisuals({
         };
       } else if (activeRelacionId) {
         finalColor =
-          (isColorblindMode ? null : u.color) ||
-          getClaseColor(u.clase, clasesStore.clases, isColorblindMode) ||
+          (isColorblindMode ? null : (u.color && !["#757575", "#9E9E9E", "#CCCCCC", "#CBD5E1", "#E2E8F0", "#FFFFFF", "#F8FAFC"].includes(String(u.color).trim().toUpperCase()) ? u.color : null)) ||
+          getIntenseNodeColor(u.clase, clasesStore.clases, isColorblindMode) ||
           (isStaff ? colors.staffDefault : colors.relacionFilter);
         visualReinforcement = {
           role: "filter-relacion",
@@ -1256,7 +1301,7 @@ const updateGraph = () => {
         style: {
           fill: "none",
           stroke: edgeStrokeColor,
-          strokeWidth: 2,
+          strokeWidth: 3,
           strokeDasharray: n.data && n.data.isStaff ? "6 6" : "none",
         },
       };
@@ -1647,7 +1692,7 @@ function resetFilters() {
 
       <!-- LEYENDA DINÁMICA -->
       <v-expand-transition>
-        <div v-if="hasAnyFilter || mostrarDependencias" class="mb-2">
+        <div class="mb-2">
           <v-card variant="tonal" class="rounded-lg border-dashed border-sm">
             <v-card-text class="py-2 px-4 d-flex align-center flex-wrap gap-4">
               <span
@@ -1669,10 +1714,16 @@ function resetFilters() {
                   </v-avatar>
                   <span class="text-caption font-weight-bold">Dependencia Funcional [DESTINO]</span>
                 </div>
+                <div class="d-flex align-center">
+                  <v-avatar size="16" :color="activeFilterColors.noMatch" class="mr-2">
+                    <v-icon size="11" color="grey-darken-3">mdi-minus</v-icon>
+                  </v-avatar>
+                  <span class="text-caption">Sin coincidencias</span>
+                </div>
               </template>
 
               <!-- Filtros Activos -->
-              <template v-else>
+              <template v-else-if="hasAnyFilter">
                 <div
                   v-if="
                     [
@@ -1696,7 +1747,7 @@ function resetFilters() {
                   <v-avatar size="16" :color="activeFilterColors.searchMatch" class="mr-2">
                     <v-icon size="11" color="white">mdi-magnify</v-icon>
                   </v-avatar>
-                  <span class="text-caption font-weight-bold">Coincidencia por nombre</span>
+                  <span class="text-caption font-weight-bold">Coincidencia por búsqueda</span>
                 </div>
                 <div v-if="filterNivel" class="d-flex align-center">
                   <v-avatar size="16" :color="activeFilterColors.nivelFilter" class="mr-2">
@@ -1722,14 +1773,39 @@ function resetFilters() {
                   </v-avatar>
                   <span class="text-caption font-weight-bold">Filtrado por Relación</span>
                 </div>
+                <div class="d-flex align-center">
+                  <v-avatar size="16" :color="activeFilterColors.noMatch" class="mr-2">
+                    <v-icon size="11" color="grey-darken-3">mdi-minus</v-icon>
+                  </v-avatar>
+                  <span class="text-caption">Sin coincidencias</span>
+                </div>
               </template>
 
-              <div class="d-flex align-center">
-                <v-avatar size="16" :color="activeFilterColors.noMatch" class="mr-2">
-                  <v-icon size="11" color="grey-darken-3">mdi-minus</v-icon>
-                </v-avatar>
-                <span class="text-caption">Sin coincidencias</span>
-              </div>
+              <!-- Paleta Estándar de Nodos (Instancias / Clases y Staff) -->
+              <template v-else>
+                <div
+                  v-for="c in activeClasesForLegend"
+                  :key="c.id"
+                  class="d-flex align-center"
+                >
+                  <v-avatar
+                    size="16"
+                    :color="getIntenseNodeColor(c, clasesStore.clases, isColorblind)"
+                    class="mr-2"
+                  />
+                  <span class="text-caption font-weight-bold">{{ c.descripcion }}</span>
+                </div>
+                <div class="d-flex align-center">
+                  <v-avatar
+                    size="16"
+                    :color="activeFilterColors.staffDefault"
+                    class="mr-2"
+                  >
+                    <v-icon size="11" color="white">mdi-account-tie</v-icon>
+                  </v-avatar>
+                  <span class="text-caption font-weight-bold">Staff / Asesoría</span>
+                </div>
+              </template>
             </v-card-text>
           </v-card>
         </div>
@@ -1772,7 +1848,7 @@ function resetFilters() {
                   <div
                     :style="{
                       backgroundColor:
-                        u.color || getClaseColor(u.clase, clasesStore.clases),
+                        getIntenseNodeColor(u.clase, clasesStore.clases, isColorblind),
                       height: '32px',
                       width: '4px',
                     }"
@@ -1823,7 +1899,98 @@ function resetFilters() {
         indeterminate
         color="primary"
       />
-      <div class="flow-container">
+      <!-- Alerta Orientación Móvil -->
+      <v-alert
+        v-if="isMobile && isPortrait && showMobileOrientationAlert"
+        type="info"
+        variant="tonal"
+        closable
+        class="mb-2 rounded-lg"
+        density="compact"
+        icon="mdi-phone-rotate-landscape"
+        @click:close="showMobileOrientationAlert = false"
+      >
+        <div class="d-flex align-center justify-space-between flex-wrap gap-2">
+          <span class="text-caption font-weight-medium">
+            Para una mejor visualización, rota tu dispositivo en horizontal (Landscape).
+          </span>
+          <v-btn
+            size="x-small"
+            variant="outlined"
+            color="primary"
+            class="rounded-lg font-weight-bold"
+            @click="toggleRotation"
+          >
+            <v-icon start size="14">mdi-rotate-right</v-icon>
+            {{ isRotated90 ? 'Vista Estándar' : 'Rotar 90°' }}
+          </v-btn>
+        </div>
+      </v-alert>
+
+      <div class="flow-container position-relative" :class="{ 'flow-container--rotated-90': isRotated90 }">
+        <!-- Botón Volver Flotante en Móvil -->
+        <v-btn
+          v-if="isMobile"
+          icon
+          size="small"
+          color="primary"
+          variant="elevated"
+          elevation="3"
+          class="floating-back-btn"
+          aria-label="Volver a la vista anterior"
+          @click="handleVolver"
+        >
+          <v-icon size="20">mdi-arrow-left</v-icon>
+          <v-tooltip activator="parent" location="right">Volver</v-tooltip>
+        </v-btn>
+
+        <!-- Panel de Zoom Flotante Accesible -->
+        <div
+          class="floating-zoom-panel d-flex flex-column"
+          role="toolbar"
+          aria-label="Controles de zoom del organigrama"
+        >
+          <v-btn
+            icon
+            size="small"
+            variant="elevated"
+            color="surface"
+            elevation="2"
+            class="rounded-lg mb-1"
+            aria-label="Acercar zoom"
+            @click="handleZoomIn"
+          >
+            <v-icon size="20">mdi-plus</v-icon>
+            <v-tooltip activator="parent" location="left">Acercar (+)</v-tooltip>
+          </v-btn>
+          <v-btn
+            icon
+            size="small"
+            variant="elevated"
+            color="surface"
+            elevation="2"
+            class="rounded-lg mb-1"
+            aria-label="Alejar zoom"
+            @click="handleZoomOut"
+          >
+            <v-icon size="20">mdi-minus</v-icon>
+            <v-tooltip activator="parent" location="left">Alejar (-)</v-tooltip>
+          </v-btn>
+          <v-btn
+            icon
+            size="small"
+            variant="elevated"
+            color="surface"
+            elevation="2"
+            class="rounded-lg"
+            aria-label="Restablecer y centrar organigrama"
+            @click="handleResetZoom"
+          >
+            <v-icon size="18">mdi-fit-to-screen-outline</v-icon>
+            <v-tooltip activator="parent" location="left">Centrar organigrama</v-tooltip>
+          </v-btn>
+        </div>
+
         <VueFlow
           :nodes="nodes"
           :edges="edges"
@@ -1852,6 +2019,11 @@ function resetFilters() {
           <template #node-custom="{ data, id }">
             <div
               class="custom-node"
+              tabindex="0"
+              role="button"
+              :aria-label="`Unidad ${data.codigo}: ${data.nombre}. Presione Enter para ver detalles.`"
+              @keydown.enter.prevent="showDetails(id)"
+              @keydown.space.prevent="showDetails(id)"
               :class="{
                 'staff-node': data.isStaff,
                 'faded-node':
@@ -1883,7 +2055,7 @@ function resetFilters() {
                   :color="
                     getContrastingTextColor(data.color) === '#FFFFFF'
                       ? 'white'
-                      : 'grey-darken-4'
+                      : '#0F172A'
                   "
                 >
                   mdi-account-tie-outline
@@ -1907,7 +2079,7 @@ function resetFilters() {
                   :color="
                     getContrastingTextColor(data.color) === '#FFFFFF'
                       ? 'white'
-                      : 'grey-darken-4'
+                      : '#0F172A'
                   "
                 >
                   mdi-alert-circle-outline
@@ -1931,7 +2103,7 @@ function resetFilters() {
                   :color="
                     getContrastingTextColor(data.color) === '#FFFFFF'
                       ? 'white'
-                      : 'grey-darken-4'
+                      : '#0F172A'
                   "
                 >
                   {{ data.visualReinforcement.icon }}
@@ -1973,7 +2145,7 @@ function resetFilters() {
                     :color="
                       getContrastingTextColor(data.color) === '#FFFFFF'
                         ? 'white'
-                        : 'grey-darken-4'
+                        : '#0F172A'
                     "
                   >
                     mdi-identifier
@@ -1990,7 +2162,7 @@ function resetFilters() {
                     :color="
                       getContrastingTextColor(data.color) === '#FFFFFF'
                         ? 'white'
-                        : 'grey-darken-4'
+                        : '#0F172A'
                     "
                   >
                     mdi-layers-outline
@@ -2007,7 +2179,7 @@ function resetFilters() {
                     :color="
                       getContrastingTextColor(data.color) === '#FFFFFF'
                         ? 'white'
-                        : 'grey-darken-4'
+                        : '#0F172A'
                     "
                   >
                     mdi-tag-outline
@@ -2026,7 +2198,7 @@ function resetFilters() {
                   :activator-color="
                     getContrastingTextColor(data.color) === '#FFFFFF'
                       ? 'white'
-                      : 'grey-darken-4'
+                      : '#0F172A'
                   "
                   @details="showDetails"
                   @pdf="verReporte"
@@ -2143,10 +2315,10 @@ function resetFilters() {
       v-model="hierarchyDrawer"
       location="right"
       temporary
-      :width="$vuetify.display.xs ? '100%' : hierarchyDrawerWidth"
+      :width="isMobile ? '100%' : hierarchyDrawerWidth"
     >
       <HierarchyManagerDrawer
-        :width="$vuetify.display.xs ? 360 : hierarchyDrawerWidth"
+        :width="isMobile ? 360 : hierarchyDrawerWidth"
         @close="hierarchyDrawer = false"
         @updated="refreshChart"
         @resize="(val) => (hierarchyDrawerWidth = val)"
@@ -2408,7 +2580,7 @@ function resetFilters() {
 :deep(.vue-flow__edge-path) {
   fill: none !important;
   stroke: #000000 !important;
-  stroke-width: 2px !important;
+  stroke-width: 3px !important;
 }
 :deep(.vue-flow__arrowhead),
 :deep(marker) {
@@ -2417,11 +2589,34 @@ function resetFilters() {
 .v-theme--dark :deep(.vue-flow__edge-path) {
   fill: none !important;
   stroke: #e2e8f0 !important;
-  stroke-width: 2px !important;
+  stroke-width: 3px !important;
 }
 .v-theme--dark :deep(.vue-flow__arrowhead),
 .v-theme--dark :deep(marker) {
   display: none !important;
+}
+
+.floating-zoom-panel {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 25;
+}
+
+.floating-back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 25;
+}
+
+.flow-container--rotated-90 {
+  transform: rotate(90deg);
+  transform-origin: center center;
+  width: 100vh !important;
+  height: 100vw !important;
+  margin: auto;
+  overflow: hidden;
 }
 
 @media print {

@@ -14,10 +14,9 @@ import SelectAllCargos from "../cargos/SelectAllCargos.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
-import { useDisplay } from "vuetify";
+import { useResponsive } from "@/composables/useResponsive";
 
-const display = useDisplay();
-const { smAndDown } = display;
+const { smAndDown } = useResponsive();
 
 const props = defineProps({
   modelValue: Boolean,
@@ -182,8 +181,9 @@ function moverAbajo(index) {
     :model-value="modelValue"
     @update:model-value="(val) => emit('update:modelValue', val)"
     :fullscreen="smAndDown"
-    :max-width="smAndDown ? '100vw' : '900px'"
+    :max-width="smAndDown ? '100vw' : '800px'"
     :transition="smAndDown ? 'dialog-bottom-transition' : 'dialog-transition'"
+    scrollable
     persistent
   >
     <v-card>
