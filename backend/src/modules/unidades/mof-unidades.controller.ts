@@ -100,12 +100,12 @@ export class MofUnidadesController {
     @Param('id', ParseIntPipe) id: number,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { unidad, funciones } =
-      await this.unidadesService.findEntityForPdf(id);
-    const buffer = await this.pdfService.buildUnidadPdf(unidad, funciones);
+    const detail = await this.unidadesService.findEntityForPdf(id);
+    const buffer = await this.pdfService.buildUnidadPdf(detail);
+    const safeCodigo = String(detail.codigo || id).replace(/[^\w.-]+/g, '_');
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': 'inline; filename="signed-document.pdf"',
+      'Content-Disposition': `inline; filename="unidad-${safeCodigo}.pdf"`,
     });
     return new StreamableFile(buffer);
   }

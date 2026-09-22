@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { ENDPOINTS } from "@/config/api";
+import { ENDPOINTS, apiFetch } from "@/config/api";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 /**
@@ -95,8 +95,34 @@ export function useUnidadDetails({ unidadesStore }) {
     return loadUnidadDetails(unidadId, { openPanels: ["dependencias"] });
   }
 
-  function verReporte(id) {
-    window.open(ENDPOINTS.MOF.PDF_UNIDAD(id), "_blank");
+  async function verReporte(id) {
+    try {
+      const response = await apiFetch(ENDPOINTS.MOF.PDF_UNIDAD(id), {
+        headers: { Accept: "application/pdf" },
+      });
+      if (!response.ok) {
+        if (response.status !== 401) {
+          mostrar("No se pudo generar el reporte PDF", "error");
+        }
+        return;
+      }
+      const blob = await response.blob();
+      if (!blob.type.includes("pdf") && blob.size < 100) {
+        mostrar("La respuesta no es un PDF válido", "error");
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (!win) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `unidad-${id}.pdf`;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      mostrar("Error al abrir el reporte PDF", "error");
+    }
   }
 
   return {
