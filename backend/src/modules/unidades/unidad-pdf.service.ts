@@ -422,7 +422,7 @@ export class UnidadPdfService {
     const base =
       this.config.get<string>('MOF_PDF_QR_BASE_URL')?.replace(/\/$/, '') ||
       'http://localhost:5173';
-    const url = `${base}/unidad/${unidadId}`;
+    const url = `${base}/mof/listar-unidades?unidad=${unidadId}`;
     try {
       return await QRCode.toBuffer(url, {
         type: 'png',

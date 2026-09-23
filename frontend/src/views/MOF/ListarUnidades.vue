@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAllUnidadesMofStore } from '../../stores/unidades_mof'
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
@@ -211,11 +212,17 @@ const handleExportCsv = () => {
   }
 };
 
+const route = useRoute();
+
 onMounted(async () => {
   await Promise.all([
     unidadesStore.getFetchUnidades(),
     prefetchCatalogs(),
   ]);
+  const unidadId = route.query.unidad;
+  if (unidadId != null && String(unidadId).trim() !== "") {
+    await showDetails(unidadId);
+  }
 });
 
 async function openForm(nodeId = null, edit = false) {
