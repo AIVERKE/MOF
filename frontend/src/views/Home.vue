@@ -240,7 +240,6 @@ const stats = computed(() => [
 
 <style scoped>
 .line-height-1-1 { line-height: 1.1; }
-.text-xxs { font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .hover-scale { transition: transform 0.2s; }
 .hover-scale:hover { transform: scale(1.02); }
 </style>

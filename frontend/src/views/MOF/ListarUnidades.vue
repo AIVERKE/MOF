@@ -178,8 +178,8 @@ const handleExportPdf = () => {
       isOficialCheck: checkOficial,
       isColorblind: isColorblind.value,
     });
-  } catch (err) {
-    console.error("Error al exportar PDF en ListarUnidades:", err);
+  } catch {
+    // Silently handled in UI via loading state
   } finally {
     loadingReport.value = false;
   }
@@ -204,8 +204,8 @@ const handleExportCsv = () => {
       columns,
       rows: filteredUnidades.value,
     });
-  } catch (err) {
-    console.error("Error al exportar CSV en ListarUnidades:", err);
+  } catch {
+    // Silently handled in UI via loading state
   } finally {
     loadingReport.value = false;
   }
@@ -588,9 +588,6 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 </template>
 
 <style scoped>
-.max-width-400 { max-width: 400px; }
-.shadow-sm { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important; }
-.text-xxs { font-size: 10px; font-weight: 700; }
 .card-unidad-touch {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   cursor: pointer;

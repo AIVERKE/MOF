@@ -59,12 +59,6 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-        path:"/mof/registrar-unidad",
-        name:"registro_unidad",
-        component: () => import('../views/MOF/RegistrarUnidad.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
         path:"/mof/arbol-unidades",
         name:"tree_unidades",
         component: () => import('../views/MOF/TreeUnidades.vue'),

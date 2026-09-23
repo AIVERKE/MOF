@@ -56,7 +56,6 @@ export const useAuthStore = defineStore("auth", () => {
 
       return true;
     } catch (error) {
-      console.error("Error en login:", error);
       throw error;
     }
   }

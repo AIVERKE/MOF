@@ -194,6 +194,24 @@ marker {
   display: none !important;
 }
 
+/* Utilidades tipográficas y componentes globales centralizados */
+.text-xxs {
+  font-size: 10px !important;
+  font-weight: 700;
+}
+
+.max-width-400 {
+  max-width: 400px !important;
+}
+
+.max-width-300 {
+  max-width: 300px !important;
+}
+
+.shadow-sm {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
 /* ==========================================================================
    ACCESIBILIDAD WCAG AA: Contrastes en Barra, Tabs, Hints y Teclado (5 Temas)
    ========================================================================== */

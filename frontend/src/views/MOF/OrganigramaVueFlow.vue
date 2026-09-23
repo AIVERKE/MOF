@@ -690,12 +690,10 @@ function getLayoutedElements(nodes, edges) {
 
 // --- METHODS ---
 async function refreshChart() {
-  console.log(">>> REFRESCO DE TABLAS INICIADO");
   await Promise.all([
     unidadesStore.getFetchUnidades(),
     clasesStore.getFetchClases(),
   ]);
-  console.log(">>> REFRESCO DE TABLAS FINALIZADO");
   updateGraph();
 }
 

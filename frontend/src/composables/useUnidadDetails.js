@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { ENDPOINTS, apiFetch } from "@/config/api";
+import { ENDPOINTS, apiFetch, parseApiError } from "@/config/api";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 /**
@@ -95,33 +95,37 @@ export function useUnidadDetails({ unidadesStore }) {
     return loadUnidadDetails(unidadId, { openPanels: ["dependencias"] });
   }
 
+  /**
+   * Abre el PDF de la unidad en una pestaña nueva.
+   *
+   * El backend exige sesión también para leer, y window.open(url) es una
+   * navegación: no lleva el header Authorization. Por eso el PDF se pide con
+   * apiFetch (que manda el token) y se abre como blob. La pestaña se abre
+   * vacía ANTES de esperar la respuesta, dentro del clic: abierta después, el
+   * navegador la bloquea como popup.
+   */
   async function verReporte(id) {
+    const pestana = window.open("", "_blank");
     try {
-      const response = await apiFetch(ENDPOINTS.MOF.PDF_UNIDAD(id), {
-        headers: { Accept: "application/pdf" },
-      });
+      const response = await apiFetch(ENDPOINTS.MOF.PDF_UNIDAD(id));
       if (!response.ok) {
-        if (response.status !== 401) {
-          mostrar("No se pudo generar el reporte PDF", "error");
+        pestana?.close();
+        // 401 y 403 ya los atiende apiFetch (login y aviso de permisos)
+        if (response.status !== 401 && response.status !== 403) {
+          mostrar(await parseApiError(response), "error");
         }
         return;
       }
-      const blob = await response.blob();
-      if (!blob.type.includes("pdf") && blob.size < 100) {
-        mostrar("La respuesta no es un PDF válido", "error");
-        return;
+      const url = URL.createObjectURL(await response.blob());
+      if (pestana) {
+        pestana.location.href = url;
+      } else {
+        window.open(url, "_blank");
       }
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, "_blank");
-      if (!win) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `unidad-${id}.pdf`;
-        a.click();
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch {
-      mostrar("Error al abrir el reporte PDF", "error");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      pestana?.close();
+      mostrar("Error al abrir el reporte", "error");
     }
   }
 
