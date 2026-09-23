@@ -2,7 +2,10 @@
 import { computed } from "vue";
 import { rules } from "@/utils/rules";
 import { hints } from "@/config/hints";
+import { useResponsive } from "@/composables/useResponsive";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
+
+const { smAndDown } = useResponsive();
 
 const props = defineProps({
   modelValue: Boolean,
@@ -40,7 +43,13 @@ function confirm() {
 </script>
 
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="val => emit('update:modelValue', val)" max-width="800">
+  <v-dialog
+    :model-value="modelValue"
+    @update:model-value="val => emit('update:modelValue', val)"
+    :max-width="smAndDown ? undefined : '800px'"
+    :fullscreen="smAndDown"
+    scrollable
+  >
     <v-card>
       <v-card-title class="font-weight-bold">CAMBIO DE DEPENDENCIA DE UNIDAD</v-card-title>
       <v-divider />
@@ -82,11 +91,13 @@ function confirm() {
           autocomplete="off"
         />
       </v-card-text>
-      <v-card-actions>
+      <v-card-actions class="pa-4">
         <v-spacer />
-        <v-btn text @click="close">Cerrar</v-btn>
+        <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="close">Cerrar</v-btn>
         <v-btn
           color="primary"
+          variant="flat"
+          class="rounded-lg font-weight-bold px-4"
           :disabled="!unidadACambiar || !unidadDestino || !razon"
           @click="confirm"
         >

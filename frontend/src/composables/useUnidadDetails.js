@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { ENDPOINTS } from "@/config/api";
+import { ENDPOINTS, apiFetch, parseApiError } from "@/config/api";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 /**
@@ -95,8 +95,38 @@ export function useUnidadDetails({ unidadesStore }) {
     return loadUnidadDetails(unidadId, { openPanels: ["dependencias"] });
   }
 
-  function verReporte(id) {
-    window.open(ENDPOINTS.MOF.PDF_UNIDAD(id), "_blank");
+  /**
+   * Abre el PDF de la unidad en una pestaña nueva.
+   *
+   * El backend exige sesión también para leer, y window.open(url) es una
+   * navegación: no lleva el header Authorization. Por eso el PDF se pide con
+   * apiFetch (que manda el token) y se abre como blob. La pestaña se abre
+   * vacía ANTES de esperar la respuesta, dentro del clic: abierta después, el
+   * navegador la bloquea como popup.
+   */
+  async function verReporte(id) {
+    const pestana = window.open("", "_blank");
+    try {
+      const response = await apiFetch(ENDPOINTS.MOF.PDF_UNIDAD(id));
+      if (!response.ok) {
+        pestana?.close();
+        // 401 y 403 ya los atiende apiFetch (login y aviso de permisos)
+        if (response.status !== 401 && response.status !== 403) {
+          mostrar(await parseApiError(response), "error");
+        }
+        return;
+      }
+      const url = URL.createObjectURL(await response.blob());
+      if (pestana) {
+        pestana.location.href = url;
+      } else {
+        window.open(url, "_blank");
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      pestana?.close();
+      mostrar("Error al abrir el reporte", "error");
+    }
   }
 
   return {

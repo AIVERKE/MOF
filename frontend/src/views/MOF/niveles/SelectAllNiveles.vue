@@ -222,11 +222,11 @@ const normalizedModel = computed({
                 </v-card-text>
                 <v-card-actions class="pa-4">
                     <v-spacer></v-spacer>
-                    <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
-                    <v-btn color="primary" variant="elevated" @click="saveNivel" :loading="nivelesStore.loading" :disabled="!nivelName.trim()">
+                    <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="dialog = false">Cancelar</v-btn>
+                    <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" @click="saveNivel" :loading="nivelesStore.loading" :disabled="!nivelName.trim()">
                         Guardar
                     </v-btn>
-                    <v-btn v-if="editingNivel" color="error" variant="tonal" @click="deleteNivel(editingNivel.id)" :loading="nivelesStore.loading">
+                    <v-btn v-if="editingNivel" color="error" variant="tonal" class="rounded-lg font-weight-bold px-4" @click="deleteNivel(editingNivel.id)" :loading="nivelesStore.loading">
                         Eliminar
                     </v-btn>
                 </v-card-actions>

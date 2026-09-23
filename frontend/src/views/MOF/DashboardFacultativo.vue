@@ -1,12 +1,12 @@
 <template>
   <v-container fluid class="pa-0">
     <!-- Header & Breadcrumb -->
-    <div class="mb-6 d-flex justify-space-between align-center flex-wrap gap-2">
+    <div class="mb-4 mb-sm-6 d-flex justify-space-between align-center flex-wrap gap-2">
       <div>
-        <h1 class="text-h4 font-weight-black mb-1 text-slate-800">
+        <h1 class="text-h5 text-sm-h4 font-weight-black mb-1 text-slate-800">
           Dashboard Facultativo
         </h1>
-        <div class="text-body-2 d-flex align-center text-slate-500">
+        <div class="text-body-2 d-flex align-center text-slate-500 flex-wrap">
           <v-icon size="18" class="mr-2">mdi-chart-bar</v-icon>
           <span>Reportes</span>
           <v-icon size="16" class="mx-1">mdi-chevron-right</v-icon>
@@ -30,7 +30,7 @@
       type="info"
       variant="tonal"
       closable
-      class="mb-6 rounded-lg border-info"
+      class="mb-4 mb-sm-6 rounded-lg border-info"
       density="comfortable"
       :title="hints.dashboards.facultativo.title"
       :text="hints.dashboards.facultativo.text"
@@ -38,7 +38,7 @@
     />
 
     <!-- ENTRADA: Selección en Cascada -->
-    <v-card class="mb-6 rounded-lg" elevation="2" border>
+    <v-card class="mb-4 mb-sm-6 rounded-lg" elevation="2" border>
       <v-card-title
         class="bg-indigo-lighten-5 text-indigo-darken-4 text-subtitle-2 font-weight-bold"
       >
@@ -47,7 +47,7 @@
       <v-card-text class="pt-4">
         <v-row align="center">
           <!-- Filtro 1: Clase (Ordenada Jerárquicamente) -->
-          <v-col cols="12" md="4">
+          <v-col cols="12" sm="5" md="4">
             <v-select
               v-model="claseSeleccionada"
               :items="listaClasesOrdenadas"
@@ -56,6 +56,7 @@
               label="1. SELECCIONE TIPO DE INSTANCIA"
               prepend-inner-icon="mdi-layers-outline"
               variant="outlined"
+              :density="isMobile ? 'compact' : 'comfortable'"
               hide-details
               clearable
               placeholder="Ej. FACULTAD..."
@@ -64,7 +65,7 @@
           </v-col>
 
           <!-- Filtro 2: Unidad Madre (Filtrada por Clase) -->
-          <v-col cols="12" md="8">
+          <v-col cols="12" sm="7" md="8">
             <v-autocomplete
               v-model="unidadMadre"
               :items="unidadesFiltradasPorClase"
@@ -78,6 +79,7 @@
               "
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
+              :density="isMobile ? 'compact' : 'comfortable'"
               hide-details
               clearable
               return-object
@@ -107,19 +109,19 @@
           </div>
         </v-col>
       </v-row>
-      <v-row>
+      <v-row dense>
         <v-col
           v-for="(count, type) in conteoDependientes"
           :key="type"
-          cols="12"
+          cols="6"
           sm="6"
           md="3"
         >
-          <v-card class="text-center pa-4 rounded-lg bg-slate-50 card-metrica" border flat>
-            <div class="text-overline mb-1 text-grey-darken-2 font-weight-bold">
+          <v-card class="text-center pa-3 pa-sm-4 rounded-lg bg-slate-50 card-metrica" border flat>
+            <div class="text-caption text-sm-overline mb-1 text-grey-darken-2 font-weight-bold text-truncate">
               {{ type }}
             </div>
-            <div class="text-h3 font-weight-black text-indigo-darken-3">
+            <div class="text-h4 text-sm-h3 font-weight-black text-indigo-darken-3">
               {{ count }}
             </div>
           </v-card>
@@ -133,18 +135,18 @@
         </v-col>
       </v-row>
 
-      <v-row class="mt-6">
+      <v-row class="mt-4 mt-sm-6">
         <!-- Gráfica de Distribución -->
         <v-col cols="12" lg="6">
           <v-card elevation="2" class="rounded-lg h-100">
             <v-card-title
-              class="pa-4 text-uppercase text-caption font-weight-bold bg-indigo-lighten-5"
+              class="pa-3 pa-sm-4 text-uppercase text-caption font-weight-bold bg-indigo-lighten-5 text-truncate"
             >
               DISTRIBUCIÓN POR TIPO:
               {{ unidadMadre.nombre || unidadMadre.denominacion }}
             </v-card-title>
             <v-divider></v-divider>
-            <v-card-text>
+            <v-card-text :class="isMobile ? 'pa-2' : 'pa-4'">
               <highcharts :options="chartOptions"></highcharts>
             </v-card-text>
           </v-card>
@@ -154,7 +156,7 @@
         <v-col cols="12" lg="6">
           <v-card elevation="2" class="rounded-lg h-100">
             <v-card-title
-              class="pa-4 d-flex align-center bg-indigo-lighten-5 text-caption font-weight-bold"
+              class="pa-3 pa-sm-4 d-flex align-center bg-indigo-lighten-5 text-caption font-weight-bold"
             >
               <v-icon start color="indigo">mdi-file-tree</v-icon>
               SALIDA REPORTE GENERAL (NOMBRES)
@@ -168,7 +170,7 @@
               <v-list-item
                 v-for="item in arbolDependencias"
                 :key="item.id"
-                :style="{ paddingLeft: item.level * 24 + 16 + 'px' }"
+                :style="{ paddingLeft: (isMobile ? item.level * 10 + 8 : item.level * 24 + 16) + 'px' }"
                 class="border-b-thin py-2"
                 :class="getRowClass(item)"
               >
@@ -190,7 +192,7 @@
                     }}
                   </v-icon>
                 </template>
-                <v-list-item-title class="text-caption font-weight-bold">
+                <v-list-item-title class="text-caption font-weight-bold text-truncate">
                   {{ item.nombre || item.denominacion }}
                 </v-list-item-title>
                 <template v-slot:append>
@@ -198,10 +200,11 @@
                     size="x-small"
                     variant="flat"
                     label
-                    class="font-weight-bold"
+                    class="font-weight-bold text-truncate"
                     :style="{
                       backgroundColor: resolveClaseColor(item.clase),
                       color: getContrastingTextColor(resolveClaseColor(item.clase)),
+                      maxWidth: isMobile ? '120px' : 'none',
                     }"
                   >
                     {{ resolveClase(item.clase) }}
@@ -229,6 +232,7 @@ import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 import { useAccessibilityStore } from "@/stores/accessibility";
 import { usePrefetchCatalogs } from "@/composables/usePrefetchCatalogs";
+import { useResponsive } from "@/composables/useResponsive";
 import MofReportMenu from "./common/MofReportMenu.vue";
 import { exportDashboardFacultativoPdf, exportToCsv } from "@/utils/mofReport";
 import { hints } from "@/config/hints";
@@ -237,6 +241,7 @@ const theme = useTheme();
 const isDark = computed(() => theme.global.current.value.dark);
 const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
+const { isMobile, xs } = useResponsive();
 const showInfoAlert = ref(true);
 
 const unidadesStore = useAllUnidadesMofStore();
@@ -390,10 +395,14 @@ const getRowClass = (item) => {
 };
 
 const chartOptions = computed(() => {
+  const categoriesCount = Object.keys(conteoDependientes.value).length;
   const baseOptions = getHighchartsBaseOptions(
     isDark,
     {
-      chart: { type: "bar" },
+      chart: {
+        type: "bar",
+        height: isMobile.value ? Math.max(260, categoriesCount * 42 + 80) : null,
+      },
     },
     isColorblind,
   );

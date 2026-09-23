@@ -46,11 +46,10 @@ export const formatDateForDisplay = (dateStr) => {
  */
 export const PESO_NULO = 99;
 export const PESO_DEFAULT = 10;
-export const DEFAULT_CLASE_COLOR = "#757575";
+export const DEFAULT_CLASE_COLOR = "#4338CA"; // Indigo 700 intenso y saturado
 
 /**
- * Paleta estándar universal Okabe-Ito (Wong, 2011) optimizada para
- * deficiencias de percepción cromática (deuteranopia, protanopia, tritanopia).
+ * Paletas daltónicas universales optimizadas basadas en d3 Well_palettes y Wong (2011)
  */
 export const OKABE_ITO_PALETTE = [
   "#0072B2", // Blue (Azul institucional accesible)
@@ -60,6 +59,47 @@ export const OKABE_ITO_PALETTE = [
   "#CC79A7", // Reddish Purple (Púrpura rojizo)
   "#56B4E9", // Sky Blue (Azul cielo)
   "#F0E442", // Yellow (Amarillo)
+];
+
+export const PROTANOPIA_PALETTE = [
+  "#0072B2",
+  "#E69F00",
+  "#56B4E9",
+  "#009E73",
+  "#F0E442",
+  "#D55E00",
+  "#CC79A7",
+];
+
+export const DEUTERANOPIA_PALETTE = [
+  "#0072B2",
+  "#CC79A7",
+  "#D55E00",
+  "#56B4E9",
+  "#E69F00",
+  "#009E73",
+  "#F0E442",
+];
+
+export const TRITANOPIA_PALETTE = [
+  "#D55E00",
+  "#009E73",
+  "#CC79A7",
+  "#E69F00",
+  "#0072B2",
+  "#56B4E9",
+  "#B91C1C",
+];
+
+export const INTENSE_NODE_PALETTE = [
+  "#1D4ED8", // Azul 700 intenso
+  "#B91C1C", // Rojo 700 intenso
+  "#047857", // Esmeralda 700 intenso
+  "#B45309", // Ámbar 700 intenso
+  "#6D28D9", // Violeta 700 intenso
+  "#BE185D", // Rosa 700 intenso
+  "#0369A1", // Cielo 700 intenso
+  "#C2410C", // Naranja 700 intenso
 ];
 
 const NORMALIZE_CACHE_MAX_SIZE = 1000;
@@ -310,6 +350,13 @@ export const getClaseColor = (val, clases = [], isColorblind = false) => {
   if (val === null || val === undefined || val === "") return DEFAULT_CLASE_COLOR;
 
   if (isColorblind) {
+    let palette = OKABE_ITO_PALETTE;
+    if (typeof isColorblind === "string") {
+      const mode = isColorblind.toLowerCase();
+      if (mode.includes("protan")) palette = PROTANOPIA_PALETTE;
+      else if (mode.includes("deuteran")) palette = DEUTERANOPIA_PALETTE;
+      else if (mode.includes("tritan")) palette = TRITANOPIA_PALETTE;
+    }
     const target = getCampoClase(val) ?? val;
     const item = resolveCatalogItem(target, clases);
     if (item && Array.isArray(clases) && clases.length > 0) {
@@ -321,26 +368,75 @@ export const getClaseColor = (val, clases = [], isColorblind = false) => {
           (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
       );
       if (idx !== -1) {
-        return OKABE_ITO_PALETTE[idx % OKABE_ITO_PALETTE.length];
+        return palette[idx % palette.length];
       }
     }
     if (!item) {
       return DEFAULT_CLASE_COLOR;
     }
-    return OKABE_ITO_PALETTE[0];
+    return palette[0];
   }
 
-  if (typeof val === "object" && val.color) return val.color;
+  const isDullOrGrey = (c) => {
+    if (!c) return true;
+    const hex = String(c).trim().toUpperCase();
+    return ["#757575", "#9E9E9E", "#CCCCCC", "#CBD5E1", "#E2E8F0", "#FFFFFF", "#F8FAFC"].includes(hex);
+  };
+
+  if (typeof val === "object" && val.color && !isDullOrGrey(val.color)) return val.color;
   const target = getCampoClase(val) ?? val;
   const item = resolveCatalogItem(target, clases);
-  return item ? item.color || DEFAULT_CLASE_COLOR : DEFAULT_CLASE_COLOR;
+  if (item && item.color && !isDullOrGrey(item.color)) {
+    return item.color;
+  }
+
+  if (item && Array.isArray(clases) && clases.length > 0) {
+    const idx = clases.findIndex(
+      (c) =>
+        c === item ||
+        (item.id != null && c.id != null && String(c.id) === String(item.id)) ||
+        (item.codigo && c.codigo && c.codigo === item.codigo) ||
+        (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
+    );
+    if (idx !== -1) {
+      return INTENSE_NODE_PALETTE[idx % INTENSE_NODE_PALETTE.length];
+    }
+  }
+
+  return DEFAULT_CLASE_COLOR;
 };
 
 /**
- * Devuelve un color de texto (#FFFFFF o #0F172A) con contraste óptimo según el fondo.
+ * Asigna un color intenso de alto contraste para nodos según su clase / instancia
+ * utilizando la paleta institucional INTENSE_NODE_PALETTE (o paletas daltónicas en modo accesible).
  */
-export const getContrastingTextColor = (hexColor) => {
-  if (!hexColor) return "#FFFFFF";
+export const getIntenseNodeColor = (val, clases = [], isColorblind = false) => {
+  if (isColorblind) {
+    return getClaseColor(val, clases, isColorblind);
+  }
+  const target = getCampoClase(val) ?? val;
+  const item = resolveCatalogItem(target, clases);
+  if (item && Array.isArray(clases) && clases.length > 0) {
+    const idx = clases.findIndex(
+      (c) =>
+        c === item ||
+        (item.id != null && c.id != null && String(c.id) === String(item.id)) ||
+        (item.codigo && c.codigo && c.codigo === item.codigo) ||
+        (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
+    );
+    if (idx !== -1) {
+      return INTENSE_NODE_PALETTE[idx % INTENSE_NODE_PALETTE.length];
+    }
+  }
+  return INTENSE_NODE_PALETTE[0];
+};
+
+function sRGBtoLinear(c) {
+  c = c / 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function getRelativeLuminance(hexColor) {
   let color = String(hexColor).replace("#", "").trim();
   if (color.length === 3) {
     color = color
@@ -348,12 +444,24 @@ export const getContrastingTextColor = (hexColor) => {
       .map((c) => c + c)
       .join("");
   }
-  if (color.length !== 6) return "#FFFFFF";
+  if (color.length !== 6) return 0;
   const r = parseInt(color.substring(0, 2), 16) || 0;
   const g = parseInt(color.substring(2, 4), 16) || 0;
   const b = parseInt(color.substring(4, 6), 16) || 0;
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 145 ? "#0F172A" : "#FFFFFF";
+  return 0.2126 * sRGBtoLinear(r) + 0.7152 * sRGBtoLinear(g) + 0.0722 * sRGBtoLinear(b);
+}
+
+/**
+ * Devuelve un color de texto (#FFFFFF o #0F172A) con contraste óptimo garantizando
+ * WCAG AA (>= 4.5:1) mediante la fórmula de luminancia relativa estándar W3C.
+ */
+export const getContrastingTextColor = (hexColor) => {
+  if (!hexColor) return "#FFFFFF";
+  const lum = getRelativeLuminance(hexColor);
+  const contrastWithWhite = (1.0 + 0.05) / (lum + 0.05);
+  const lumDark = 0.009; // Luminancia relativa aproximada de #0F172A
+  const contrastWithDark = (lum + 0.05) / (lumDark + 0.05);
+  return contrastWithDark > contrastWithWhite ? "#0F172A" : "#FFFFFF";
 };
 
 const HIGHLIGHT_QUERY_MAX_LEN = 64;

@@ -177,7 +177,7 @@
 .vue-flow__edge-path {
   fill: none !important;
   stroke: #000000 !important;
-  stroke-width: 2px !important;
+  stroke-width: 3px !important;
 }
 .vue-flow__arrowhead,
 marker {
@@ -187,7 +187,7 @@ marker {
 .v-theme--dark .vue-flow__edge-path {
   fill: none !important;
   stroke: #e2e8f0 !important;
-  stroke-width: 2px !important;
+  stroke-width: 3px !important;
 }
 .v-theme--dark .vue-flow__arrowhead,
 .v-theme--dark marker {
@@ -210,5 +210,90 @@ marker {
 
 .shadow-sm {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ==========================================================================
+   ACCESIBILIDAD WCAG AA: Contrastes en Barra, Tabs, Hints y Teclado (5 Temas)
+   ========================================================================== */
+
+/* 1. Barra Superior y Drawer Lateral (Barra) */
+.v-app-bar {
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+.v-app-bar .v-toolbar-title,
+.v-app-bar .v-app-bar-title {
+  color: #0f172a !important; /* Slate 900: Ratio > 17:1 en fondo blanco */
+  font-weight: 700 !important;
+}
+.v-theme--dark .v-app-bar {
+  border-bottom: 1px solid #334155 !important;
+}
+.v-theme--dark .v-app-bar .v-toolbar-title,
+.v-theme--dark .v-app-bar .v-app-bar-title {
+  color: #f8fafc !important; /* Slate 50: Ratio > 16:1 en fondo oscuro */
+}
+.v-navigation-drawer .v-list-item-title {
+  font-weight: 600 !important;
+  color: #1e293b !important;
+}
+.v-theme--dark .v-navigation-drawer .v-list-item-title {
+  color: #f1f5f9 !important;
+}
+.v-navigation-drawer .v-list-item-subtitle {
+  color: #475569 !important; /* Slate 600: Ratio > 7:1 */
+}
+.v-theme--dark .v-navigation-drawer .v-list-item-subtitle {
+  color: #94a3b8 !important; /* Slate 400: Ratio > 6.8:1 */
+}
+
+/* 2. Tabs (Pestañas de Navegación) */
+.v-tab {
+  opacity: 0.92 !important;
+  font-weight: 600 !important;
+  color: #334155 !important; /* Slate 700: Ratio 10.35:1 en claro */
+  letter-spacing: 0.25px !important;
+}
+.v-tab--selected {
+  opacity: 1 !important;
+  font-weight: 700 !important;
+  color: var(--v-theme-primary) !important;
+}
+.v-theme--dark .v-tab {
+  color: #e2e8f0 !important; /* Slate 200: Ratio 14:1 en oscuro */
+  opacity: 0.95 !important;
+}
+.v-theme--dark .v-tab--selected {
+  color: var(--v-theme-primary) !important;
+  opacity: 1 !important;
+}
+
+/* 3. Hints y Textos de Ayuda en Formularios */
+.v-messages__message,
+.v-input__details {
+  opacity: 1 !important;
+  color: #334155 !important; /* Slate 700: Ratio 10.35:1 garantizado */
+  font-weight: 500 !important;
+}
+.v-theme--dark .v-messages__message,
+.v-theme--dark .v-input__details {
+  color: #cbd5e1 !important; /* Slate 300: Ratio 12:1 en fondo oscuro */
+}
+
+/* 4. Navegación por Teclado: Foco visible en Nodos del Organigrama */
+.custom-node {
+  outline: none;
+  cursor: pointer;
+}
+.custom-node:focus-visible {
+  outline: 4px solid #2563EB !important; /* Azul cobalto de alto contraste */
+  outline-offset: 3px !important;
+  border-radius: 8px !important;
+  z-index: 50 !important;
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.35) !important;
+}
+.v-theme--dark .custom-node:focus-visible {
+  outline: 4px solid #60A5FA !important; /* Azul claro brillante para fondo oscuro */
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.45) !important;
 }
 

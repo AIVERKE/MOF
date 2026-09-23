@@ -2,8 +2,9 @@
 import { onMounted, ref, computed } from 'vue';
 import { useAllClasesMofStore } from '../../../stores/clases_mof';
 import { useAllUnidadesMofStore } from '../../../stores/unidades_mof';
-import { swatches, getUsedColors, toBoolean } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, toBoolean, getIntenseNodeColor } from "@/utils/mofHelpers";
 import { useSnackbar } from "@/composables/useSnackbar";
+import { useAccessibilityStore } from "@/stores/accessibility";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
 
@@ -18,6 +19,8 @@ const props = defineProps({
 const model = defineModel();
 const clasesStore = useAllClasesMofStore();
 const unidadesStore = useAllUnidadesMofStore();
+const accessibilityStore = useAccessibilityStore();
+const isColorblind = computed(() => accessibilityStore.colorblindMode);
 const { mostrar } = useSnackbar();
 
 const dialog = ref(false);
@@ -157,7 +160,7 @@ async function deleteClase(id) {
                   <div 
                     class="me-2" 
                     style="width: 12px; height: 12px; border-radius: 2px; background-color: var(--color)"
-                    :style="{ '--color': item.raw.color }"
+                    :style="{ '--color': getIntenseNodeColor(item.raw, clasesStore.clases, isColorblind) }"
                   ></div>
                 </template>
                 <template v-slot:append v-if="!hideCrud">
@@ -265,11 +268,11 @@ async function deleteClase(id) {
                 </v-card-text>
                 <v-card-actions class="pa-4">
                     <v-spacer></v-spacer>
-                    <v-btn variant="text" @click="dialog = false">Cancelar</v-btn>
-                    <v-btn color="primary" variant="elevated" @click="saveClase" :loading="clasesStore.loading" :disabled="!claseName.trim()">
+                    <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="dialog = false">Cancelar</v-btn>
+                    <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" @click="saveClase" :loading="clasesStore.loading" :disabled="!claseName.trim()">
                         Guardar
                     </v-btn>
-                    <v-btn v-if="editingClase" color="error" variant="tonal" @click="deleteClase(editingClase.id)" :loading="clasesStore.loading">
+                    <v-btn v-if="editingClase" color="error" variant="tonal" class="rounded-lg font-weight-bold px-4" @click="deleteClase(editingClase.id)" :loading="clasesStore.loading">
                         Eliminar
                     </v-btn>
                 </v-card-actions>
