@@ -467,8 +467,3 @@ const handleDelete = async () => {
   </v-container>
 </template>
 
-<style scoped>
-.max-width-400 { max-width: 400px; }
-.shadow-sm { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important; }
-.text-xxs { font-size: 10px; }
-</style>
