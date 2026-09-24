@@ -1,13 +1,20 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { ENDPOINTS } from '../config/api';
 import { rules } from '../utils/rules';
 import { hints } from '../config/hints';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
+
+function safeRedirectTarget(redirect) {
+  if (typeof redirect !== 'string') return null;
+  if (!redirect.startsWith('/') || redirect.startsWith('//')) return null;
+  return redirect;
+}
 
 const email = ref('');
 const password = ref('');
@@ -100,7 +107,8 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(email.value, password.value);
-    router.push('/dashboard');
+    const destino = safeRedirectTarget(route.query.redirect);
+    router.push(destino || '/dashboard');
   } catch (err) {
     error.value = err.message || 'Credenciales inválidas';
   } finally {

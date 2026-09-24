@@ -42,6 +42,7 @@ describe("useUnidadDetails - verReporte (PDF de la unidad)", () => {
     const [url, options] = mockFetch.mock.calls[0];
     expect(url).toBe(ENDPOINTS.MOF.PDF_UNIDAD(7));
     expect(options.headers.get("Authorization")).toBe("Bearer jwt-token-123");
+    expect(options.headers.get("Accept")).toBe("application/pdf");
     // la pestaña se abre vacía, dentro del clic (si no, el navegador la
     // bloquea como popup), y recién después se le carga el PDF
     expect(window.open).toHaveBeenCalledTimes(1);
