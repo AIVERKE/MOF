@@ -318,6 +318,8 @@ const handleExportCsv = () => {
 
     exportToCsv({
       filename: `Reporte_Facultativo_${safeName}.csv`,
+      title: "Dashboard Facultativo - Consolidado de Dependencias",
+      activeFilters: activeFiltersList.value,
       columns,
       rows: arbolDependencias.value,
     });

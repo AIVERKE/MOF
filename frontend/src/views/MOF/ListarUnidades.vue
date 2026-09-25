@@ -201,6 +201,8 @@ const handleExportCsv = () => {
 
     exportToCsv({
       filename: `Listado_Unidades_${vistaModo.value}.csv`,
+      title: "Listado de Unidades Administrativas",
+      activeFilters: activeFiltersList.value,
       columns,
       rows: filteredUnidades.value,
     });
