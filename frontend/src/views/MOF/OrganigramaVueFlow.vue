@@ -4,8 +4,8 @@ import { VueFlow, useVueFlow, Handle } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import dagre from "dagre";
-import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
+import { sanitizePdfText } from "@/utils/mofReport";
 import { useTheme } from "vuetify";
 
 // --- STORES & API ---
@@ -736,193 +736,669 @@ async function cambiarDependencia() {
   }
 }
 
+function hexToRgb(hex) {
+  if (!hex) return { r: 2, g: 132, b: 199 };
+  let str = String(hex).replace("#", "").trim();
+  if (str.length === 3) {
+    str = str
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  const val = parseInt(str, 16);
+  if (isNaN(val)) return { r: 2, g: 132, b: 199 };
+  return {
+    r: (val >> 16) & 255,
+    g: (val >> 8) & 255,
+    b: val & 255,
+  };
+}
+
+function fixSpanishMojibake(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/Ã[\u201C\u0093]/g, "Ó")
+    .replace(/Ã[\u201D\u0094]/g, "ö")
+    .replace(/Ã[\u2018\u0091\u00B1]/g, "Ñ")
+    .replace(/Ã[\u2019\u0092]/g, "’")
+    .replace(/Ã[\u0081\u00A1]/g, "Á")
+    .replace(/Ã[\u2030\u0089]/g, "É")
+    .replace(/Ã[\u00A9]/g, "é")
+    .replace(/Ã[\u008D\u00AD\u2021\u2022\u0095\u2026\u008A]/g, "Í")
+    .replace(/Ã[\u009A\u00BA\u0161]/g, "Ú")
+    .replace(/Ã[\u0153\u009C]/g, "Ü")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/ÃN/g, "ÓN")
+    .replace(/Ã\s*A/g, "ÍA")
+    .replace(/Ã\s*M/gi, "ÍM")
+    .replace(/Â/g, "");
+}
+
+function cleanPdfText(val) {
+  if (val === null || val === undefined) return "";
+  let str = fixSpanishMojibake(val);
+  return sanitizePdfText(str);
+}
+
 async function exportarOrganigrama() {
   mostrar("Generando PDF institucional en alta resolución...", "info");
 
-  // 1. AJUSTE DE CÁMARA
-  await fitView({ padding: 0.08, includeHiddenNodes: false });
-  await new Promise((resolve) => setTimeout(resolve, 800));
-
-  const container = document.querySelector(".vue-flow");
-  if (!container) throw new Error("No se detectó el lienzo");
-
-  // Inyectar estilos limpios y temporales para la captura
-  const styleTag = document.createElement("style");
-  styleTag.innerHTML = `
-    .vue-flow__edge-path,
-    .vue-flow__edge path {
-      fill: none !important;
-      stroke: #000000 !important;
-      stroke-width: 3px !important;
-      stroke-linejoin: round !important;
-      stroke-linecap: round !important;
-    }
-    .vue-flow__edge-interaction {
-      display: none !important;
-    }
-    marker, .vue-flow__arrowhead {
-      display: none !important;
-      visibility: hidden !important;
-    }
-    .bridge-line {
-      background-color: #000000 !important;
-      width: 3px !important;
-    }
-    .bridge-line.dashed {
-      border-left: 3px dashed #000000 !important;
-    }
-    .vue-flow__handle, .vue-flow__edge-text,
-    .vue-flow__controls, .vue-flow__minimap, .vue-flow__background, .node-actions, .v-btn {
-      display: none !important;
-    }
-    .custom-node {
-      box-shadow: none !important;
-      border: 2px solid rgba(15, 23, 42, 0.45) !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-  `;
-
-  // Remover temporalmente todos los elementos <marker> del SVG para que jamás aparezcan puntas de flecha
-  const originalMarkers = [];
-  container.querySelectorAll("marker").forEach((m) => {
-    originalMarkers.push({ parent: m.parentNode, el: m });
-    m.remove();
-  });
-
-  // Guardar y forzar fill: none y stroke: #000000 en todos los paths de aristas
-  const modifiedPaths = [];
-  container.querySelectorAll(".vue-flow__edge-path, .vue-flow__edge path").forEach((path) => {
-    const origStroke = path.getAttribute("stroke");
-    const origStrokeWidth = path.getAttribute("stroke-width");
-    const origFill = path.getAttribute("fill");
-    const origMarkerEnd = path.getAttribute("marker-end");
-    const origMarkerStart = path.getAttribute("marker-start");
-
-    modifiedPaths.push({
-      path,
-      origStroke,
-      origStrokeWidth,
-      origFill,
-      origMarkerEnd,
-      origMarkerStart,
-    });
-
-    path.setAttribute("fill", "none");
-    path.style.fill = "none";
-    path.setAttribute("stroke", "#000000");
-    path.style.stroke = "#000000";
-    path.setAttribute("stroke-width", "3");
-    path.style.strokeWidth = "3px";
-    path.style.strokeLinejoin = "round";
-    path.style.strokeLinecap = "round";
-    path.setAttribute("stroke-linejoin", "round");
-    path.setAttribute("stroke-linecap", "round");
-    path.removeAttribute("marker-end");
-    path.removeAttribute("marker-start");
-    path.style.markerEnd = "none";
-    path.style.markerStart = "none";
-  });
-
   try {
-    document.head.appendChild(styleTag);
+    let validNodes = (nodes.value || []).filter(
+      (n) => n.data && !n.data.isInvisible,
+    );
 
-    // 2. CAPTURA
-    // Ratio dinámico y adaptativo: 2 por defecto (óptima calidad visual),
-    // ajustándose de forma adaptativa en datasets masivos para evitar desbordamientos de memoria
-    const nodeCount = nodes.value?.length || unidadesList.value?.length || 0;
-    let adaptivePixelRatio = 2;
-    if (nodeCount >= 500) {
-      adaptivePixelRatio = 1;
-    } else if (nodeCount >= 150) {
-      adaptivePixelRatio = 1.5;
+    // En vista oficial (Estricto), garantizar estrictamente que solo se exporten unidades oficiales
+    if (vistaModo.value === "estricto") {
+      validNodes = validNodes.filter((n) => n.data?.isOficial !== false);
     }
 
-    const dataUrl = await toPng(container, {
-      backgroundColor: "#ffffff",
-      quality: 0.95,
-      pixelRatio: adaptivePixelRatio,
-      cacheBust: true,
-      skipFonts: true,
-      filter: (node) => {
-        const exclusion = [
-          "vue-flow__handle",
-          "vue-flow__controls",
-          "vue-flow__minimap",
-          "vue-flow__edge-interaction",
-          "node-actions",
-        ];
-        return !exclusion.some((cls) => node.classList?.contains(cls));
-      },
+    if (validNodes.length === 0) {
+      mostrar("No hay unidades para exportar", "warning");
+      return;
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    validNodes.forEach((n) => {
+      const x = Number(n.position?.x) || 0;
+      const y = Number(n.position?.y) || 0;
+      const w = 320;
+      const h = 240;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + w > maxX) maxX = x + w;
+      if (y + h > maxY) maxY = y + h;
     });
 
-    // 3. CREAR PDF (A3 Horizontal)
+    if (!isFinite(minX)) {
+      minX = 0;
+      minY = 0;
+      maxX = 2000;
+      maxY = 1200;
+    }
+
+    const rawGraphW = Math.max(100, maxX - minX);
+    const rawGraphH = Math.max(100, maxY - minY);
+
+    // Dimensiones y escalado vectorial institucional
+    // Máximo formato póster seguro en jsPDF: 5000 mm (~5 metros de ancho, estándar ISO PDF)
+    const maxPosterWidthMm = 5000;
+    const marginMm = 30;
+    const headerHeight = 52;
+    const footerHeight = 20;
+
+    const availableMaxW = maxPosterWidthMm - marginMm * 2;
+    // Escala ideal para vista cómoda: ~50mm por tarjeta (~0.156 mm/px)
+    // Para organigramas masivos con cientos de ramas, escala adaptativa que encaje exactamente en el formato póster
+    const idealScale = 50 / 320;
+    const scale = Math.min(idealScale, availableMaxW / rawGraphW);
+
+    const diagramWidthMm = Math.round(rawGraphW * scale);
+    const diagramHeightMm = Math.round(rawGraphH * scale);
+
+    const nodeWidthMm = 320 * scale;
+    const nodeHeightMm = 240 * scale;
+
+    // Dimensiones de la página:
+    // Mínimo formato A3 (420 x 297 mm), expandiéndose según el volumen de unidades
+    const pageWidth = Math.max(420, diagramWidthMm + marginMm * 2);
+    const pageHeight = Math.max(
+      297,
+      diagramHeightMm + headerHeight + footerHeight + marginMm * 2,
+    );
+
     const pdf = new jsPDF({
-      orientation: "landscape",
+      orientation: pageWidth >= pageHeight ? "landscape" : "portrait",
       unit: "mm",
-      format: "a3",
+      format: [pageWidth, pageHeight],
     });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 15;
 
+    // 1. Franja superior de encabezado institucional adaptativo a la vista activa
     pdf.setFillColor(248, 249, 250);
-    pdf.rect(0, 0, pageWidth, 35, "F");
-    pdf.setDrawColor(220, 220, 220);
-    pdf.line(0, 35, pageWidth, 35);
+    pdf.rect(0, 0, pageWidth, headerHeight, "F");
+    pdf.setDrawColor(200, 205, 215);
+    pdf.setLineWidth(0.8);
+    pdf.line(0, headerHeight, pageWidth, headerHeight);
 
-    pdf.setTextColor(30, 30, 30);
+    const modo = vistaModo.value; // 'integral' | 'analitico' | 'estricto'
+    const modeConfig = {
+      integral: {
+        label: "MODO: INTEGRAL",
+        badgeBg: [29, 78, 216], // #1D4ED8 Azul 700
+        subtitle: "Estructura Organizativa Integral (Totalidad de Unidades)",
+        footerText: "Sistema SMAU-MOF - Vista Integral - Estructura Organizativa Completa",
+        fileSuffix: "integral",
+      },
+      analitico: {
+        label: "MODO: ANAL\xCDTICA",
+        badgeBg: [109, 40, 217], // #6D28D9 Violeta 700
+        subtitle: "Estructura Organizativa Anal\xEDtica (Diferenciaci\xF3n de Oficialidad)",
+        footerText: "Sistema SMAU-MOF - Vista Anal\xEDtica - Unidades Oficiales y No Oficiales Identificadas",
+        fileSuffix: "analitico",
+      },
+      estricto: {
+        label: "MODO: OFICIAL",
+        badgeBg: [4, 120, 87], // #047857 Esmeralda 700
+        subtitle: "Estructura Organizativa Oficial (Aprobada por Resoluci\xF3n)",
+        footerText: "Sistema SMAU-MOF - Documento de Car\xE1cter Oficial - Estructura Organizativa Aprobada",
+        fileSuffix: "oficial",
+      },
+    };
+    const currentConfig = modeConfig[modo] || modeConfig.analitico;
+
+    // Título institucional
+    pdf.setTextColor(15, 23, 42); // Slate 900
     pdf.setFontSize(22);
     pdf.setFont("helvetica", "bold");
-    pdf.text("MANUAL DE ORGANIZACIONES Y FUNCIONES", margin, 18);
+    const mainTitleStr = "MANUAL DE ORGANIZACIONES Y FUNCIONES";
+    pdf.text(mainTitleStr, marginMm, 17);
+
+    // Pastilla del Modo de Visualización Activo al lado del título
+    const mainTitleW = pdf.getTextWidth(mainTitleStr);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    const modeBadgeW = pdf.getTextWidth(currentConfig.label) + 8;
+    const modeBadgeH = 6.2;
+    const modeBadgeX = marginMm + mainTitleW + 10;
+    pdf.setFillColor(currentConfig.badgeBg[0], currentConfig.badgeBg[1], currentConfig.badgeBg[2]);
+    pdf.roundedRect(modeBadgeX, 11.5, modeBadgeW, modeBadgeH, 1.6, 1.6, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(currentConfig.label, modeBadgeX + modeBadgeW / 2, 11.5 + modeBadgeH * 0.72, { align: "center" });
+
+    // Subtítulos institucionales
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(71, 85, 105); // Slate 600
+    pdf.text("Universidad Mayor de San Andrés", marginMm, 26);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(30, 41, 59); // Slate 800
+    pdf.text(currentConfig.subtitle, marginMm, 34);
+
+    // Fecha de emisión institucional
+    const fechaStr = `Fecha de emisi\xF3n: ${new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}`;
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(100, 100, 100);
-    pdf.text("Universidad Mayor de San Andrés", margin, 26);
-    pdf.text("Estructura Organizativa Oficial", margin, 31);
+    pdf.setTextColor(100, 116, 139);
+    pdf.text(fechaStr, pageWidth - marginMm, 26, { align: "right" });
 
-    const img = new Image();
-    img.src = dataUrl;
-    await new Promise((r) => (img.onload = r));
+    // Resumen estadístico adaptativo
+    const totalCount = validNodes.length;
+    const oficialesCount = validNodes.filter((n) => n.data?.isOficial !== false).length;
+    const noOficialesCount = validNodes.filter((n) => n.data?.isOficial === false).length;
+    const staffCount = validNodes.filter((n) => n.data?.isStaff).length;
 
-    const availableWidth = pageWidth - margin * 2;
-    const availableHeight = pageHeight - 55;
-    const ratio = Math.min(
-      availableWidth / img.width,
-      availableHeight / img.height,
-    );
-    const finalW = img.width * ratio;
-    const finalH = img.height * ratio;
+    let statsStr = `Total: ${totalCount} unidades`;
+    if (modo === "analitico") {
+      statsStr = `Total: ${totalCount} unidades  |  Oficiales: ${oficialesCount}  |  No Oficiales: ${noOficialesCount}  |  Staff: ${staffCount}`;
+    } else if (modo === "estricto") {
+      statsStr = `Total: ${totalCount} Unidades Oficiales Aprobadas  |  Staff: ${staffCount}`;
+    } else {
+      statsStr = `Total: ${totalCount} Unidades  |  Staff: ${staffCount}`;
+    }
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(15, 23, 42);
+    pdf.text(statsStr, pageWidth - marginMm, 34, { align: "right" });
 
-    // Centrar verticalmente en el espacio disponible debajo del encabezado institucional
-    const topY = 40 + Math.max(0, (availableHeight - finalH) / 2);
+    // Guía de Colores compacta en el encabezado
+    pdf.setFontSize(8.5);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(71, 85, 105);
+    pdf.text("GU\xCDA DE COLORES:", marginMm, 45);
 
-    pdf.addImage(
-      dataUrl,
-      "PNG",
-      (pageWidth - finalW) / 2,
-      topY,
-      finalW,
-      finalH,
-      undefined,
-      "FAST",
-    );
+    let curLegendX = marginMm + pdf.getTextWidth("GU\xCDA DE COLORES:") + 6;
+    const legendDotR = 1.3;
+    const legendItems = [];
+    if (modo === "analitico") {
+      legendItems.push({ label: "Oficial", color: [29, 78, 216], dashed: false });
+      legendItems.push({ label: "No Oficial", color: [148, 163, 184], dashed: true });
+      legendItems.push({ label: "Staff / Asesor\xEDa", color: [194, 65, 12], dashed: true });
+    } else if (modo === "estricto") {
+      legendItems.push({ label: "Estructura Oficial", color: [4, 120, 87], dashed: false });
+      legendItems.push({ label: "Staff / Asesor\xEDa", color: [194, 65, 12], dashed: true });
+    } else {
+      legendItems.push({ label: "Estructura Institucional", color: [29, 78, 216], dashed: false });
+      legendItems.push({ label: "Staff / Asesor\xEDa", color: [194, 65, 12], dashed: true });
+    }
 
-    pdf.setFontSize(8);
-    pdf.setTextColor(150, 150, 150);
+    legendItems.forEach((item) => {
+      pdf.setFillColor(item.color[0], item.color[1], item.color[2]);
+      pdf.setDrawColor(15, 23, 42);
+      pdf.setLineWidth(0.3);
+      if (item.dashed) {
+        pdf.setLineDashPattern([0.8, 0.8], 0);
+      } else {
+        pdf.setLineDashPattern([], 0);
+      }
+      pdf.circle(curLegendX, 44, legendDotR, "FD");
+      pdf.setLineDashPattern([], 0);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(51, 65, 85);
+      pdf.text(item.label, curLegendX + legendDotR + 2, 45);
+      curLegendX += legendDotR + 2 + pdf.getTextWidth(item.label) + 8;
+    });
+
+    // 2. Coordenadas de encuadre
+    const offsetX = marginMm + (pageWidth - marginMm * 2 - diagramWidthMm) / 2;
+    const offsetY = headerHeight + marginMm;
+
+    // 3. Trazado jerárquico tipo Bus Institucional (Líneas ortogonales limpias como la gráfica original)
+    const nodeMap = new Map();
+    validNodes.forEach((n) => nodeMap.set(String(n.id), n));
+
+    const edgeLineWidth = Math.max(0.35, 2.2 * scale);
+    pdf.setLineWidth(edgeLineWidth);
+    pdf.setDrawColor(15, 23, 42); // Slate 900
+
+    // Agrupar hijos por cada unidad superior (padre) para trazar un bus jerárquico perfecto
+    const parentChildrenMap = new Map();
+    validNodes.forEach((n) => {
+      if (n.parentId && nodeMap.has(String(n.parentId))) {
+        const pId = String(n.parentId);
+        if (!parentChildrenMap.has(pId)) {
+          parentChildrenMap.set(pId, []);
+        }
+        parentChildrenMap.get(pId).push(n);
+      }
+    });
+
+    parentChildrenMap.forEach((children, parentId) => {
+      const parent = nodeMap.get(parentId);
+      if (!parent) return;
+
+      const normalChildren = children.filter((ch) => !ch.data?.isStaff);
+      const staffChildren = children.filter((ch) => ch.data?.isStaff);
+
+      const pX = offsetX + (Number(parent.position?.x || 0) - minX) * scale;
+      const pY = offsetY + (Number(parent.position?.y || 0) - minY) * scale;
+      const parentBottomX = pX + nodeWidthMm / 2;
+      const parentBottomY = pY + nodeHeightMm;
+
+      if (normalChildren.length > 0) {
+        // Ordenar hijos por coordenada X para trazar los extremos del bus
+        normalChildren.sort(
+          (a, b) => Number(a.position?.x || 0) - Number(b.position?.x || 0),
+        );
+
+        const firstChildY =
+          offsetY + (Number(normalChildren[0].position?.y || 0) - minY) * scale;
+        const busY = (parentBottomY + firstChildY) / 2;
+
+        // Tronco vertical único desde la base del padre hasta la barra de distribución
+        pdf.setLineDashPattern([], 0);
+        pdf.line(parentBottomX, parentBottomY, parentBottomX, busY);
+
+        // Barra horizontal del bus que une a todos los hermanos
+        let minChildCenterX = parentBottomX;
+        let maxChildCenterX = parentBottomX;
+
+        normalChildren.forEach((ch) => {
+          const cCenterX =
+            offsetX +
+            (Number(ch.position?.x || 0) - minX) * scale +
+            nodeWidthMm / 2;
+          if (cCenterX < minChildCenterX) minChildCenterX = cCenterX;
+          if (cCenterX > maxChildCenterX) maxChildCenterX = cCenterX;
+        });
+
+        pdf.line(minChildCenterX, busY, maxChildCenterX, busY);
+
+        // Bajantes verticales desde la barra a cada nodo hijo
+        normalChildren.forEach((ch) => {
+          const cX = offsetX + (Number(ch.position?.x || 0) - minX) * scale;
+          const cY = offsetY + (Number(ch.position?.y || 0) - minY) * scale;
+          const cCenterX = cX + nodeWidthMm / 2;
+          pdf.line(cCenterX, busY, cCenterX, cY);
+        });
+      }
+
+      // Conexión lateral para unidades staff (con línea discontinua institucional)
+      staffChildren.forEach((ch) => {
+        const cX = offsetX + (Number(ch.position?.x || 0) - minX) * scale;
+        const cY = offsetY + (Number(ch.position?.y || 0) - minY) * scale;
+        const isLeft = ch.data?.staffSide === "left";
+        const targetX = isLeft ? cX + nodeWidthMm : cX;
+        const targetY = cY + nodeHeightMm / 2;
+
+        pdf.setLineDashPattern([1.5, 1.5], 0);
+        pdf.line(parentBottomX, parentBottomY, parentBottomX, targetY);
+        pdf.line(parentBottomX, targetY, targetX, targetY);
+      });
+    });
+    pdf.setLineDashPattern([], 0);
+
+    // 4. Dibujo vectorial de nodos (tarjetas idénticas a la interfaz original)
+    validNodes.forEach((n) => {
+      const nx = offsetX + (Number(n.position?.x || 0) - minX) * scale;
+      const ny = offsetY + (Number(n.position?.y || 0) - minY) * scale;
+
+      const isStaff = Boolean(n.data?.isStaff);
+      const isNonOficial =
+        vistaModo.value === "analitico" &&
+        (Boolean(n.data?.isNonOficialInOficialView) ||
+          n.data?.isOficial === false ||
+          !checkOficial(n.data));
+      const isFilterFaded =
+        (hasAnyFilter.value || mostrarDependencias.value) && !n.data?.isMatch;
+      const isGhost = isNonOficial || isFilterFaded;
+
+      let rawColor = n.data?.color || "#1e3a8a";
+      if (isNonOficial) {
+        rawColor = "#94A3B8";
+      }
+      const bgRgb = hexToRgb(rawColor);
+      const textColor = getContrastingTextColor(rawColor);
+      const textRgb = hexToRgb(textColor);
+      const isDarkCard = textColor.toUpperCase() === "#FFFFFF";
+
+      if (isGhost) {
+        pdf.saveGraphicsState();
+        const ghostOpacity = isFilterFaded ? 0.30 : 0.45;
+        pdf.setGState(new pdf.GState({ opacity: ghostOpacity }));
+      }
+
+      // 1. Fondo de la tarjeta
+      pdf.setFillColor(bgRgb.r, bgRgb.g, bgRgb.b);
+      const cardRadius = Math.max(0.8, 3.0 * scale);
+      pdf.roundedRect(
+        nx,
+        ny,
+        nodeWidthMm,
+        nodeHeightMm,
+        cardRadius,
+        cardRadius,
+        "F",
+      );
+
+      // 2. Borde de la tarjeta
+      pdf.setDrawColor(15, 23, 42); // Slate 900
+      pdf.setLineWidth(Math.max(0.25, 1.6 * scale));
+      if (isStaff || isNonOficial) {
+        pdf.setLineDashPattern([2, 2], 0);
+      } else {
+        pdf.setLineDashPattern([], 0);
+      }
+      pdf.roundedRect(
+        nx,
+        ny,
+        nodeWidthMm,
+        nodeHeightMm,
+        cardRadius,
+        cardRadius,
+        "S",
+      );
+      pdf.setLineDashPattern([], 0);
+
+      const padX = Math.max(1.4, 3.5 * scale);
+      const padY = Math.max(1.0, 2.5 * scale);
+
+      // 3. Barra superior para Staff o No Oficial
+      let topBadgeHeight = 0;
+      if (isStaff || isNonOficial) {
+        topBadgeHeight = Math.max(2.0, nodeHeightMm * 0.13);
+        if (isDarkCard) {
+          pdf.setFillColor(15, 23, 42);
+        } else {
+          pdf.setFillColor(255, 255, 255);
+        }
+        pdf.roundedRect(
+          nx,
+          ny,
+          nodeWidthMm,
+          topBadgeHeight,
+          cardRadius,
+          cardRadius,
+          "F",
+        );
+        pdf.rect(
+          nx,
+          ny + topBadgeHeight / 2,
+          nodeWidthMm,
+          topBadgeHeight / 2,
+          "F",
+        );
+
+        pdf.setFont("helvetica", "bold");
+        const badgeFontSize = Math.max(3.0, scale * 45);
+        pdf.setFontSize(badgeFontSize);
+        pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
+        const badgeText = isStaff ? "STAFF - ASESOR\xCDA" : "NO OFICIAL";
+        pdf.text(badgeText, nx + nodeWidthMm / 2, ny + topBadgeHeight * 0.72, {
+          align: "center",
+        });
+      }
+
+      // 4. Pastilla del Código
+      const codigoStr = cleanPdfText(n.data?.codigo || "-");
+      const codeFontSize = Math.max(3.4, scale * 52);
+      pdf.setFontSize(codeFontSize);
+      pdf.setFont("helvetica", "bold");
+
+      const measuredCodeW = pdf.getTextWidth(codigoStr);
+      const pillPaddingX = Math.max(1.0, 2.0 * scale);
+      const pillW = Math.min(
+        nodeWidthMm - padX * 2,
+        measuredCodeW + pillPaddingX * 2 + 0.6,
+      );
+      const pillH = Math.max(1.8, codeFontSize * 0.38 + 0.6);
+      const pillX = nx + padX;
+      const pillY = ny + topBadgeHeight + padY;
+      if (isDarkCard) {
+        // Fondo traslúcido armónico más oscuro que la tarjeta (igual a rgba(0, 0, 0, 0.22) en UI)
+        pdf.setFillColor(
+          Math.round(bgRgb.r * 0.70),
+          Math.round(bgRgb.g * 0.70),
+          Math.round(bgRgb.b * 0.70),
+        );
+        pdf.setTextColor(255, 255, 255);
+      } else {
+        // Fondo traslúcido claro para tarjetas de fondo claro
+        pdf.setFillColor(
+          Math.round(bgRgb.r + (255 - bgRgb.r) * 0.55),
+          Math.round(bgRgb.g + (255 - bgRgb.g) * 0.55),
+          Math.round(bgRgb.b + (255 - bgRgb.b) * 0.55),
+        );
+        pdf.setTextColor(15, 23, 42);
+      }
+      const pillRadius = Math.max(0.4, 1.5 * scale);
+      pdf.roundedRect(pillX, pillY, pillW, pillH, pillRadius, pillRadius, "F");
+
+      pdf.text(
+        codigoStr,
+        pillX + pillW / 2,
+        pillY + pillH * 0.74,
+        { align: "center" },
+      );
+
+      // 5. Título de la Unidad
+      let titleFontSize = Math.max(3.6, scale * 58);
+      pdf.setFontSize(titleFontSize);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
+
+      const titleText = cleanPdfText(n.data?.nombre || "").toUpperCase();
+      const maxTitleW = nodeWidthMm - padX * 2;
+      let titleLines = pdf.splitTextToSize(titleText, maxTitleW);
+
+      if (titleLines.length > 3) {
+        titleFontSize = Math.max(3.0, titleFontSize * 0.88);
+        pdf.setFontSize(titleFontSize);
+        titleLines = pdf.splitTextToSize(titleText, maxTitleW);
+      }
+
+      const maxLines = Math.min(3, titleLines.length);
+      const titleLineSpacing = titleFontSize * 0.36;
+      const titleStartY = pillY + pillH + titleLineSpacing + 0.5;
+
+      for (let i = 0; i < maxLines; i++) {
+        let lineStr = titleLines[i];
+        if (i === 2 && titleLines.length > 3) {
+          lineStr = lineStr.slice(0, Math.max(6, lineStr.length - 3)) + "...";
+        }
+        pdf.text(lineStr, nx + padX, titleStartY + i * titleLineSpacing);
+      }
+
+      // 6. Filas de Detalles con iconos vectoriales tipo web UI (Sigla, Nivel, Tipo)
+      const detailFontSize = Math.max(2.9, scale * 46);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
+
+      const detailLineSpacing = detailFontSize * 0.40;
+      let detailY =
+        titleStartY +
+        (maxLines - 1) * titleLineSpacing +
+        detailLineSpacing +
+        0.8;
+
+      const iconW = Math.max(1.0, 2.2 * scale);
+      const iconH = Math.max(0.8, 1.8 * scale);
+      const textOffsetX = iconW + Math.max(0.6, 1.0 * scale);
+      const maxDetailTextW = nodeWidthMm - padX * 2 - textOffsetX;
+
+      // Función que garantiza que el texto de detalle quepa completo en una sola línea
+      function drawDetailText(text, x, y, maxW, baseFontSize) {
+        let fs = baseFontSize;
+        pdf.setFontSize(fs);
+        let tw = pdf.getTextWidth(text);
+        if (tw > maxW) {
+          fs = Math.max(2.1, baseFontSize * (maxW / tw));
+          pdf.setFontSize(fs);
+          tw = pdf.getTextWidth(text);
+        }
+        let outText = text;
+        if (tw > maxW) {
+          while (outText.length > 4 && pdf.getTextWidth(outText + "...") > maxW) {
+            outText = outText.slice(0, -1);
+          }
+          outText += "...";
+        }
+        pdf.text(outText, x, y);
+      }
+
+      // 6.1 Sigla (icono mdi-identifier)
+      if (n.data?.sigla && n.data.sigla !== "-") {
+        const siglaStr = cleanPdfText(n.data.sigla);
+        const siglaFullText = `SIGLA: ${siglaStr}`;
+        pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
+        pdf.setLineWidth(Math.max(0.12, 0.4 * scale));
+        pdf.roundedRect(nx + padX, detailY - iconH * 0.8, iconW, iconH, 0.2, 0.2, "S");
+        pdf.line(
+          nx + padX + iconW * 0.25,
+          detailY - iconH * 0.4,
+          nx + padX + iconW * 0.75,
+          detailY - iconH * 0.4,
+        );
+        drawDetailText(
+          siglaFullText,
+          nx + padX + textOffsetX,
+          detailY,
+          maxDetailTextW,
+          detailFontSize,
+        );
+        detailY += detailLineSpacing;
+      }
+
+      // 6.2 Nivel Jerárquico (icono mdi-layers-outline)
+      if (n.data?.nivel && n.data.nivel !== "---") {
+        const nivelStr = cleanPdfText(n.data.nivel);
+        pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
+        pdf.setLineWidth(Math.max(0.12, 0.4 * scale));
+        const ix = nx + padX;
+        const iy = detailY - iconH * 0.5;
+        pdf.lines(
+          [
+            [iconW * 0.5, -iconH * 0.35],
+            [iconW * 0.5, iconH * 0.35],
+            [-iconW * 0.5, iconH * 0.35],
+            [-iconW * 0.5, -iconH * 0.35],
+          ],
+          ix,
+          iy,
+          [1, 1],
+          "S",
+          true,
+        );
+        pdf.line(ix, iy + iconH * 0.25, ix + iconW * 0.5, iy + iconH * 0.55);
+        pdf.line(ix + iconW * 0.5, iy + iconH * 0.55, ix + iconW, iy + iconH * 0.25);
+        drawDetailText(
+          nivelStr,
+          nx + padX + textOffsetX,
+          detailY,
+          maxDetailTextW,
+          detailFontSize,
+        );
+        detailY += detailLineSpacing;
+      }
+
+      // 6.3 Tipo de Unidad (icono mdi-tag-outline)
+      if (n.data?.tipo && n.data.tipo !== "---") {
+        const tipoStr = cleanPdfText(n.data.tipo);
+        pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
+        pdf.setLineWidth(Math.max(0.12, 0.4 * scale));
+        const ix = nx + padX;
+        const ty = detailY - iconH * 0.7;
+        pdf.roundedRect(ix, ty, iconW, iconH, 0.2, 0.2, "S");
+        pdf.setFillColor(textRgb.r, textRgb.g, textRgb.b);
+        pdf.circle(ix + iconW * 0.3, ty + iconH * 0.5, Math.max(0.12, 0.35 * scale), "F");
+        drawDetailText(
+          tipoStr,
+          nx + padX + textOffsetX,
+          detailY,
+          maxDetailTextW,
+          detailFontSize,
+        );
+      }
+
+      // 6.4 Menú de 3 puntos (UnidadActionsMenu en esquina inferior derecha)
+      const dotsX = nx + nodeWidthMm - padX - Math.max(0.6, 1.2 * scale);
+      const dotsR = Math.max(0.18, 0.4 * scale);
+      const dotsSpacing = Math.max(0.6, 1.3 * scale);
+      const bottomDotsY = ny + nodeHeightMm - padY - Math.max(0.6, 1.2 * scale);
+
+      pdf.setFillColor(textRgb.r, textRgb.g, textRgb.b);
+      pdf.circle(dotsX, bottomDotsY - dotsSpacing * 2, dotsR, "F");
+      pdf.circle(dotsX, bottomDotsY - dotsSpacing, dotsR, "F");
+      pdf.circle(dotsX, bottomDotsY, dotsR, "F");
+
+      // 6.5 Conector circular inferior (manija Vue Flow)
+      const handleX = nx + nodeWidthMm / 2;
+      const handleY = ny + nodeHeightMm;
+      const handleR = Math.max(0.4, 0.9 * scale);
+      pdf.setFillColor(15, 23, 42);
+      pdf.setDrawColor(255, 255, 255);
+      pdf.setLineWidth(Math.max(0.12, 0.3 * scale));
+      pdf.circle(handleX, handleY, handleR, "FD");
+
+      if (isGhost) {
+        pdf.restoreGraphicsState();
+      }
+    });
+
+    // 5. Pie de página adaptativo según el modo activo
+    pdf.setFontSize(10);
+    pdf.setTextColor(148, 163, 184); // Slate 400
     pdf.text(
-      "Sistema SMAU-MOF - Documento de carácter oficial - Página 1 de 1",
+      currentConfig.footerText,
       pageWidth / 2,
-      pageHeight - 10,
+      pageHeight - 8,
       { align: "center" },
     );
 
-    // Descarga directa y robusta con enlace adjunto al DOM
+    // 6. Descarga del archivo con nombre descriptivo del modo
     const blob = pdf.output("blob");
     const blobUrl = URL.createObjectURL(blob);
     const downloadLink = document.createElement("a");
     downloadLink.href = blobUrl;
-    downloadLink.download = `Organigrama_UMSA_${Date.now()}.pdf`;
+    downloadLink.download = `Organigrama_UMSA_${currentConfig.fileSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
     downloadLink.style.display = "none";
     document.body.appendChild(downloadLink);
     downloadLink.click();
@@ -936,26 +1412,6 @@ async function exportarOrganigrama() {
     mostrar("¡PDF generado y descargado correctamente!", "success");
   } catch (error) {
     mostrar("Error al exportar: " + error.message, "error");
-  } finally {
-    if (document.head.contains(styleTag)) document.head.removeChild(styleTag);
-    // Restaurar atributos originales de los paths
-    modifiedPaths.forEach(({ path, origStroke, origStrokeWidth, origFill, origMarkerEnd, origMarkerStart }) => {
-      if (origFill !== null) path.setAttribute("fill", origFill); else path.removeAttribute("fill");
-      if (origStroke !== null) path.setAttribute("stroke", origStroke); else path.removeAttribute("stroke");
-      if (origStrokeWidth !== null) path.setAttribute("stroke-width", origStrokeWidth); else path.removeAttribute("stroke-width");
-      if (origMarkerEnd !== null) path.setAttribute("marker-end", origMarkerEnd);
-      if (origMarkerStart !== null) path.setAttribute("marker-start", origMarkerStart);
-      path.style.fill = "";
-      path.style.stroke = "";
-      path.style.strokeWidth = "";
-      path.style.markerEnd = "";
-      path.style.markerStart = "";
-    });
-    // Restaurar markers
-    originalMarkers.forEach(({ parent, el }) => {
-      if (parent && !parent.contains(el)) parent.appendChild(el);
-    });
-    setTimeout(() => fitView({ padding: 0.1 }), 200);
   }
 }
 
