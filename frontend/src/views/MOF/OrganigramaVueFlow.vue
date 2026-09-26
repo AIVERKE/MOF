@@ -133,9 +133,6 @@ const FILTER_COLORS_COLORBLIND = {
 
 const accessibilityStore = useAccessibilityStore();
 const isColorblind = computed(() => accessibilityStore.colorblindMode);
-const activeFilterColors = computed(() =>
-  isColorblind.value ? FILTER_COLORS_COLORBLIND : FILTER_COLORS,
-);
 
 // --- STORES INSTANCES ---
 const unidadesStore = useAllUnidadesMofStore();
@@ -411,13 +408,7 @@ const stats = computed(() => {
   ];
 });
 
-/** Clases activas principales ordenadas jerárquicamente para la guía de colores (leyenda estándar) */
-const activeClasesForLegend = computed(() => {
-  return (clasesStore.clases || [])
-    .filter((c) => toBoolean(c.activo))
-    .sort((a, b) => (Number(a.peso) || 99) - (Number(b.peso) || 99))
-    .slice(0, 8);
-});
+
 
 // --- ESTRUCTURA VISUAL & LAYOUT ---
 function getLayoutedElements(nodes, edges) {
