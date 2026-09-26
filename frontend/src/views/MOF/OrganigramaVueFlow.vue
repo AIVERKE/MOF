@@ -1356,8 +1356,12 @@ const volarANodos = async (ids = []) => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("resize"));
   }
-  // Dejar que VueFlow remida el viewport tras el resize
-  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  if (typeof document !== "undefined") {
+    const flowCardEl = document.querySelector(".flow-card");
+    if (flowCardEl) {
+      flowCardEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
 
   if (!ids || ids.length === 0) {
     await fitView({ padding: 0.1, duration: 800 });
@@ -1453,12 +1457,7 @@ function resetFilters() {
 <template>
   <v-container
     fluid
-    :class="[
-      'organigrama-main-container pt-0 px-6 pb-0 d-flex flex-column',
-      $vuetify.display.smAndDown
-        ? 'h-auto overflow-y-auto'
-        : 'h-screen-custom overflow-hidden',
-    ]"
+    class="organigrama-main-container pt-0 px-6 pb-6 d-flex flex-column"
   >
     <div class="flex-none mx-auto w-100" style="max-width: 1400px">
       <!-- Header & Breadcrumb -->
@@ -1688,126 +1687,6 @@ function resetFilters() {
         </v-expansion-panel>
       </v-expansion-panels>
 
-      <!-- LEYENDA DINÁMICA -->
-      <v-expand-transition>
-        <div class="mb-2">
-          <v-card variant="tonal" class="rounded-lg border-dashed border-sm">
-            <v-card-text class="py-2 px-4 d-flex align-center flex-wrap gap-4">
-              <span
-                class="text-caption font-weight-bold text-uppercase text-grey-darken-2"
-                >Guía de Colores:</span
-              >
-
-              <!-- Modo Dependencias -->
-              <template v-if="mostrarDependencias">
-                <div class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.selectedDep" class="mr-2">
-                    <v-icon size="11" color="white">mdi-bullseye-arrow</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold">Unidad Seleccionada [ORIGEN]</span>
-                </div>
-                <div class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.depFuncional" class="mr-2" style="border: 1px dashed white;">
-                    <v-icon size="11" color="white">mdi-transit-connection-variant</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold">Dependencia Funcional [DESTINO]</span>
-                </div>
-                <div class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.noMatch" class="mr-2">
-                    <v-icon size="11" color="grey-darken-3">mdi-minus</v-icon>
-                  </v-avatar>
-                  <span class="text-caption">Sin coincidencias</span>
-                </div>
-              </template>
-
-              <!-- Filtros Activos -->
-              <template v-else-if="hasAnyFilter">
-                <div
-                  v-if="
-                    [
-                      filterNivel,
-                      filterTipo,
-                      filterInstancia,
-                      filterRelacion,
-                      searchTerm,
-                    ].filter((x) => x).length > 1
-                  "
-                  class="d-flex align-center"
-                >
-                  <v-avatar size="16" :color="activeFilterColors.multipleMatch" class="mr-2">
-                    <v-icon size="11" color="white">mdi-check-all</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold"
-                    >Coincidencia Múltiple</span
-                  >
-                </div>
-                <div v-if="searchTerm" class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.searchMatch" class="mr-2">
-                    <v-icon size="11" color="white">mdi-magnify</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold">Coincidencia por búsqueda</span>
-                </div>
-                <div v-if="filterNivel" class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.nivelFilter" class="mr-2">
-                    <v-icon size="11" color="white">mdi-layers-outline</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold">Filtrado por Nivel</span>
-                </div>
-                <div v-if="filterTipo" class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.tipoFilter" class="mr-2">
-                    <v-icon size="11" color="white">mdi-tag-outline</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold">Filtrado por Tipo</span>
-                </div>
-                <div v-if="filterInstancia" class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.claseFilter" class="mr-2">
-                    <v-icon size="11" color="white">mdi-domain</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold">Filtrado por Instancia</span>
-                </div>
-                <div v-if="filterRelacion" class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.relacionFilter" class="mr-2">
-                    <v-icon size="11" color="white">mdi-vector-polyline</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold">Filtrado por Relación</span>
-                </div>
-                <div class="d-flex align-center">
-                  <v-avatar size="16" :color="activeFilterColors.noMatch" class="mr-2">
-                    <v-icon size="11" color="grey-darken-3">mdi-minus</v-icon>
-                  </v-avatar>
-                  <span class="text-caption">Sin coincidencias</span>
-                </div>
-              </template>
-
-              <!-- Paleta Estándar de Nodos (Instancias / Clases y Staff) -->
-              <template v-else>
-                <div
-                  v-for="c in activeClasesForLegend"
-                  :key="c.id"
-                  class="d-flex align-center"
-                >
-                  <v-avatar
-                    size="16"
-                    :color="getIntenseNodeColor(c, clasesStore.clases, isColorblind)"
-                    class="mr-2"
-                  />
-                  <span class="text-caption font-weight-bold">{{ c.descripcion }}</span>
-                </div>
-                <div class="d-flex align-center">
-                  <v-avatar
-                    size="16"
-                    :color="activeFilterColors.staffDefault"
-                    class="mr-2"
-                  >
-                    <v-icon size="11" color="white">mdi-account-tie</v-icon>
-                  </v-avatar>
-                  <span class="text-caption font-weight-bold">Staff / Asesoría</span>
-                </div>
-              </template>
-            </v-card-text>
-          </v-card>
-        </div>
-      </v-expand-transition>
     </div>
 
     <!-- RESULTS TABLE -->
@@ -2328,30 +2207,34 @@ function resetFilters() {
 <style scoped>
 .organigrama-main-container {
   margin-top: -36px !important;
-}
-.h-screen-custom {
-  height: calc(100vh - 120px) !important;
-  max-height: calc(100vh - 120px) !important;
+  min-height: calc(100vh - 100px);
+  width: 100%;
 }
 .filter-results-card {
-  max-height: 160px;
+  max-height: 180px;
   overflow-y: auto;
 }
 .flow-card {
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 1 0 auto;
+  width: 100%;
+  min-height: 600px;
+  height: clamp(580px, 72vh, 900px);
 }
 .flow-container {
   width: 100%;
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 600px;
   height: 100%;
   overflow: hidden;
   background: #f8f9fa;
 }
-@media (min-width: 961px) {
+@media (max-width: 960px) {
+  .flow-card {
+    min-height: 480px;
+    height: 520px;
+  }
   .flow-container {
-    min-height: 280px;
+    min-height: 480px;
   }
 }
 .v-theme--dark .flow-container {
