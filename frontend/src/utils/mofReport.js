@@ -28,22 +28,64 @@ function escapeCsvValue(val) {
   return `"${str}"`;
 }
 
+/** Separador de listas de Excel ES/BO y LibreOffice en locales españoles. */
+const CSV_DELIMITER = ";";
+
+/**
+ * Formatea filtros activos para el bloque de contexto del CSV
+ * (misma regla que el encabezado PDF).
+ * @param {Array<{label: string, value: string}>} activeFilters
+ * @returns {string}
+ */
+function formatCsvActiveFilters(activeFilters = []) {
+  const validFilters = (activeFilters || []).filter(
+    (f) => f && f.value !== null && f.value !== undefined && String(f.value).trim() !== ""
+  );
+  if (!validFilters.length) return "Sin filtros";
+  return validFilters.map((f) => `${f.label}: ${f.value}`).join(" | ");
+}
+
 /**
  * Exporta datos tabulares a un archivo CSV con BOM UTF-8 (\uFEFF)
- * para compatibilidad nativa inmediata con Excel y LibreOffice.
+ * y delimitador `;` para apertura limpia en Excel ES/BO y LibreOffice.
+ * Incluye bloque de contexto (título, fecha, filtros) encima de la tabla.
  *
  * @param {Object} options
  * @param {string} options.filename - Nombre del archivo a descargar
  * @param {Array<{header: string, key?: string, getter?: Function}>} options.columns - Definición de columnas
  * @param {Array<Object>} options.rows - Array de objetos a exportar
+ * @param {string} [options.title] - Título del reporte
+ * @param {Array<{label: string, value: string}>} [options.activeFilters] - Filtros activos (como en PDF)
  * @returns {boolean}
  */
-export function exportToCsv({ filename = "reporte.csv", columns = [], rows = [] }) {
+export function exportToCsv({
+  filename = "reporte.csv",
+  columns = [],
+  rows = [],
+  title = "",
+  activeFilters = [],
+}) {
   if (!columns || !columns.length || !rows || !rows.length) {
     return false;
   }
 
-  const headerLine = columns.map((c) => escapeCsvValue(c.header)).join(",");
+  const metaLines = [];
+  if (title && String(title).trim()) {
+    metaLines.push(
+      [escapeCsvValue("TÍTULO"), escapeCsvValue(String(title).trim())].join(CSV_DELIMITER)
+    );
+  }
+  metaLines.push(
+    [escapeCsvValue("FECHA DE EMISIÓN"), escapeCsvValue(formatReportDate())].join(CSV_DELIMITER)
+  );
+  metaLines.push(
+    [escapeCsvValue("FILTROS ACTIVOS"), escapeCsvValue(formatCsvActiveFilters(activeFilters))].join(
+      CSV_DELIMITER
+    )
+  );
+  metaLines.push("");
+
+  const headerLine = columns.map((c) => escapeCsvValue(c.header)).join(CSV_DELIMITER);
   const dataLines = rows.map((row) => {
     return columns
       .map((col) => {
@@ -57,10 +99,10 @@ export function exportToCsv({ filename = "reporte.csv", columns = [], rows = [] 
         }
         return escapeCsvValue(val);
       })
-      .join(",");
+      .join(CSV_DELIMITER);
   });
 
-  const csvContent = "\uFEFF" + [headerLine, ...dataLines].join("\r\n");
+  const csvContent = "\uFEFF" + [...metaLines, headerLine, ...dataLines].join("\r\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

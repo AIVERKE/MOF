@@ -308,7 +308,7 @@ const handleExportCsv = () => {
     loadingReport.value = true;
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
-      { header: "NIVEL_JERARQUÍA", getter: (u) => u._depth ?? 0 },
+      { header: "Profundidad en el árbol", getter: (u) => u._depth ?? 0 },
       {
         header: "UNIDAD ADMINISTRATIVA",
         getter: (u) => u.display_name || u.nombre || u.denominacion || "",
@@ -326,6 +326,8 @@ const handleExportCsv = () => {
 
     exportToCsv({
       filename: "Arbol_Estructura_Unidades_MOF.csv",
+      title: "Estructura Organizacional - Árbol de Unidades",
+      activeFilters: activeFiltersList.value,
       columns,
       rows: flatTreeList.value,
     });

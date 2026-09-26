@@ -369,6 +369,8 @@ const handleExportCsv = () => {
 
     exportToCsv({
       filename: "Reporte_Ejecutivo_Unidades_MOF.csv",
+      title: "Reporte Ejecutivo - Consolidado Institucional",
+      activeFilters: activeFiltersList.value,
       columns,
       rows: unidadesFiltradas.value,
     });
