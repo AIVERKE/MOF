@@ -26,6 +26,9 @@ function flattenValidationErrors(errors: ValidationError[]): string[] {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Un hop (Apache reverse proxy). req.ip = IP del cliente, no 127.0.0.1.
+  // Nest no debe quedar expuesto en público sin Apache delante.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.enableCors({
     origin: resolveCorsOrigins(),
     credentials: true,

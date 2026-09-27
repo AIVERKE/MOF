@@ -67,6 +67,8 @@ export class ResultExceptionFilter implements ExceptionFilter {
     if (status === HttpStatus.UNAUTHORIZED) return ErrorCodes.UNAUTHORIZED;
     if (status === HttpStatus.FORBIDDEN) return ErrorCodes.FORBIDDEN;
     if (status === HttpStatus.NOT_FOUND) return ErrorCodes.NOT_FOUND;
+    if (status === HttpStatus.TOO_MANY_REQUESTS)
+      return ErrorCodes.TOO_MANY_REQUESTS;
     if (status === HttpStatus.CONFLICT) return ErrorCodes.REQUEST_ERROR;
     if (status >= 500) return ErrorCodes.INTERNAL_ERROR;
     if (status === HttpStatus.BAD_REQUEST) return ErrorCodes.REQUEST_ERROR;
