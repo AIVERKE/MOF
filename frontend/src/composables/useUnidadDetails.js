@@ -107,7 +107,9 @@ export function useUnidadDetails({ unidadesStore }) {
   async function verReporte(id) {
     const pestana = window.open("", "_blank");
     try {
-      const response = await apiFetch(ENDPOINTS.MOF.PDF_UNIDAD(id));
+      const response = await apiFetch(ENDPOINTS.MOF.PDF_UNIDAD(id), {
+        headers: { Accept: "application/pdf" },
+      });
       if (!response.ok) {
         pestana?.close();
         // 401 y 403 ya los atiende apiFetch (login y aviso de permisos)

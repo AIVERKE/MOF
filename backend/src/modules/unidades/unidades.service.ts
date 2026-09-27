@@ -947,8 +947,7 @@ export class UnidadesService {
       relations: ['tipo', 'nivel', 'relacion', 'tipoUnidad', 'parent'],
     });
     if (!u) notFound(id);
-    const funciones = await this.funciones(id);
-    return { unidad: u, funciones };
+    return this.mapDetail(u);
   }
 
   async getDashboardStats(filters?: {
