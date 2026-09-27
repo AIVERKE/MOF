@@ -15,6 +15,7 @@ import { CargosModule } from './modules/cargos/cargos.module';
 import { SeguridadModule } from './modules/seguridad/seguridad.module';
 import { GacetaModule } from './modules/integraciones/gaceta/gaceta.module';
 import { ErrorCodes, getErrorDefinition } from './common/errors';
+import { throttleConfig } from './common/throttle.util';
 
 @Module({
   imports: [
@@ -25,16 +26,14 @@ import { ErrorCodes, getErrorDefinition } from './common/errors';
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        throttlers: [
-          {
-            name: 'default',
-            ttl: Number(config.get('THROTTLE_TTL_MS', 60_000)),
-            limit: Number(config.get('THROTTLE_LIMIT', 60)),
-          },
-        ],
-        errorMessage: getErrorDefinition(ErrorCodes.TOO_MANY_REQUESTS).message,
-      }),
+      useFactory: () => {
+        const { ttlMs, limit } = throttleConfig();
+        return {
+          throttlers: [{ name: 'default', ttl: ttlMs, limit }],
+          errorMessage: getErrorDefinition(ErrorCodes.TOO_MANY_REQUESTS)
+            .message,
+        };
+      },
     }),
     TypeOrmModule.forRootAsync({
       useFactory: (configService: ConfigService) => ({
