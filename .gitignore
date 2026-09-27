@@ -1,0 +1,5 @@
+# Variables de entorno reales (incluye el .env de produccion que lee Compose)
+.env
+.env.*
+!.env.example
+!.env.*.example

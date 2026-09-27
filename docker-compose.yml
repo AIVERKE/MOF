@@ -25,12 +25,14 @@ services:
       db:
         condition: service_healthy
     environment:
+      NODE_ENV: development
       PORT: 3000
       DB_HOST: db
       DB_PORT: 5432
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       DB_DATABASE: mof_db
+      # Solo desarrollo; produccion usa docker-compose.prod.yml
       JWT_SECRET: super_secret_key_random_string
       JWT_EXPIRES_IN: 1d
       CORS_ORIGIN: http://localhost:5173
@@ -49,12 +51,14 @@ services:
       db:
         condition: service_healthy
     environment:
+      NODE_ENV: development
       PORT: 3000
       DB_HOST: db
       DB_PORT: 5432
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       DB_DATABASE: mof_db
+      # Solo desarrollo; produccion usa docker-compose.prod.yml
       JWT_SECRET: super_secret_key_random_string
       JWT_EXPIRES_IN: 1d
 

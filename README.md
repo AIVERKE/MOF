@@ -32,7 +32,7 @@ Primer acceso (credenciales de desarrollo):
 - Email: `admin@admin.com`
 - Password: `admin123`
 
-Estas credenciales son solo para desarrollo y permiten el acceso inicial al sistema. Los demás usuarios se crean desde la interfaz.
+Estas credenciales son **únicamente para desarrollo**: no se usan ni se siembran en producción. Permiten el acceso inicial en local; los demás usuarios se crean desde la interfaz. Para desplegar, ver [Producción (Docker)](#producción-docker).
 
 ## Qué incluye el repositorio
 
@@ -82,7 +82,7 @@ Luego ejecuta migraciones (obligatorio la primera vez o con BD vacía):
 docker compose run --rm backend npm run migration:run:prod
 ```
 
-Crea el usuario administrador inicial (credenciales de desarrollo: `admin@admin.com` / `admin123`). Los demás usuarios se crean desde la interfaz del sistema:
+Crea el usuario administrador inicial (credenciales únicamente de desarrollo: `admin@admin.com` / `admin123`; no correr en producción). Los demás usuarios se crean desde la interfaz del sistema:
 
 ```bash
 docker compose --profile cli run --rm backend-cli npm run seed:auth
@@ -130,6 +130,21 @@ docker compose logs -f db
 ```
 
 Conectarte a PostgreSQL desde tu máquina host no está habilitado en este modo para evitar conflictos de puerto. Si necesitas acceso externo, puedes mapear puertos temporalmente en `docker-compose.yml`.
+
+### Producción (Docker)
+
+`docker-compose.yml` es el entorno de desarrollo: fija `NODE_ENV=development` y un `JWT_SECRET` de ejemplo público. En producción se suma el override `docker-compose.prod.yml`, que pone `NODE_ENV=production` y lee `JWT_SECRET` y `CORS_ORIGIN` del host:
+
+```bash
+export JWT_SECRET="$(openssl rand -base64 48)"   # guardarlo; rotarlo invalida las sesiones
+export CORS_ORIGIN="https://mof.ejemplo.edu.bo"
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+- También se pueden definir en un `.env` en la raíz del repo. Ese archivo está en `.gitignore` y **no se commitea**.
+- Compose no levanta si falta `JWT_SECRET` o `CORS_ORIGIN`.
+- Con `NODE_ENV=production` el backend aborta al arrancar si `JWT_SECRET` es el valor de ejemplo (`super_secret_key_random_string`), `secret`, o tiene menos de 32 caracteres.
+- No correr `seed:auth` en producción: la cuenta `admin@admin.com` / `admin123` es solo de desarrollo.
 
 ## 2) Migraciones TypeORM (modo Docker)
 
@@ -188,7 +203,7 @@ npm run seed:auth
 npm run seed
 ```
 
-`seed:auth` crea el usuario administrador de desarrollo (`admin@admin.com` / `admin123`) para el primer acceso. Los demás usuarios se crean desde la interfaz del sistema.
+`seed:auth` crea el usuario administrador de desarrollo (`admin@admin.com` / `admin123`) para el primer acceso. Esas credenciales son únicamente de desarrollo: no usar ni sembrar en producción. Los demás usuarios se crean desde la interfaz del sistema.
 
 6. Inicia backend:
 
