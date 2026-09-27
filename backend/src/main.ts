@@ -9,7 +9,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ResultExceptionFilter } from './common/filters/result-exception.filter';
 import { ErrorCodes } from './common/errors';
 import { resolveCorsOrigins } from './common/cors.util';
-
+import { resolveTrustProxy } from './common/throttle.util';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 function flattenValidationErrors(errors: ValidationError[]): string[] {
   const messages: string[] = [];
@@ -25,10 +26,13 @@ function flattenValidationErrors(errors: ValidationError[]): string[] {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  // Un hop (Apache reverse proxy). req.ip = IP del cliente, no 127.0.0.1.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Con Apache delante (1 hop), req.ip = IP del cliente, no 127.0.0.1.
   // Nest no debe quedar expuesto en público sin Apache delante.
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  const trustProxyHops = resolveTrustProxy();
+  if (trustProxyHops > 0) {
+    app.set('trust proxy', trustProxyHops);
+  }
   app.enableCors({
     origin: resolveCorsOrigins(),
     credentials: true,

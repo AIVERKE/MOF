@@ -1,10 +1,13 @@
+import { throttleConfig } from '../../common/throttle.util';
+
 /**
  * Límites de throttling para rutas sensibles de autenticación.
- * Leídos una vez al cargar el módulo (defaults del ticket de rate limit).
+ * Se resuelven por request: el decorador se evalúa al importar el módulo,
+ * antes de que ConfigModule cargue el .env.
  */
 export const AUTH_THROTTLE = {
   default: {
-    limit: Number(process.env.THROTTLE_AUTH_LIMIT ?? 10),
-    ttl: Number(process.env.THROTTLE_AUTH_TTL_MS ?? 60_000),
+    limit: () => throttleConfig().authLimit,
+    ttl: () => throttleConfig().authTtlMs,
   },
-} as const;
+};
