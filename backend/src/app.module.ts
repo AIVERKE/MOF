@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -12,6 +14,7 @@ import { UnidadesModule } from './modules/unidades/unidades.module';
 import { CargosModule } from './modules/cargos/cargos.module';
 import { SeguridadModule } from './modules/seguridad/seguridad.module';
 import { GacetaModule } from './modules/integraciones/gaceta/gaceta.module';
+import { ErrorCodes, getErrorDefinition } from './common/errors';
 
 @Module({
   imports: [
@@ -19,6 +22,20 @@ import { GacetaModule } from './modules/integraciones/gaceta/gaceta.module';
       isGlobal: true,
     }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            name: 'default',
+            ttl: Number(config.get('THROTTLE_TTL_MS', 60_000)),
+            limit: Number(config.get('THROTTLE_LIMIT', 60)),
+          },
+        ],
+        errorMessage: getErrorDefinition(ErrorCodes.TOO_MANY_REQUESTS).message,
+      }),
+    }),
     TypeOrmModule.forRootAsync({
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
@@ -43,6 +60,12 @@ import { GacetaModule } from './modules/integraciones/gaceta/gaceta.module';
     GacetaModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

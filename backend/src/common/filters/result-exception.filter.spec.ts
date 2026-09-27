@@ -1,6 +1,7 @@
 import {
   ArgumentsHost,
   BadRequestException,
+  HttpException,
   HttpStatus,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -80,6 +81,29 @@ describe('ResultExceptionFilter', () => {
         errorCode: ErrorCodes.UNAUTHORIZED,
       }),
     );
+  });
+
+  it('infers TOO_MANY_REQUESTS for 429 without stack or JWT data', () => {
+    const host = createHost();
+    filter.catch(
+      new HttpException(
+        'Demasiadas solicitudes. Intente más tarde',
+        HttpStatus.TOO_MANY_REQUESTS,
+      ),
+      host,
+    );
+
+    expect(status).toHaveBeenCalledWith(429);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: false,
+        message: 'Demasiadas solicitudes. Intente más tarde',
+        errorCode: ErrorCodes.TOO_MANY_REQUESTS,
+        data: null,
+      }),
+    );
+    const body = json.mock.calls[0][0] as Record<string, unknown>;
+    expect(JSON.stringify(body)).not.toMatch(/access_token|stack/i);
   });
 
   it('maps INTERNAL_ERROR for unexpected Error', () => {

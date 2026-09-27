@@ -19,6 +19,7 @@ export const ErrorCodes = {
   UNAUTHORIZED: 'UNAUTHORIZED',
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
+  TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   REQUEST_ERROR: 'REQUEST_ERROR',
 } as const;
@@ -122,6 +123,11 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     code: ErrorCodes.NOT_FOUND,
     httpStatus: HttpStatus.NOT_FOUND,
     message: 'Registro no encontrado',
+  },
+  TOO_MANY_REQUESTS: {
+    code: ErrorCodes.TOO_MANY_REQUESTS,
+    httpStatus: HttpStatus.TOO_MANY_REQUESTS,
+    message: 'Demasiadas solicitudes. Intente más tarde',
   },
   INTERNAL_ERROR: {
     code: ErrorCodes.INTERNAL_ERROR,

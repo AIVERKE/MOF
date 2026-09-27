@@ -15,8 +15,10 @@ import {
   ApiBody,
   ApiResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService, AuthUser } from './auth.service';
+import { AUTH_THROTTLE } from './auth-throttle';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
@@ -30,6 +32,7 @@ import { CambiarPasswordDto } from './dto/cambiar-password.dto';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Throttle(AUTH_THROTTLE)
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -37,10 +40,12 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, description: 'Success', type: LoginResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes' })
   login(@Req() req: Request, @Body() _loginDto: LoginDto) {
     return this.authService.login(req.user as AuthUser);
   }
 
+  @Throttle(AUTH_THROTTLE)
   @Post('primer-acceso')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -55,10 +60,12 @@ export class AuthController {
     type: PrimerAccesoResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Datos de primer acceso inválidos' })
+  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes' })
   primerAcceso(@Body() dto: PrimerAccesoDto) {
     return this.authService.primerAcceso(dto);
   }
 
+  @Throttle(AUTH_THROTTLE)
   @Post('cambiar-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -67,6 +74,7 @@ export class AuthController {
   @ApiBody({ type: CambiarPasswordDto })
   @ApiResponse({ status: 200, description: 'Contraseña definida' })
   @ApiResponse({ status: 401, description: 'Token inválido o expirado' })
+  @ApiResponse({ status: 429, description: 'Demasiadas solicitudes' })
   async cambiarPassword(@Body() dto: CambiarPasswordDto) {
     await this.authService.cambiarPassword(dto);
   }
