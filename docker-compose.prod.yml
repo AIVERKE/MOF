@@ -1,0 +1,15 @@
+# Override de produccion:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# JWT_SECRET y CORS_ORIGIN se leen del entorno del host (o de un .env en la
+# raiz que NO se commitea). Compose aborta si faltan.
+services:
+  backend:
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requerido (ver README, seccion Produccion)}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requerido (ver README, seccion Produccion)}
+
+  backend-cli:
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requerido (ver README, seccion Produccion)}

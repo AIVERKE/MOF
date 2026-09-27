@@ -29,7 +29,7 @@ cp .env.example .env          # ajustar DB_PASSWORD si tu Postgres no usa 123456
 createdb -U postgres mof_db   # omitir si la BD ya existe
 npm install
 npm run migration:run         # crea el esquema
-npm run seed:auth             # crea el usuario administrador inicial
+npm run seed:auth             # crea el usuario administrador inicial (solo desarrollo)
 npm run seed                  # carga organigrama, cargos y personas
 npm run start:dev
 ```
@@ -84,7 +84,7 @@ El dataset versionable es [`seed-1/cargos-dataset.json`](src/database/seed-1/car
 
 ### Usuario administrador y alta de usuarios
 
-`npm run seed:auth` ([`src/database/seed-1/auth.seeder.ts`](src/database/seed-1/auth.seeder.ts)) crea el primer usuario con rol `ADMIN` (`admin@admin.com` / `admin123`, credenciales de desarrollo). Es el único usuario con contraseña predefinida: entra directo por el login normal. Los demás se crean desde la interfaz.
+`npm run seed:auth` ([`src/database/seed-1/auth.seeder.ts`](src/database/seed-1/auth.seeder.ts)) crea el primer usuario con rol `ADMIN` (`admin@admin.com` / `admin123`, credenciales **únicamente de desarrollo**: no correr este seed en producción). Es el único usuario con contraseña predefinida: entra directo por el login normal. Los demás se crean desde la interfaz.
 
 **Alta de un usuario (rol ADMIN, `POST /seguridad/usuarios`)**
 
@@ -138,7 +138,7 @@ El token temporal lleva un `purpose` propio y `JwtStrategy` lo rechaza en cualqu
 |--------|-----|
 | `npm run seed` | Snapshot ETL (recomendado al clonar) |
 | `npm run seed -- --force` | Trunca tablas de dominio y recarga el snapshot |
-| `npm run seed:auth` | Crea el primer usuario administrador (`admin@admin.com`) |
+| `npm run seed:auth` | Crea el primer usuario administrador (`admin@admin.com`, solo desarrollo) |
 | `npm run seed:catalogos` | Solo catálogos mínimos (A/B/C, D/E/O, L/S), sin organigrama |
 | `npm run seed:cargos:extract` | Lee el Excel y escribe `cargos-dataset.json` |
 | `npm run seed:cargos` | Upsert idempotente de cargos desde el JSON |
@@ -162,7 +162,7 @@ Variables en `.env` (ver `.env.example`):
 | `PORT` | Puerto HTTP (3000) |
 | `CORS_ORIGIN` | Orígenes permitidos (coma-separados). En producción obligatorio y no puede ser `*` |
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | PostgreSQL destino (`mof_db`) |
-| `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`) |
+| `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`). Con `NODE_ENV=production` tampoco puede ser el valor de ejemplo `super_secret_key_random_string` ni tener menos de 32 caracteres (`openssl rand -base64 48`) |
 | `LEGACY_DB_*` | Solo para ScriptETL (BD temporal `umsa_legacy`) |
 
 ## Envelope de respuesta y errores
@@ -250,7 +250,7 @@ backend/
 | `npm run migration:revert` | Revierte última migración |
 | `npm run seed` | Carga el snapshot ETL |
 | `npm run seed -- --force` | Trunca y recarga el snapshot |
-| `npm run seed:auth` | Usuario administrador inicial |
+| `npm run seed:auth` | Usuario administrador inicial (solo desarrollo) |
 | `npm run seed:catalogos` | Solo catálogos mínimos |
 | `npm run seed:export` | Regenera `seed-1/etl-snapshot.sql` desde `mof_db` |
 | `npm run seed:cargos:extract` | Excel → `cargos-dataset.json` |
