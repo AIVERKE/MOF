@@ -159,7 +159,8 @@ Variables en `.env` (ver `.env.example`):
 
 | Variable | Descripción |
 |----------|-------------|
-| `PORT` | Puerto HTTP (3000) |
+| `PORT` | Puerto HTTP o HTTPS (3000) |
+| `HTTPS_KEY_PATH`, `HTTPS_CERT_PATH` | Opcionales. Definidas juntas, Nest sirve HTTPS en `PORT` con esa clave y certificado (usar `fullchain.pem`, no `cert.pem`). Vacías, HTTP (dev o detrás de Apache). El usuario de Node debe poder leer la clave y hay que reiniciar Nest al renovar el certificado. Con HTTPS directo usar `TRUST_PROXY=0` |
 | `CORS_ORIGIN` | Orígenes permitidos (coma-separados). En producción obligatorio y no puede ser `*` |
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | PostgreSQL destino (`mof_db`) |
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`). Con `NODE_ENV=production` tampoco puede ser el valor de ejemplo `super_secret_key_random_string` ni tener menos de 32 caracteres (`openssl rand -base64 48`) |
