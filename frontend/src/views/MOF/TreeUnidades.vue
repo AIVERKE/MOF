@@ -214,7 +214,7 @@ function deleteItem(id) {
 const { confirmAddItem, confirmDelete } = useUnidadActions({
   unidadesStore,
   saveUnidad,
-  onRefresh: () => unidadesStore.getFetchUnidades(),
+  onRefresh: (opts) => unidadesStore.getFetchUnidades(opts || { force: true }),
   addDialog,
   deleteDialog,
   itemToDelete,

@@ -28,7 +28,7 @@ describe("useUnidadActions", () => {
     };
   });
 
-  it("confirmAddItem: guarda exitosamente, cierra diálogo y ejecuta onRefresh", async () => {
+  it("confirmAddItem: guarda exitosamente, cierra diálogo y ejecuta onRefresh con { force: true }", async () => {
     const actions = useUnidadActions({
       unidadesStore,
       saveUnidad,
@@ -42,6 +42,21 @@ describe("useUnidadActions", () => {
     expect(res.success).toBe(true);
     expect(addDialog.value).toBe(false);
     expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onRefresh).toHaveBeenCalledWith({ force: true });
+  });
+
+  it("confirmAddItem: si no hay onRefresh llama a unidadesStore.getFetchUnidades({ force: true })", async () => {
+    const actions = useUnidadActions({
+      unidadesStore,
+      saveUnidad,
+      addDialog,
+      deleteDialog,
+      selectedNode,
+    });
+
+    const res = await actions.confirmAddItem();
+    expect(res.success).toBe(true);
+    expect(unidadesStore.getFetchUnidades).toHaveBeenCalledWith({ force: true });
   });
 
   it("confirmAddItem: si falla no cierra addDialog", async () => {
@@ -77,7 +92,7 @@ describe("useUnidadActions", () => {
     expect(deleteDialog.value).toBe(false);
   });
 
-  it("confirmDelete: elimina exitosamente si no tiene dependientes", async () => {
+  it("confirmDelete: elimina exitosamente si no tiene dependientes y llama onRefresh con { force: true }", async () => {
     selectedNode.value = { id: 20, nombre: "Nodo Hoja" }; // id: 20 no tiene hijos
 
     const actions = useUnidadActions({
@@ -94,5 +109,21 @@ describe("useUnidadActions", () => {
     expect(unidadesStore.deleteUnidad).toHaveBeenCalledWith(20);
     expect(deleteDialog.value).toBe(false);
     expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onRefresh).toHaveBeenCalledWith({ force: true });
+  });
+
+  it("confirmDelete: si no hay onRefresh llama a unidadesStore.getFetchUnidades({ force: true })", async () => {
+    selectedNode.value = { id: 20, nombre: "Nodo Hoja" };
+
+    const actions = useUnidadActions({
+      unidadesStore,
+      saveUnidad,
+      addDialog,
+      deleteDialog,
+      selectedNode,
+    });
+
+    await actions.confirmDelete();
+    expect(unidadesStore.getFetchUnidades).toHaveBeenCalledWith({ force: true });
   });
 });

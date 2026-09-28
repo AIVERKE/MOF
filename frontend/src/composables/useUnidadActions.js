@@ -31,9 +31,9 @@ export function useUnidadActions({
       if (addDialog) addDialog.value = false;
       mostrar("¡Operación realizada con éxito!", "success");
       if (typeof onRefresh === "function") {
-        await onRefresh();
+        await onRefresh({ force: true });
       } else if (unidadesStore?.getFetchUnidades) {
-        await unidadesStore.getFetchUnidades();
+        await unidadesStore.getFetchUnidades({ force: true });
       }
     } else {
       mostrar("Error: " + (result?.error || "Error al guardar"), "error");
@@ -72,9 +72,9 @@ export function useUnidadActions({
       if (deleteDialog) deleteDialog.value = false;
       mostrar("¡Unidad eliminada!", "success");
       if (typeof onRefresh === "function") {
-        await onRefresh();
+        await onRefresh({ force: true });
       } else if (unidadesStore?.getFetchUnidades) {
-        await unidadesStore.getFetchUnidades();
+        await unidadesStore.getFetchUnidades({ force: true });
       }
     } else {
       mostrar("Error: " + unidadesStore.error, "error");
