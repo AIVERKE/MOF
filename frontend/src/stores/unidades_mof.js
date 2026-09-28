@@ -19,6 +19,13 @@ export const useAllUnidadesMofStore = defineStore(
         const API_URL = ENDPOINTS.MOF.UNIDADES;
         const API_PERSONAL_URL = ENDPOINTS.UNIDADES.PERSONAL;
 
+        /**
+         * Obtiene las unidades organizacionales desde la API.
+         * Implementa caché en memoria y deduplicación de peticiones concurrentes en vuelo (MOF-044).
+         * @param {Object} [options]
+         * @param {boolean} [options.force=false] - Si es true, ignora el caché y fuerza una nueva petición HTTP.
+         * @returns {Promise<Array>}
+         */
         const getFetchUnidades = async (options = {}) => {
             const isForce = Boolean(options?.force);
 
