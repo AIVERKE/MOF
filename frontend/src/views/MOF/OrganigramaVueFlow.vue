@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from "vue";
-import { VueFlow, useVueFlow, Handle } from "@vue-flow/core";
+import { VueFlow, useVueFlow, Handle, BaseEdge, getSmoothStepPath } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import dagre from "dagre";
@@ -32,6 +32,7 @@ import {
   INTENSE_NODE_PALETTE,
   toBoolean,
 } from "@/utils/mofHelpers";
+import { getLayoutedElements } from "@/utils/organigramaLayout";
 
 import "@vue-flow/core/dist/style.css";
 import "@vue-flow/core/dist/theme-default.css";
@@ -78,6 +79,26 @@ function handleZoomOut() {
 function handleResetZoom() {
   fitView({ padding: 0.2, duration: 350 });
 }
+
+function getCustomEdgePath(edgeProps) {
+  const busY = edgeProps.data?.busY;
+  const isStaff = edgeProps.data?.isStaff;
+  const [path] = getSmoothStepPath({
+    sourceX: edgeProps.sourceX,
+    sourceY: edgeProps.sourceY,
+    sourcePosition: edgeProps.sourcePosition ?? "bottom",
+    targetX: edgeProps.targetX,
+    targetY: edgeProps.targetY,
+    targetPosition: edgeProps.targetPosition ?? "top",
+    borderRadius: 0,
+    centerY:
+      !isStaff && busY !== undefined
+        ? busY
+        : (edgeProps.sourceY + edgeProps.targetY) / 2,
+  });
+  return path;
+}
+
 
 function toggleRotation() {
   isRotated90.value = !isRotated90.value;
@@ -410,274 +431,7 @@ const stats = computed(() => {
 
 
 
-// --- ESTRUCTURA VISUAL & LAYOUT ---
-function getLayoutedElements(nodes, edges) {
-  const NODE_WIDTH = 320;
-  const NODE_HEIGHT = 210; // Altura fija garantizada para evitar cualquier solapamiento
-  const H_GAP = 90; // Separación horizontal generosa entre ramas
-  const V_GAP = 140; // Separación vertical generosa tipo mapa conceptual para trazo ortogonal limpio
-
-  // 1. Separar nodos normales de nodos staff (asesoría)
-  const staffNodes = nodes.filter((n) => n.data && n.data.isStaff);
-  const layoutNodes = nodes.filter((n) => !n.data || !n.data.isStaff);
-
-  const byId = {};
-  layoutNodes.forEach((u) => {
-    byId[String(u.id)] = u;
-  });
-
-  const childrenMap = {};
-  layoutNodes.forEach((u) => {
-    const pId =
-      u.parentId && byId[String(u.parentId)] ? String(u.parentId) : "root";
-    if (!childrenMap[pId]) childrenMap[pId] = [];
-    childrenMap[pId].push(u);
-  });
-
-  const LADO_RANK = {
-    IZQUIERDA: 1,
-    CENTRO: 2,
-    AUTOMATICO: 3,
-    DERECHA: 4,
-  };
-
-  // Ordenar hermanos considerando primero su "lado" de preferencia y luego su código numérico
-  Object.keys(childrenMap).forEach((pId) => {
-    childrenMap[pId].sort((a, b) => {
-      const rankA = LADO_RANK[a.data?.lado] || 3;
-      const rankB = LADO_RANK[b.data?.lado] || 3;
-      if (rankA !== rankB) return rankA - rankB;
-      return compareCodigos(a, b);
-    });
-  });
-
-  const positions = {};
-  const widthMemo = new Map();
-
-  // Función recursiva memoizada para calcular el ancho total necesario para cualquier subárbol
-  function getSubtreeWidth(nodeId) {
-    if (widthMemo.has(nodeId)) return widthMemo.get(nodeId);
-    const children = childrenMap[nodeId] || [];
-    let width;
-    if (children.length === 0) {
-      width = NODE_WIDTH;
-    } else {
-      const totalW =
-        children.reduce(
-          (sum, c) => sum + getSubtreeWidth(String(c.id)) + H_GAP,
-          0,
-        ) - H_GAP;
-      width = Math.max(NODE_WIDTH, totalW);
-    }
-    widthMemo.set(nodeId, width);
-    return width;
-  }
-
-  // Función recursiva para posicionar cualquier subárbol sin colisiones
-  function layoutSubtree(nodeId, startX, startY) {
-    const children = childrenMap[nodeId] || [];
-    if (children.length === 0) {
-      positions[nodeId] = { x: startX, y: startY };
-      return;
-    }
-
-    let curX = startX;
-    const childCenters = [];
-    children.forEach((c) => {
-      const w = getSubtreeWidth(String(c.id));
-      layoutSubtree(String(c.id), curX, startY + NODE_HEIGHT + V_GAP);
-      childCenters.push(positions[String(c.id)].x + NODE_WIDTH / 2);
-      curX += w + H_GAP;
-    });
-
-    const parentCenterX =
-      (childCenters[0] + childCenters[childCenters.length - 1]) / 2;
-    positions[nodeId] = { x: parentCenterX - NODE_WIDTH / 2, y: startY };
-  }
-
-  // Comprobar si hay unidades marcadas como troncales
-  // Nodos con esTroncal === true pertenecen al Eje Central Institucional
-  const trunkNodes = layoutNodes
-    .filter((n) => n.data?.esTroncal === true)
-    .sort(compareCodigos);
-
-  const hasInstitutionalSpine = trunkNodes.length >= 2;
-
-  if (hasInstitutionalSpine) {
-    // =========================================================================
-    // 🏛️ LAYOUT INSTITUCIONAL DINÁMICO POR PISOS (EJE TRONCAL Y ALAS SIMÉTRICAS)
-    // =========================================================================
-    const TRUNK_X = 0; // El Eje Central de Gobierno se alinea en X = 0
-
-    // Conjunto de IDs troncales para filtrado O(1)
-    const trunkIds = new Set(trunkNodes.map((n) => String(n.id)));
-
-    // Identificar raíces troncales (nodos troncales cuyo padre no es otro nodo troncal)
-    const trunkRoots = trunkNodes.filter(
-      (n) => !n.parentId || !trunkIds.has(String(n.parentId)),
-    );
-    trunkRoots.sort(compareCodigos);
-
-    // Recorrer la cadena del tronco en orden jerárquico topológico
-    const orderedTrunk = [];
-    function traverseTrunk(node) {
-      orderedTrunk.push(node);
-      const trunkChildren = (childrenMap[String(node.id)] || [])
-        .filter((c) => trunkIds.has(String(c.id)))
-        .sort(compareCodigos);
-      trunkChildren.forEach(traverseTrunk);
-    }
-    trunkRoots.forEach(traverseTrunk);
-
-    // Por seguridad, si algún nodo troncal quedó fuera (árboles desconectados), agregarlo
-    trunkNodes.forEach((n) => {
-      if (!orderedTrunk.some((o) => String(o.id) === String(n.id))) {
-        orderedTrunk.push(n);
-      }
-    });
-
-    // Procesar cada nodo del tronco en pisos sucesivos
-    let curTrunkY = 50;
-
-    orderedTrunk.forEach((tNode) => {
-      const tId = String(tNode.id);
-
-      // 1. Posicionar el nodo troncal actual en el eje central
-      positions[tId] = { x: TRUNK_X, y: curTrunkY };
-      const T_Y = curTrunkY;
-
-      // 2. Obtener hijos NO troncales (dependencias y alas del piso)
-      const nonTrunkChildren = (childrenMap[tId] || []).filter(
-        (c) => !trunkIds.has(String(c.id)),
-      );
-
-      if (nonTrunkChildren.length > 0) {
-        const left = nonTrunkChildren.filter((c) => c.data?.lado === "IZQUIERDA");
-        const right = nonTrunkChildren.filter((c) => c.data?.lado === "DERECHA");
-        const center = nonTrunkChildren.filter((c) => c.data?.lado === "CENTRO");
-        const auto = nonTrunkChildren.filter(
-          (c) =>
-            c.data?.lado !== "IZQUIERDA" &&
-            c.data?.lado !== "DERECHA" &&
-            c.data?.lado !== "CENTRO",
-        );
-
-        // Repartir automáticos balanceando dinámicamente las alas
-        auto.forEach((c) => {
-          if (left.length <= right.length) left.push(c);
-          else right.push(c);
-        });
-
-        const wingsStartY = T_Y + NODE_HEIGHT + V_GAP;
-
-        // Ala Izquierda: se expande hacia X negativo alejándose del eje central
-        let curLeftX = TRUNK_X - H_GAP;
-        left.forEach((c) => {
-          const w = getSubtreeWidth(String(c.id));
-          curLeftX -= w;
-          layoutSubtree(String(c.id), curLeftX, wingsStartY);
-          curLeftX -= H_GAP;
-        });
-
-        // Ala Derecha: se expande hacia X positivo alejándose del eje central
-        let curRightX = TRUNK_X + NODE_WIDTH + H_GAP;
-        right.forEach((c) => {
-          const w = getSubtreeWidth(String(c.id));
-          layoutSubtree(String(c.id), curRightX, wingsStartY);
-          curRightX += w + H_GAP;
-        });
-
-        // Nodos dependientes centrales no troncales (en el pasillo central)
-        let curCenterY = wingsStartY;
-        center.forEach((c) => {
-          layoutSubtree(String(c.id), TRUNK_X, curCenterY);
-          curCenterY += NODE_HEIGHT + V_GAP;
-        });
-      }
-
-      // 3. Calcular el nivel Y más bajo alcanzado hasta ahora por todas las unidades posicionadas
-      let maxCurrentY = T_Y;
-      Object.keys(positions).forEach((id) => {
-        if (positions[id].y > maxCurrentY) maxCurrentY = positions[id].y;
-      });
-
-      // El siguiente piso troncal arrancará DEBAJO de todo lo generado por este piso y sus alas
-      curTrunkY = maxCurrentY + NODE_HEIGHT + V_GAP;
-    });
-
-    // 4. Posicionar cualquier nodo que no esté conectado al tronco (ej: raíces secundarias)
-    const unpositionedRoots = layoutNodes.filter(
-      (n) => !positions[String(n.id)] && (!n.parentId || !byId[String(n.parentId)]),
-    );
-    if (unpositionedRoots.length > 0) {
-      let maxPlacedX = TRUNK_X + NODE_WIDTH;
-      Object.keys(positions).forEach((id) => {
-        if (positions[id].x > maxPlacedX) maxPlacedX = positions[id].x;
-      });
-      let startExtraX = maxPlacedX + H_GAP * 2;
-      unpositionedRoots.forEach((r) => {
-        layoutSubtree(String(r.id), startExtraX, 50);
-        startExtraX += getSubtreeWidth(String(r.id)) + H_GAP * 2;
-      });
-    }
-  } else {
-    // =========================================================================
-    // 🌳 ÁRBOL JERÁRQUICO SIMÉTRICO ESTÁNDAR (PARA FILTROS Y BÚSQUEDAS)
-    // =========================================================================
-    const rootNodes = childrenMap["root"] || [];
-    let startX = 50;
-    rootNodes.forEach((r) => {
-      layoutSubtree(String(r.id), startX, 50);
-      startX += getSubtreeWidth(String(r.id)) + H_GAP * 2;
-    });
-  }
-
-  // Asignar posiciones calculadas a todos los nodos normales
-  layoutNodes.forEach((node) => {
-    if (positions[String(node.id)]) {
-      node.position = { ...positions[String(node.id)] };
-    } else {
-      node.position = { x: 50, y: 50 };
-    }
-  });
-
-  // 6. Posicionar nodos Staff (Asesoría) a los lados de sus padres
-  const staffByParent = {};
-  staffNodes.forEach((node) => {
-    const pId = String(node.parentId || "root");
-    if (!staffByParent[pId]) staffByParent[pId] = [];
-    staffByParent[pId].push(node);
-  });
-
-  Object.keys(staffByParent).forEach((parentId) => {
-    const parentNode = layoutNodes.find(
-      (n) => String(n.id) === String(parentId),
-    );
-    const parentStaffs = staffByParent[parentId];
-    if (parentNode && parentNode.position) {
-      parentStaffs.forEach((staffNode, index) => {
-        const side =
-          staffNode.data?.staffSide || (index % 2 === 0 ? "right" : "left");
-        const multiplier = side === "right" ? 1 : -1;
-        const indexInSide = Math.floor(index / 2);
-
-        staffNode.position = {
-          x: parentNode.position.x + multiplier * (NODE_WIDTH + 80),
-          y:
-            parentNode.position.y +
-            (NODE_HEIGHT + V_GAP) / 2 +
-            indexInSide * (NODE_HEIGHT + 40),
-        };
-      });
-    } else {
-      parentStaffs.forEach((staffNode) => {
-        staffNode.position = { x: 50, y: 50 };
-      });
-    }
-  });
-
-  return { nodes, edges };
-}
+// --- ESTRUCTURA VISUAL & LAYOUT (importado desde @/utils/organigramaLayout) ---
 
 // --- METHODS ---
 async function refreshChart(options = {}) {
@@ -1017,8 +771,10 @@ async function exportarOrganigrama() {
           (a, b) => Number(a.position?.x || 0) - Number(b.position?.x || 0),
         );
 
-        const firstChildY =
-          offsetY + (Number(normalChildren[0].position?.y || 0) - minY) * scale;
+        const minChildY = Math.min(
+          ...normalChildren.map((ch) => Number(ch.position?.y || 0)),
+        );
+        const firstChildY = offsetY + (minChildY - minY) * scale;
         const busY = (parentBottomY + firstChildY) / 2;
 
         // Tronco vertical único desde la base del padre hasta la barra de distribución
@@ -1441,7 +1197,7 @@ function computeHierarchyKey(sourceData, modo) {
   for (let i = 0; i < sourceData.length; i++) {
     const u = sourceData[i];
     const pId = u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
-    key += `${u.id}-${pId}-${u.lado || "A"}-${u.es_troncal || u.esTroncal ? 1 : 0};`;
+    key += `${u.id}-${pId}-${u.lado || "A"}-${u.es_troncal || u.esTroncal ? 1 : 0}-${u.es_sub_troncal || u.esSubTroncal || u.es_subtroncal || u.esSubtroncal ? 1 : 0};`;
   }
   return key;
 }
@@ -1699,6 +1455,16 @@ const updateGraph = () => {
         visualReinforcement: visualReinforcement,
         isOficial: oficialStatus,
         esTroncal: u.es_troncal === true || u.esTroncal === true,
+        esSubTroncal:
+          u.es_sub_troncal === true ||
+          u.esSubTroncal === true ||
+          u.es_subtroncal === true ||
+          u.esSubtroncal === true,
+        esSubtroncal:
+          u.es_sub_troncal === true ||
+          u.esSubTroncal === true ||
+          u.es_subtroncal === true ||
+          u.esSubtroncal === true,
         lado: u.lado || "AUTOMATICO",
       },
     };
@@ -2323,6 +2089,14 @@ function resetFilters() {
           :min-zoom="0.05"
           :max-zoom="4"
         >
+          <template #edge-smoothstep="edgeProps">
+            <BaseEdge
+              :id="edgeProps.id"
+              :path="getCustomEdgePath(edgeProps)"
+              :style="edgeProps.style"
+              :marker-end="edgeProps.markerEnd"
+            />
+          </template>
           <template #node-invisible="{ data }">
             <div class="node-bridge-container">
               <div class="bridge-line" :class="{ dashed: data.isStaff }"></div>

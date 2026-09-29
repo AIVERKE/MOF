@@ -74,16 +74,29 @@ watch(
 );
 
 /**
- * Si se selecciona que es Unidad Troncal, OBLIGATORIAMENTE se fija al CENTRO.
+ * Si se selecciona que es Unidad Troncal, OBLIGATORIAMENTE se fija al CENTRO y desactiva sub-troncal.
  */
 watch(
   () => props.formData.es_troncal,
   (val) => {
     if (val) {
       props.formData.lado = "CENTRO";
+      props.formData.es_sub_troncal = false;
+      props.formData.es_subtroncal = false;
     }
   },
   { immediate: true },
+);
+
+watch(
+  () => props.formData.es_sub_troncal || props.formData.es_subtroncal,
+  (val) => {
+    props.formData.es_sub_troncal = !!val;
+    props.formData.es_subtroncal = !!val;
+    if (val && props.formData.es_troncal) {
+      props.formData.es_troncal = false;
+    }
+  },
 );
 
 const nuevaRelacionExterna = ref("");
@@ -428,24 +441,46 @@ function moverAbajo(index) {
 
           <!-- ESTRUCTURA Y DISPOSICIÓN EN EL ORGANIGRAMA -->
           <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-primary">
-            <div class="text-subtitle-2 font-weight-bold text-primary mb-2 d-flex align-center">
+            <div class="text-subtitle-2 font-weight-bold text-primary mb-3 d-flex align-center">
               <v-icon start size="18">mdi-sitemap</v-icon>
               Disposición en el Organigrama
             </div>
-            <v-row dense align="center">
-              <v-col cols="12" sm="5">
-                <v-switch
-                  v-model="formData.es_troncal"
-                  color="primary"
-                  hide-details
-                  density="compact"
-                  label="¿Es Unidad Troncal?"
-                />
-                <span class="text-caption text-grey">Si está activo, desciende por la línea central de gobierno</span>
+            <v-row dense class="mb-3">
+              <v-col cols="12" md="6" class="pr-md-2 mb-2 mb-md-0">
+                <div class="pa-3 rounded-lg border bg-surface">
+                  <v-switch
+                    v-model="formData.es_troncal"
+                    color="primary"
+                    hide-details
+                    density="comfortable"
+                    label="¿Troncal Principal?"
+                    :disabled="!!(formData.es_sub_troncal || formData.es_subtroncal)"
+                  />
+                  <div class="text-caption text-grey-darken-1 mt-1 pl-1">
+                    Columna institucional central (Rectorado, Vicerrectorado)
+                  </div>
+                </div>
               </v-col>
-              <v-col cols="12" sm="7">
-                <div class="text-caption font-weight-bold mb-1 text-grey-darken-1">
-                  {{ formData.es_troncal ? 'Lado: Fijado al CENTRO (por ser Troncal)' : 'Lado en el Organigrama:' }}
+              <v-col cols="12" md="6" class="pl-md-2">
+                <div class="pa-3 rounded-lg border bg-surface">
+                  <v-switch
+                    v-model="formData.es_sub_troncal"
+                    color="teal-darken-1"
+                    hide-details
+                    density="comfortable"
+                    label="¿Es Sub-troncal?"
+                    :disabled="!!formData.es_troncal"
+                  />
+                  <div class="text-caption text-grey-darken-1 mt-1 pl-1">
+                    Columna vertical local de su facultad o dirección (ej. Vicedecanato)
+                  </div>
+                </div>
+              </v-col>
+            </v-row>
+            <v-row dense>
+              <v-col cols="12">
+                <div class="text-caption font-weight-bold mb-2 text-grey-darken-2">
+                  {{ formData.es_troncal ? 'Lado: Fijado al CENTRO (por ser Troncal Principal)' : 'Lado de preferencia en el Organigrama:' }}
                 </div>
                 <v-btn-toggle
                   v-model="formData.lado"
@@ -455,19 +490,19 @@ function moverAbajo(index) {
                   density="comfortable"
                   variant="outlined"
                   rounded="lg"
-                  class="d-flex flex-wrap"
+                  class="d-flex flex-wrap w-100"
                 >
-                  <v-btn value="IZQUIERDA" class="px-2 text-caption">
+                  <v-btn value="IZQUIERDA" class="flex-grow-1 text-caption">
                     <v-icon start size="16">mdi-arrow-left-bold</v-icon> Izquierda
                   </v-btn>
-                  <v-btn value="CENTRO" class="px-2 text-caption">
+                  <v-btn value="CENTRO" class="flex-grow-1 text-caption">
                     <v-icon start size="16">mdi-format-align-center</v-icon> Centro
                   </v-btn>
-                  <v-btn value="DERECHA" class="px-2 text-caption">
+                  <v-btn value="DERECHA" class="flex-grow-1 text-caption">
                     <v-icon start size="16">mdi-arrow-right-bold</v-icon> Derecha
                   </v-btn>
-                  <v-btn value="AUTOMATICO" class="px-2 text-caption">
-                    <v-icon start size="16">mdi-auto-fix</v-icon> Auto
+                  <v-btn value="AUTOMATICO" class="flex-grow-1 text-caption">
+                    <v-icon start size="16">mdi-auto-fix</v-icon> Automático
                   </v-btn>
                 </v-btn-toggle>
               </v-col>
