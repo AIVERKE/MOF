@@ -169,14 +169,25 @@ Variables en `.env` (ver `.env.example`):
 
 ### Integración MPP (organigrama, solo lectura)
 
-El backend de MPP descarga las unidades sin login, enviando el token en el header `X-Api-Key`:
+El backend de MPP descarga las unidades y sus cargos sin login, enviando el token en el header `X-Api-Key`:
 
 ```bash
 curl -H "X-Api-Key: $MPP_SERVICE_TOKEN" \
   https://mof-smau.fcpn.edu.bo:3000/api/v1/integraciones/mpp/unidades
 ```
 
-La respuesta usa el envelope estándar y `data` es la misma lista que `GET /api/v1/mof/unidades`. Sin header o con un token incorrecto responde `401 UNAUTHORIZED`. El token solo abre esta ruta; el resto del API sigue exigiendo JWT. Debe usarse desde el backend de MPP, nunca desde un navegador. Para rotarlo, cambiar el valor en MOF y en MPP y reiniciar ambos.
+La respuesta usa el envelope estándar y `data` es la misma lista que `GET /api/v1/mof/unidades`.
+
+Para sincronizar cargos, MPP pide el personal de cada unidad con el mismo header:
+
+```bash
+curl -H "X-Api-Key: $MPP_SERVICE_TOKEN" \
+  https://mof-smau.fcpn.edu.bo:3000/api/v1/integraciones/mpp/unidades/12/personal
+```
+
+`data` trae un elemento por cargo asignado a la unidad, ya en el formato de MPP: `{ id, descripcion, detalle }`, donde `id` es el id del cargo, `descripcion` su nombre y `detalle` su descripción (`''` si no tiene). Una unidad inexistente responde `404`.
+
+Sin header o con un token incorrecto ambas rutas responden `401 UNAUTHORIZED`. El token solo abre estas dos rutas; el resto del API sigue exigiendo JWT. Estas rutas no tienen rate limit, porque la sincronización de cargos de MPP hace una petición por unidad. Debe usarse desde el backend de MPP, nunca desde un navegador. Para rotarlo, cambiar el valor en MOF y en MPP y reiniciar ambos.
 
 ## Envelope de respuesta y errores
 
