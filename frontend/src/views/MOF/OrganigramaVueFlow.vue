@@ -680,11 +680,8 @@ function getLayoutedElements(nodes, edges) {
 }
 
 // --- METHODS ---
-async function refreshChart() {
-  await Promise.all([
-    unidadesStore.getFetchUnidades(),
-    clasesStore.getFetchClases(),
-  ]);
+async function refreshChart(options = {}) {
+  await unidadesStore.getFetchUnidades(options);
   updateGraph();
 }
 
@@ -721,7 +718,7 @@ async function cambiarDependencia() {
   if (!unidadesStore.error) {
     dialog_nodo_chance.value = false;
     mostrar("¡Cambiado!", "success");
-    refreshChart();
+    refreshChart({ force: true });
   } else {
     mostrar("Error: " + unidadesStore.error, "error");
   }
@@ -1835,11 +1832,14 @@ onMounted(async () => {
   if (typeof window !== "undefined" && window.innerWidth <= 960) {
     activePanels.value = null; // Colapsar filtros en móviles para ahorrar espacio vertical
   }
-  await Promise.all([
+  const promises = [
     unidadesStore.getFetchUnidades(),
-    unidadesStore.getDashboardStats(),
     prefetchCatalogs(),
-  ]);
+  ];
+  if (!unidadesStore.dashboardStats) {
+    promises.push(unidadesStore.getDashboardStats());
+  }
+  await Promise.all(promises);
   const fetchError =
     unidadesStore.error ||
     tiposStore.error ||

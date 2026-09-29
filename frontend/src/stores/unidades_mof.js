@@ -2,6 +2,12 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { ENDPOINTS, apiFetch, parseApiError } from "../config/api";
 
+let inFlightUnidadesRequest = null;
+
+export function resetInFlightUnidades() {
+    inFlightUnidadesRequest = null;
+}
+
 export const useAllUnidadesMofStore = defineStore(
     "unidades_mof",
     () => {
@@ -13,24 +19,55 @@ export const useAllUnidadesMofStore = defineStore(
         const API_URL = ENDPOINTS.MOF.UNIDADES;
         const API_PERSONAL_URL = ENDPOINTS.UNIDADES.PERSONAL;
 
-        const getFetchUnidades = async () => {
+        /**
+         * Obtiene las unidades organizacionales desde la API.
+         * Implementa caché en memoria y deduplicación de peticiones concurrentes en vuelo (MOF-044).
+         * @param {Object} [options]
+         * @param {boolean} [options.force=false] - Si es true, ignora el caché y fuerza una nueva petición HTTP.
+         * @returns {Promise<Array>}
+         */
+        const getFetchUnidades = async (options = {}) => {
+            const isForce = Boolean(options?.force);
+
+            // 1. Si no es forzado y el store ya tiene datos poblados, retornar sin petición HTTP
+            if (!isForce && Array.isArray(unidades.value) && unidades.value.length > 0) {
+                return unidades.value;
+            }
+
+            // 2. Si no es forzado y ya hay una petición en vuelo, reutilizarla (deduplicación)
+            if (!isForce && inFlightUnidadesRequest) {
+                return inFlightUnidadesRequest;
+            }
+
             loading.value = true;
             error.value = null;
-            try {
-                const response = await apiFetch(API_URL);
-                if (!response.ok) {
-                    throw new Error(await parseApiError(response));
+
+            const executeFetch = async () => {
+                try {
+                    const response = await apiFetch(API_URL);
+                    if (!response.ok) {
+                        throw new Error(await parseApiError(response));
+                    }
+                    const data = await response.json();
+                    unidades.value = Array.isArray(data?.data) ? data.data : [];
+                    return unidades.value;
+                } catch (err) {
+                    unidades.value = [];
+                    error.value = err.message === 'Falla en fetch'
+                        ? 'No se puede conectar al servidor. Comuniquese con el administrador del sistema.'
+                        : err.message;
+                    return [];
+                } finally {
+                    loading.value = false;
+                    if (inFlightUnidadesRequest === currentPromise) {
+                        inFlightUnidadesRequest = null;
+                    }
                 }
-                const data = await response.json();
-                unidades.value = Array.isArray(data?.data) ? data.data : [];
-            } catch (err) {
-                unidades.value = [];
-                error.value = err.message === 'Falla en fetch'
-                    ? 'No se puede conectar al servidor. Comuniquese con el administrador del sistema.'
-                    : err.message;
-            } finally {
-                loading.value = false;
-            }
+            };
+
+            const currentPromise = executeFetch();
+            inFlightUnidadesRequest = currentPromise;
+            return currentPromise;
         };
 
         const createUnidad = async (dataForm) => {
@@ -59,7 +96,8 @@ export const useAllUnidadesMofStore = defineStore(
                     throw new Error(await parseApiError(dataResponse || response, { status: response.status }));
                 }
 
-                await getFetchUnidades();
+                dashboardStats.value = null;
+                await getFetchUnidades({ force: true });
                 return dataResponse?.data;
             } catch (err) {
                 error.value = err.message;
@@ -95,7 +133,8 @@ export const useAllUnidadesMofStore = defineStore(
                 if (!response.ok) {
                     throw new Error(await parseApiError(dataResponse || response, { status: response.status }));
                 }
-                await getFetchUnidades();
+                dashboardStats.value = null;
+                await getFetchUnidades({ force: true });
             } catch (err) {
                 error.value = err.message;
             } finally {
@@ -128,7 +167,8 @@ export const useAllUnidadesMofStore = defineStore(
                     throw new Error(await parseApiError(dataResponse || response, { status: response.status }));
                 }
 
-                await getFetchUnidades();
+                dashboardStats.value = null;
+                await getFetchUnidades({ force: true });
             } catch (err) {
                 error.value = err.message;
             } finally {
@@ -272,7 +312,8 @@ export const useAllUnidadesMofStore = defineStore(
                 });
 
                 if (!response.ok) throw new Error(await parseApiError(response));
-                await getFetchUnidades();
+                dashboardStats.value = null;
+                await getFetchUnidades({ force: true });
             } catch (err) {
                 error.value = err.message || 'Error al actualizar';
             } finally {
