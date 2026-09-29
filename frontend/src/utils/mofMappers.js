@@ -81,6 +81,8 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     color: d.color || "#1976D2",
     oficial: d.oficial !== undefined ? d.oficial !== false : true,
     es_troncal: d.es_troncal === true,
+    es_sub_troncal: d.es_sub_troncal === true || d.es_subtroncal === true,
+    es_subtroncal: d.es_sub_troncal === true || d.es_subtroncal === true,
     lado: d.lado || "AUTOMATICO",
     tramitesAtendidos: "",
     ejecucionPoa: "",
@@ -238,6 +240,16 @@ export function mapBackendToForm(raw, options = {}) {
     color: raw.color || "#1976D2",
     oficial: raw.oficial !== false,
     es_troncal: raw.es_troncal === true || raw.esTroncal === true,
+    es_sub_troncal:
+      raw.es_sub_troncal === true ||
+      raw.esSubTroncal === true ||
+      raw.es_subtroncal === true ||
+      raw.esSubtroncal === true,
+    es_subtroncal:
+      raw.es_sub_troncal === true ||
+      raw.esSubTroncal === true ||
+      raw.es_subtroncal === true ||
+      raw.esSubtroncal === true,
     lado: raw.lado || "AUTOMATICO",
     tramitesAtendidos: raw.tramitesAtendidos || raw.tramites_atendidos || "",
     ejecucionPoa: raw.ejecucionPoa || raw.ejecucion_poa || "",
@@ -259,7 +271,7 @@ export function mapBackendToForm(raw, options = {}) {
  * - clase -> tipoUnidad (canónico backend)
  * - Strings son recortados con trim()
  * - Campos S-MAU vacíos se persisten como null
- * - Si esTroncal es true, lado se fija forzosamente a "CENTRO"
+ * - Si esTroncal es true, lado se fija forzosamente a "CENTRO" y esSubTroncal es false
  * - fecCreacion se serializa a formato string YYYY-MM-DD
  * 
  * @param {Object} formData - Estado del formulario
@@ -269,6 +281,12 @@ export function mapFormToBackend(formData) {
   if (!formData) return {};
 
   const isTroncal = formData.es_troncal === true || formData.esTroncal === true;
+  const isSubTroncal =
+    !isTroncal &&
+    (formData.es_sub_troncal === true ||
+      formData.esSubTroncal === true ||
+      formData.es_subtroncal === true ||
+      formData.esSubtroncal === true);
   const pIdVal = formData.parentId ? getSafeId(formData.parentId) : null;
 
   return {
@@ -288,6 +306,10 @@ export function mapFormToBackend(formData) {
     tipoUnidad: getSafeId(formData.clase ?? formData.tipoUnidad) || 1,
     oficial: formData.oficial !== false,
     esTroncal: isTroncal,
+    esSubTroncal: isSubTroncal,
+    esSubtroncal: isSubTroncal,
+    es_sub_troncal: isSubTroncal,
+    es_subtroncal: isSubTroncal,
     lado: isTroncal ? "CENTRO" : (formData.lado || "AUTOMATICO"),
     dependenciasFuncionales: (formData.dependenciasFuncionales || [])
       .map((d) => getSafeId(d))

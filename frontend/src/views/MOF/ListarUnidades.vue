@@ -21,6 +21,8 @@ import { exportListarUnidadesPdf, exportToCsv } from "@/utils/mofReport";
 import {
   getContrastingTextColor,
   normalizeText,
+  compareCodigos,
+  getPesoReal,
 } from "@/utils/mofHelpers";
 
 // --- COMPOSABLES ---
@@ -98,7 +100,13 @@ const deleteDialog = ref(false)
 const selectedNode = ref(null)
 
 const headers = [
-  { title: 'CÓDIGO', key: 'codigo', align: 'start', sortable: true },
+  { 
+    title: 'CÓDIGO', 
+    key: 'codigo', 
+    align: 'start', 
+    sortable: true,
+    sort: (a, b) => compareCodigos(a, b),
+  },
   { title: 'UNIDAD ADMINISTRATIVA', key: 'display_name', align: 'start', sortable: true },
   { title: 'JERARQUÍA / CLASE', key: 'clase', align: 'start', sortable: true },
   { title: 'NIVEL', key: 'nivel', align: 'start', sortable: true },
@@ -109,7 +117,7 @@ const headers = [
 const vistaModo = ref('analitico')
 
 const filteredUnidades = computed(() => {
-  let list = unidadesStore.unidades;
+  let list = [...unidadesStore.unidades];
 
   // Filtro Estructural para Modo Estricto
   if (vistaModo.value === 'estricto') {
@@ -125,11 +133,19 @@ const filteredUnidades = computed(() => {
     );
   }
 
-  return list.map(u => ({
+  const mapped = list.map(u => ({
     ...u,
     display_name: u.denominacion || u.nombre,
     clase: u.clase || u.tipo_unidad || u.tipoUnidad
   }));
+
+  // Orden jerárquico por peso institucional y luego por código
+  return mapped.sort((a, b) => {
+    const pesoA = getPesoReal(a, clasesStore.clases);
+    const pesoB = getPesoReal(b, clasesStore.clases);
+    if (pesoA !== pesoB) return pesoA - pesoB;
+    return compareCodigos(a, b);
+  });
 });
 
 // --- HELPER WRAPPERS ---
@@ -218,7 +234,7 @@ const route = useRoute();
 
 onMounted(async () => {
   await Promise.all([
-    unidadesStore.getFetchUnidades(),
+    unidadesStore.getFetchUnidades({ force: true }),
     prefetchCatalogs(),
   ]);
   const unidadId = route.query.unidad;

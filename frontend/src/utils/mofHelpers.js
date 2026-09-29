@@ -701,8 +701,8 @@ export const isUnidadOficial = (unidad, clases = []) => {
  * Soporta tanto nodos de VueFlow ({ data: { codigo, nombre } }) como objetos unidad ({ codigo, nombre }).
  */
 export const compareCodigos = (a, b) => {
-  const codA = a?.data?.codigo ?? a?.codigo ?? "";
-  const codB = b?.data?.codigo ?? b?.codigo ?? "";
+  const codA = typeof a === "string" ? a : (a?.data?.codigo ?? a?.codigo ?? "");
+  const codB = typeof b === "string" ? b : (b?.data?.codigo ?? b?.codigo ?? "");
   const aParts = String(codA)
     .split(".")
     .map((p) => parseInt(p, 10) || 0);

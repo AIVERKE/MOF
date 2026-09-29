@@ -132,6 +132,11 @@ export class UnidadesService {
       dependencia: parentNombre ?? null,
       oficial: u.oficial,
       es_troncal: u.esTroncal ?? false,
+      esTroncal: u.esTroncal ?? false,
+      es_sub_troncal: u.esSubTroncal ?? false,
+      esSubTroncal: u.esSubTroncal ?? false,
+      es_subtroncal: u.esSubTroncal ?? false,
+      esSubtroncal: u.esSubTroncal ?? false,
       lado: u.lado ?? 'AUTOMATICO',
       color: u.tipoUnidad?.color ?? null,
       clase: u.tipoUnidad?.descripcion ?? null,
@@ -254,6 +259,11 @@ export class UnidadesService {
         : null,
       oficial: u.oficial,
       es_troncal: u.esTroncal ?? false,
+      esTroncal: u.esTroncal ?? false,
+      es_sub_troncal: u.esSubTroncal ?? false,
+      esSubTroncal: u.esSubTroncal ?? false,
+      es_subtroncal: u.esSubTroncal ?? false,
+      esSubtroncal: u.esSubTroncal ?? false,
       lado: u.lado ?? 'AUTOMATICO',
       tipoUnidad: u.tipoUnidadId,
       clase: u.tipoUnidad?.descripcion ?? null,
@@ -302,8 +312,28 @@ export class UnidadesService {
   async lista() {
     const rows = await this.unidadRepo.find({
       relations: ['tipo', 'nivel', 'relacion', 'tipoUnidad', 'parent'],
-      order: { codigo: 'ASC' },
     });
+
+    rows.sort((a, b) => {
+      const pesoA = a.tipoUnidad?.peso != null ? Number(a.tipoUnidad.peso) : 99;
+      const pesoB = b.tipoUnidad?.peso != null ? Number(b.tipoUnidad.peso) : 99;
+      if (pesoA !== pesoB) return pesoA - pesoB;
+
+      const partsA = String(a.codigo || '')
+        .split('.')
+        .map((p) => parseInt(p, 10) || 0);
+      const partsB = String(b.codigo || '')
+        .split('.')
+        .map((p) => parseInt(p, 10) || 0);
+      const maxLen = Math.max(partsA.length, partsB.length);
+      for (let i = 0; i < maxLen; i++) {
+        const valA = partsA[i] ?? 0;
+        const valB = partsB[i] ?? 0;
+        if (valA !== valB) return valA - valB;
+      }
+      return String(a.codigo || '').localeCompare(String(b.codigo || ''));
+    });
+
     return rows.map((u) => this.mapListItem(u, u.parent?.nombre ?? null));
   }
 
@@ -337,6 +367,13 @@ export class UnidadesService {
 
     const sigla = (dto.sigla ?? dto.codigo).slice(0, 32);
     const esTroncal = dto.esTroncal ?? false;
+    const incomingSubTroncal =
+      dto.esSubTroncal ??
+      dto.es_sub_troncal ??
+      dto.esSubtroncal ??
+      dto.es_subtroncal ??
+      false;
+    const esSubTroncal = esTroncal ? false : incomingSubTroncal;
     const lado = esTroncal ? 'CENTRO' : (dto.lado ?? 'AUTOMATICO');
     const entity = this.unidadRepo.create({
       codigo: dto.codigo,
@@ -349,6 +386,7 @@ export class UnidadesService {
       tipoUnidadId,
       oficial: dto.oficial,
       esTroncal,
+      esSubTroncal,
       lado,
       objetivo: dto.objetivo ?? null,
       baseLegal: dto.baseLegal ?? null,
@@ -432,11 +470,23 @@ export class UnidadesService {
       u.esTroncal = dto.esTroncal;
       if (dto.esTroncal) {
         u.lado = 'CENTRO';
+        u.esSubTroncal = false;
       } else if (dto.lado !== undefined) {
         u.lado = dto.lado;
       }
     } else if (dto.lado !== undefined) {
       u.lado = u.esTroncal ? 'CENTRO' : dto.lado;
+    }
+    const incomingSubTroncal =
+      dto.esSubTroncal !== undefined
+        ? dto.esSubTroncal
+        : dto.es_sub_troncal !== undefined
+          ? dto.es_sub_troncal
+          : dto.esSubtroncal !== undefined
+            ? dto.esSubtroncal
+            : dto.es_sub_troncal;
+    if (incomingSubTroncal !== undefined) {
+      u.esSubTroncal = u.esTroncal ? false : incomingSubTroncal;
     }
     if (dto.objetivo !== undefined) u.objetivo = dto.objetivo;
     if (dto.baseLegal !== undefined) u.baseLegal = dto.baseLegal;

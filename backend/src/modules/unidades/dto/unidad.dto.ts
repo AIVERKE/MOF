@@ -48,6 +48,26 @@ export class UnidadDto {
   @IsBoolean()
   esTroncal?: boolean;
 
+  @ApiPropertyOptional({ description: 'Indica si es unidad sub-troncal (eje central local en su facultad o dirección)' })
+  @IsOptional()
+  @IsBoolean()
+  esSubTroncal?: boolean;
+
+  @ApiPropertyOptional({ description: 'Alias snake_case para esSubTroncal' })
+  @IsOptional()
+  @IsBoolean()
+  es_sub_troncal?: boolean;
+
+  @ApiPropertyOptional({ description: 'Alias esSubtroncal' })
+  @IsOptional()
+  @IsBoolean()
+  esSubtroncal?: boolean;
+
+  @ApiPropertyOptional({ description: 'Alias es_subtroncal' })
+  @IsOptional()
+  @IsBoolean()
+  es_subtroncal?: boolean;
+
   @ApiPropertyOptional({ description: 'Lado o disposición en organigrama (CENTRO, IZQUIERDA, DERECHA, AUTOMATICO)' })
   @IsOptional()
   @IsString()
