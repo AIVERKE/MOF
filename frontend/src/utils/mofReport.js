@@ -824,7 +824,7 @@ export function exportDashboardFacultativoPdf({
     currentY += boxH + 5;
 
     // Resumen de dependientes en cantidades
-    const tipos = Object.entries(conteoDependientes);
+    const tipos = Object.entries(conteoDependientes || {});
     if (tipos.length > 0) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
@@ -832,26 +832,52 @@ export function exportDashboardFacultativoPdf({
       doc.text("CANTIDAD DE UNIDADES DEPENDIENTES POR TIPO:", marginX, currentY);
       currentY += 4;
 
-      const cardW = Math.min((pageWidth - marginX * 2 - (tipos.length - 1) * 3) / tipos.length, 45);
+      const cardsPerRow = 4;
+      const gapX = 3;
+      const gapY = 3;
+      const contentWidth = pageWidth - marginX * 2;
+      const cardW = (contentWidth - (cardsPerRow - 1) * gapX) / cardsPerRow;
+      const cardH = 16;
+
       tipos.forEach(([tipoName, count], idx) => {
-        const cX = marginX + idx * (cardW + 3);
+        const col = idx % cardsPerRow;
+        const row = Math.floor(idx / cardsPerRow);
+        const cX = marginX + col * (cardW + gapX);
+        const cY = currentY + row * (cardH + gapY);
+
         doc.setFillColor(248, 250, 252);
         doc.setDrawColor(226, 232, 240);
-        doc.roundedRect(cX, currentY, cardW, 12, 1.5, 1.5, "FD");
+        doc.roundedRect(cX, cY, cardW, cardH, 1.5, 1.5, "FD");
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
         doc.setTextColor(100, 116, 139);
-        const truncatedTipo = doc.splitTextToSize(sanitizePdfText(tipoName.toUpperCase()), cardW - 3)[0];
-        doc.text(truncatedTipo, cX + 2, currentY + 4.5);
+
+        let titleLines = doc.splitTextToSize(sanitizePdfText(tipoName.toUpperCase()), cardW - 5);
+        if (titleLines.length > 2) {
+          let secondLine = titleLines[1];
+          while (secondLine.length > 0 && doc.getTextWidth(secondLine + "...") > cardW - 5) {
+            secondLine = secondLine.slice(0, -1);
+          }
+          titleLines = [titleLines[0], secondLine ? secondLine + "..." : titleLines[1]];
+        }
+
+        if (titleLines.length === 1) {
+          doc.text(titleLines[0], cX + 2.5, cY + 4.8);
+        } else if (titleLines.length >= 2) {
+          doc.text(titleLines[0], cX + 2.5, cY + 4.0);
+          doc.text(titleLines[1], cX + 2.5, cY + 7.0);
+        }
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(49, 46, 129);
-        doc.text(String(count), cX + 2, currentY + 10);
+        doc.text(String(count), cX + 2.5, cY + 13.5);
       });
 
-      currentY += 16;
+      const totalRows = Math.ceil(tipos.length / cardsPerRow);
+      const totalGridHeight = totalRows * cardH + (totalRows - 1) * gapY;
+      currentY += totalGridHeight + 6;
     }
   }
 
