@@ -679,6 +679,71 @@ export function drawPurePdfTable(doc, {
   return currentY + 4;
 }
 
+/**
+ * Obtiene el conteo de grupos de una dimensión de agrupación de forma robusta.
+ * Prioriza la estructura primaria de DashboardEjecutivo.vue:
+ *   agrupaciones.clase.data = { [label]: items[] } -> Object.keys(data).length
+ * Y mantiene compatibilidad defensiva con estructuras alternativas:
+ *   agrupaciones.clases.items = [...] -> items.length
+ *   agrupaciones.clase.items = [...]
+ *   agrupaciones.clases.data = { ... }
+ *   O paso directo de una agrupación individual { data: { ... } }
+ *
+ * @param {Object} agrupaciones - Diccionario de agrupaciones o agrupación individual
+ * @param {string} [singularKey] - Clave en singular ('clase', 'nivel', 'tipo', 'relacion')
+ * @param {string} [pluralKey] - Clave alternativa en plural ('clases', 'niveles', 'tipos', 'relaciones')
+ * @returns {number} Cantidad de grupos distintos (entero >= 0)
+ */
+export function getAgrupacionCount(agrupaciones, singularKey, pluralKey) {
+  if (!agrupaciones || typeof agrupaciones !== "object") return 0;
+
+  let group = agrupaciones;
+  if (typeof singularKey === "string") {
+    const altKey =
+      pluralKey ||
+      (singularKey.endsWith("l") || singularKey.endsWith("n")
+        ? `${singularKey}es`
+        : `${singularKey}s`);
+    group = agrupaciones[singularKey] ?? agrupaciones[altKey];
+  }
+
+  if (!group || typeof group !== "object") return 0;
+
+  // Si el grupo en sí es un array de elementos/grupos
+  if (Array.isArray(group)) {
+    return group.length;
+  }
+
+  // Estructura primaria de DashboardEjecutivo: group.data ({ [label]: [...] } o array)
+  if ("data" in group) {
+    if (group.data && typeof group.data === "object" && !Array.isArray(group.data)) {
+      return Object.keys(group.data).length;
+    }
+    if (Array.isArray(group.data)) {
+      return group.data.length;
+    }
+    return 0;
+  }
+
+  // Estructura alternativa defensiva: group.items ([...] u objeto)
+  if ("items" in group) {
+    if (Array.isArray(group.items)) {
+      return group.items.length;
+    }
+    if (group.items && typeof group.items === "object") {
+      return Object.keys(group.items).length;
+    }
+    return 0;
+  }
+
+  // Fallback si se pasa directamente un objeto de grupos plano { [label]: [...] }
+  if (!group.title && !group.icon && !group.color) {
+    return Object.keys(group).length;
+  }
+
+  return 0;
+}
+
 // ============================================================================
 // EXPORTADORES ESPECÍFICOS PARA LAS 4 VISTAS DEL MOF
 // ============================================================================
@@ -694,28 +759,49 @@ export function exportDashboardEjecutivoPdf({
   activeFilters = [],
   resolveClaseColor = (c) => "#3B82F6",
   isColorblind = false,
+  doc = null,
 }) {
-  const doc = createBasePdf("l"); // Landscape para tabla ancha
+  const pdfDoc = doc || createBasePdf("l"); // Landscape para tabla ancha
   const headerOptions = { title, activeFilters, subtitle: "Indicadores globales y listado filtrado de unidades administrativas" };
 
-  let currentY = drawReportHeader(doc, headerOptions);
-  const pageWidth = doc.internal.pageSize.getWidth();
+  let currentY = drawReportHeader(pdfDoc, headerOptions);
+  const pageWidth = pdfDoc.internal.pageSize.getWidth();
   const marginX = 14;
 
   // Tarjetas de Resumen KPI (Total + Agrupaciones)
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(15, 23, 42);
-  doc.text("RESUMEN CONSOLIDADO DE INDICADORES", marginX, currentY);
+  pdfDoc.setFont("helvetica", "bold");
+  pdfDoc.setFontSize(9);
+  pdfDoc.setTextColor(15, 23, 42);
+  pdfDoc.text("RESUMEN CONSOLIDADO DE INDICADORES", marginX, currentY);
   currentY += 4;
 
   // Dibujar bloques KPI horizontales (paleta accesible Okabe-Ito si isColorblind)
   const kpis = [
-    { label: "UNIVERSO TOTAL DE UNIDADES", val: resumen.total ?? unidades.length, color: isColorblind ? [0, 114, 178] : [30, 58, 138] },
-    { label: "INSTANCIAS / CLASES", val: agrupaciones.clases?.items?.length ?? 0, color: isColorblind ? [213, 94, 0] : [234, 88, 12] },
-    { label: "NIVELES JERÁRQUICOS", val: agrupaciones.niveles?.items?.length ?? 0, color: isColorblind ? [0, 158, 115] : [126, 34, 206] },
-    { label: "TIPOS DE UNIDAD", val: agrupaciones.tipos?.items?.length ?? 0, color: isColorblind ? [86, 180, 233] : [2, 132, 199] },
-    { label: "RELACIONES", val: agrupaciones.relaciones?.items?.length ?? 0, color: isColorblind ? [204, 121, 167] : [190, 24, 93] },
+    {
+      label: "UNIVERSO TOTAL DE UNIDADES",
+      val: resumen.total ?? unidades.length,
+      color: isColorblind ? [0, 114, 178] : [30, 58, 138],
+    },
+    {
+      label: "INSTANCIAS / CLASES",
+      val: getAgrupacionCount(agrupaciones, "clase", "clases"),
+      color: isColorblind ? [213, 94, 0] : [234, 88, 12],
+    },
+    {
+      label: "NIVELES JERÁRQUICOS",
+      val: getAgrupacionCount(agrupaciones, "nivel", "niveles"),
+      color: isColorblind ? [0, 158, 115] : [126, 34, 206],
+    },
+    {
+      label: "TIPOS DE UNIDAD",
+      val: getAgrupacionCount(agrupaciones, "tipo", "tipos"),
+      color: isColorblind ? [86, 180, 233] : [2, 132, 199],
+    },
+    {
+      label: "RELACIONES",
+      val: getAgrupacionCount(agrupaciones, "relacion", "relaciones"),
+      color: isColorblind ? [204, 121, 167] : [190, 24, 93],
+    },
   ];
 
   const kpiWidth = (pageWidth - marginX * 2 - (kpis.length - 1) * 3) / kpis.length;
@@ -723,23 +809,23 @@ export function exportDashboardEjecutivoPdf({
 
   kpis.forEach((kpi, idx) => {
     const kpiX = marginX + idx * (kpiWidth + 3);
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(kpiX, currentY, kpiWidth, kpiHeight, 1.5, 1.5, "FD");
+    pdfDoc.setFillColor(248, 250, 252);
+    pdfDoc.setDrawColor(226, 232, 240);
+    pdfDoc.roundedRect(kpiX, currentY, kpiWidth, kpiHeight, 1.5, 1.5, "FD");
 
     // Barra superior de color
-    doc.setFillColor(...kpi.color);
-    doc.roundedRect(kpiX, currentY, kpiWidth, 1.8, 1, 1, "F");
+    pdfDoc.setFillColor(...kpi.color);
+    pdfDoc.roundedRect(kpiX, currentY, kpiWidth, 1.8, 1, 1, "F");
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text(kpi.label, kpiX + 2, currentY + 5.2);
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.setFontSize(6.5);
+    pdfDoc.setTextColor(100, 116, 139);
+    pdfDoc.text(kpi.label, kpiX + 2, currentY + 5.2);
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.setTextColor(15, 23, 42);
-    doc.text(String(kpi.val), kpiX + 2, currentY + 11.5);
+    pdfDoc.setFont("helvetica", "bold");
+    pdfDoc.setFontSize(13);
+    pdfDoc.setTextColor(15, 23, 42);
+    pdfDoc.text(String(kpi.val), kpiX + 2, currentY + 11.5);
   });
 
   currentY += kpiHeight + 6;
@@ -750,8 +836,8 @@ export function exportDashboardEjecutivoPdf({
     {
       header: "UNIDAD ADMINISTRATIVA",
       getter: (u) => u.nombre || u.denominacion || "-",
-      iconDrawer: (doc, item, x, y) => {
-        drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
+      iconDrawer: (d, item, x, y) => {
+        drawMofUnitIcon(d, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
       width: 85,
@@ -764,7 +850,7 @@ export function exportDashboardEjecutivoPdf({
     { header: "ESTADO", getter: (u) => (u.isOficial ? "OFICIAL" : "NO OFICIAL"), width: 22, align: "center" },
   ];
 
-  drawPurePdfTable(doc, {
+  drawPurePdfTable(pdfDoc, {
     columns,
     rows: unidades,
     startY: currentY,
@@ -773,8 +859,9 @@ export function exportDashboardEjecutivoPdf({
     isColorblind,
   });
 
-  addReportFooters(doc);
-  doc.save("Reporte_Ejecutivo_MOF.pdf");
+  addReportFooters(pdfDoc);
+  pdfDoc.save("Reporte_Ejecutivo_MOF.pdf");
+  return pdfDoc;
 }
 
 /**
