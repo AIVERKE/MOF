@@ -6,7 +6,7 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
-import { getClaseColor, toBoolean, getContrastingTextColor } from "@/utils/mofHelpers";
+import { getClaseColor, toBoolean, getContrastingTextColor, getCleanSigla } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 import { useAccessibilityStore } from "@/stores/accessibility";
@@ -360,7 +360,7 @@ const handleExportCsv = () => {
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
       { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.nombre || u.denominacion || "" },
-      { header: "SIGLA", getter: (u) => u.sigla || "-" },
+      { header: "SIGLA", getter: (u) => getCleanSigla(u.sigla, u.codigo) },
       { header: "TIPO DE INSTANCIA", getter: (u) => resolveClase(u.clase) || "-" },
       { header: "NIVEL", getter: (u) => resolveNivel(u.nivel) || "-" },
       { header: "RELACIÓN", getter: (u) => resolveRelacion(u.relacion) || "-" },
@@ -774,14 +774,14 @@ const handleExportCsv = () => {
                   <div class="text-body-2 font-weight-bold text-slate-900 mb-2">
                     {{ u.nombre || u.denominacion }}
                     <v-chip
-                      v-if="u.sigla && u.sigla !== '-'"
+                      v-if="getCleanSigla(u.sigla, u.codigo) !== '-'"
                       size="x-small"
                       label
                       variant="outlined"
                       color="primary"
                       class="font-weight-bold text-xxs ml-1"
                     >
-                      {{ u.sigla }}
+                      {{ getCleanSigla(u.sigla, u.codigo) }}
                     </v-chip>
                   </div>
 
@@ -875,7 +875,7 @@ const handleExportCsv = () => {
                   variant="outlined"
                   class="font-weight-bold text-xxs px-1"
                 >
-                  {{ u.sigla || "-" }}
+                  {{ getCleanSigla(u.sigla, u.codigo) }}
                 </v-chip>
               </td>
               <td>

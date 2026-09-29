@@ -23,6 +23,7 @@ import {
   normalizeText,
   compareCodigos,
   getPesoReal,
+  getCleanSigla,
 } from "@/utils/mofHelpers";
 
 // --- COMPOSABLES ---
@@ -208,7 +209,7 @@ const handleExportCsv = () => {
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
       { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.display_name || u.nombre || u.denominacion || "" },
-      { header: "SIGLA", getter: (u) => u.sigla || "-" },
+      { header: "SIGLA", getter: (u) => getCleanSigla(u.sigla, u.codigo) },
       { header: "JERARQUÍA / CLASE", getter: (u) => resolveClase(u.clase) || "-" },
       { header: "NIVEL", getter: (u) => resolveNivel(u.nivel) || "-" },
       { header: "TIPO", getter: (u) => resolveTipo(u.tipo) || "-" },
@@ -431,14 +432,14 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
                 <div class="text-body-2 font-weight-bold text-slate-900 mb-2">
                   <HighlightedText :text="item.display_name" :query="search" />
                   <v-chip
-                    v-if="item.sigla"
+                    v-if="getCleanSigla(item.sigla, item.codigo) !== '-'"
                     size="x-small"
                     label
                     variant="outlined"
                     color="primary"
                     class="font-weight-black ml-1 text-xxs"
                   >
-                    {{ item.sigla }}
+                    {{ getCleanSigla(item.sigla, item.codigo) }}
                   </v-chip>
                 </div>
 
@@ -502,8 +503,8 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
               <div class="py-2">
                 <div class="text-body-2 font-weight-bold text-slate-800 d-flex align-center gap-1">
                   <HighlightedText :text="item.display_name" :query="search" />
-                  <v-chip v-if="item.sigla" size="x-small" label variant="outlined" color="primary" class="font-weight-black ml-1 text-xxs">
-                    {{ item.sigla }}
+                  <v-chip v-if="getCleanSigla(item.sigla, item.codigo) !== '-'" size="x-small" label variant="outlined" color="primary" class="font-weight-black ml-1 text-xxs">
+                    {{ getCleanSigla(item.sigla, item.codigo) }}
                   </v-chip>
                 </div>
                 <div class="text-xxs text-grey-darken-1 text-uppercase">{{ item.tipo }}</div>

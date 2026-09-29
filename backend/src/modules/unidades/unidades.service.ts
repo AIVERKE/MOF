@@ -115,6 +115,61 @@ export class UnidadesService {
     throwBusiness(ErrorCodes.CATALOG_REF_NOT_FOUND);
   }
 
+  private async generateUniqueSigla(
+    nombre: string,
+    excludeId?: string | number,
+  ): Promise<string> {
+    if (!nombre) return `U${Date.now().toString().slice(-6)}`;
+    const clean = nombre.trim().toUpperCase();
+
+    let base = '';
+    if (clean === 'RECTORADO') base = 'REC';
+    else if (clean === 'VICERRECTORADO') base = 'VR';
+    else if (clean === 'CONGRESO INTERNO') base = 'CI';
+    else if (clean === 'ASAMBLEA DOCENTE ESTUDIANTIL') base = 'ADE';
+    else if (clean === 'HONORABLE CONSEJO UNIVERSITARIO') base = 'HCU';
+    else if (clean.includes('COMITE EJECUTIVO DEL HONORABLE CONSEJO')) base = 'CE-HCU';
+    else if (clean === 'SECRETARÍA GENERAL' || clean === 'SECRETARIA GENERAL') base = 'SG';
+    else {
+      const prefixMatch = clean.match(/^([A-Z0-9]{2,10})\s*[-–]\s*(.+)$/);
+      if (prefixMatch) {
+        const prefix = prefixMatch[1];
+        const rest = prefixMatch[2];
+        if (rest.includes('VICEDECANATO')) base = `${prefix}-VD`;
+        else if (rest.includes('DECANATO')) base = `${prefix}-DEC`;
+        else if (rest.includes('DIRECCION') || rest.includes('DIRECCIÓN')) base = `${prefix}-DIR`;
+        else if (rest.includes('CARRERA') || rest.includes('CARR')) base = `${prefix}-CARR`;
+        else if (rest.includes('INSTITUTO') || rest.includes('INST')) base = `${prefix}-INST`;
+        else base = prefix;
+      } else {
+        const stopWords = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y', 'E', 'EN', 'POR', 'PARA', 'A', 'AL']);
+        const words = clean
+          .replace(/[^\w\s-]/g, ' ')
+          .split(/[\s-]+/)
+          .filter((w) => w.length > 0 && !stopWords.has(w));
+
+        if (words.length === 1) {
+          base = words[0].slice(0, 8);
+        } else {
+          const initials = words.map((w) => w[0]).join('');
+          base = initials.length >= 2 && initials.length <= 10 ? initials : clean.slice(0, 12).replace(/\s+/g, '');
+        }
+      }
+    }
+
+    base = base.slice(0, 24) || 'UNIDAD';
+    let candidate = base;
+    let counter = 1;
+    while (true) {
+      const existing = await this.unidadRepo.findOne({ where: { sigla: candidate } });
+      if (!existing || (excludeId && String(existing.id) === String(excludeId))) {
+        return candidate;
+      }
+      counter++;
+      candidate = `${base}-${counter}`.slice(0, 32);
+    }
+  }
+
   private mapListItem(
     u: Unidad,
     parentNombre?: string | null,
@@ -365,7 +420,21 @@ export class UnidadesService {
     });
     if (!clase) notFound(tipoUnidadId);
 
-    const sigla = (dto.sigla ?? dto.codigo).slice(0, 32);
+    let sigla = (dto.sigla || '').trim();
+    if (
+      !sigla ||
+      sigla === '-' ||
+      sigla === dto.codigo ||
+      /^[0-9]+(\.[0-9]+)*\.?$/.test(sigla)
+    ) {
+      sigla = await this.generateUniqueSigla(dto.nombre);
+    } else {
+      sigla = sigla.slice(0, 32);
+      const clash = await this.unidadRepo.findOne({ where: { sigla } });
+      if (clash) {
+        sigla = await this.generateUniqueSigla(dto.nombre);
+      }
+    }
     const esTroncal = dto.esTroncal ?? false;
     const incomingSubTroncal =
       dto.esSubTroncal ??
@@ -463,7 +532,24 @@ export class UnidadesService {
       }
       u.codigo = dto.codigo;
     }
-    if (dto.sigla) u.sigla = dto.sigla;
+    if (dto.sigla !== undefined) {
+      const s = (dto.sigla || '').trim();
+      const currentCode = dto.codigo ?? u.codigo;
+      if (
+        s &&
+        s !== '-' &&
+        s !== currentCode &&
+        !/^[0-9]+(\.[0-9]+)*\.?$/.test(s)
+      ) {
+        const candidate = s.slice(0, 32);
+        const clash = await this.unidadRepo.findOne({
+          where: { sigla: candidate },
+        });
+        if (!clash || String(clash.id) === String(u.id)) {
+          u.sigla = candidate;
+        }
+      }
+    }
     if (dto.nombre) u.nombre = dto.nombre;
     if (dto.oficial !== undefined) u.oficial = dto.oficial;
     if (dto.esTroncal !== undefined) {

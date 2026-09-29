@@ -82,8 +82,8 @@ export function slugCodigo(descripcion: string, id: number | string): string {
 
 export function uniqueSigla(codigo: string, id: number | string): string {
   const raw = (codigo || String(id)).trim();
-  if (raw.length > 0 && raw.length <= 32) return raw;
-  return String(raw).slice(0, 28) + '-' + String(id).slice(-3);
+  if (raw.length > 0 && raw.length <= 32 && !/^[0-9.]+$/.test(raw)) return raw;
+  return `U${id}`.slice(0, 32);
 }
 
 export async function schemaExists(

@@ -23,6 +23,7 @@ import {
   filterHierarchyByQuery,
   collectTreeIds,
   findFirstMatchingUnit,
+  getCleanSigla,
 } from "@/utils/mofHelpers";
 
 // --- COMPOSABLES ---
@@ -313,7 +314,7 @@ const handleExportCsv = () => {
         header: "UNIDAD ADMINISTRATIVA",
         getter: (u) => u.display_name || u.nombre || u.denominacion || "",
       },
-      { header: "SIGLA", getter: (u) => u.sigla || "-" },
+      { header: "SIGLA", getter: (u) => getCleanSigla(u.sigla, u.codigo) },
       { header: "CÓDIGO_PADRE", getter: (u) => u.parent_codigo || "-" },
       { header: "UNIDAD_PADRE", getter: (u) => u.parent_nombre || "-" },
       { header: "INSTANCIA / CLASE", getter: (u) => resolveClase(u.clase) || "-" },
@@ -471,7 +472,7 @@ const handleExportCsv = () => {
               </span>
 
               <v-chip
-                v-if="(item?.raw || item).sigla"
+                v-if="getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo) !== '-'"
                 size="x-small"
                 label
                 variant="outlined"
@@ -480,11 +481,11 @@ const handleExportCsv = () => {
               >
                 <HighlightedText
                   v-if="hasSearchQuery"
-                  :text="(item?.raw || item).sigla"
+                  :text="getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo)"
                   :query="search"
                 />
                 <template v-else>
-                  {{ (item?.raw || item).sigla }}
+                  {{ getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo) }}
                 </template>
               </v-chip>
             </span>

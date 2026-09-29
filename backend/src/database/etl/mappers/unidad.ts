@@ -81,8 +81,10 @@ export async function migrateUnidad(
     usedCodigos.add(codigo);
 
     let sigla = (row.sigla || '').trim();
-    if (!sigla) sigla = uniqueSigla(codigo, row.unidad_id);
-    if (sigla.length > 32) sigla = uniqueSigla(codigo, row.unidad_id);
+    if (!sigla || sigla === codigo || /^[0-9.]+$/.test(sigla)) {
+      sigla = uniqueSigla(row.nombre || '', row.unidad_id);
+    }
+    if (sigla.length > 32) sigla = sigla.slice(0, 32);
     if (usedSiglas.has(sigla)) sigla = `${sigla.slice(0, 24)}-${row.unidad_id}`.slice(0, 32);
     usedSiglas.add(sigla);
 

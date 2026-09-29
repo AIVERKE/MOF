@@ -227,7 +227,7 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAllNivelesMofStore } from "@/stores/niveles_mof";
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
 import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
-import { getContrastingTextColor, toBoolean } from "@/utils/mofHelpers";
+import { getContrastingTextColor, toBoolean, getCleanSigla } from "@/utils/mofHelpers";
 import { useMofResolvers } from "@/composables/useMofResolvers";
 import { getHighchartsBaseOptions } from "@/utils/chartHelpers";
 import { useAccessibilityStore } from "@/stores/accessibility";
@@ -308,7 +308,7 @@ const handleExportCsv = () => {
       { header: "CÓDIGO", key: "codigo" },
       { header: "NIVEL EN ÁRBOL", getter: (u) => `Nivel ${u.level ?? 0}` },
       { header: "UNIDAD DEPENDIENTE", getter: (u) => u.nombre || u.denominacion || "" },
-      { header: "SIGLA", getter: (u) => u.sigla || "-" },
+      { header: "SIGLA", getter: (u) => getCleanSigla(u.sigla, u.codigo) },
       { header: "TIPO DE INSTANCIA", getter: (u) => resolveClase(u.clase) || "-" },
       { header: "UNIDAD MADRE", getter: () => unidadMadre.value.nombre || unidadMadre.value.denominacion || "" },
       { header: "ESTADO", getter: (u) => (isUnidadOficialCheck(u) ? "OFICIAL" : "NO OFICIAL") },

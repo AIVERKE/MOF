@@ -51,6 +51,7 @@ import {
   parseDateFromApi,
   formatDateToString,
   resolveCatalogItem,
+  getCleanSigla,
 } from "@/utils/mofHelpers";
 
 /**
@@ -224,7 +225,10 @@ export function mapBackendToForm(raw, options = {}) {
     id: raw.id ?? null,
     nombre: raw.nombre || raw.denominacion || "",
     codigo: raw.codigo || "",
-    sigla: raw.sigla || "",
+    sigla:
+      getCleanSigla(raw.sigla, raw.codigo) === "-"
+        ? ""
+        : getCleanSigla(raw.sigla, raw.codigo),
     baseLegal: raw.baseLegal || raw.base_legal || "",
     resCreacion: raw.resCreacion || raw.res_creacion || "",
     objetivo: raw.objetivo || raw.objetivo_puesto || "",

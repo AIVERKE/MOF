@@ -14,5 +14,21 @@ export const rules = {
     if (!value) return 'El código es requerido';
     if (!/^[A-Z0-9.-]+$/i.test(value)) return 'Solo letras, números, puntos y guiones';
     return true;
+  },
+
+  siglaNotCodigo: (codigo) => (value) => {
+    if (!value || !codigo) return true;
+    if (String(value).trim().toLowerCase() === String(codigo).trim().toLowerCase()) {
+      return 'La sigla no puede ser igual al código orgánico';
+    }
+    return true;
+  },
+
+  siglaValida: (value) => {
+    if (!value) return true;
+    if (/^[0-9]+(\.[0-9]+)*\.?$/.test(String(value).trim())) {
+      return 'La sigla debe ser un acrónimo (ej: FCPN), no un código numérico';
+    }
+    return true;
   }
 };
