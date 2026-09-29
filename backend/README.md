@@ -165,6 +165,18 @@ Variables en `.env` (ver `.env.example`):
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | PostgreSQL destino (`mof_db`) |
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`). Con `NODE_ENV=production` tampoco puede ser el valor de ejemplo `super_secret_key_random_string` ni tener menos de 32 caracteres (`openssl rand -base64 48`) |
 | `LEGACY_DB_*` | Solo para ScriptETL (BD temporal `umsa_legacy`) |
+| `MPP_SERVICE_TOKEN` | Opcional. Token fijo con el que el backend de MPP lee el organigrama (ver abajo). Vacío, la integración responde 401. Con `NODE_ENV=production`, mínimo 32 caracteres (`openssl rand -base64 48`) |
+
+### Integración MPP (organigrama, solo lectura)
+
+El backend de MPP descarga las unidades sin login, enviando el token en el header `X-Api-Key`:
+
+```bash
+curl -H "X-Api-Key: $MPP_SERVICE_TOKEN" \
+  https://mof-smau.fcpn.edu.bo:3000/api/v1/integraciones/mpp/unidades
+```
+
+La respuesta usa el envelope estándar y `data` es la misma lista que `GET /api/v1/mof/unidades`. Sin header o con un token incorrecto responde `401 UNAUTHORIZED`. El token solo abre esta ruta; el resto del API sigue exigiendo JWT. Debe usarse desde el backend de MPP, nunca desde un navegador. Para rotarlo, cambiar el valor en MOF y en MPP y reiniciar ambos.
 
 ## Envelope de respuesta y errores
 
