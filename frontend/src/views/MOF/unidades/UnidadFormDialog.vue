@@ -239,6 +239,8 @@ function moverAbajo(index) {
                 label="Sigla (ej: FCPN)"
                 :hint="hints.unidadForm.sigla"
                 :persistent-hint="false"
+                :rules="[rules.required, rules.siglaNotCodigo(formData.codigo), rules.siglaValida]"
+                maxlength="32"
                 variant="underlined"
                 autocomplete="off"
               />

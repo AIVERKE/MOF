@@ -1,4 +1,7 @@
 import jsPDF from "jspdf";
+import { getCleanSigla } from "@/utils/mofHelpers";
+
+export { getCleanSigla };
 
 /**
  * Formatea una fecha a formato legible boliviano/estándar: DD/MM/YYYY HH:mm
@@ -187,6 +190,39 @@ export function wrapSafeText(doc, rawText, maxWidth) {
     for (const word of rawWords) {
       if (doc.getTextWidth(word) <= safeWidth) {
         words.push(word);
+      } else if (word.includes(".") && !word.includes(" ")) {
+        // La palabra es un código punteado: partir preferentemente en los puntos
+        const parts = word.split(".");
+        let currentChunk = "";
+        for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+          const piece = pIdx < parts.length - 1 ? parts[pIdx] + "." : parts[pIdx];
+          const testChunk = currentChunk + piece;
+          if (doc.getTextWidth(testChunk) <= safeWidth) {
+            currentChunk = testChunk;
+          } else {
+            if (currentChunk) {
+              words.push(currentChunk);
+            }
+            // Si una sola sub-sección entre puntos excede safeWidth
+            if (doc.getTextWidth(piece) <= safeWidth) {
+              currentChunk = piece;
+            } else {
+              // Partir carácter a carácter
+              for (let i = 0; i < piece.length; i++) {
+                const subTest = currentChunk + piece[i];
+                if (doc.getTextWidth(subTest) <= safeWidth) {
+                  currentChunk = subTest;
+                } else {
+                  if (currentChunk) words.push(currentChunk);
+                  currentChunk = piece[i];
+                }
+              }
+            }
+          }
+        }
+        if (currentChunk) {
+          words.push(currentChunk);
+        }
       } else {
         // La palabra individual excede safeWidth: partir carácter a carácter
         let currentChunk = "";
@@ -588,9 +624,9 @@ export function drawPurePdfTable(doc, {
       const paddingX = 2;
       const availableWidth = col.calculatedWidth - paddingX * 2 - safeIndent - iconSpace;
 
-      // Asegurar medición con fuente normal 7.5pt
+      // Asegurar medición con fuente (o col.fontSize si se especifica)
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
+      doc.setFontSize(col.fontSize || 7.5);
       const lines = wrapSafeText(doc, strVal, availableWidth);
 
       return { lines, safeIndent, iconSpace };
@@ -635,8 +671,8 @@ export function drawPurePdfTable(doc, {
         col.iconDrawer(doc, row, iconX, iconY);
       }
 
-      // Resetear tamaño de fuente
-      doc.setFontSize(7.5);
+      // Resetear tamaño de fuente según columna
+      doc.setFontSize(col.fontSize || 7.5);
 
       // Color y estilo tipográfico según tipo de columna
       if (col.key === "estado" || col.key === "oficial" || col.header.toLowerCase().includes("estado")) {
@@ -746,7 +782,7 @@ export function exportDashboardEjecutivoPdf({
 
   // Tabla de Unidades con anchos balanceados para A4 Horizontal (269mm imprimible)
   const columns = [
-    { header: "CÓDIGO", key: "codigo", width: 22, align: "left" },
+    { header: "CÓDIGO", key: "codigo", width: 36, fontSize: 7, align: "left" },
     {
       header: "UNIDAD ADMINISTRATIVA",
       getter: (u) => u.nombre || u.denominacion || "-",
@@ -754,11 +790,16 @@ export function exportDashboardEjecutivoPdf({
         drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
-      width: 85,
+      width: 83,
       align: "left",
     },
-    { header: "SIGLA", getter: (u) => u.sigla || "-", width: 28, align: "center" },
-    { header: "TIPO DE INSTANCIA", getter: (u) => u.claseNombre || u.clase || "-", width: 42, align: "left" },
+    { header: "SIGLA", getter: (u) => getCleanSigla(u.sigla, u.codigo), width: 16, align: "center" },
+    {
+      header: "TIPO DE INSTANCIA",
+      getter: (u) => (typeof resolveClase === "function" ? resolveClase(u.clase) : (u.claseNombre || u.clase || "-")),
+      width: 42,
+      align: "left",
+    },
     { header: "NIVEL", getter: (u) => u.nivelNombre || u.nivel || "-", width: 32, align: "left" },
     { header: "RELACIÓN", getter: (u) => u.relacionNombre || u.relacion || "-", width: 38, align: "left" },
     { header: "ESTADO", getter: (u) => (u.isOficial ? "OFICIAL" : "NO OFICIAL"), width: 22, align: "center" },
@@ -883,7 +924,7 @@ export function exportDashboardFacultativoPdf({
 
   // Tabla jerárquica de dependientes (182mm imprimible en A4 Portrait)
   const columns = [
-    { header: "CÓDIGO", key: "codigo", width: 22, align: "left" },
+    { header: "CÓDIGO", key: "codigo", width: 36, fontSize: 7, align: "left" },
     {
       header: "UNIDAD DEPENDIENTE",
       getter: (item) => {
@@ -897,10 +938,10 @@ export function exportDashboardFacultativoPdf({
         drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
-      width: 98,
+      width: 94,
       align: "left",
     },
-    { header: "SIGLA", getter: (item) => item.sigla || "-", width: 26, align: "center" },
+    { header: "SIGLA", getter: (item) => getCleanSigla(item.sigla, item.codigo), width: 16, align: "center" },
     { header: "INSTANCIA", getter: (item) => resolveClase(item.clase) || "-", width: 36, align: "left" },
   ];
 
@@ -937,7 +978,7 @@ export function exportListarUnidadesPdf({
 
   // Anchos balanceados para A4 Horizontal (269mm imprimible)
   const columns = [
-    { header: "CÓDIGO", key: "codigo", width: 24, align: "left" },
+    { header: "CÓDIGO", key: "codigo", width: 38, fontSize: 7, align: "left" },
     {
       header: "UNIDAD ADMINISTRATIVA",
       getter: (u) => u.display_name || u.nombre || u.denominacion || "-",
@@ -945,12 +986,12 @@ export function exportListarUnidadesPdf({
         drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
-      width: 115,
+      width: 112,
       align: "left",
     },
-    { header: "SIGLA", getter: (u) => u.sigla || "-", width: 30, align: "center" },
-    { header: "JERARQUÍA / CLASE", getter: (u) => resolveClase(u.clase) || "-", width: 48, align: "left" },
-    { header: "NIVEL", getter: (u) => resolveNivel(u.nivel) || "-", width: 30, align: "left" },
+    { header: "SIGLA", getter: (u) => getCleanSigla(u.sigla, u.codigo), width: 16, align: "center" },
+    { header: "JERARQUÍA / CLASE", getter: (u) => resolveClase(u.clase) || "-", width: 49, align: "left" },
+    { header: "NIVEL", getter: (u) => resolveNivel(u.nivel) || "-", width: 32, align: "left" },
     { header: "ESTADO", getter: (u) => (isOficialCheck(u) ? "OFICIAL" : "NO OFICIAL"), width: 22, align: "center" },
   ];
 
@@ -987,7 +1028,7 @@ export function exportTreeUnidadesPdf({
 
   // Anchos balanceados para A4 Horizontal (269mm imprimible)
   const columns = [
-    { header: "CÓDIGO", key: "codigo", width: 24, align: "left" },
+    { header: "CÓDIGO", key: "codigo", width: 38, fontSize: 7, align: "left" },
     {
       header: "JERARQUÍA Y DENOMINACIÓN",
       getter: (item) => {
@@ -1001,12 +1042,12 @@ export function exportTreeUnidadesPdf({
         drawMofUnitIcon(doc, item, x, y, resolveClaseColor, isColorblind);
       },
       iconWidth: 4.2,
-      width: 116,
+      width: 112,
       align: "left",
     },
-    { header: "SIGLA", getter: (item) => item.sigla || "-", width: 30, align: "center" },
-    { header: "INSTANCIA / CLASE", getter: (item) => resolveClase(item.clase) || "-", width: 46, align: "left" },
-    { header: "NIVEL", getter: (item) => resolveNivel(item.nivel) || "-", width: 30, align: "left" },
+    { header: "SIGLA", getter: (item) => getCleanSigla(item.sigla, item.codigo), width: 16, align: "center" },
+    { header: "INSTANCIA / CLASE", getter: (item) => resolveClase(item.clase) || "-", width: 48, align: "left" },
+    { header: "NIVEL", getter: (item) => resolveNivel(item.nivel) || "-", width: 32, align: "left" },
     { header: "ESTADO", getter: (item) => (isOficialCheck(item) ? "OFICIAL" : "NO OFICIAL"), width: 23, align: "center" },
   ];
 

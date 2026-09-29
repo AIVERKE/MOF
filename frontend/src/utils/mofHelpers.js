@@ -827,3 +827,31 @@ export const findFirstMatchingUnit = (nodes = [], query = "") => {
   return null;
 };
 
+/**
+ * Retorna la sigla limpia y legible de una unidad para reportes y tablas.
+ * Si la sigla es nula, vacía, igual al código orgánico o parece un código numérico punteado,
+ * retorna "-" para preservar la legibilidad del documento.
+ *
+ * @param {string|null|undefined} sigla
+ * @param {string|null|undefined} codigo
+ * @returns {string}
+ */
+export const getCleanSigla = (sigla, codigo) => {
+  if (sigla === null || sigla === undefined) return "-";
+  const s = String(sigla).trim();
+  if (
+    !s ||
+    s === "-" ||
+    s.toLowerCase() === "null" ||
+    s.toLowerCase() === "undefined"
+  ) {
+    return "-";
+  }
+  const c = String(codigo || "").trim();
+  if (c && s === c) return "-";
+  if (c && c.startsWith(s) && s.length >= 8) return "-";
+  if (/^[0-9]+(\.[0-9]+)*\.?$/.test(s)) return "-";
+  if (/^\d{6,}$/.test(s)) return "-";
+  return s;
+};
+

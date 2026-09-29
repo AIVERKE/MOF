@@ -2,6 +2,7 @@
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useDisplay } from "vuetify";
 import UnidadActionsMenu from "./UnidadActionsMenu.vue";
+import { getCleanSigla } from "@/utils/mofHelpers";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -448,7 +449,7 @@ const panels = computed(() => {
             CÓDIGO: {{ detailData.codigo }}
           </v-chip>
           <v-chip
-            v-if="detailData.sigla"
+            v-if="getCleanSigla(detailData.sigla, detailData.codigo) !== '-'"
             size="x-small"
             label
             color="primary"
@@ -456,7 +457,7 @@ const panels = computed(() => {
             class="font-weight-black"
             style="font-size: 9px !important;"
           >
-            SIGLA: {{ detailData.sigla }}
+            SIGLA: {{ getCleanSigla(detailData.sigla, detailData.codigo) }}
           </v-chip>
         </div>
       </div>

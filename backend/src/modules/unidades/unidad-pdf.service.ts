@@ -151,12 +151,23 @@ export class UnidadPdfService {
           height: 14,
           ellipsis: true,
         });
+      const rawSigla = (detail.sigla || '').trim();
+      const isBadSigla =
+        !rawSigla ||
+        rawSigla === '-' ||
+        rawSigla === codigo ||
+        /^[0-9.]+$/.test(rawSigla);
+      const cleanSigla = isBadSigla ? null : rawSigla;
+      const codeSiglaText = cleanSigla
+        ? `Código: ${codigo}  |  Sigla: ${cleanSigla}`
+        : `Código: ${codigo}`;
+
       doc
         .font('Helvetica')
-        .fontSize(8)
+        .fontSize(7.5)
         .fillColor(C.muted)
-        .text(`Código: ${codigo}`, marginL + contentW - 118, y + 9, {
-          width: 108,
+        .text(codeSiglaText, marginL + contentW - 145, y + 9, {
+          width: 140,
           align: 'right',
         });
 
