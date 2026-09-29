@@ -14,6 +14,7 @@ import { UnidadesModule } from './modules/unidades/unidades.module';
 import { CargosModule } from './modules/cargos/cargos.module';
 import { SeguridadModule } from './modules/seguridad/seguridad.module';
 import { GacetaModule } from './modules/integraciones/gaceta/gaceta.module';
+import { MppIntegracionModule } from './modules/integraciones/mpp/mpp-integracion.module';
 import { ErrorCodes, getErrorDefinition } from './common/errors';
 import { throttleConfig } from './common/throttle.util';
 
@@ -57,6 +58,7 @@ import { throttleConfig } from './common/throttle.util';
     VersionesModule,
     SeguridadModule,
     GacetaModule,
+    MppIntegracionModule,
   ],
   controllers: [AppController],
   providers: [
