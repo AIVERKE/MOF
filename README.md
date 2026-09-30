@@ -1,4 +1,4 @@
-# MOF - Instalación y ejecución
+# MOF MANUAL DE ORGANIZACIÓN Y FUNCIONES - Instalación y ejecución
 
 Guía rápida para levantar el Manual de Organización y Funciones en dos modos:
 
