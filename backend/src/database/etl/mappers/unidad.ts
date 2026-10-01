@@ -59,7 +59,6 @@ export async function migrateUnidad(
   const defaultNivel = catalogs.nivel.get('E') ?? 1;
   const defaultRelacion = catalogs.relacion.get('L') ?? 1;
 
-  const usedSiglas = new Set<string>();
   const usedCodigos = new Set<string>();
 
   const resolveCatalogId = (
@@ -85,8 +84,6 @@ export async function migrateUnidad(
       sigla = uniqueSigla(row.nombre || '', row.unidad_id);
     }
     if (sigla.length > 32) sigla = sigla.slice(0, 32);
-    if (usedSiglas.has(sigla)) sigla = `${sigla.slice(0, 24)}-${row.unidad_id}`.slice(0, 32);
-    usedSiglas.add(sigla);
 
     const tipoId = resolveCatalogId(
       row.tipo,

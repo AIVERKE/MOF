@@ -430,10 +430,6 @@ export class UnidadesService {
       sigla = await this.generateUniqueSigla(dto.nombre);
     } else {
       sigla = sigla.slice(0, 32);
-      const clash = await this.unidadRepo.findOne({ where: { sigla } });
-      if (clash) {
-        sigla = await this.generateUniqueSigla(dto.nombre);
-      }
     }
     const esTroncal = dto.esTroncal ?? false;
     const incomingSubTroncal =
@@ -541,13 +537,7 @@ export class UnidadesService {
         s !== currentCode &&
         !/^[0-9]+(\.[0-9]+)*\.?$/.test(s)
       ) {
-        const candidate = s.slice(0, 32);
-        const clash = await this.unidadRepo.findOne({
-          where: { sigla: candidate },
-        });
-        if (!clash || String(clash.id) === String(u.id)) {
-          u.sigla = candidate;
-        }
+        u.sigla = s.slice(0, 32);
       }
     }
     if (dto.nombre) u.nombre = dto.nombre;

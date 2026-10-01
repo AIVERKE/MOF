@@ -26,8 +26,8 @@ export class Unidad extends AuditableEntity {
   @Column({ type: 'varchar', length: 64, unique: true })
   codigo: string;
 
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 32, unique: true })
+  @Index()
+  @Column({ type: 'varchar', length: 32 })
   sigla: string;
 
   @Column({ type: 'varchar', length: 255 })
