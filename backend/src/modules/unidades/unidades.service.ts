@@ -33,6 +33,12 @@ import { ErrorCodes } from '../../common/errors';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
+/** Columnas `date` deben persistirse como `YYYY-MM-DD`: TypeORM formatea un `Date` en la zona horaria local del servidor. */
+function toDateOnly(value?: string | null): string | null {
+  if (!value) return null;
+  return value.slice(0, 10);
+}
+
 /** Valores históricos usados cuando aún no hay fila en mof_config. */
 export const MOF_CONFIG_FALLBACK = {
   defaults: {
@@ -430,10 +436,6 @@ export class UnidadesService {
       sigla = await this.generateUniqueSigla(dto.nombre);
     } else {
       sigla = sigla.slice(0, 32);
-      const clash = await this.unidadRepo.findOne({ where: { sigla } });
-      if (clash) {
-        sigla = await this.generateUniqueSigla(dto.nombre);
-      }
     }
     const esTroncal = dto.esTroncal ?? false;
     const incomingSubTroncal =
@@ -460,7 +462,7 @@ export class UnidadesService {
       objetivo: dto.objetivo ?? null,
       baseLegal: dto.baseLegal ?? null,
       resCreacion: dto.resCreacion ?? null,
-      fecCreacion: dto.fecCreacion ? new Date(dto.fecCreacion) : null,
+      fecCreacion: toDateOnly(dto.fecCreacion),
       tramitesAtendidos: dto.tramitesAtendidos ?? null,
       ejecucionPoa: dto.ejecucionPoa ?? null,
       ejecucionPresupuestaria: dto.ejecucionPresupuestaria ?? null,
@@ -541,13 +543,7 @@ export class UnidadesService {
         s !== currentCode &&
         !/^[0-9]+(\.[0-9]+)*\.?$/.test(s)
       ) {
-        const candidate = s.slice(0, 32);
-        const clash = await this.unidadRepo.findOne({
-          where: { sigla: candidate },
-        });
-        if (!clash || String(clash.id) === String(u.id)) {
-          u.sigla = candidate;
-        }
+        u.sigla = s.slice(0, 32);
       }
     }
     if (dto.nombre) u.nombre = dto.nombre;
@@ -578,7 +574,7 @@ export class UnidadesService {
     if (dto.baseLegal !== undefined) u.baseLegal = dto.baseLegal;
     if (dto.resCreacion !== undefined) u.resCreacion = dto.resCreacion;
     if (dto.fecCreacion !== undefined) {
-      u.fecCreacion = dto.fecCreacion ? new Date(dto.fecCreacion) : null;
+      u.fecCreacion = toDateOnly(dto.fecCreacion);
     }
     if (dto.tramitesAtendidos !== undefined) u.tramitesAtendidos = dto.tramitesAtendidos;
     if (dto.ejecucionPoa !== undefined) u.ejecucionPoa = dto.ejecucionPoa;
