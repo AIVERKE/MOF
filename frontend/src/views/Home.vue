@@ -4,7 +4,7 @@ import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAuthStore } from "@/stores/auth";
 import { useResponsive } from "@/composables/useResponsive";
-import { getIntenseNodeColor } from "@/utils/mofHelpers";
+import { getIntenseNodeColor, parseDateFromApi } from "@/utils/mofHelpers";
 
 const unidadesStore = useAllUnidadesMofStore();
 const clasesStore = useAllClasesMofStore();
@@ -29,7 +29,7 @@ const actividadesRecientes = computed(() => {
       let fechaFormateada = "Reciente";
       if (u.fecCreacion) {
         try {
-          fechaFormateada = new Date(u.fecCreacion).toLocaleDateString("es-BO");
+          fechaFormateada = parseDateFromApi(u.fecCreacion).toLocaleDateString("es-BO");
         } catch (e) {
           fechaFormateada = "Reciente";
         }
