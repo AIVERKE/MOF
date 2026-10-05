@@ -557,6 +557,7 @@ const handleExportCsv = () => {
   />
 
   <UnidadDetailsDrawer
+    v-if="detailsDrawer"
     v-model="detailsDrawer"
     :detail-data="detailData"
     :loading="loadingDetail"
