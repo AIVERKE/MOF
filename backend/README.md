@@ -187,7 +187,16 @@ curl -H "X-Api-Key: $MPP_SERVICE_TOKEN" \
 
 `data` trae un elemento por cargo asignado a la unidad, ya en el formato de MPP: `{ id, descripcion, detalle }`, donde `id` es el id del cargo, `descripcion` su nombre y `detalle` su descripción (`''` si no tiene). Una unidad inexistente responde `404`.
 
-Sin header o con un token incorrecto ambas rutas responden `401 UNAUTHORIZED`. El token solo abre estas dos rutas; el resto del API sigue exigiendo JWT. Estas rutas no tienen rate limit, porque la sincronización de cargos de MPP hace una petición por unidad. Debe usarse desde el backend de MPP, nunca desde un navegador. Para rotarlo, cambiar el valor en MOF y en MPP y reiniciar ambos.
+El organigrama de MPP también lee, con el mismo header y solo con `GET`:
+
+| Ruta | Equivale a |
+|------|------------|
+| `/api/v1/integraciones/mpp/unidades/:id` | `GET /api/v1/mof/unidades/:id` |
+| `/api/v1/integraciones/mpp/unidades/:id/pdf` | `GET /api/v1/mof/unidades/pdf/:id` |
+| `/api/v1/integraciones/mpp/cargos` | `GET /api/v1/unidades/cargos` |
+| `/api/v1/integraciones/mpp/catalogos/tipos`, `/niveles`, `/relaciones`, `/clases` | `GET /api/v1/mof/<catálogo>` |
+
+Sin header o con un token incorrecto todas estas rutas responden `401 UNAUTHORIZED`. El token solo abre las rutas de `/api/v1/integraciones/mpp`, todas de lectura; el resto del API sigue exigiendo JWT. Estas rutas no tienen rate limit, porque la sincronización de cargos de MPP hace una petición por unidad. Debe usarse desde el backend de MPP, nunca desde un navegador. Para rotarlo, cambiar el valor en MOF y en MPP y reiniciar ambos.
 
 ## Envelope de respuesta y errores
 

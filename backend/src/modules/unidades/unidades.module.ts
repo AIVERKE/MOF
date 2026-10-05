@@ -38,6 +38,6 @@ import { MofConfig } from './entities/mof-config.entity';
   ],
   controllers: [MofUnidadesController],
   providers: [UnidadesService, UnidadPdfService, RolesGuard],
-  exports: [TypeOrmModule, UnidadesService],
+  exports: [TypeOrmModule, UnidadesService, UnidadPdfService],
 })
 export class UnidadesModule {}
