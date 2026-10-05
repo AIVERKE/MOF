@@ -21,7 +21,11 @@ export type UnidadPdfDetail = {
   base_legal?: string | null;
   parent?: { id: number; codigo?: string; nombre?: string; sigla?: string } | null;
   funciones?: { funcion: string; baseLegal?: string | null }[];
-  dependenciasFuncionales?: { nombre?: string | null; sigla?: string | null }[];
+  dependenciasFuncionales?: {
+    id?: number | null;
+    nombre?: string | null;
+    sigla?: string | null;
+  }[];
   hijasLineales?: { nombre?: string | null; sigla?: string | null }[];
   hijasFuncionales?: { nombre?: string | null; sigla?: string | null }[];
   relacionesInternas?: { nombre?: string | null; sigla?: string | null }[];
@@ -43,6 +47,8 @@ const C = {
   text: '#0F172A',
 };
 
+const META_ROW_GAP = 5;
+
 @Injectable()
 export class UnidadPdfService {
   constructor(private readonly config: ConfigService) {}
@@ -62,7 +68,6 @@ export class UnidadPdfService {
       doc.on('error', reject);
 
       const pageW = doc.page.width;
-      const pageH = doc.page.height;
       const marginL = 36;
       const marginR = 36;
       const contentW = pageW - marginL - marginR;
@@ -82,17 +87,17 @@ export class UnidadPdfService {
       const nivel = this.upper(detail.nivel || '-');
       const tipo = this.upper(detail.tipo || '-');
       const dependencia = this.upper(detail.parent?.nombre || '-');
-      const funcionales = this.joinNames(detail.dependenciasFuncionales);
-      const lineal = this.joinNames(detail.hijasLineales);
-      const funcional = this.joinNames(detail.hijasFuncionales);
-      const objetivo = (detail.objetivo || '-').toString().trim();
-      const funcionesText = this.formatFunciones(detail.funciones);
-      const baseLegal = this.formatBaseLegal(
-        detail.funciones,
-        detail.baseLegal || detail.base_legal,
+      const funcionales = this.listNames(
+        this.dependenciasSinPadre(detail),
       );
-      const relInterno = this.joinNames(detail.relacionesInternas);
-      const relExterno = this.joinDescripciones(detail.relacionesExternas);
+      const lineal = this.listNames(detail.hijasLineales);
+      const funcional = this.listNames(detail.hijasFuncionales);
+      const objetivo = (detail.objetivo || '').toString().trim() || '-';
+      const baseLegalUnidad = (detail.baseLegal || detail.base_legal || '')
+        .toString()
+        .trim();
+      const relInterno = this.listNames(detail.relacionesInternas);
+      const relExterno = this.listDescripciones(detail.relacionesExternas);
 
       // —— Header institucional ——
       doc.rect(0, 0, pageW, 78).fill(C.navy);
@@ -176,7 +181,17 @@ export class UnidadPdfService {
       // —— Identidad + estructura ——
       const identityTop = y;
       const boxPad = 8;
-      const identityBoxH = 118;
+      const identityRows: [string, string][] = [
+        ['Resolución', resCreacion],
+        ['Fecha creación', fecCreacion],
+        ['Nivel jerárquico', nivel],
+        ['Tipo', tipo],
+        ['Dependencia lineal', dependencia],
+      ];
+      const identityBoxH = Math.max(
+        118,
+        boxPad * 2 + this.measureMetaRows(doc, identityRows, colW - boxPad * 2),
+      );
 
       doc.roundedRect(leftX, identityTop, colW, identityBoxH, 3).fill(C.panel);
       doc
@@ -185,16 +200,13 @@ export class UnidadPdfService {
         .lineWidth(0.8)
         .stroke();
 
-      let iy = identityTop + boxPad;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Resolución', resCreacion, colW - boxPad * 2);
-      iy = doc.y + 5;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Fecha creación', fecCreacion, colW - boxPad * 2);
-      iy = doc.y + 5;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Nivel jerárquico', nivel, colW - boxPad * 2);
-      iy = doc.y + 5;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Tipo', tipo, colW - boxPad * 2);
-      iy = doc.y + 5;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Dependencia lineal', dependencia, colW - boxPad * 2);
+      this.drawMetaRows(
+        doc,
+        leftX + boxPad,
+        identityTop + boxPad,
+        identityRows,
+        colW - boxPad * 2,
+      );
 
       // Org card
       doc.roundedRect(rightX, identityTop, colW, identityBoxH, 3).fill(C.navy);
@@ -249,128 +261,73 @@ export class UnidadPdfService {
       y = identityTop + identityBoxH + 12;
 
       // —— Dependencias ——
-      y = this.drawSectionBar(doc, marginL, y, 'DEPENDENCIAS', contentW);
-      y += 6;
-      const depH = 62;
-      doc.roundedRect(marginL, y, contentW, depH, 3).fill(C.panel);
-      doc
-        .roundedRect(marginL, y, contentW, depH, 3)
-        .strokeColor(C.line)
-        .lineWidth(0.6)
-        .stroke();
-      let dy = y + 6;
-      this.drawMetaRow(doc, marginL + 8, dy, 'Funcionales', funcionales, contentW - 16, 1);
-      dy = doc.y + 4;
-      this.drawMetaRow(doc, marginL + 8, dy, 'Dependientes (lineal)', lineal, contentW - 16, 1);
-      dy = doc.y + 4;
-      this.drawMetaRow(
+      y = this.drawSectionStart(doc, marginL, y, 'DEPENDENCIAS', contentW);
+      y = this.drawMetaPanel(
         doc,
-        marginL + 8,
-        dy,
-        'Dependientes (funcional)',
-        funcional,
-        contentW - 16,
-        1,
+        marginL,
+        y,
+        contentW,
+        [
+          ['Funcionales', funcionales],
+          ['Dependientes (lineal)', lineal],
+          ['Dependientes (funcional)', funcional],
+        ],
       );
-      y += depH + 10;
+      y += 10;
 
       // —— Objetivo ——
-      y = this.drawSectionBar(doc, marginL, y, 'OBJETIVO', contentW);
-      y += 6;
-      const objH = 42;
-      doc.roundedRect(marginL, y, contentW, objH, 3).fill(C.panel);
-      doc
-        .font('Helvetica')
-        .fontSize(7.5)
-        .fillColor(C.text)
-        .text(objetivo, marginL + 8, y + 6, {
-          width: contentW - 16,
-          height: objH - 10,
-          ellipsis: true,
-          align: 'justify',
-        });
-      y += objH + 10;
+      y = this.drawSectionStart(doc, marginL, y, 'OBJETIVO', contentW);
+      y = this.drawTextPanel(doc, marginL, y, contentW, objetivo, {
+        fontSize: 7.5,
+        align: 'justify',
+      });
+      y += 10;
 
       // —— Funciones | Base legal ——
-      y = this.drawSectionBar(doc, marginL, y, 'FUNCIONES Y BASE LEGAL', contentW);
-      y += 6;
-      const bodyH = 118;
-      doc.roundedRect(leftX, y, colW, bodyH, 3).fill(C.panel);
-      doc.roundedRect(rightX, y, colW, bodyH, 3).fill(C.panel);
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(7.5)
-        .fillColor(C.navyMid)
-        .text('Funciones', leftX + 8, y + 6, { width: colW - 16 });
-      doc.text('Base legal', rightX + 8, y + 6, { width: colW - 16 });
-      doc
-        .moveTo(leftX + 8, y + 18)
-        .lineTo(leftX + colW - 8, y + 18)
-        .strokeColor(C.gold)
-        .lineWidth(0.8)
-        .stroke();
-      doc
-        .moveTo(rightX + 8, y + 18)
-        .lineTo(rightX + colW - 8, y + 18)
-        .strokeColor(C.gold)
-        .lineWidth(0.8)
-        .stroke();
-
-      doc
-        .font('Helvetica')
-        .fontSize(7)
-        .fillColor(C.text)
-        .text(funcionesText, leftX + 8, y + 22, {
-          width: colW - 16,
-          height: bodyH - 28,
-          ellipsis: true,
+      y = this.drawSectionStart(
+        doc,
+        marginL,
+        y,
+        'FUNCIONES Y BASE LEGAL',
+        contentW,
+      );
+      if (baseLegalUnidad) {
+        y = this.drawTextPanel(doc, marginL, y, contentW, baseLegalUnidad, {
+          title: 'Base legal de la unidad',
+          fontSize: 7,
         });
-      doc.text(baseLegal, rightX + 8, y + 22, {
-        width: colW - 16,
-        height: bodyH - 28,
-        ellipsis: true,
-      });
-      y += bodyH + 10;
+        y += 6;
+      }
+      y = this.drawFuncionesTable(doc, marginL, y, contentW, detail.funciones);
+      y += 10;
 
       // —— Relacionamiento ——
-      y = this.drawSectionBar(
+      y = this.drawSectionStart(
         doc,
         marginL,
         y,
         'RELACIONAMIENTO Y COORDINACIÓN',
         contentW,
       );
-      y += 6;
-      const relH = 58;
-      doc.roundedRect(leftX, y, colW, relH, 3).fill(C.panel);
-      doc.roundedRect(rightX, y, colW, relH, 3).fill(C.panel);
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(7.5)
-        .fillColor(C.navyMid)
-        .text('Interno', leftX + 8, y + 6, { width: colW - 16 });
-      doc.text('Interinstitucional / externo', rightX + 8, y + 6, {
-        width: colW - 16,
-      });
-      doc
-        .font('Helvetica')
-        .fontSize(7)
-        .fillColor(C.text)
-        .text(relInterno, leftX + 8, y + 18, {
-          width: colW - 16,
-          height: relH - 24,
-          ellipsis: true,
-        });
-      doc.text(relExterno, rightX + 8, y + 18, {
-        width: colW - 16,
-        height: relH - 24,
-        ellipsis: true,
-      });
-      y += relH + 12;
+      y = this.drawTwoColumnPanels(
+        doc,
+        y,
+        [
+          { x: leftX, title: 'Interno', text: relInterno },
+          { x: rightX, title: 'Interinstitucional / externo', text: relExterno },
+        ],
+        colW,
+        contentW,
+      );
+      y += 12;
 
       // —— Footer ——
       const footerH = 78;
-      const footerY = Math.max(y, pageH - footerH - 16);
+      y = this.ensureSpace(doc, y, footerH);
+      const footerY = Math.max(
+        y,
+        doc.page.height - doc.page.margins.bottom - footerH,
+      );
       doc.roundedRect(marginL, footerY, contentW, footerH, 3).fill(C.navy);
 
       const qrSize = 58;
@@ -467,6 +424,78 @@ export class UnidadPdfService {
     return y + h;
   }
 
+  private bottomLimit(doc: PDFKit.PDFDocument): number {
+    return doc.page.height - doc.page.margins.bottom;
+  }
+
+  private pageBodyHeight(doc: PDFKit.PDFDocument): number {
+    return this.bottomLimit(doc) - doc.page.margins.top;
+  }
+
+  /** Devuelve `y` si caben `needed` puntos; si no, abre una página nueva. */
+  private ensureSpace(
+    doc: PDFKit.PDFDocument,
+    y: number,
+    needed: number,
+  ): number {
+    if (y + needed <= this.bottomLimit(doc)) return y;
+    doc.addPage();
+    return doc.page.margins.top;
+  }
+
+  /** La barra exige espacio para algo de contenido para no quedar huérfana al pie. */
+  private drawSectionStart(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    title: string,
+    width: number,
+  ): number {
+    y = this.ensureSpace(doc, y, 16 + 6 + 40);
+    return this.drawSectionBar(doc, x, y, title, width) + 6;
+  }
+
+  private drawPanelBox(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) {
+    doc.roundedRect(x, y, width, height, 3).fill(C.panel);
+    doc
+      .roundedRect(x, y, width, height, 3)
+      .strokeColor(C.line)
+      .lineWidth(0.6)
+      .stroke();
+  }
+
+  private measureMetaRow(
+    doc: PDFKit.PDFDocument,
+    label: string,
+    value: string,
+    width: number,
+  ): number {
+    doc.font('Helvetica-Bold').fontSize(6.5);
+    const labelH = doc.heightOfString(label.toUpperCase(), { width });
+    doc.font('Helvetica').fontSize(7.5);
+    const valueH = doc.heightOfString(value || '-', { width });
+    return labelH + 0.5 + valueH;
+  }
+
+  private measureMetaRows(
+    doc: PDFKit.PDFDocument,
+    rows: [string, string][],
+    width: number,
+  ): number {
+    const gaps = META_ROW_GAP * Math.max(rows.length - 1, 0);
+    return rows.reduce(
+      (sum, [label, value]) =>
+        sum + this.measureMetaRow(doc, label, value, width),
+      gaps,
+    );
+  }
+
   private drawMetaRow(
     doc: PDFKit.PDFDocument,
     x: number,
@@ -474,8 +503,7 @@ export class UnidadPdfService {
     label: string,
     value: string,
     width: number,
-    maxLines = 2,
-  ) {
+  ): number {
     doc
       .font('Helvetica-Bold')
       .fontSize(6.5)
@@ -485,11 +513,222 @@ export class UnidadPdfService {
       .font('Helvetica')
       .fontSize(7.5)
       .fillColor(C.text)
-      .text(value || '-', x, doc.y + 0.5, {
-        width,
-        height: maxLines * 9,
-        ellipsis: true,
+      .text(value || '-', x, doc.y + 0.5, { width });
+    return doc.y;
+  }
+
+  private drawMetaRows(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    rows: [string, string][],
+    width: number,
+  ): number {
+    rows.forEach(([label, value], i) => {
+      if (i > 0) y += META_ROW_GAP;
+      y = this.drawMetaRow(doc, x, y, label, value, width);
+    });
+    return y;
+  }
+
+  private drawMetaPanel(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    width: number,
+    rows: [string, string][],
+  ): number {
+    const pad = 8;
+    const inner = width - pad * 2;
+    const h = pad * 2 + this.measureMetaRows(doc, rows, inner);
+    if (h <= this.pageBodyHeight(doc)) {
+      y = this.ensureSpace(doc, y, h);
+      this.drawPanelBox(doc, x, y, width, h);
+      this.drawMetaRows(doc, x + pad, y + pad, rows, inner);
+      return y + h;
+    }
+    rows.forEach(([label, value]) => {
+      y = this.ensureSpace(doc, y, 40);
+      y = this.drawMetaRow(doc, x + pad, y, label, value, inner) + META_ROW_GAP;
+    });
+    return y;
+  }
+
+  private drawTextPanel(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    width: number,
+    text: string,
+    opts: { title?: string; fontSize: number; align?: 'left' | 'justify' },
+  ): number {
+    const pad = 8;
+    const inner = width - pad * 2;
+    const titleH = opts.title
+      ? doc
+          .font('Helvetica-Bold')
+          .fontSize(7.5)
+          .heightOfString(opts.title, { width: inner }) + 4
+      : 0;
+    const textH = doc
+      .font('Helvetica')
+      .fontSize(opts.fontSize)
+      .heightOfString(text, { width: inner, align: opts.align });
+    const h = pad * 2 + titleH + textH;
+    const fitsInPage = h <= this.pageBodyHeight(doc);
+
+    y = this.ensureSpace(doc, y, fitsInPage ? h : 40);
+    if (fitsInPage) this.drawPanelBox(doc, x, y, width, h);
+
+    let ty = y + pad;
+    if (opts.title) {
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(7.5)
+        .fillColor(C.navyMid)
+        .text(opts.title, x + pad, ty, { width: inner });
+      ty = doc.y + 4;
+    }
+    doc
+      .font('Helvetica')
+      .fontSize(opts.fontSize)
+      .fillColor(C.text)
+      .text(text, x + pad, ty, { width: inner, align: opts.align });
+    return fitsInPage ? y + h : doc.y + pad;
+  }
+
+  private drawTwoColumnPanels(
+    doc: PDFKit.PDFDocument,
+    y: number,
+    cols: { x: number; title: string; text: string }[],
+    colW: number,
+    fullWidth: number,
+  ): number {
+    const pad = 8;
+    const inner = colW - pad * 2;
+    const h = Math.max(
+      ...cols.map((c) => {
+        const titleH = doc
+          .font('Helvetica-Bold')
+          .fontSize(7.5)
+          .heightOfString(c.title, { width: inner });
+        const textH = doc
+          .font('Helvetica')
+          .fontSize(7)
+          .heightOfString(c.text, { width: inner });
+        return pad * 2 + titleH + 4 + textH;
+      }),
+    );
+
+    if (h > this.pageBodyHeight(doc)) {
+      cols.forEach((c, i) => {
+        if (i > 0) y += 6;
+        y = this.drawTextPanel(doc, cols[0].x, y, fullWidth, c.text, {
+          title: c.title,
+          fontSize: 7,
+        });
       });
+      return y;
+    }
+
+    y = this.ensureSpace(doc, y, h);
+    cols.forEach((c) => {
+      this.drawPanelBox(doc, c.x, y, colW, h);
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(7.5)
+        .fillColor(C.navyMid)
+        .text(c.title, c.x + pad, y + pad, { width: inner });
+      doc
+        .font('Helvetica')
+        .fontSize(7)
+        .fillColor(C.text)
+        .text(c.text, c.x + pad, doc.y + 4, { width: inner });
+    });
+    return y + h;
+  }
+
+  private drawFuncionesTable(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    width: number,
+    funciones?: { funcion: string; baseLegal?: string | null }[],
+  ): number {
+    const widths = [width * 0.06, width * 0.54, width * 0.4];
+    const pad = 4;
+    const headerH = 16;
+    const rows: string[][] = funciones?.length
+      ? funciones.map((f, i) => [
+          String(i + 1),
+          (f.funcion || '').toString().trim() || '-',
+          (f.baseLegal || '').toString().trim() || '-',
+        ])
+      : [['-', '-', '-']];
+
+    const drawColumnLines = (top: number, h: number, color: string) => {
+      let cx = x;
+      for (let i = 0; i < widths.length - 1; i++) {
+        cx += widths[i];
+        doc
+          .moveTo(cx, top)
+          .lineTo(cx, top + h)
+          .strokeColor(color)
+          .lineWidth(0.5)
+          .stroke();
+      }
+    };
+
+    const drawHeader = (top: number): number => {
+      doc.rect(x, top, width, headerH).fill(C.navy);
+      drawColumnLines(top, headerH, C.navyMid);
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.white);
+      let cx = x;
+      ['N°', 'Función', 'Base legal'].forEach((title, i) => {
+        doc.text(title, cx + pad, top + 5, {
+          width: widths[i] - pad * 2,
+          align: i === 0 ? 'center' : 'left',
+        });
+        cx += widths[i];
+      });
+      return top + headerH;
+    };
+
+    y = this.ensureSpace(doc, y, headerH + 24);
+    y = drawHeader(y);
+
+    rows.forEach((cells, r) => {
+      doc.font('Helvetica').fontSize(7);
+      const rowH =
+        Math.max(
+          ...cells.map((c, i) =>
+            doc.heightOfString(c, { width: widths[i] - pad * 2 }),
+          ),
+        ) +
+        pad * 2;
+
+      if (y + rowH > this.bottomLimit(doc)) {
+        doc.addPage();
+        y = drawHeader(doc.page.margins.top);
+      }
+
+      doc.rect(x, y, width, rowH).fill(r % 2 === 0 ? C.panel : C.white);
+      doc.rect(x, y, width, rowH).strokeColor(C.line).lineWidth(0.5).stroke();
+      drawColumnLines(y, rowH, C.line);
+
+      doc.font('Helvetica').fontSize(7).fillColor(C.text);
+      let cx = x;
+      cells.forEach((c, i) => {
+        doc.text(c, cx + pad, y + pad, {
+          width: widths[i] - pad * 2,
+          align: i === 0 ? 'center' : 'left',
+        });
+        cx += widths[i];
+      });
+      y += rowH;
+    });
+
+    return y;
   }
 
   private upper(value: string): string {
@@ -506,64 +745,42 @@ export class UnidadPdfService {
     return `${dd}/${mm}/${yyyy}`;
   }
 
-  private joinNames(
+  /** La dependencia lineal (padre) ya se muestra aparte; no se repite como funcional. */
+  private dependenciasSinPadre(
+    detail: UnidadPdfDetail,
+  ): NonNullable<UnidadPdfDetail['dependenciasFuncionales']> {
+    const parentId = detail.parent?.id != null ? Number(detail.parent.id) : null;
+    const seen = new Set<number>();
+    return (detail.dependenciasFuncionales || []).filter((d) => {
+      if (d.id == null) return true;
+      const id = Number(d.id);
+      if (id === parentId || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
+
+  private bulletList(lines: string[]): string {
+    const clean = lines.map((l) => this.upper(l)).filter(Boolean);
+    return clean.length ? clean.map((l) => `• ${l}`).join('\n') : '-';
+  }
+
+  private listNames(
     items?: { nombre?: string | null; sigla?: string | null }[],
   ): string {
-    if (!items?.length) return '-';
-    return this.upper(
-      items
-        .map((i) => i.nombre || i.sigla || '')
-        .filter(Boolean)
-        .join(', '),
+    return this.bulletList(
+      (items || []).map((i) => {
+        const nombre = (i.nombre || '').trim();
+        const sigla = (i.sigla || '').trim();
+        if (!nombre) return sigla;
+        return sigla && sigla !== nombre ? `${nombre} (${sigla})` : nombre;
+      }),
     );
   }
 
-  private joinDescripciones(
+  private listDescripciones(
     items?: { descripcion?: string | null }[],
   ): string {
-    if (!items?.length) return '-';
-    return this.upper(
-      items
-        .map((i) => i.descripcion || '')
-        .filter(Boolean)
-        .join('; '),
-    );
-  }
-
-  private formatFunciones(
-    funciones?: { funcion: string; baseLegal?: string | null }[],
-  ): string {
-    if (!funciones?.length) return '-';
-    return funciones
-      .map((f, i) => `${i + 1}. ${f.funcion}`)
-      .join('\n');
-  }
-
-  /**
-   * Columna "Base legal": una línea por función (alineada al listado)
-   * y, si existe, la base legal general de la unidad al inicio.
-   */
-  private formatBaseLegal(
-    funciones?: { funcion: string; baseLegal?: string | null }[],
-    unidadBaseLegal?: string | null,
-  ): string {
-    const parts: string[] = [];
-    const general = (unidadBaseLegal || '').toString().trim();
-    if (general) {
-      parts.push(general);
-    }
-    if (funciones?.length) {
-      const perFuncion = funciones
-        .map((f, i) => {
-          const bl = (f.baseLegal || '').toString().trim();
-          return bl ? `${i + 1}. ${bl}` : null;
-        })
-        .filter((line): line is string => Boolean(line));
-      if (perFuncion.length) {
-        if (general) parts.push(''); // separador visual
-        parts.push(...perFuncion);
-      }
-    }
-    return parts.length ? parts.join('\n') : '-';
+    return this.bulletList((items || []).map((i) => i.descripcion || ''));
   }
 }
