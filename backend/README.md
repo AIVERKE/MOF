@@ -160,7 +160,7 @@ Variables en `.env` (ver `.env.example`):
 | Variable | Descripción |
 |----------|-------------|
 | `PORT` | Puerto HTTP o HTTPS (3000) |
-| `HTTPS_KEY_PATH`, `HTTPS_CERT_PATH` | Opcionales. Definidas juntas, Nest sirve HTTPS en `PORT` con esa clave y certificado (usar `fullchain.pem`, no `cert.pem`). Vacías, HTTP (dev o detrás de Apache). El usuario de Node debe poder leer la clave y hay que reiniciar Nest al renovar el certificado. Con HTTPS directo usar `TRUST_PROXY=0` |
+| `HTTPS_KEY_PATH`, `HTTPS_CERT_PATH` | Opcionales. Definidas juntas, Nest sirve HTTPS en `PORT` con esa clave y certificado (usar `fullchain.pem`, no `cert.pem`). Vacías, HTTP (dev o detrás de Apache). En producción Nest va detrás de Apache, así que deben quedar vacías. El usuario de Node debe poder leer la clave y hay que reiniciar Nest al renovar el certificado. Con HTTPS directo usar `TRUST_PROXY=0` |
 | `CORS_ORIGIN` | Orígenes permitidos (coma-separados). En producción obligatorio y no puede ser `*` |
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | PostgreSQL destino (`mof_db`) |
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`). Con `NODE_ENV=production` tampoco puede ser el valor de ejemplo `super_secret_key_random_string` ni tener menos de 32 caracteres (`openssl rand -base64 48`) |
@@ -173,7 +173,7 @@ El backend de MPP descarga las unidades y sus cargos sin login, enviando el toke
 
 ```bash
 curl -H "X-Api-Key: $MPP_SERVICE_TOKEN" \
-  https://mof-smau.fcpn.edu.bo:3000/api/v1/integraciones/mpp/unidades
+  https://mof-smau.fcpn.edu.bo/api/v1/integraciones/mpp/unidades
 ```
 
 La respuesta usa el envelope estándar y `data` es la misma lista que `GET /api/v1/mof/unidades`.
@@ -182,7 +182,7 @@ Para sincronizar cargos, MPP pide el personal de cada unidad con el mismo header
 
 ```bash
 curl -H "X-Api-Key: $MPP_SERVICE_TOKEN" \
-  https://mof-smau.fcpn.edu.bo:3000/api/v1/integraciones/mpp/unidades/12/personal
+  https://mof-smau.fcpn.edu.bo/api/v1/integraciones/mpp/unidades/12/personal
 ```
 
 `data` trae un elemento por cargo asignado a la unidad, ya en el formato de MPP: `{ id, descripcion, detalle }`, donde `id` es el id del cargo, `descripcion` su nombre y `detalle` su descripción (`''` si no tiene). Una unidad inexistente responde `404`.
