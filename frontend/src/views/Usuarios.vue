@@ -26,15 +26,42 @@ const headers = [
 
 const roles = ['ADMIN', 'OPERADOR', 'USER']
 
-const tableItems = computed(() =>
-  (Array.isArray(usuariosStore.usuarios) ? usuariosStore.usuarios : []).map((u) => ({
-    ...u,
-    nombre: u.nombre || u.email || '',
-    apellidos: [u.apellidoPaterno, u.apellidoMaterno].filter(Boolean).join(' '),
-    estado: u.enabled ? 'Activo' : 'Inactivo',
-    rol: Array.isArray(u.roles) && u.roles.length ? u.roles[0] : 'USER',
-  })),
+const filtroEstado = ref('activos')
+
+const countActivos = computed(() =>
+  (Array.isArray(usuariosStore.usuarios) ? usuariosStore.usuarios : []).filter(
+    (u) => u.enabled,
+  ).length,
 )
+
+const countInactivos = computed(() =>
+  (Array.isArray(usuariosStore.usuarios) ? usuariosStore.usuarios : []).filter(
+    (u) => !u.enabled,
+  ).length,
+)
+
+const countTotal = computed(() =>
+  (Array.isArray(usuariosStore.usuarios) ? usuariosStore.usuarios : []).length,
+)
+
+const tableItems = computed(() => {
+  const lista = Array.isArray(usuariosStore.usuarios)
+    ? usuariosStore.usuarios
+    : []
+  return lista
+    .filter((u) => {
+      if (filtroEstado.value === 'activos') return Boolean(u.enabled)
+      if (filtroEstado.value === 'inactivos') return !u.enabled
+      return true
+    })
+    .map((u) => ({
+      ...u,
+      nombre: u.nombre || u.email || '',
+      apellidos: [u.apellidoPaterno, u.apellidoMaterno].filter(Boolean).join(' '),
+      estado: u.enabled ? 'Activo' : 'Inactivo',
+      rol: Array.isArray(u.roles) && u.roles.length ? u.roles[0] : 'USER',
+    }))
+})
 
 const emptyForm = () => ({
   ci: '',
@@ -176,7 +203,7 @@ const handleDelete = async () => {
     const ok = await usuariosStore.setUsuarioEnabled(selectedUser.value.id, false)
     if (ok) {
       deleteDialog.value = false
-      showSnackbar('Usuario desactivado', 'success')
+      showSnackbar('Usuario inhabilitado correctamente', 'success')
     } else if (usuariosStore.error) {
       showSnackbar(usuariosStore.error, 'error')
     }
@@ -210,6 +237,38 @@ const handleDelete = async () => {
           class="max-width-400"
           clearable
         ></v-text-field>
+
+        <v-btn-toggle
+          v-model="filtroEstado"
+          mandatory
+          density="compact"
+          color="primary"
+          variant="outlined"
+          divided
+          class="rounded-lg ml-md-2"
+        >
+          <v-btn value="activos" size="small">
+            <v-icon start size="16" color="success">mdi-check-circle</v-icon>
+            Activos
+            <v-chip size="x-small" class="ml-1 font-weight-bold" color="success" variant="flat">
+              {{ countActivos }}
+            </v-chip>
+          </v-btn>
+          <v-btn value="inactivos" size="small">
+            <v-icon start size="16" color="grey-darken-1">mdi-close-circle</v-icon>
+            Inactivos
+            <v-chip size="x-small" class="ml-1 font-weight-bold" color="grey" variant="flat">
+              {{ countInactivos }}
+            </v-chip>
+          </v-btn>
+          <v-btn value="todos" size="small">
+            <v-icon start size="16">mdi-account-multiple</v-icon>
+            Todos
+            <v-chip size="x-small" class="ml-1 font-weight-bold" variant="tonal">
+              {{ countTotal }}
+            </v-chip>
+          </v-btn>
+        </v-btn-toggle>
 
         <v-spacer></v-spacer>
 
@@ -299,15 +358,17 @@ const handleDelete = async () => {
               <v-tooltip activator="parent" location="top">Editar perfil de usuario</v-tooltip>
             </v-btn>
             <v-btn
-              icon="mdi-delete"
+              icon="mdi-account-off"
               variant="text"
               size="small"
               color="error"
               :disabled="!item.enabled"
               @click="confirmDelete(item)"
             >
-              <v-icon size="20">mdi-delete</v-icon>
-              <v-tooltip activator="parent" location="top">Dar de baja al usuario</v-tooltip>
+              <v-icon size="20">mdi-account-off</v-icon>
+              <v-tooltip activator="parent" location="top">
+                {{ item.enabled ? 'Inhabilitar usuario' : 'Usuario ya inhabilitado' }}
+              </v-tooltip>
             </v-btn>
           </div>
         </template>
@@ -439,27 +500,27 @@ const handleDelete = async () => {
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="deleteDialog" max-width="400px">
+    <v-dialog v-model="deleteDialog" max-width="440px">
       <v-card class="rounded-xl text-center pa-4">
         <v-card-text>
-          <v-icon color="error" size="64" class="mb-4">mdi-alert-circle-outline</v-icon>
-          <div class="text-h6 font-weight-black mb-2">¿Confirmar baja?</div>
+          <v-icon color="warning" size="64" class="mb-4">mdi-account-off-outline</v-icon>
+          <div class="text-h6 font-weight-black mb-2">¿Inhabilitar usuario?</div>
           <p class="text-body-2 text-grey-darken-1">
-            Estás a punto de desactivar al usuario
+            Estás a punto de inhabilitar la cuenta de
             <strong>{{ selectedUser?.nombre || selectedUser?.email }}</strong>.
-            Esta acción impedirá su acceso al sistema.
+            Esta acción impedirá su acceso al sistema, pero se mantendrá en la base de datos y podrás reactivarla desde el filtro de Inactivos editando su perfil.
           </p>
         </v-card-text>
         <v-card-actions class="justify-center gap-2">
           <v-btn variant="tonal" class="rounded-lg" :disabled="saving" @click="deleteDialog = false">Cancelar</v-btn>
           <v-btn
-            color="error"
+            color="warning-darken-1"
             variant="elevated"
-            class="rounded-lg px-6"
+            class="rounded-lg px-6 font-weight-bold"
             :loading="saving"
             @click="handleDelete"
           >
-            Desactivar
+            Inhabilitar
           </v-btn>
         </v-card-actions>
       </v-card>
