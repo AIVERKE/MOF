@@ -1,9 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import {
-  ErrorCode,
-  ErrorCodes,
-  getErrorDefinition,
-} from '../errors';
+import { ErrorCode, ErrorCodes, getErrorDefinition } from '../errors';
 
 export class BusinessException extends HttpException {
   readonly errorCode: string | null;
@@ -35,9 +31,5 @@ export function throwBusiness(
 }
 
 export function notFound(id: string | number): never {
-  throwBusiness(
-    ErrorCodes.NOT_FOUND,
-    id,
-    `Registro no encontrado id: ${id}`,
-  );
+  throwBusiness(ErrorCodes.NOT_FOUND, id, `Registro no encontrado id: ${id}`);
 }
