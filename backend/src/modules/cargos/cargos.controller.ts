@@ -56,10 +56,7 @@ export class CargosController {
   @Put('cargos/:id')
   @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar cargo' })
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: CargoDto,
-  ) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: CargoDto) {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
       await this.cargosService.update(id, dto),
@@ -78,7 +75,9 @@ export class CargosController {
 
   @Put('cargos/:id/setparent')
   @Roles('ADMIN', 'OPERADOR')
-  @ApiOperation({ summary: 'Cambiar cargo padre (escribe historial de jerarquía)' })
+  @ApiOperation({
+    summary: 'Cambiar cargo padre (escribe historial de jerarquía)',
+  })
   async setParent(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CargoSetParentDto,
@@ -113,7 +112,9 @@ export class CargosController {
 
   @Delete(':id/personal')
   @Roles('ADMIN', 'OPERADOR')
-  @ApiOperation({ summary: 'Quitar todas las asignaciones de personal de la unidad (batch)' })
+  @ApiOperation({
+    summary: 'Quitar todas las asignaciones de personal de la unidad (batch)',
+  })
   async removerTodo(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,

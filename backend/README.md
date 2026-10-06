@@ -7,7 +7,8 @@ Backend NestJS del Manual de Organización y Funciones (MOF): catálogos, organi
 - NestJS 11
 - TypeORM + PostgreSQL (`synchronize: false`)
 - Passport JWT / Local
-- Swagger en `/api`
+- Swagger en `/api` (solo fuera de `NODE_ENV=production`)
+- Helmet (cabeceras de seguridad)
 - Jest (unit + e2e)
 
 ## Requisitos
@@ -35,7 +36,7 @@ npm run start:dev
 ```
 
 - API: `http://localhost:3000`
-- Swagger: `http://localhost:3000/api`
+- Swagger: `http://localhost:3000/api` (JSON en `/api-json`). Con `NODE_ENV=production` no se publica ni la UI ni el documento OpenAPI.
 
 Para Docker, usa `.env.docker.example` (`DB_HOST=db`).
 
@@ -161,6 +162,7 @@ Variables en `.env` (ver `.env.example`):
 |----------|-------------|
 | `PORT` | Puerto HTTP o HTTPS (3000) |
 | `HTTPS_KEY_PATH`, `HTTPS_CERT_PATH` | Opcionales. Definidas juntas, Nest sirve HTTPS en `PORT` con esa clave y certificado (usar `fullchain.pem`, no `cert.pem`). Vacías, HTTP (dev o detrás de Apache). En producción Nest va detrás de Apache, así que deben quedar vacías. El usuario de Node debe poder leer la clave y hay que reiniciar Nest al renovar el certificado. Con HTTPS directo usar `TRUST_PROXY=0` |
+| `HSTS_ENABLED` | Opcional. `true` hace que Helmet envíe `Strict-Transport-Security` (180 días, sin subdominios). Activarlo solo cuando el HTTPS del dominio ya esté estable. Por defecto apagado |
 | `CORS_ORIGIN` | Orígenes permitidos (coma-separados). En producción obligatorio y no puede ser `*` |
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | PostgreSQL destino (`mof_db`) |
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`). Con `NODE_ENV=production` tampoco puede ser el valor de ejemplo `super_secret_key_random_string` ni tener menos de 32 caracteres (`openssl rand -base64 48`) |

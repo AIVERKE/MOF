@@ -62,8 +62,14 @@ describe('CargosService', () => {
         CargosService,
         { provide: getRepositoryToken(Cargo), useValue: cargoRepo },
         { provide: getRepositoryToken(CargoUnidad), useValue: cargoUnidadRepo },
-        { provide: getRepositoryToken(AsignacionCargo), useValue: { count: jest.fn() } },
-        { provide: getRepositoryToken(CargoJerarquiaHist), useValue: { save: jest.fn(), create: jest.fn() } },
+        {
+          provide: getRepositoryToken(AsignacionCargo),
+          useValue: { count: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(CargoJerarquiaHist),
+          useValue: { save: jest.fn(), create: jest.fn() },
+        },
         { provide: getRepositoryToken(Unidad), useValue: unidadRepo },
       ],
     }).compile();
@@ -103,7 +109,11 @@ describe('CargosService', () => {
       const result = await service.list();
 
       expect(cargoRepo.createQueryBuilder).toHaveBeenCalledWith('c');
-      expect(qb.orderBy).toHaveBeenCalledWith('c.nivelOrden', 'DESC', 'NULLS LAST');
+      expect(qb.orderBy).toHaveBeenCalledWith(
+        'c.nivelOrden',
+        'DESC',
+        'NULLS LAST',
+      );
       expect(qb.addOrderBy).toHaveBeenCalledWith('c.nombre', 'ASC');
       expect(result[0]).toMatchObject({
         id: 8,
@@ -116,12 +126,12 @@ describe('CargosService', () => {
 
   describe('asignar', () => {
     it('throws 400 when cargo is inactive', async () => {
-      unidadRepo.findOne.mockResolvedValue({ id: '1' } as Unidad);
+      unidadRepo.findOne.mockResolvedValue({ id: '1' });
       cargoRepo.findOne.mockResolvedValue({
         id: '4',
         activo: false,
         unicoEnUnidad: false,
-      } as Cargo);
+      });
 
       await expect(service.asignar(1, { cargoId: 4 })).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
@@ -133,13 +143,13 @@ describe('CargosService', () => {
     });
 
     it('creates cargo_unidad when cargo is active', async () => {
-      unidadRepo.findOne.mockResolvedValue({ id: '1' } as Unidad);
+      unidadRepo.findOne.mockResolvedValue({ id: '1' });
       cargoRepo.findOne.mockResolvedValue({
         id: '8',
         activo: true,
         unicoEnUnidad: false,
-      } as Cargo);
-      cargoUnidadRepo.save.mockResolvedValue({ id: '99' } as CargoUnidad);
+      });
+      cargoUnidadRepo.save.mockResolvedValue({ id: '99' });
 
       const result = await service.asignar(1, { cargoId: 8 });
 
@@ -159,7 +169,7 @@ describe('CargosService', () => {
     });
 
     it('soft-removes all active personal rows in batch when found', async () => {
-      unidadRepo.findOne.mockResolvedValue({ id: '1' } as Unidad);
+      unidadRepo.findOne.mockResolvedValue({ id: '1' });
       const mockRows = [
         { id: '10', unidadId: '1', activo: true },
         { id: '11', unidadId: '1', activo: true },
@@ -177,7 +187,7 @@ describe('CargosService', () => {
     });
 
     it('returns count 0 without calling softRemove if no rows found', async () => {
-      unidadRepo.findOne.mockResolvedValue({ id: '1' } as Unidad);
+      unidadRepo.findOne.mockResolvedValue({ id: '1' });
       cargoUnidadRepo.find.mockResolvedValue([]);
 
       const result = await service.removerTodoPersonal(1);
