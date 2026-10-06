@@ -107,6 +107,8 @@ Cuando termine, tendrás disponibles:
 - Swagger: `http://localhost:3000/api`
 - PostgreSQL: disponible solo dentro de la red Docker (no expuesto al host)
 
+Compose publica 3000 y 5173 solo en `127.0.0.1` del host: son URLs de desarrollo y no se alcanzan desde otra máquina.
+
 ### Comandos útiles Docker
 
 Detener servicios:
@@ -137,14 +139,44 @@ Conectarte a PostgreSQL desde tu máquina host no está habilitado en este modo 
 
 ```bash
 export JWT_SECRET="$(openssl rand -base64 48)"   # guardarlo; rotarlo invalida las sesiones
-export CORS_ORIGIN="https://mof.ejemplo.edu.bo"
+export CORS_ORIGIN="https://mof-demo.fcpn.edu.bo,https://mof-smau.fcpn.edu.bo"
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 - También se pueden definir en un `.env` en la raíz del repo. Ese archivo está en `.gitignore` y **no se commitea**.
 - Compose no levanta si falta `JWT_SECRET` o `CORS_ORIGIN`.
+- `CORS_ORIGIN` lleva los dominios públicos sin `:3000`.
 - Con `NODE_ENV=production` el backend aborta al arrancar si `JWT_SECRET` es el valor de ejemplo (`super_secret_key_random_string`), `secret`, o tiene menos de 32 caracteres.
 - No correr `seed:auth` en producción: la cuenta `admin@admin.com` / `admin123` es solo de desarrollo.
+
+#### Exposición: Apache es el único punto público
+
+```
+Internet ── HTTPS 443 ──> Apache (host)
+                           ├── /auth/, /api/v1/, /seguridad/, /versiones/ ──> 127.0.0.1:3000 (Nest)
+                           └── /                                         ──> 127.0.0.1:5173 (SPA)
+```
+
+- Compose publica el backend en `127.0.0.1:3000` y el frontend en `127.0.0.1:5173`. PostgreSQL no tiene puerto publicado. Dentro del contenedor Nest sigue escuchando en `0.0.0.0:3000`; no cambiar `app.listen` a loopback, porque Docker no llegaría al proceso.
+- La API **no** se publica en `:3000` hacia Internet. Se consume por `https://<dominio>/auth/...`, `/api/v1/...`, etc.
+- `docker-compose.prod.yml` construye el frontend con `VITE_API_BASE_URL` vacío: el SPA llama al API por su mismo origen, así una sola imagen sirve a `mof-demo` y `mof-smau`. La URL se hornea en el build, por eso cada cambio exige `--build`.
+- Detrás de Apache, Nest habla HTTP: `HTTPS_KEY_PATH` y `HTTPS_CERT_PATH` van vacías y `TRUST_PROXY` queda en 1 (default en producción).
+- El VirtualHost (uno por dominio, con `ProxyPass`/`ProxyPassReverse` para `/auth/`, `/api/v1/`, `/seguridad/` y `/versiones/` antes de `/`, y sin compartir `DocumentRoot` con otra app) lo configura el administrador del servidor.
+
+Orden de despliegue (no invertir; si el 3000 deja de estar publicado mientras el JS viejo apunta a `:3000`, se cae el login):
+
+1. Infraestructura activa los `ProxyPass` hacia `127.0.0.1:3000` y `127.0.0.1:5173`.
+2. Desarrollo reconstruye y despliega el frontend sin `:3000`. El backend de MPP pasa a usar `https://mof-smau.fcpn.edu.bo/api/v1/integraciones/mpp/...`.
+3. Desarrollo aplica este compose (bind a `127.0.0.1`): desde aquí 3000 y 5173 dejan de ser públicos.
+4. Infraestructura deja solo 80/443 abiertos en el firewall (APACHE-002).
+
+Verificación en el servidor:
+
+```bash
+ss -ltnp | grep -E ':3000|:5173|:5432'                 # 3000 y 5173 en 127.0.0.1; 5432 no aparece
+docker compose exec frontend grep -rl ':3000' /usr/share/nginx/html   # sin resultados
+curl -m 5 http://IP_PUBLICA:3000   # desde fuera: debe fallar
+```
 
 ## 2) Migraciones TypeORM (modo Docker)
 

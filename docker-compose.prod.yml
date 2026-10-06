@@ -9,6 +9,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requerido (ver README, seccion Produccion)}
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN requerido (ver README, seccion Produccion)}
 
+  frontend:
+    build:
+      args:
+        # Vacio = URLs relativas: cada dominio llama al API por su propio Apache.
+        VITE_API_BASE_URL: ""
+
   backend-cli:
     environment:
       NODE_ENV: production
