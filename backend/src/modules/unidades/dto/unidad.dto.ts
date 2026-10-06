@@ -9,6 +9,7 @@ import {
   IsString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsFecCreacionInRange } from '../../../common/validators/fec-creacion-range.validator';
 
 export class UnidadDto {
   @ApiProperty()
@@ -90,9 +91,13 @@ export class UnidadDto {
   @IsString()
   resCreacion?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    example: '1990-05-10',
+    description: 'Entre 1825-01-01 y el 31/12 del año actual',
+  })
   @IsOptional()
   @IsDateString()
+  @IsFecCreacionInRange()
   fecCreacion?: string;
 
   @ApiPropertyOptional()

@@ -1265,7 +1265,7 @@ export class UnidadesService {
         u.sigla,
         COALESCE(tu.color, '#1976D2') as color,
         tu.descripcion as clase,
-        u.fec_creacion as "fecCreacion",
+        u.fec_creacion::text as "fecCreacion",
         u.created_at as "createdAt"
       FROM unidad u
       LEFT JOIN tipo_unidad tu ON u.tipo_unidad_id = tu.id AND tu.deleted_at IS NULL

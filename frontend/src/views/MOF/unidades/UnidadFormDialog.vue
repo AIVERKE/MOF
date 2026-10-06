@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from "vue";
-import { rules } from "@/utils/rules";
+import { rules, FEC_CREACION_MIN, fecCreacionMax } from "@/utils/rules";
 import { swatches, getUsedColors } from "@/utils/mofHelpers";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
@@ -270,6 +270,9 @@ function moverAbajo(index) {
               <v-date-input
                 v-model="formData.fecCreacion"
                 label="Fecha de Creación"
+                :min="FEC_CREACION_MIN"
+                :max="fecCreacionMax()"
+                :rules="[rules.fechaCreacionRango]"
                 :hint="hints.unidadForm.fecCreacion"
                 :persistent-hint="false"
                 variant="underlined"
