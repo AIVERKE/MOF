@@ -45,5 +45,28 @@ export const rules = {
     const day = formatDateToString(value);
     if (!day) return mensaje;
     return (day >= FEC_CREACION_MIN && day <= fecCreacionMax(today)) || mensaje;
+  },
+
+  soloNumeros: (value) => {
+    if (!value || !String(value).trim()) return true;
+    return /^\d+$/.test(String(value).trim()) || 'Solo se permiten números';
+  },
+
+  ci: (value) => {
+    if (!value || !String(value).trim()) return true;
+    const val = String(value).trim();
+    return (
+      /^\d{4,10}(?:-[a-zA-Z0-9]{1,3})?$/.test(val) ||
+      'El C.I. debe tener entre 4 y 10 dígitos, con complemento opcional (ej. 8123456 o 8123456-1A)'
+    );
+  },
+
+  soloNombre: (value) => {
+    if (!value || !String(value).trim()) return true;
+    return (
+      /^[\p{L}\s]+$/u.test(String(value).trim()) ||
+      'Solo se permiten letras, acentos, diéresis y espacios'
+    );
   }
 };
+
