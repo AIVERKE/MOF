@@ -65,8 +65,8 @@ const { nodes, edges, setNodes, setEdges, fitView, zoomIn, zoomOut, onNodeClick 
 
 const router = useRouter();
 const { isMobile, isPortrait } = useResponsive();
-const showMobileOrientationAlert = ref(true);
-const isRotated90 = ref(false);
+// Bloqueo de montaje de Vue Flow en celulares en modo vertical (portrait) para evitar error de dimensiones
+const isMobilePortrait = computed(() => isMobile.value && isPortrait.value);
 
 function handleZoomIn() {
   zoomIn({ duration: 250 });
@@ -97,14 +97,6 @@ function getCustomEdgePath(edgeProps) {
         : (edgeProps.sourceY + edgeProps.targetY) / 2,
   });
   return path;
-}
-
-
-function toggleRotation() {
-  isRotated90.value = !isRotated90.value;
-  nextTick(() => {
-    fitView({ padding: 0.15, duration: 300 });
-  });
 }
 
 function handleVolver() {
@@ -1310,6 +1302,10 @@ function computeNodeVisuals({
 }
 
 const updateGraph = () => {
+  if (isMobilePortrait.value) {
+    return;
+  }
+
   const isDepMode =
     mostrarDependencias.value && unidadDependenciaSeleccionada.value;
   let selectedDepId = "";
@@ -1553,6 +1549,14 @@ watch(isDark, () => {
   updateGraph();
 });
 
+watch(isMobilePortrait, (isBlocked) => {
+  if (!isBlocked) {
+    nextTick(() => {
+      updateGraph();
+    });
+  }
+});
+
 /**
  * Vuela animadamente la cámara hacia uno o varios nodos (estilo Google Maps).
  * - 1 match: Encuadra el nodo con padding suficiente (maxZoom 1.25).
@@ -1595,6 +1599,8 @@ const volarANodos = async (ids = []) => {
 
 // --- EVENTS ---
 onMounted(async () => {
+  detailsDrawer.value = false;
+  hierarchyDrawer.value = false;
   if (typeof window !== "undefined" && window.innerWidth <= 960) {
     activePanels.value = null; // Colapsar filtros en móviles para ahorrar espacio vertical
   }
@@ -1989,36 +1995,39 @@ function resetFilters() {
         indeterminate
         color="primary"
       />
-      <!-- Alerta Orientación Móvil -->
-      <v-alert
-        v-if="isMobile && isPortrait && showMobileOrientationAlert"
-        type="info"
-        variant="tonal"
-        closable
-        class="mb-2 rounded-lg"
-        density="compact"
-        icon="mdi-phone-rotate-landscape"
-        @click:close="showMobileOrientationAlert = false"
+      <!-- Vista Móvil (Portrait): Pantalla vacía clara con CTA a Árbol de Unidades (NO monta Vue Flow) -->
+      <div
+        v-if="isMobilePortrait"
+        class="mobile-organigrama-blocked flex-grow-1 d-flex flex-column align-center justify-center pa-6 text-center"
       >
-        <div class="d-flex align-center justify-space-between flex-wrap gap-2">
-          <span class="text-caption font-weight-medium">
-            Para una mejor visualización, rota tu dispositivo en horizontal (Landscape).
-          </span>
-          <v-btn
-            size="x-small"
-            variant="outlined"
-            color="primary"
-            class="rounded-lg font-weight-bold"
-            @click="toggleRotation"
-          >
-            <v-icon start size="14">mdi-rotate-right</v-icon>
-            {{ isRotated90 ? 'Vista Estándar' : 'Rotar 90°' }}
-          </v-btn>
-        </div>
-      </v-alert>
+        <v-empty-state
+          icon="mdi-devices"
+          title="Vista recomendada para PC o Tablet"
+          text="El organigrama interactivo está pensado para PC o tablet en horizontal. En el celular usá Árbol de Unidades."
+          class="my-auto py-8"
+        >
+          <template #actions>
+            <v-btn
+              color="primary"
+              variant="elevated"
+              elevation="2"
+              prepend-icon="mdi-file-tree"
+              size="large"
+              class="rounded-lg font-weight-bold text-none px-6"
+              :to="{ name: 'tree_unidades' }"
+            >
+              Ir al Árbol de Unidades
+            </v-btn>
+          </template>
+        </v-empty-state>
+      </div>
 
-      <div class="flow-container position-relative" :class="{ 'flow-container--rotated-90': isRotated90 }">
-        <!-- Botón Volver Flotante en Móvil -->
+      <!-- Vista Desktop / Landscape: Organigrama Interactivo con Vue Flow -->
+      <div
+        v-else
+        class="flow-container position-relative"
+      >
+        <!-- Botón Volver Flotante en Pantallas Reducidas -->
         <v-btn
           v-if="isMobile"
           icon
@@ -2355,6 +2364,7 @@ function resetFilters() {
     />
 
     <UnidadDetailsDrawer
+      v-if="detailsDrawer"
       v-model="detailsDrawer"
       :detail-data="detailData"
       :loading="loadingDetail"
@@ -2366,21 +2376,21 @@ function resetFilters() {
       @edit="
         (id) => {
           openForm(id, true);
-          detailsDrawer = false;
+          detailsDrawer.value = false;
         }
       "
       @reporte="(id) => verReporte(id)"
       @pdf="(id) => verReporte(id)"
       @dependencias="
         (id) => {
-          detailsDrawer = false;
+          detailsDrawer.value = false;
           verDependencias(id);
         }
       "
       @add-child="
         (id) => {
           openForm(id, false);
-          detailsDrawer = false;
+          detailsDrawer.value = false;
         }
       "
       @delete="
@@ -2389,7 +2399,7 @@ function resetFilters() {
             unidadesList.value.find((u) => String(u.id) === String(id)) ||
             detailData.value;
           deleteDialog = true;
-          detailsDrawer = false;
+          detailsDrawer.value = false;
         }
       "
     />
@@ -2410,9 +2420,11 @@ function resetFilters() {
     />
 
     <v-navigation-drawer
+      v-if="hierarchyDrawer"
       v-model="hierarchyDrawer"
       location="right"
       temporary
+      disable-resize-watcher
       :width="isMobile ? '100%' : hierarchyDrawerWidth"
     >
       <HierarchyManagerDrawer
@@ -2460,6 +2472,18 @@ function resetFilters() {
 }
 .v-theme--dark .flow-container {
   background: #030712 !important;
+}
+.mobile-organigrama-blocked {
+  width: 100%;
+  min-height: 480px;
+  background: #f8f9fa;
+}
+.v-theme--dark .mobile-organigrama-blocked {
+  background: #030712 !important;
+}
+:deep(.vue-flow) {
+  width: 100%;
+  height: 100%;
 }
 .node-bridge-container {
   width: 320px;

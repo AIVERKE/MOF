@@ -580,6 +580,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
     <UnidadDeleteDialog v-model="deleteDialog" :nombre-unidad="selectedNode?.nombre || selectedNode?.denominacion" @confirm="confirmDelete" />
 
     <UnidadDetailsDrawer
+      v-if="detailsDrawer"
       v-model="detailsDrawer"
       :detail-data="detailData"
       :loading="loadingDetail"
