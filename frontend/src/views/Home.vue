@@ -2,18 +2,38 @@
 import { ref, onMounted, computed } from "vue";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
+import { useUsuariosStore } from "@/stores/usuarios";
 import { useAuthStore } from "@/stores/auth";
 import { useResponsive } from "@/composables/useResponsive";
 import { getIntenseNodeColor, parseDateFromApi } from "@/utils/mofHelpers";
 
 const unidadesStore = useAllUnidadesMofStore();
 const clasesStore = useAllClasesMofStore();
+const usuariosStore = useUsuariosStore();
 const authStore = useAuthStore();
 const { isMobile, xs } = useResponsive();
 
-const totalUsuarios = ref(1);
+const usuariosList = computed(() =>
+  Array.isArray(usuariosStore.usuarios) ? usuariosStore.usuarios : [],
+);
+const totalUsuarios = computed(() => usuariosList.value.length);
+const totalActivos = computed(
+  () => usuariosList.value.filter((u) => u.enabled !== false).length,
+);
+
+const usuariosSuffix = computed(() => {
+  if (usuariosStore.loading) return "Cargando...";
+  if (usuariosStore.error) return "Error";
+  const total = totalUsuarios.value;
+  const activos = totalActivos.value;
+  if (total === 0) return "Sin usuarios";
+  if (total === 1) return activos === 1 ? "Activo" : "Inactivo";
+  if (activos < total) return `${activos} activos`;
+  return "Activos";
+});
 
 onMounted(async () => {
+  usuariosStore.fetchUsuarios();
   if (!unidadesStore.dashboardStats) {
     await unidadesStore.getDashboardStats();
   }
@@ -69,10 +89,16 @@ const stats = computed(() => [
   {
     title: "Usuarios",
     fullTitle: "Usuarios del Sistema",
-    value: totalUsuarios.value,
+    value: usuariosStore.loading
+      ? "..."
+      : usuariosStore.error
+        ? "—"
+        : totalUsuarios.value,
     icon: "mdi-account-multiple",
     gradient: "linear-gradient(135deg, #667EEA 0%, #764BA2 100%)",
-    suffix: "Activo",
+    suffix: usuariosSuffix.value,
+    loading: usuariosStore.loading,
+    error: !!usuariosStore.error,
   },
   {
     title: "Unidades",
@@ -83,6 +109,8 @@ const stats = computed(() => [
     icon: "mdi-sitemap",
     gradient: "linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%)",
     suffix: "Registradas",
+    loading: unidadesStore.loading,
+    error: false,
   },
 ]);
 </script>
@@ -103,7 +131,7 @@ const stats = computed(() => [
     <!-- KPI Cards (2 por fila en móvil, 4 en desktop) -->
     <v-row dense>
       <v-col v-for="stat in stats" :key="stat.title" cols="6" sm="6" md="3">
-        <v-card class="rounded-xl border-0 shadow-sm" elevation="2">
+        <v-card class="rounded-xl border-0 shadow-sm" elevation="2" :loading="stat.loading">
           <v-card-text :class="isMobile ? 'pa-3' : 'pa-5'">
             <div class="d-flex align-center justify-space-between mb-2 mb-sm-4">
               <div 
@@ -112,12 +140,22 @@ const stats = computed(() => [
               >
                 <v-icon color="white" :size="isMobile ? 18 : 24">{{ stat.icon }}</v-icon>
               </div>
-              <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-bold">
+              <v-chip 
+                size="x-small" 
+                :color="stat.error ? 'error' : 'primary'" 
+                variant="tonal" 
+                class="font-weight-bold"
+              >
                 {{ stat.suffix }}
               </v-chip>
             </div>
             <div class="text-h5 text-sm-h4 font-weight-black mb-1 text-slate-800">
-              {{ stat.value }}
+              <template v-if="stat.loading">
+                <v-progress-circular indeterminate size="22" width="2" color="primary" />
+              </template>
+              <template v-else>
+                {{ stat.value }}
+              </template>
             </div>
             <div class="text-caption font-weight-bold text-uppercase text-slate-500 text-truncate" style="letter-spacing: 0.5px;">
               {{ isMobile ? stat.title : stat.fullTitle }}
