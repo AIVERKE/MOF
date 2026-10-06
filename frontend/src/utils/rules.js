@@ -1,3 +1,9 @@
+import { formatDateToString } from './mofHelpers';
+
+/** Alineado con backend/src/common/validators/fec-creacion-range.validator.ts */
+export const FEC_CREACION_MIN = '1825-01-01';
+export const fecCreacionMax = (today = new Date()) => `${today.getFullYear()}-12-31`;
+
 export const rules = {
   required: value => !!value || 'Este campo es requerido',
 
@@ -30,5 +36,14 @@ export const rules = {
       return 'La sigla debe ser un acrónimo (ej: FCPN), no un código numérico';
     }
     return true;
+  },
+
+  fechaCreacionRango: (value) => {
+    if (!value) return true;
+    const today = new Date();
+    const mensaje = `La fecha de creación debe estar entre 01/01/1825 y 31/12/${today.getFullYear()}`;
+    const day = formatDateToString(value);
+    if (!day) return mensaje;
+    return (day >= FEC_CREACION_MIN && day <= fecCreacionMax(today)) || mensaje;
   }
 };
