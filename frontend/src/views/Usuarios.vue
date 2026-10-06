@@ -4,16 +4,26 @@ import { useUsuariosStore } from '@/stores/usuarios'
 import { useConfigMofStore } from '@/stores/config_mof'
 import { useSnackbar } from '@/composables/useSnackbar'
 import { hints } from '@/config/hints'
+import { rules } from '@/utils/rules'
 
 const usuariosStore = useUsuariosStore()
 const configStore = useConfigMofStore()
 const { mostrar: showSnackbar } = useSnackbar()
 
+const formRef = ref(null)
 const search = ref('')
 const dialog = ref(false)
 const deleteDialog = ref(false)
 const selectedUser = ref(null)
 const saving = ref(false)
+
+function filtrarCaracteresCi(event) {
+  // Permite dígitos 0-9, letras (para complemento) y guión '-'
+  if (!/[0-9a-zA-Z-]/.test(event.key)) {
+    event.preventDefault()
+  }
+}
+
 
 const headers = [
   { title: 'USUARIO', key: 'nombre', align: 'start' },
@@ -87,6 +97,9 @@ const openUserDialog = (item = null) => {
     selectedUser.value = null
     form.value = emptyForm()
   }
+  if (formRef.value) {
+    formRef.value.resetValidation()
+  }
   dialog.value = true
 }
 
@@ -96,6 +109,11 @@ const confirmDelete = (item) => {
 }
 
 const handleSave = async () => {
+  if (formRef.value) {
+    const { valid } = await formRef.value.validate()
+    if (!valid) return
+  }
+
   if (!form.value.email?.trim()) {
     showSnackbar('El correo es obligatorio', 'warning')
     return
@@ -104,9 +122,33 @@ const handleSave = async () => {
     showSnackbar('El C.I. es obligatorio', 'warning')
     return
   }
+  const ciCheck = rules.ci(form.value.ci.trim())
+  if (ciCheck !== true) {
+    showSnackbar(ciCheck, 'warning')
+    return
+  }
   if (!form.value.nombres?.trim()) {
     showSnackbar('Los nombres son obligatorios', 'warning')
     return
+  }
+  const nombresCheck = rules.soloNombre(form.value.nombres.trim())
+  if (nombresCheck !== true) {
+    showSnackbar(nombresCheck, 'warning')
+    return
+  }
+  if (form.value.apellidoPaterno?.trim()) {
+    const patCheck = rules.soloNombre(form.value.apellidoPaterno.trim())
+    if (patCheck !== true) {
+      showSnackbar(patCheck, 'warning')
+      return
+    }
+  }
+  if (form.value.apellidoMaterno?.trim()) {
+    const matCheck = rules.soloNombre(form.value.apellidoMaterno.trim())
+    if (matCheck !== true) {
+      showSnackbar(matCheck, 'warning')
+      return
+    }
   }
   if (
     selectedUser.value &&
@@ -119,6 +161,7 @@ const handleSave = async () => {
     )
     return
   }
+
 
   saving.value = true
   try {
@@ -320,122 +363,130 @@ const handleDelete = async () => {
           {{ selectedUser ? 'Actualizar' : 'Registrar' }} Usuario
         </v-card-title>
         <v-divider></v-divider>
-        <v-card-text class="pa-4 pt-6">
-          <v-row dense>
-            <v-col cols="12">
-              <v-text-field
-                v-model="form.ci"
-                label="C.I."
-                variant="outlined"
-                prepend-inner-icon="mdi-card-account-details"
-                :hint="hints.usuarios.ci"
-                :persistent-hint="false"
-                class="mb-2"
-              ></v-text-field>
-            </v-col>
-            <v-col cols="12">
-              <v-text-field
-                v-model="form.nombres"
-                label="Nombres"
-                variant="outlined"
-                prepend-inner-icon="mdi-account"
-                :hint="hints.usuarios.nombres"
-                :persistent-hint="false"
-                class="mb-2"
-              ></v-text-field>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-text-field
-                v-model="form.apellidoPaterno"
-                label="Apellido Paterno"
-                variant="outlined"
-                :hint="hints.usuarios.apellidoPaterno"
-                :persistent-hint="false"
-                class="mb-2"
-              ></v-text-field>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-text-field
-                v-model="form.apellidoMaterno"
-                label="Apellido Materno"
-                variant="outlined"
-                :hint="hints.usuarios.apellidoMaterno"
-                :persistent-hint="false"
-                class="mb-2"
-              ></v-text-field>
-            </v-col>
-            <v-col cols="12">
-              <v-text-field
-                v-model="form.email"
-                label="Correo Institucional"
-                variant="outlined"
-                prepend-inner-icon="mdi-email"
-                type="email"
-                :hint="hints.usuarios.email"
-                :persistent-hint="false"
-                class="mb-2"
-              ></v-text-field>
-            </v-col>
-            <v-col v-if="selectedUser" cols="12">
-              <v-text-field
-                v-model="form.password"
-                label="Nueva contraseña (opcional)"
-                variant="outlined"
-                prepend-inner-icon="mdi-lock"
-                type="password"
-                autocomplete="new-password"
-                class="mb-2"
-                :hint="`Opcional. Mínimo ${configStore.passwordMinLength} caracteres.`"
-                :persistent-hint="false"
-              ></v-text-field>
-            </v-col>
-            <v-col v-else cols="12">
-              <v-alert
-                type="info"
-                variant="tonal"
-                density="comfortable"
-                class="mb-2 rounded-lg text-body-2"
-                prepend-icon="mdi-information-outline"
-              >
-                No se define contraseña aquí: el usuario ingresará por
-                <strong>primer acceso</strong> con su correo y C.I. para crearla.
-              </v-alert>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-select
-                v-model="form.rol"
-                :items="roles"
-                label="Rol de Sistema"
-                variant="outlined"
-                :hint="hints.usuarios.rol"
-                :persistent-hint="false"
-              ></v-select>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-select
-                v-model="form.estado"
-                :items="['Activo', 'Inactivo']"
-                label="Estado Actual"
-                variant="outlined"
-                :hint="hints.usuarios.estado"
-                :persistent-hint="false"
-              ></v-select>
-            </v-col>
-          </v-row>
-        </v-card-text>
-        <v-card-actions class="pa-4">
-          <v-spacer></v-spacer>
-          <v-btn variant="text" class="font-weight-bold" :disabled="saving" @click="dialog = false">Cancelar</v-btn>
-          <v-btn
-            color="primary"
-            variant="elevated"
-            class="rounded-lg px-6"
-            :loading="saving"
-            @click="handleSave"
-          >
-            {{ selectedUser ? 'Guardar Cambios' : 'Crear Usuario' }}
-          </v-btn>
-        </v-card-actions>
+        <v-form ref="formRef" @submit.prevent="handleSave">
+          <v-card-text class="pa-4 pt-6">
+            <v-row dense>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="form.ci"
+                  label="C.I."
+                  variant="outlined"
+                  prepend-inner-icon="mdi-card-account-details"
+                  :hint="hints.usuarios.ci"
+                  :persistent-hint="false"
+                  :rules="[rules.required, rules.ci]"
+                  class="mb-2"
+                  @keypress="filtrarCaracteresCi"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="form.nombres"
+                  label="Nombres"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-account"
+                  :hint="hints.usuarios.nombres"
+                  :persistent-hint="false"
+                  :rules="[rules.required, rules.soloNombre]"
+                  class="mb-2"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.apellidoPaterno"
+                  label="Apellido Paterno"
+                  variant="outlined"
+                  :hint="hints.usuarios.apellidoPaterno"
+                  :persistent-hint="false"
+                  :rules="[rules.soloNombre]"
+                  class="mb-2"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.apellidoMaterno"
+                  label="Apellido Materno"
+                  variant="outlined"
+                  :hint="hints.usuarios.apellidoMaterno"
+                  :persistent-hint="false"
+                  :rules="[rules.soloNombre]"
+                  class="mb-2"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="form.email"
+                  label="Correo Institucional"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-email"
+                  type="email"
+                  :hint="hints.usuarios.email"
+                  :persistent-hint="false"
+                  :rules="[rules.required, rules.email]"
+                  class="mb-2"
+                ></v-text-field>
+              </v-col>
+              <v-col v-if="selectedUser" cols="12">
+                <v-text-field
+                  v-model="form.password"
+                  label="Nueva contraseña (opcional)"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-lock"
+                  type="password"
+                  autocomplete="new-password"
+                  class="mb-2"
+                  :hint="`Opcional. Mínimo ${configStore.passwordMinLength} caracteres.`"
+                  :persistent-hint="false"
+                ></v-text-field>
+              </v-col>
+              <v-col v-else cols="12">
+                <v-alert
+                  type="info"
+                  variant="tonal"
+                  density="comfortable"
+                  class="mb-2 rounded-lg text-body-2"
+                  prepend-icon="mdi-information-outline"
+                >
+                  No se define contraseña aquí: el usuario ingresará por
+                  <strong>primer acceso</strong> con su correo y C.I. para crearla.
+                </v-alert>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="form.rol"
+                  :items="roles"
+                  label="Rol de Sistema"
+                  variant="outlined"
+                  :hint="hints.usuarios.rol"
+                  :persistent-hint="false"
+                ></v-select>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="form.estado"
+                  :items="['Activo', 'Inactivo']"
+                  label="Estado Actual"
+                  variant="outlined"
+                  :hint="hints.usuarios.estado"
+                  :persistent-hint="false"
+                ></v-select>
+              </v-col>
+            </v-row>
+          </v-card-text>
+          <v-card-actions class="pa-4">
+            <v-spacer></v-spacer>
+            <v-btn variant="text" class="font-weight-bold" :disabled="saving" @click="dialog = false">Cancelar</v-btn>
+            <v-btn
+              color="primary"
+              variant="elevated"
+              class="rounded-lg px-6"
+              :loading="saving"
+              type="submit"
+            >
+              {{ selectedUser ? 'Guardar Cambios' : 'Crear Usuario' }}
+            </v-btn>
+          </v-card-actions>
+        </v-form>
       </v-card>
     </v-dialog>
 
