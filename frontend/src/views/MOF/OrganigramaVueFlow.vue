@@ -296,6 +296,25 @@ const unidadesFiltradas = computed(() => {
     expectedClaseDesc = item ? normalizeText(item.descripcion) : "";
   }
 
+  let expectedRelacionCode = "";
+  let expectedRelacionDesc = "";
+  let isFilterForStaff = false;
+  if (activeRelacionId) {
+    const item = relacionesStore.relaciones.find(
+      (r) => String(r.id) === activeRelacionId || String(r.value) === activeRelacionId,
+    );
+    if (item) {
+      expectedRelacionCode = normalizeText(item.codigo || item.value || "");
+      expectedRelacionDesc = normalizeText(
+        item.descripcion || item.description || item.nombre || "",
+      );
+      isFilterForStaff =
+        expectedRelacionCode === "s" ||
+        expectedRelacionDesc.includes("staff") ||
+        expectedRelacionDesc.includes("asesor");
+    }
+  }
+
   const isEstricto = vistaModo.value === "estricto";
 
   return unidadesList.value.filter((u) => {
@@ -333,8 +352,26 @@ const unidadesFiltradas = computed(() => {
       }
     }
 
-    if (activeRelacionId && String(u.relacion) !== activeRelacionId) {
-      return false;
+    if (activeRelacionId) {
+      const uRelNorm = normalizeText(u.relacion);
+      const uStrRelNorm = normalizeText(u.str_relacion);
+      const uRelIdStr = String(u.relacion_id ?? u.relacionId ?? "");
+
+      const matchesId =
+        (uRelIdStr && uRelIdStr === activeRelacionId) ||
+        (uRelNorm && uRelNorm === activeRelacionId);
+      const matchesCode =
+        expectedRelacionCode &&
+        (uRelNorm === expectedRelacionCode || uStrRelNorm === expectedRelacionCode);
+      const matchesDesc =
+        expectedRelacionDesc &&
+        (uStrRelNorm === expectedRelacionDesc || uRelNorm === expectedRelacionDesc);
+      const matchesStaff =
+        isFilterForStaff && isStaffNode(u, relacionesStore.relaciones);
+
+      if (!matchesId && !matchesCode && !matchesDesc && !matchesStaff) {
+        return false;
+      }
     }
 
     return true;
@@ -391,11 +428,12 @@ const stats = computed(() => {
     ];
   }
 
-  const oficiales = all.filter((u) => checkOficial(u));
+  const baseList = hasAnyFilter.value ? unidadesFiltradas.value : all;
+  const oficiales = baseList.filter((u) => checkOficial(u));
   return [
     {
       title: "Total Unidades",
-      value: all.length,
+      value: baseList.length,
       icon: "mdi-sitemap",
       color: "primary",
     },
@@ -407,13 +445,13 @@ const stats = computed(() => {
     },
     {
       title: "No Oficiales",
-      value: all.length - oficiales.length,
+      value: baseList.length - oficiales.length,
       icon: "mdi-alert-circle-outline",
       color: "warning",
     },
     {
       title: "Asesoría/Staff",
-      value: all.filter((u) => isStaffNode(u, relacionesStore.relaciones))
+      value: baseList.filter((u) => isStaffNode(u, relacionesStore.relaciones))
         .length,
       icon: "mdi-account-tie",
       color: "orange-darken-2",
@@ -1285,15 +1323,36 @@ function computeNodeVisuals({
           badgeText: "INSTANCIA",
         };
       } else if (activeRelacionId) {
-        finalColor =
-          (isColorblindMode ? null : (u.color && !["#757575", "#9E9E9E", "#CCCCCC", "#CBD5E1", "#E2E8F0", "#FFFFFF", "#F8FAFC"].includes(String(u.color).trim().toUpperCase()) ? u.color : null)) ||
-          getIntenseNodeColor(u.clase, clasesStore.clases, isColorblindMode) ||
-          (isStaff ? colors.staffDefault : colors.relacionFilter);
-        visualReinforcement = {
-          role: "filter-relacion",
-          icon: "mdi-vector-polyline",
-          badgeText: "RELACIÓN",
-        };
+        if (
+          isStaff ||
+          (u.relacion && String(u.relacion).toUpperCase() === "S") ||
+          (u.str_relacion && normalizeText(u.str_relacion).includes("staff")) ||
+          (u.str_relacion && normalizeText(u.str_relacion).includes("asesor"))
+        ) {
+          finalColor = colors.staffDefault;
+          visualReinforcement = {
+            role: "filter-relacion",
+            icon: "mdi-account-tie",
+            badgeText: "STAFF",
+          };
+        } else if (
+          (u.relacion && String(u.relacion).toUpperCase() === "F") ||
+          (u.str_relacion && normalizeText(u.str_relacion).includes("funcional"))
+        ) {
+          finalColor = colors.depFuncional;
+          visualReinforcement = {
+            role: "filter-relacion",
+            icon: "mdi-transit-connection-variant",
+            badgeText: "FUNCIONAL",
+          };
+        } else {
+          finalColor = colors.relacionFilter;
+          visualReinforcement = {
+            role: "filter-relacion",
+            icon: "mdi-vector-polyline",
+            badgeText: "LINEAL",
+          };
+        }
       }
     }
   }
