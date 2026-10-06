@@ -12,8 +12,6 @@ import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
 import {
   MofConfig,
   type MofConfigDefaults,
-  type MofConfigReglas,
-  type MofPasswordPolicy,
 } from './entities/mof-config.entity';
 import {
   DependenciaFuncionalDto,
@@ -57,7 +55,7 @@ export const MOF_CONFIG_FALLBACK = {
     defaultClaseColor: '#757575',
     staffRelacionCodigos: ['S'],
     ladoTroncalForzado: 'CENTRO',
-  } as MofConfigReglas,
+  },
   paleta: [
     ['#1976D2', '#2196F3', '#03A9F4', '#00BCD4', '#00ACC1'],
     ['#2E7D32', '#4CAF50', '#8BC34A', '#CDDC39', '#C0CA33'],
@@ -72,7 +70,7 @@ export const MOF_CONFIG_FALLBACK = {
     ['#212121', '#424242', '#616161', '#757575', '#9E9E9E'],
     ['#BF360C', '#D84315', '#E64A19', '#F4511E', '#FF5722'],
   ] as string[][],
-  passwordPolicy: { minLength: 6 } as MofPasswordPolicy,
+  passwordPolicy: { minLength: 6 },
 };
 
 @Injectable()
@@ -134,8 +132,10 @@ export class UnidadesService {
     else if (clean === 'CONGRESO INTERNO') base = 'CI';
     else if (clean === 'ASAMBLEA DOCENTE ESTUDIANTIL') base = 'ADE';
     else if (clean === 'HONORABLE CONSEJO UNIVERSITARIO') base = 'HCU';
-    else if (clean.includes('COMITE EJECUTIVO DEL HONORABLE CONSEJO')) base = 'CE-HCU';
-    else if (clean === 'SECRETARÍA GENERAL' || clean === 'SECRETARIA GENERAL') base = 'SG';
+    else if (clean.includes('COMITE EJECUTIVO DEL HONORABLE CONSEJO'))
+      base = 'CE-HCU';
+    else if (clean === 'SECRETARÍA GENERAL' || clean === 'SECRETARIA GENERAL')
+      base = 'SG';
     else {
       const prefixMatch = clean.match(/^([A-Z0-9]{2,10})\s*[-–]\s*(.+)$/);
       if (prefixMatch) {
@@ -143,12 +143,28 @@ export class UnidadesService {
         const rest = prefixMatch[2];
         if (rest.includes('VICEDECANATO')) base = `${prefix}-VD`;
         else if (rest.includes('DECANATO')) base = `${prefix}-DEC`;
-        else if (rest.includes('DIRECCION') || rest.includes('DIRECCIÓN')) base = `${prefix}-DIR`;
-        else if (rest.includes('CARRERA') || rest.includes('CARR')) base = `${prefix}-CARR`;
-        else if (rest.includes('INSTITUTO') || rest.includes('INST')) base = `${prefix}-INST`;
+        else if (rest.includes('DIRECCION') || rest.includes('DIRECCIÓN'))
+          base = `${prefix}-DIR`;
+        else if (rest.includes('CARRERA') || rest.includes('CARR'))
+          base = `${prefix}-CARR`;
+        else if (rest.includes('INSTITUTO') || rest.includes('INST'))
+          base = `${prefix}-INST`;
         else base = prefix;
       } else {
-        const stopWords = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y', 'E', 'EN', 'POR', 'PARA', 'A', 'AL']);
+        const stopWords = new Set([
+          'DE',
+          'DEL',
+          'LA',
+          'LAS',
+          'LOS',
+          'Y',
+          'E',
+          'EN',
+          'POR',
+          'PARA',
+          'A',
+          'AL',
+        ]);
         const words = clean
           .replace(/[^\w\s-]/g, ' ')
           .split(/[\s-]+/)
@@ -158,7 +174,10 @@ export class UnidadesService {
           base = words[0].slice(0, 8);
         } else {
           const initials = words.map((w) => w[0]).join('');
-          base = initials.length >= 2 && initials.length <= 10 ? initials : clean.slice(0, 12).replace(/\s+/g, '');
+          base =
+            initials.length >= 2 && initials.length <= 10
+              ? initials
+              : clean.slice(0, 12).replace(/\s+/g, '');
         }
       }
     }
@@ -167,8 +186,13 @@ export class UnidadesService {
     let candidate = base;
     let counter = 1;
     while (true) {
-      const existing = await this.unidadRepo.findOne({ where: { sigla: candidate } });
-      if (!existing || (excludeId && String(existing.id) === String(excludeId))) {
+      const existing = await this.unidadRepo.findOne({
+        where: { sigla: candidate },
+      });
+      if (
+        !existing ||
+        (excludeId && String(existing.id) === String(excludeId))
+      ) {
         return candidate;
       }
       counter++;
@@ -190,6 +214,18 @@ export class UnidadesService {
       nivel: u.nivel?.descripcion ?? null,
       relacion: u.relacion?.codigo ?? null,
       str_relacion: u.relacion?.descripcion ?? null,
+      relacion_id:
+        u.relacionId != null
+          ? Number(u.relacionId)
+          : u.relacion?.id != null
+            ? Number(u.relacion.id)
+            : null,
+      relacionId:
+        u.relacionId != null
+          ? Number(u.relacionId)
+          : u.relacion?.id != null
+            ? Number(u.relacion.id)
+            : null,
       dependencia: parentNombre ?? null,
       oficial: u.oficial,
       es_troncal: u.esTroncal ?? false,
@@ -303,6 +339,19 @@ export class UnidadesService {
       tipo: u.tipo?.descripcion ?? null,
       nivel: u.nivel?.descripcion ?? null,
       relacion: u.relacion?.codigo ?? null,
+      str_relacion: u.relacion?.descripcion ?? null,
+      relacion_id:
+        u.relacionId != null
+          ? Number(u.relacionId)
+          : u.relacion?.id != null
+            ? Number(u.relacion.id)
+            : null,
+      relacionId:
+        u.relacionId != null
+          ? Number(u.relacionId)
+          : u.relacion?.id != null
+            ? Number(u.relacion.id)
+            : null,
       resCreacion: u.resCreacion,
       res_creacion: u.resCreacion,
       baseLegal: u.baseLegal,
@@ -576,7 +625,8 @@ export class UnidadesService {
     if (dto.fecCreacion !== undefined) {
       u.fecCreacion = toDateOnly(dto.fecCreacion);
     }
-    if (dto.tramitesAtendidos !== undefined) u.tramitesAtendidos = dto.tramitesAtendidos;
+    if (dto.tramitesAtendidos !== undefined)
+      u.tramitesAtendidos = dto.tramitesAtendidos;
     if (dto.ejecucionPoa !== undefined) u.ejecucionPoa = dto.ejecucionPoa;
     if (dto.ejecucionPresupuestaria !== undefined) {
       u.ejecucionPresupuestaria = dto.ejecucionPresupuestaria;
@@ -587,7 +637,8 @@ export class UnidadesService {
     if (dto.cargaHorariaEjecutada !== undefined) {
       u.cargaHorariaEjecutada = dto.cargaHorariaEjecutada;
     }
-    if (dto.infraestructura !== undefined) u.infraestructura = dto.infraestructura;
+    if (dto.infraestructura !== undefined)
+      u.infraestructura = dto.infraestructura;
     if (dto.ubicacion !== undefined) u.ubicacion = dto.ubicacion;
     if (dto.tipo !== undefined) {
       u.tipoId = await this.resolveCatalogId(this.tipoRepo, dto.tipo);
@@ -963,7 +1014,9 @@ export class UnidadesService {
 
   // --- RELACIONES INTERNAS ---
   async listRelacionesInternas(unidadId: number) {
-    const u = await this.unidadRepo.findOne({ where: { id: String(unidadId) } });
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
     if (!u) notFound(unidadId);
     const rows = await this.relIntRepo.find({
       where: { unidadId: String(unidadId) },
@@ -981,7 +1034,9 @@ export class UnidadesService {
   }
 
   async addRelacionInterna(unidadId: number, dto: UnidadRelacionInternaDto) {
-    const u = await this.unidadRepo.findOne({ where: { id: String(unidadId) } });
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
     if (!u) notFound(unidadId);
     if (Number(dto.relacionadaId) === unidadId) {
       throw new BusinessException(
@@ -1029,7 +1084,9 @@ export class UnidadesService {
 
   // --- RELACIONES EXTERNAS ---
   async listRelacionesExternas(unidadId: number) {
-    const u = await this.unidadRepo.findOne({ where: { id: String(unidadId) } });
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
     if (!u) notFound(unidadId);
     const rows = await this.relExtRepo.find({
       where: { unidadId: String(unidadId) },
@@ -1042,7 +1099,9 @@ export class UnidadesService {
   }
 
   async addRelacionExterna(unidadId: number, dto: UnidadRelacionExternaDto) {
-    const u = await this.unidadRepo.findOne({ where: { id: String(unidadId) } });
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
     if (!u) notFound(unidadId);
     const entity = this.relExtRepo.create({
       unidadId: String(unidadId),
