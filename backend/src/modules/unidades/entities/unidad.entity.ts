@@ -89,7 +89,12 @@ export class Unidad extends AuditableEntity {
   @Column({ name: 'base_legal', type: 'text', nullable: true })
   baseLegal: string | null;
 
-  @Column({ name: 'res_creacion', type: 'varchar', length: 512, nullable: true })
+  @Column({
+    name: 'res_creacion',
+    type: 'varchar',
+    length: 512,
+    nullable: true,
+  })
   resCreacion: string | null;
 
   @Column({ name: 'fec_creacion', type: 'date', nullable: true })

@@ -240,7 +240,9 @@ export async function migrateUnidadParentHist(
 ): Promise<PhaseStats> {
   const stats = emptyStats('8-unidad_jerarquia_hist');
   if (!(await tableExists(legacy, 'umsa', 'unidad_parent'))) {
-    console.log('[8-unidad_jerarquia_hist] tabla umsa.unidad_parent no existe (no-op)');
+    console.log(
+      '[8-unidad_jerarquia_hist] tabla umsa.unidad_parent no existe (no-op)',
+    );
     logStats(stats);
     return stats;
   }
@@ -276,13 +278,7 @@ export async function migrateUnidadParentHist(
            parent_id_nuevo = EXCLUDED.parent_id_nuevo,
            razon = EXCLUDED.razon,
            changed_at = EXCLUDED.changed_at`,
-        [
-          row.unidad_parent_id,
-          row.unidad,
-          row.parent,
-          row.razon,
-          row.registro,
-        ],
+        [row.unidad_parent_id, row.unidad, row.parent, row.razon, row.registro],
       );
       stats.inserted += 1;
     } catch (e) {
@@ -328,7 +324,9 @@ export async function migrateAsignaciones(
   );
 
   if (src.rows.length === 0) {
-    console.log('[9-asignaciones] sin filas en umsa.asignacion_personal (no-op)');
+    console.log(
+      '[9-asignaciones] sin filas en umsa.asignacion_personal (no-op)',
+    );
     logStats(stats);
     return stats;
   }
@@ -367,9 +365,10 @@ export async function migrateAsignaciones(
     }
 
     try {
-      const unidadOk = await target.query(`SELECT 1 FROM unidad WHERE id = $1`, [
-        row.unidad,
-      ]);
+      const unidadOk = await target.query(
+        `SELECT 1 FROM unidad WHERE id = $1`,
+        [row.unidad],
+      );
       const cargoOk = await target.query(`SELECT 1 FROM cargo WHERE id = $1`, [
         row.cargo,
       ]);

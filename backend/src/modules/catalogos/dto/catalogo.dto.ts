@@ -33,7 +33,8 @@ export class ClaseDto {
 
   @ApiPropertyOptional({
     example: true,
-    description: 'Aceptado por el front; se refleja en activo si no viene activo',
+    description:
+      'Aceptado por el front; se refleja en activo si no viene activo',
   })
   @IsOptional()
   @IsBoolean()

@@ -43,12 +43,17 @@ export class UnidadDto {
   @IsBoolean()
   oficial: boolean;
 
-  @ApiPropertyOptional({ description: 'Indica si es unidad troncal del eje central de gobierno' })
+  @ApiPropertyOptional({
+    description: 'Indica si es unidad troncal del eje central de gobierno',
+  })
   @IsOptional()
   @IsBoolean()
   esTroncal?: boolean;
 
-  @ApiPropertyOptional({ description: 'Indica si es unidad sub-troncal (eje central local en su facultad o dirección)' })
+  @ApiPropertyOptional({
+    description:
+      'Indica si es unidad sub-troncal (eje central local en su facultad o dirección)',
+  })
   @IsOptional()
   @IsBoolean()
   esSubTroncal?: boolean;
@@ -68,7 +73,10 @@ export class UnidadDto {
   @IsBoolean()
   es_subtroncal?: boolean;
 
-  @ApiPropertyOptional({ description: 'Lado o disposición en organigrama (CENTRO, IZQUIERDA, DERECHA, AUTOMATICO)' })
+  @ApiPropertyOptional({
+    description:
+      'Lado o disposición en organigrama (CENTRO, IZQUIERDA, DERECHA, AUTOMATICO)',
+  })
   @IsOptional()
   @IsString()
   lado?: string;
@@ -204,4 +212,3 @@ export class UnidadRelacionExternaDto {
   @IsNotEmpty()
   descripcion: string;
 }
-

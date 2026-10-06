@@ -80,7 +80,9 @@ async function main(): Promise<void> {
       }
 
       const colNames = cols.rows.map((c) => c.column_name);
-      const udtByCol = new Map(cols.rows.map((c) => [c.column_name, c.udt_name]));
+      const udtByCol = new Map(
+        cols.rows.map((c) => [c.column_name, c.udt_name]),
+      );
       const quotedCols = colNames.map((c) => `"${c}"`).join(', ');
 
       const rows = await pool.query(`SELECT * FROM "${table.name}"`);
