@@ -351,6 +351,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
         />
         
         <v-btn
+          v-if="!unidadesStore.unidades.length"
           color="primary"
           variant="flat"
           density="comfortable"
@@ -358,8 +359,8 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
           class="rounded-lg font-weight-bold px-4"
           @click="openForm(null, false)"
         >
-          Nueva Unidad
-          <v-tooltip activator="parent" location="top">Registrar una nueva unidad administrativa</v-tooltip>
+          Añadir Raíz
+          <v-tooltip activator="parent" location="top">Crear la primera unidad raíz</v-tooltip>
         </v-btn>
       </v-card-title>
 

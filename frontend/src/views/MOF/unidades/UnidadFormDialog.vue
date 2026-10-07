@@ -202,14 +202,18 @@ function moverAbajo(index) {
     <v-card>
       <v-card-title class="d-flex align-center justify-space-between">
         <span>
-          {{ isEditMode ? "Editar" : "Agregar a" }}:
-          <strong class="text-primary">
-            {{
-              isEditMode
-                ? formData.nombre || formData.denominacion
-                : selectedNode?.nombre || selectedNode?.denominacion || "RAÍZ"
-            }}
-          </strong>
+          <template v-if="isEditMode">
+            Editar:
+            <strong class="text-primary">{{ formData.nombre || formData.denominacion }}</strong>
+          </template>
+          <template v-else-if="selectedNode">
+            Agregar unidad dependiente (Hija de):
+            <strong class="text-primary">{{ selectedNode.nombre || selectedNode.denominacion }}</strong>
+          </template>
+          <template v-else>
+            Crear Unidad:
+            <strong class="text-primary">RAÍZ INSTITUCIONAL</strong>
+          </template>
         </span>
         <v-btn icon="mdi-close" variant="text" @click="close">
           <v-icon>mdi-close</v-icon>
@@ -393,7 +397,7 @@ function moverAbajo(index) {
               <SelectAllUnidades
                 v-model="formData.dependenciasFuncionales"
                 type="autocomplete"
-                label="Dependencia"
+                label="Dependencias Funcionales (Coordinación transversal)"
                 :hint="hints.unidadForm.dependenciasFuncionales"
                 :persistent-hint="false"
                 multiple
