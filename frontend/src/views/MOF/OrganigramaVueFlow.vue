@@ -219,9 +219,15 @@ const {
   detailData,
   loadingDetail,
   initialOpenPanels,
-  showDetails,
+  showDetails: baseShowDetails,
   verReporte,
 } = useUnidadDetails({ unidadesStore });
+
+function showDetails(unidadId) {
+  if (!unidadId) return;
+  centrarNodo(unidadId, { duration: 450 });
+  return baseShowDetails(unidadId);
+}
 const hierarchyDrawer = ref(false);
 const hierarchyDrawerWidth = ref(450);
 
@@ -485,6 +491,9 @@ async function refreshChart(options = {}) {
 }
 
 async function openForm(nodeId = null, edit = false) {
+  if (nodeId) {
+    centrarNodo(nodeId, { duration: 400 });
+  }
   const node = nodeId ? unidadesByIdMap.value.get(String(nodeId)) : null;
   selectedNode.value = node;
   await openUnitForm(node, edit);
@@ -492,6 +501,9 @@ async function openForm(nodeId = null, edit = false) {
 }
 
 function openDeleteDialog(nodeId) {
+  if (nodeId) {
+    centrarNodo(nodeId, { duration: 400 });
+  }
   selectedNode.value = nodeId
     ? unidadesByIdMap.value.get(String(nodeId))
     : null;
@@ -1734,7 +1746,8 @@ watch(isMobilePortrait, (isBlocked) => {
  *
  * @param {Array<string|number>} ids - Lista de IDs de nodos a enfocar
  */
-const volarANodos = async (ids = []) => {
+async function volarANodos(ids = [], options = {}) {
+  if (isMobilePortrait.value) return;
   await nextTick();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("resize"));
@@ -1746,8 +1759,12 @@ const volarANodos = async (ids = []) => {
     }
   }
 
+  const duration = options.duration ?? 800;
+  const padding = options.padding ?? (ids.length === 1 ? 0.35 : 0.2);
+  const maxZoom = options.maxZoom ?? 1.25;
+
   if (!ids || ids.length === 0) {
-    await fitView({ padding: 0.1, duration: 800 });
+    await fitView({ padding: 0.1, duration });
     return;
   }
 
@@ -1756,15 +1773,44 @@ const volarANodos = async (ids = []) => {
   if (strIds.length === 1) {
     await fitView({
       nodes: [strIds[0]],
-      padding: 0.35,
-      duration: 800,
-      maxZoom: 1.25,
+      padding,
+      duration,
+      maxZoom,
     });
     return;
   }
 
-  await fitView({ nodes: strIds, duration: 800, padding: 0.2, maxZoom: 1.25 });
-};
+  await fitView({ nodes: strIds, duration, padding, maxZoom });
+}
+
+let lastCenteringId = null;
+let lastCenteringTime = 0;
+
+/**
+ * Centra la vista del organigrama en un nodo específico si está visible en el viewport.
+ * Respeta móvil portrait (MOF-049) y evita enfocar nodos invisibles por filtros.
+ *
+ * @param {string|number} unidadId - ID de la unidad
+ * @param {Object} options - Opciones adicionales para volarANodos (duration, padding, maxZoom)
+ */
+async function centrarNodo(unidadId, options = {}) {
+  if (!unidadId || isMobilePortrait.value) return;
+  const now = Date.now();
+  const strId = String(unidadId);
+  if (lastCenteringId === strId && now - lastCenteringTime < 150) {
+    return;
+  }
+  lastCenteringId = strId;
+  lastCenteringTime = now;
+
+  const targetNode = (nodes.value || []).find((n) => String(n.id) === strId);
+  if (targetNode?.data?.isInvisible) return;
+  return volarANodos([strId], {
+    duration: options.duration ?? 450,
+    padding: options.padding ?? 0.35,
+    maxZoom: options.maxZoom ?? 1.15,
+  });
+}
 
 // --- EVENTS ---
 onMounted(async () => {
@@ -1792,7 +1838,8 @@ onMounted(async () => {
 });
 
 onNodeClick(({ node }) => {
-  if (node.data.isInvisible) return;
+  if (node?.data?.isInvisible) return;
+  centrarNodo(node.id, { duration: 450 });
   showDetails(node.id);
 });
 
