@@ -67,6 +67,31 @@ export const rules = {
       /^[\p{L}\s]+$/u.test(String(value).trim()) ||
       'Solo se permiten letras, acentos, diéresis y espacios'
     );
+  },
+
+  siglaFormato: (value) => {
+    if (!value || !String(value).trim()) return true;
+    return (
+      /^[\p{L}0-9-]+$/u.test(String(value).trim()) ||
+      'La sigla solo puede contener letras, números y guiones'
+    );
+  },
+
+  nombreUnidad: (value) => {
+    if (!value || !String(value).trim()) return true;
+    return (
+      /^[\p{L}0-9\s.,\-/()°º"']+$/u.test(String(value).trim()) ||
+      'El nombre contiene caracteres especiales no permitidos'
+    );
+  },
+
+  sinCaracteresRaros: (value) => {
+    if (!value || !String(value).trim()) return true;
+    const invalidPattern = /[@#$^*~{}[\]|\\<>`]/;
+    return (
+      !invalidPattern.test(String(value)) ||
+      'No se permiten caracteres especiales informales (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)'
+    );
   }
 };
 
