@@ -14,6 +14,7 @@ import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import MofReportMenu from "./common/MofReportMenu.vue";
+import MofLoadingOverlay from "./common/MofLoadingOverlay.vue";
 import HighlightedText from "@/components/HighlightedText.vue";
 import { exportListarUnidadesPdf, exportToCsv } from "@/utils/mofReport";
 
@@ -99,6 +100,9 @@ const search = ref('')
 const addDialog = ref(false)
 const deleteDialog = ref(false)
 const selectedNode = ref(null)
+const isListLoading = ref(true)
+const isExportingList = ref(false)
+const exportListMessage = ref('')
 
 const headers = [
   { 
@@ -183,9 +187,13 @@ const activeFiltersList = computed(() => {
   return filters;
 });
 
-const handleExportPdf = () => {
+const handleExportPdf = async () => {
+  isExportingList.value = true;
+  exportListMessage.value = "Generando reporte PDF del listado...";
+  loadingReport.value = true;
+  await nextTick();
+  await new Promise((resolve) => setTimeout(resolve, 50));
   try {
-    loadingReport.value = true;
     exportListarUnidadesPdf({
       title: "Listado de Unidades Administrativas",
       unidades: filteredUnidades.value,
@@ -196,16 +204,21 @@ const handleExportPdf = () => {
       isOficialCheck: checkOficial,
       isColorblind: isColorblind.value,
     });
-  } catch {
-    // Silently handled in UI via loading state
+  } catch (e) {
+    mostrar("Error al exportar PDF: " + (e?.message || e), "error");
   } finally {
+    isExportingList.value = false;
     loadingReport.value = false;
   }
 };
 
-const handleExportCsv = () => {
+const handleExportCsv = async () => {
+  isExportingList.value = true;
+  exportListMessage.value = "Generando archivo CSV del listado...";
+  loadingReport.value = true;
+  await nextTick();
+  await new Promise((resolve) => setTimeout(resolve, 50));
   try {
-    loadingReport.value = true;
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
       { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.display_name || u.nombre || u.denominacion || "" },
@@ -224,9 +237,10 @@ const handleExportCsv = () => {
       columns,
       rows: filteredUnidades.value,
     });
-  } catch {
-    // Silently handled in UI via loading state
+  } catch (e) {
+    mostrar("Error al exportar CSV: " + (e?.message || e), "error");
   } finally {
+    isExportingList.value = false;
     loadingReport.value = false;
   }
 };
@@ -234,13 +248,20 @@ const handleExportCsv = () => {
 const route = useRoute();
 
 onMounted(async () => {
-  await Promise.all([
-    unidadesStore.getFetchUnidades({ force: true }),
-    prefetchCatalogs(),
-  ]);
-  const unidadId = route.query.unidad;
-  if (unidadId != null && String(unidadId).trim() !== "") {
-    await showDetails(unidadId);
+  isListLoading.value = true;
+  try {
+    await Promise.all([
+      unidadesStore.getFetchUnidades({ force: true }),
+      prefetchCatalogs(),
+    ]);
+    const unidadId = route.query.unidad;
+    if (unidadId != null && String(unidadId).trim() !== "") {
+      await showDetails(unidadId);
+    }
+  } catch (e) {
+    mostrar("Error al cargar unidades", "error");
+  } finally {
+    isListLoading.value = false;
   }
 });
 
@@ -280,9 +301,15 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
       </div>
     </div>
 
-    <v-progress-linear v-if="unidadesStore.loading" indeterminate color="primary" class="mb-4 rounded-pill" height="6" />
+    <v-progress-linear v-if="unidadesStore.loading || isListLoading" indeterminate color="primary" class="mb-4 rounded-pill" height="6" />
 
-    <v-card class="rounded-xl border-0 shadow-sm" elevation="3">
+    <v-card class="rounded-xl border-0 shadow-sm position-relative overflow-hidden" elevation="3">
+      <MofLoadingOverlay
+        :model-value="isExportingList"
+        :contained="true"
+        :message="exportListMessage"
+        submessage="Procesando listado institucional..."
+      />
       <v-card-title class="pa-5 d-flex align-center flex-wrap gap-4">
         <v-text-field
           v-model="search"
@@ -367,7 +394,11 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 
       <!-- VISTA DE TARJETAS APILABLES EN MÓVIL / TABLET -->
       <div v-if="isCardView" class="pa-4 bg-slate-50">
-        <v-row v-if="filteredUnidades.length" dense>
+        <div v-if="unidadesStore.loading || isListLoading" class="text-center py-12">
+          <v-progress-circular indeterminate color="primary" size="44" width="4" class="mb-3" />
+          <div class="text-body-2 font-weight-medium text-slate-600">Cargando unidades...</div>
+        </div>
+        <v-row v-else-if="filteredUnidades.length" dense>
           <v-col
             v-for="item in filteredUnidades"
             :key="item.id"
@@ -481,6 +512,8 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
         :headers="headers"
         :items="filteredUnidades"
         :search="search"
+        :loading="unidadesStore.loading || isListLoading"
+        loading-text="Cargando unidades administrativas..."
         hover
         :density="tableDensity"
         class="bg-transparent"
