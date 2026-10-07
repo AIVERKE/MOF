@@ -34,7 +34,8 @@ export class CargoDto {
   @ApiPropertyOptional({
     example: 1,
     nullable: true,
-    description: 'Cargo padre (solo en create; cambios posteriores vía setparent)',
+    description:
+      'Cargo padre (solo en create; cambios posteriores vía setparent)',
   })
   @IsOptional()
   @ValidateIf((_, v) => v !== null && v !== undefined)

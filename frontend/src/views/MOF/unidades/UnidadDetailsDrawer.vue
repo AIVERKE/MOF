@@ -376,10 +376,12 @@ const panels = computed(() => {
 
 <template>
   <v-navigation-drawer
+    v-if="Boolean(modelValue && (detailData || loading))"
     :model-value="modelValue"
     @update:model-value="(val) => emit('update:modelValue', val)"
     location="right"
     temporary
+    disable-resize-watcher
     :width="drawerWidth"
     :style="drawerStyle"
     elevation="10"

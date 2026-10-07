@@ -55,9 +55,7 @@ export class ResultExceptionFilter implements ExceptionFilter {
       errorCode = ErrorCodes.INTERNAL_ERROR;
     }
 
-    response
-      .status(status)
-      .json(ResultResponse.fail(message, data, errorCode));
+    response.status(status).json(ResultResponse.fail(message, data, errorCode));
   }
 
   private inferErrorCode(status: number, messageWasArray: boolean): string {

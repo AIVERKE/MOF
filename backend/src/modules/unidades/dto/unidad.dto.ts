@@ -9,6 +9,7 @@ import {
   IsString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsFecCreacionInRange } from '../../../common/validators/fec-creacion-range.validator';
 
 export class UnidadDto {
   @ApiProperty()
@@ -43,12 +44,17 @@ export class UnidadDto {
   @IsBoolean()
   oficial: boolean;
 
-  @ApiPropertyOptional({ description: 'Indica si es unidad troncal del eje central de gobierno' })
+  @ApiPropertyOptional({
+    description: 'Indica si es unidad troncal del eje central de gobierno',
+  })
   @IsOptional()
   @IsBoolean()
   esTroncal?: boolean;
 
-  @ApiPropertyOptional({ description: 'Indica si es unidad sub-troncal (eje central local en su facultad o dirección)' })
+  @ApiPropertyOptional({
+    description:
+      'Indica si es unidad sub-troncal (eje central local en su facultad o dirección)',
+  })
   @IsOptional()
   @IsBoolean()
   esSubTroncal?: boolean;
@@ -68,7 +74,10 @@ export class UnidadDto {
   @IsBoolean()
   es_subtroncal?: boolean;
 
-  @ApiPropertyOptional({ description: 'Lado o disposición en organigrama (CENTRO, IZQUIERDA, DERECHA, AUTOMATICO)' })
+  @ApiPropertyOptional({
+    description:
+      'Lado o disposición en organigrama (CENTRO, IZQUIERDA, DERECHA, AUTOMATICO)',
+  })
   @IsOptional()
   @IsString()
   lado?: string;
@@ -82,9 +91,13 @@ export class UnidadDto {
   @IsString()
   resCreacion?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    example: '1990-05-10',
+    description: 'Entre 1825-01-01 y el 31/12 del año actual',
+  })
   @IsOptional()
   @IsDateString()
+  @IsFecCreacionInRange()
   fecCreacion?: string;
 
   @ApiPropertyOptional()
@@ -204,4 +217,3 @@ export class UnidadRelacionExternaDto {
   @IsNotEmpty()
   descripcion: string;
 }
-

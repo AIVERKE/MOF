@@ -27,8 +27,8 @@ describe('resolveCorsOrigins', () => {
   });
 
   it('allows explicit origins in production', () => {
-    expect(
-      resolveCorsOrigins('https://mof.example.com', 'production'),
-    ).toEqual(['https://mof.example.com']);
+    expect(resolveCorsOrigins('https://mof.example.com', 'production')).toEqual(
+      ['https://mof.example.com'],
+    );
   });
 });

@@ -19,7 +19,12 @@ export type UnidadPdfDetail = {
   objetivo?: string | null;
   baseLegal?: string | null;
   base_legal?: string | null;
-  parent?: { id: number; codigo?: string; nombre?: string; sigla?: string } | null;
+  parent?: {
+    id: number;
+    codigo?: string;
+    nombre?: string;
+    sigla?: string;
+  } | null;
   funciones?: { funcion: string; baseLegal?: string | null }[];
   dependenciasFuncionales?: {
     id?: number | null;
@@ -126,9 +131,14 @@ export class UnidadPdfService {
         .font('Helvetica')
         .fontSize(7.5)
         .fillColor('#94A3B8')
-        .text('Sistema de Manual de Organización y Funciones (MOF)', headerTextX, 30, {
-          width: headerTextW,
-        });
+        .text(
+          'Sistema de Manual de Organización y Funciones (MOF)',
+          headerTextX,
+          30,
+          {
+            width: headerTextW,
+          },
+        );
       doc
         .font('Helvetica-Bold')
         .fontSize(13)
@@ -244,9 +254,7 @@ export class UnidadPdfService {
         .stroke();
 
       const unitBoxY = parentBoxY + 40;
-      doc
-        .roundedRect(rightX + 16, unitBoxY, colW - 32, 36, 2)
-        .fill(C.gold);
+      doc.roundedRect(rightX + 16, unitBoxY, colW - 32, 36, 2).fill(C.gold);
       doc
         .font('Helvetica-Bold')
         .fontSize(8)
@@ -413,9 +421,7 @@ export class UnidadPdfService {
   ): number {
     const h = 16;
     doc.roundedRect(x, y, width, h, 2).fill(C.navy);
-    doc
-      .rect(x, y, 4, h)
-      .fill(C.gold);
+    doc.rect(x, y, 4, h).fill(C.gold);
     doc
       .font('Helvetica-Bold')
       .fontSize(8)
