@@ -135,7 +135,12 @@ const normalizedModel = computed({
             </template>
 
             <template v-slot:selection="{ item }">
-              <span>{{ item.raw?.descripcion || item.title || model }}</span>
+              <span class="text-truncate cursor-pointer" style="max-width: 100%;">
+                {{ item.raw?.descripcion || item.title || model }}
+                <v-tooltip activator="parent" location="top">
+                  {{ item.raw?.descripcion || item.title || model }}
+                </v-tooltip>
+              </span>
             </template>
 
             <template v-slot:no-data v-if="!hideCrud">
@@ -230,3 +235,19 @@ const normalizedModel = computed({
         </v-dialog>
     </div>
 </template>
+
+<style scoped>
+:deep(.v-field__input) {
+  flex-wrap: nowrap !important;
+}
+
+:deep(.v-autocomplete__selection) {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+:deep(.v-field__input > input) {
+  min-width: 0 !important;
+}
+</style>
