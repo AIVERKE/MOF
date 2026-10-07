@@ -92,7 +92,9 @@ export class UnidadPdfService {
       const nivel = this.upper(detail.nivel || '-');
       const tipo = this.upper(detail.tipo || '-');
       const dependencia = this.upper(detail.parent?.nombre || '-');
-      const funcionales = this.listNames(this.dependenciasSinPadre(detail));
+      const funcionales = this.listNames(
+        this.dependenciasSinPadre(detail),
+      );
       const lineal = this.listNames(detail.hijasLineales);
       const funcional = this.listNames(detail.hijasFuncionales);
       const objetivo = (detail.objetivo || '').toString().trim() || '-';
@@ -268,11 +270,17 @@ export class UnidadPdfService {
 
       // —— Dependencias ——
       y = this.drawSectionStart(doc, marginL, y, 'DEPENDENCIAS', contentW);
-      y = this.drawMetaPanel(doc, marginL, y, contentW, [
-        ['Funcionales', funcionales],
-        ['Dependientes (lineal)', lineal],
-        ['Dependientes (funcional)', funcional],
-      ]);
+      y = this.drawMetaPanel(
+        doc,
+        marginL,
+        y,
+        contentW,
+        [
+          ['Funcionales', funcionales],
+          ['Dependientes (lineal)', lineal],
+          ['Dependientes (funcional)', funcional],
+        ],
+      );
       y += 10;
 
       // —— Objetivo ——
@@ -314,11 +322,7 @@ export class UnidadPdfService {
         y,
         [
           { x: leftX, title: 'Interno', text: relInterno },
-          {
-            x: rightX,
-            title: 'Interinstitucional / externo',
-            text: relExterno,
-          },
+          { x: rightX, title: 'Interinstitucional / externo', text: relExterno },
         ],
         colW,
         contentW,
@@ -751,8 +755,7 @@ export class UnidadPdfService {
   private dependenciasSinPadre(
     detail: UnidadPdfDetail,
   ): NonNullable<UnidadPdfDetail['dependenciasFuncionales']> {
-    const parentId =
-      detail.parent?.id != null ? Number(detail.parent.id) : null;
+    const parentId = detail.parent?.id != null ? Number(detail.parent.id) : null;
     const seen = new Set<number>();
     return (detail.dependenciasFuncionales || []).filter((d) => {
       if (d.id == null) return true;
@@ -781,7 +784,9 @@ export class UnidadPdfService {
     );
   }
 
-  private listDescripciones(items?: { descripcion?: string | null }[]): string {
+  private listDescripciones(
+    items?: { descripcion?: string | null }[],
+  ): string {
     return this.bulletList((items || []).map((i) => i.descripcion || ''));
   }
 }
