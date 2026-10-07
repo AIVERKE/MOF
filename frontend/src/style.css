@@ -200,6 +200,30 @@ marker {
   font-weight: 700;
 }
 
+.chip-sigla {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  padding-inline: 8px !important;
+  min-height: 20px !important;
+  height: 20px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.2px !important;
+  max-width: none !important;
+}
+
+.chip-clase {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  padding-inline: 8px !important;
+  min-height: 20px !important;
+  height: 20px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px !important;
+  max-width: none !important;
+}
+
 .max-width-400 {
   max-width: 400px !important;
 }

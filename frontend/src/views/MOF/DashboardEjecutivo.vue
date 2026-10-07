@@ -775,21 +775,24 @@ const handleExportCsv = () => {
                     {{ u.nombre || u.denominacion }}
                     <v-chip
                       v-if="getCleanSigla(u.sigla, u.codigo) !== '-'"
-                      size="x-small"
+                      size="small"
                       label
                       variant="outlined"
                       color="primary"
-                      class="font-weight-bold text-xxs ml-1"
+                      class="font-weight-bold chip-sigla ml-1"
                     >
                       {{ getCleanSigla(u.sigla, u.codigo) }}
+                      <v-tooltip activator="parent" location="top">
+                        Sigla: {{ getCleanSigla(u.sigla, u.codigo) }}
+                      </v-tooltip>
                     </v-chip>
                   </div>
 
                   <div class="d-flex align-center flex-wrap gap-1 mt-1">
                     <v-chip
-                      size="x-small"
+                      size="small"
                       label
-                      class="font-weight-bold"
+                      class="font-weight-bold chip-clase"
                       :style="{
                         backgroundColor: resolveClaseColor(u.clase),
                         color: getContrastingTextColor(resolveClaseColor(u.clase)),
@@ -869,26 +872,32 @@ const handleExportCsv = () => {
               </td>
               <td>
                 <v-chip
-                  size="x-small"
+                  size="small"
                   label
                   color="primary"
                   variant="outlined"
-                  class="font-weight-bold text-xxs px-1"
+                  class="font-weight-bold chip-sigla"
                 >
                   {{ getCleanSigla(u.sigla, u.codigo) }}
+                  <v-tooltip activator="parent" location="top">
+                    Sigla: {{ getCleanSigla(u.sigla, u.codigo) }}
+                  </v-tooltip>
                 </v-chip>
               </td>
               <td>
                 <v-chip
-                  size="x-small"
+                  size="small"
                   label
-                  class="font-weight-bold"
+                  class="font-weight-bold chip-clase"
                   :style="{
                     backgroundColor: resolveClaseColor(u.clase),
                     color: getContrastingTextColor(resolveClaseColor(u.clase)),
                   }"
                 >
                   {{ resolveClase(u.clase) }}
+                  <v-tooltip activator="parent" location="top">
+                    {{ resolveClase(u.clase) }}
+                  </v-tooltip>
                 </v-chip>
               </td>
               <td>
