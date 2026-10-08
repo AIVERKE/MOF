@@ -302,9 +302,9 @@ const handleExportPdf = async () => {
   isExportingTree.value = true;
   exportTreeMessage.value = "Generando reporte PDF del árbol...";
   loadingReport.value = true;
-  await nextTick();
-  await new Promise((resolve) => setTimeout(resolve, 50));
   try {
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     exportTreeUnidadesPdf({
       title: "Estructura Organizacional - Árbol de Unidades",
       flatTreeRows: flatTreeList.value,
@@ -327,9 +327,9 @@ const handleExportCsv = async () => {
   isExportingTree.value = true;
   exportTreeMessage.value = "Generando archivo CSV del árbol...";
   loadingReport.value = true;
-  await nextTick();
-  await new Promise((resolve) => setTimeout(resolve, 50));
   try {
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
       { header: "Profundidad en el árbol", getter: (u) => u._depth ?? 0 },
