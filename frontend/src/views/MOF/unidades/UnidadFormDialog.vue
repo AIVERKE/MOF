@@ -113,12 +113,21 @@ const internalRelUnitIds = computed({
       const encontrada = (unidadesStore.unidades || []).find(
         (u) => String(u.id) === String(rawId),
       );
+      const existing = (props.formData.relacionesInternas || []).find(
+        (r) => String(typeof r === "object" ? r.relacionadaId || r.id : r) === String(rawId),
+      );
       return {
+        id: existing?.id,
         relacionadaId: idNum,
-        codigo: encontrada?.codigo || "",
-        nombre: encontrada?.nombre || encontrada?.denominacion || `Unidad ${rawId}`,
-        sigla: encontrada?.sigla || "",
-        tipo: null,
+        codigo: encontrada?.codigo || existing?.codigo || "",
+        nombre:
+          encontrada?.nombre ||
+          encontrada?.denominacion ||
+          existing?.nombre ||
+          existing?.denominacion ||
+          `Unidad ${rawId}`,
+        sigla: encontrada?.sigla || existing?.sigla || "",
+        tipo: existing?.tipo || null,
       };
     });
   },
