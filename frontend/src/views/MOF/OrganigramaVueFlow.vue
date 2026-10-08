@@ -606,11 +606,11 @@ function cleanPdfText(val) {
 
 async function exportarOrganigrama() {
   isExportingPdf.value = true;
-  await nextTick();
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  mostrar("Generando PDF institucional en alta resolución...", "info");
-
   try {
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    mostrar("Generando PDF institucional en alta resolución...", "info");
+
     let validNodes = (nodes.value || []).filter(
       (n) => n.data && !n.data.isInvisible,
     );
