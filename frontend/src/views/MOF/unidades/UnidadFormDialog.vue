@@ -74,13 +74,15 @@ watch(
 );
 
 /**
- * Si se selecciona que es Unidad Troncal, OBLIGATORIAMENTE se fija al CENTRO y desactiva sub-troncal.
+ * Si se selecciona que es Unidad Troncal, desactiva sub-troncal.
  */
 watch(
   () => props.formData.es_troncal,
   (val) => {
     if (val) {
-      props.formData.lado = "CENTRO";
+      if (!props.formData.lado) {
+        props.formData.lado = "AUTOMATICO";
+      }
       props.formData.es_sub_troncal = false;
       props.formData.es_subtroncal = false;
     }
@@ -485,11 +487,14 @@ function moverAbajo(index) {
             <v-row dense>
               <v-col cols="12">
                 <div class="text-caption font-weight-bold mb-2 text-grey-darken-2">
-                  {{ formData.es_troncal ? 'Lado: Fijado al CENTRO (por ser Troncal Principal)' : 'Lado de preferencia en el Organigrama:' }}
+                  {{
+                    formData.es_troncal
+                      ? 'Lado de salida de sus dependencias (Troncal Principal):'
+                      : 'Lado de preferencia en el Organigrama:'
+                  }}
                 </div>
                 <v-btn-toggle
                   v-model="formData.lado"
-                  :disabled="formData.es_troncal"
                   mandatory
                   color="primary"
                   density="comfortable"
@@ -498,18 +503,24 @@ function moverAbajo(index) {
                   class="d-flex flex-wrap w-100"
                 >
                   <v-btn value="IZQUIERDA" class="flex-grow-1 text-caption">
-                    <v-icon start size="16">mdi-arrow-left-bold</v-icon> Izquierda
+                    <v-icon start size="16">mdi-arrow-left-bold</v-icon>
+                    {{ formData.es_troncal ? 'Ala Izquierda' : 'Izquierda' }}
                   </v-btn>
                   <v-btn value="CENTRO" class="flex-grow-1 text-caption">
-                    <v-icon start size="16">mdi-format-align-center</v-icon> Centro
+                    <v-icon start size="16">mdi-format-align-center</v-icon>
+                    {{ formData.es_troncal ? 'Ambas Alas' : 'Centro' }}
                   </v-btn>
                   <v-btn value="DERECHA" class="flex-grow-1 text-caption">
-                    <v-icon start size="16">mdi-arrow-right-bold</v-icon> Derecha
+                    <v-icon start size="16">mdi-arrow-right-bold</v-icon>
+                    {{ formData.es_troncal ? 'Ala Derecha' : 'Derecha' }}
                   </v-btn>
                   <v-btn value="AUTOMATICO" class="flex-grow-1 text-caption">
                     <v-icon start size="16">mdi-auto-fix</v-icon> Automático
                   </v-btn>
                 </v-btn-toggle>
+                <div v-if="formData.es_troncal" class="text-caption text-grey mt-1 pl-1">
+                  Define hacia qué ala se desplegarán las dependencias directas de esta unidad troncal.
+                </div>
               </v-col>
             </v-row>
           </v-card>

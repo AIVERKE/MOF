@@ -24,7 +24,7 @@
  * color                  color                   color                       string (hex, default "#1976D2")
  * oficial                oficial                 oficial                     boolean (default true)
  * es_troncal             esTroncal               es_troncal                  boolean (default false)
- * lado                   lado                    lado                        string ("CENTRO" si esTroncal, sino "AUTOMATICO")
+ * lado                   lado                    lado                        string ("AUTOMATICO", "IZQUIERDA", "DERECHA", "CENTRO")
  * tramitesAtendidos      tramitesAtendidos       tramites_atendidos          string | null (vacio -> null al persistir)
  * ejecucionPoa           ejecucionPoa            ejecucion_poa               string | null (vacio -> null al persistir)
  * ejecucionPresupuestaria ejecucionPresupuestaria ejecucion_presupuestaria   string | null (vacio -> null al persistir)
@@ -314,7 +314,7 @@ export function mapFormToBackend(formData) {
     esSubtroncal: isSubTroncal,
     es_sub_troncal: isSubTroncal,
     es_subtroncal: isSubTroncal,
-    lado: isTroncal ? "CENTRO" : (formData.lado || "AUTOMATICO"),
+    lado: formData.lado || "AUTOMATICO",
     dependenciasFuncionales: (formData.dependenciasFuncionales || [])
       .map((d) => getSafeId(d))
       .filter((id) => id !== null),

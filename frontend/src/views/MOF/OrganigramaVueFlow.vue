@@ -855,42 +855,60 @@ async function exportarOrganigrama() {
       const parentBottomY = pY + nodeHeightMm;
 
       if (normalChildren.length > 0) {
-        // Ordenar hijos por coordenada X para trazar los extremos del bus
-        normalChildren.sort(
-          (a, b) => Number(a.position?.x || 0) - Number(b.position?.x || 0),
-        );
-
-        const minChildY = Math.min(
-          ...normalChildren.map((ch) => Number(ch.position?.y || 0)),
-        );
-        const firstChildY = offsetY + (minChildY - minY) * scale;
-        const busY = (parentBottomY + firstChildY) / 2;
-
-        // Tronco vertical único desde la base del padre hasta la barra de distribución
-        pdf.setLineDashPattern([], 0);
-        pdf.line(parentBottomX, parentBottomY, parentBottomX, busY);
-
-        // Barra horizontal del bus que une a todos los hermanos
-        let minChildCenterX = parentBottomX;
-        let maxChildCenterX = parentBottomX;
-
+        // Agrupar hijos normales según su busY asignado en layout (ej. Decanatos vs unidades centrales)
+        const groupsByBus = new Map();
         normalChildren.forEach((ch) => {
-          const cCenterX =
-            offsetX +
-            (Number(ch.position?.x || 0) - minX) * scale +
-            nodeWidthMm / 2;
-          if (cCenterX < minChildCenterX) minChildCenterX = cCenterX;
-          if (cCenterX > maxChildCenterX) maxChildCenterX = cCenterX;
+          const edge = (cachedEdges || []).find(
+            (e) => String(e.source) === String(parentId) && String(e.target) === String(ch.id),
+          );
+          const rawBusY = edge?.data?.busY;
+          const key = rawBusY !== undefined ? String(rawBusY) : "default";
+          if (!groupsByBus.has(key)) {
+            groupsByBus.set(key, { rawBusY, children: [] });
+          }
+          groupsByBus.get(key).children.push(ch);
         });
 
-        pdf.line(minChildCenterX, busY, maxChildCenterX, busY);
+        groupsByBus.forEach(({ rawBusY, children: groupChildren }) => {
+          groupChildren.sort(
+            (a, b) => Number(a.position?.x || 0) - Number(b.position?.x || 0),
+          );
 
-        // Bajantes verticales desde la barra a cada nodo hijo
-        normalChildren.forEach((ch) => {
-          const cX = offsetX + (Number(ch.position?.x || 0) - minX) * scale;
-          const cY = offsetY + (Number(ch.position?.y || 0) - minY) * scale;
-          const cCenterX = cX + nodeWidthMm / 2;
-          pdf.line(cCenterX, busY, cCenterX, cY);
+          const minChildY = Math.min(
+            ...groupChildren.map((ch) => Number(ch.position?.y || 0)),
+          );
+          const firstChildY = offsetY + (minChildY - minY) * scale;
+          const busY =
+            rawBusY !== undefined
+              ? offsetY + (rawBusY - minY) * scale
+              : (parentBottomY + firstChildY) / 2;
+
+          // Tronco vertical único desde la base del padre hasta la barra de distribución
+          pdf.setLineDashPattern([], 0);
+          pdf.line(parentBottomX, parentBottomY, parentBottomX, busY);
+
+          // Barra horizontal del bus que une a todos los hermanos del grupo
+          let minChildCenterX = parentBottomX;
+          let maxChildCenterX = parentBottomX;
+
+          groupChildren.forEach((ch) => {
+            const cCenterX =
+              offsetX +
+              (Number(ch.position?.x || 0) - minX) * scale +
+              nodeWidthMm / 2;
+            if (cCenterX < minChildCenterX) minChildCenterX = cCenterX;
+            if (cCenterX > maxChildCenterX) maxChildCenterX = cCenterX;
+          });
+
+          pdf.line(minChildCenterX, busY, maxChildCenterX, busY);
+
+          // Bajantes verticales desde la barra a cada nodo hijo
+          groupChildren.forEach((ch) => {
+            const cX = offsetX + (Number(ch.position?.x || 0) - minX) * scale;
+            const cY = offsetY + (Number(ch.position?.y || 0) - minY) * scale;
+            const cCenterX = cX + nodeWidthMm / 2;
+            pdf.line(cCenterX, busY, cCenterX, cY);
+          });
         });
       }
 
