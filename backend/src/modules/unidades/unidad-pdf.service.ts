@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { existsSync } from 'fs';
+import { createRequire } from 'module';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
@@ -54,9 +55,77 @@ const C = {
 
 const META_ROW_GAP = 5;
 
+const FONT_FILES = {
+  regular: 'NotoSans-Regular.ttf',
+  bold: 'NotoSans-Bold.ttf',
+};
+
+/** Caracteres representables en WinAnsi (fuentes estándar de PDF como Helvetica). */
+const WIN_ANSI_UNSUPPORTED =
+  /[^\n\x20-\x7E\xA0-\xFF€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]/g;
+
+const ASCII_FALLBACKS: Record<string, string> = {
+  '→': '->',
+  '←': '<-',
+  '⇒': '=>',
+  '≤': '<=',
+  '≥': '>=',
+  '≠': '!=',
+  '✓': '-',
+  '✔': '-',
+  '▪': '•',
+  '▫': '•',
+  '◦': '•',
+  '●': '•',
+  '○': '•',
+  '■': '•',
+  '□': '•',
+  '►': '•',
+  '➢': '•',
+  '\uF0A7': '•',
+  '\uF0B7': '•',
+  '‐': '-',
+  '‑': '-',
+  '‒': '-',
+  '―': '—',
+  '−': '-',
+  '′': "'",
+  '″': '"',
+};
+
+const INVISIBLE_CHARS =
+  // eslint-disable-next-line no-control-regex
+  /[\u0000-\u0008\u000B-\u001F\u007F\u00AD\u200B-\u200D\u2060\uFEFF]/g;
+
+const LIST_MARKER = /^(\d+[.)]|[a-zA-Z][.)]|[-•*])\s+/;
+
 @Injectable()
 export class UnidadPdfService {
-  constructor(private readonly config: ConfigService) {}
+  private readonly fonts: {
+    regular: string;
+    bold: string;
+    regularPath: string | null;
+    boldPath: string | null;
+    unicode: boolean;
+  };
+
+  private readonly hasGlyph: ((codePoint: number) => boolean) | null;
+
+  constructor(private readonly config: ConfigService) {
+    const regularPath = this.resolveFontPath(FONT_FILES.regular);
+    const boldPath = this.resolveFontPath(FONT_FILES.bold);
+    const hasGlyph =
+      regularPath && boldPath ? this.loadGlyphChecker(regularPath) : null;
+    const unicode = Boolean(hasGlyph);
+    this.fonts = {
+      regular: unicode ? 'Body' : 'Helvetica',
+      bold: unicode ? 'Body-Bold' : 'Helvetica-Bold',
+      regularPath,
+      boldPath,
+      unicode,
+    };
+    this.hasGlyph = hasGlyph;
+  }
 
   async buildUnidadPdf(detail: UnidadPdfDetail): Promise<Buffer> {
     const qrPng = await this.buildQrPng(detail.id);
@@ -67,6 +136,10 @@ export class UnidadPdfService {
         size: 'A4',
         margins: { top: 28, bottom: 28, left: 36, right: 36 },
       });
+      if (this.fonts.unicode) {
+        doc.registerFont('Body', this.fonts.regularPath!);
+        doc.registerFont('Body-Bold', this.fonts.boldPath!);
+      }
       const chunks: Buffer[] = [];
       doc.on('data', (c: Buffer) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -82,7 +155,7 @@ export class UnidadPdfService {
       const rightX = marginL + colW + colGap;
 
       const nombre = this.upper(detail.nombre);
-      const codigo = detail.codigo || '';
+      const codigo = this.clean(detail.codigo);
       const resCreacion = this.upper(
         detail.resCreacion || detail.res_creacion || '-',
       );
@@ -92,15 +165,11 @@ export class UnidadPdfService {
       const nivel = this.upper(detail.nivel || '-');
       const tipo = this.upper(detail.tipo || '-');
       const dependencia = this.upper(detail.parent?.nombre || '-');
-      const funcionales = this.listNames(
-        this.dependenciasSinPadre(detail),
-      );
+      const funcionales = this.listNames(this.dependenciasSinPadre(detail));
       const lineal = this.listNames(detail.hijasLineales);
       const funcional = this.listNames(detail.hijasFuncionales);
-      const objetivo = (detail.objetivo || '').toString().trim() || '-';
-      const baseLegalUnidad = (detail.baseLegal || detail.base_legal || '')
-        .toString()
-        .trim();
+      const objetivo = this.clean(detail.objetivo) || '-';
+      const baseLegalUnidad = this.clean(detail.baseLegal || detail.base_legal);
       const relInterno = this.listNames(detail.relacionesInternas);
       const relExterno = this.listDescripciones(detail.relacionesExternas);
 
@@ -120,7 +189,7 @@ export class UnidadPdfService {
       const headerTextX = marginL + 72;
       const headerTextW = contentW - 72;
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(9)
         .fillColor(C.goldSoft)
         .text('UNIVERSIDAD MAYOR DE SAN ANDRÉS', headerTextX, 16, {
@@ -128,7 +197,7 @@ export class UnidadPdfService {
           align: 'left',
         });
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7.5)
         .fillColor('#94A3B8')
         .text(
@@ -140,7 +209,7 @@ export class UnidadPdfService {
           },
         );
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(13)
         .fillColor(C.white)
         .text('FICHA DE UNIDAD ORGANIZACIONAL', headerTextX, 48, {
@@ -158,7 +227,7 @@ export class UnidadPdfService {
         .lineWidth(3)
         .stroke();
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(11)
         .fillColor(C.navy)
         .text(nombre, marginL + 10, y + 8, {
@@ -166,7 +235,7 @@ export class UnidadPdfService {
           height: 14,
           ellipsis: true,
         });
-      const rawSigla = (detail.sigla || '').trim();
+      const rawSigla = this.clean(detail.sigla);
       const isBadSigla =
         !rawSigla ||
         rawSigla === '-' ||
@@ -178,7 +247,7 @@ export class UnidadPdfService {
         : `Código: ${codigo}`;
 
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7.5)
         .fillColor(C.muted)
         .text(codeSiglaText, marginL + contentW - 145, y + 9, {
@@ -221,7 +290,7 @@ export class UnidadPdfService {
       // Org card
       doc.roundedRect(rightX, identityTop, colW, identityBoxH, 3).fill(C.navy);
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(8)
         .fillColor(C.gold)
         .text('ESTRUCTURA ORGANIZACIONAL', rightX + 8, identityTop + 10, {
@@ -234,7 +303,7 @@ export class UnidadPdfService {
         .roundedRect(rightX + 16, parentBoxY, colW - 32, 28, 2)
         .fill(C.navyMid);
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7)
         .fillColor('#CBD5E1')
         .text(dependencia, rightX + 20, parentBoxY + 8, {
@@ -256,7 +325,7 @@ export class UnidadPdfService {
       const unitBoxY = parentBoxY + 40;
       doc.roundedRect(rightX + 16, unitBoxY, colW - 32, 36, 2).fill(C.gold);
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(8)
         .fillColor(C.navy)
         .text(nombre, rightX + 20, unitBoxY + 10, {
@@ -270,17 +339,11 @@ export class UnidadPdfService {
 
       // —— Dependencias ——
       y = this.drawSectionStart(doc, marginL, y, 'DEPENDENCIAS', contentW);
-      y = this.drawMetaPanel(
-        doc,
-        marginL,
-        y,
-        contentW,
-        [
-          ['Funcionales', funcionales],
-          ['Dependientes (lineal)', lineal],
-          ['Dependientes (funcional)', funcional],
-        ],
-      );
+      y = this.drawMetaPanel(doc, marginL, y, contentW, [
+        ['Funcionales', funcionales],
+        ['Dependientes (lineal)', lineal],
+        ['Dependientes (funcional)', funcional],
+      ]);
       y += 10;
 
       // —— Objetivo ——
@@ -310,23 +373,20 @@ export class UnidadPdfService {
       y += 10;
 
       // —— Relacionamiento ——
+      const relCols = [
+        { x: leftX, title: 'Interno', text: relInterno },
+        { x: rightX, title: 'Interinstitucional / externo', text: relExterno },
+      ];
+      const relH = this.measureTwoColumnPanels(doc, relCols, colW);
       y = this.drawSectionStart(
         doc,
         marginL,
         y,
         'RELACIONAMIENTO Y COORDINACIÓN',
         contentW,
+        relH <= this.pageBodyHeight(doc) - 22 ? relH : 40,
       );
-      y = this.drawTwoColumnPanels(
-        doc,
-        y,
-        [
-          { x: leftX, title: 'Interno', text: relInterno },
-          { x: rightX, title: 'Interinstitucional / externo', text: relExterno },
-        ],
-        colW,
-        contentW,
-      );
+      y = this.drawTwoColumnPanels(doc, y, relCols, colW, contentW);
       y += 12;
 
       // —— Footer ——
@@ -349,14 +409,14 @@ export class UnidadPdfService {
       }
 
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(8)
         .fillColor(C.gold)
         .text('Verificación del documento', marginL + 12, footerY + 16, {
           width: contentW - qrSize - 36,
         });
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7)
         .fillColor('#CBD5E1')
         .text(
@@ -366,7 +426,7 @@ export class UnidadPdfService {
           { width: contentW - qrSize - 36 },
         );
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7)
         .fillColor('#94A3B8')
         .text(
@@ -392,6 +452,38 @@ export class UnidadPdfService {
       if (existsSync(p)) return p;
     }
     return null;
+  }
+
+  private resolveFontPath(file: string): string | null {
+    const candidates = [
+      join(__dirname, '..', '..', '..', 'assets', 'fonts', file),
+      join(__dirname, '..', '..', 'assets', 'fonts', file),
+      join(process.cwd(), 'src', 'assets', 'fonts', file),
+      join(process.cwd(), 'assets', 'fonts', file),
+      join(process.cwd(), 'dist', 'assets', 'fonts', file),
+    ];
+    for (const p of candidates) {
+      if (existsSync(p)) return p;
+    }
+    return null;
+  }
+
+  /** fontkit llega como dependencia de pdfkit; se resuelve desde pdfkit para no depender del hoisting. */
+  private loadGlyphChecker(
+    fontPath: string,
+  ): ((codePoint: number) => boolean) | null {
+    try {
+      const requireFromPdfkit = createRequire(require.resolve('pdfkit'));
+      const fontkit = requireFromPdfkit('fontkit') as {
+        openSync(path: string): {
+          hasGlyphForCodePoint(codePoint: number): boolean;
+        };
+      };
+      const font = fontkit.openSync(fontPath);
+      return (cp) => font.hasGlyphForCodePoint(cp);
+    } catch {
+      return null;
+    }
   }
 
   private async buildQrPng(unidadId: number): Promise<Buffer | null> {
@@ -423,7 +515,7 @@ export class UnidadPdfService {
     doc.roundedRect(x, y, width, h, 2).fill(C.navy);
     doc.rect(x, y, 4, h).fill(C.gold);
     doc
-      .font('Helvetica-Bold')
+      .font(this.fonts.bold)
       .fontSize(8)
       .fillColor(C.white)
       .text(title, x + 10, y + 4, { width: width - 14 });
@@ -456,8 +548,9 @@ export class UnidadPdfService {
     y: number,
     title: string,
     width: number,
+    minContent = 40,
   ): number {
-    y = this.ensureSpace(doc, y, 16 + 6 + 40);
+    y = this.ensureSpace(doc, y, 16 + 6 + minContent);
     return this.drawSectionBar(doc, x, y, title, width) + 6;
   }
 
@@ -482,9 +575,9 @@ export class UnidadPdfService {
     value: string,
     width: number,
   ): number {
-    doc.font('Helvetica-Bold').fontSize(6.5);
+    doc.font(this.fonts.bold).fontSize(6.5);
     const labelH = doc.heightOfString(label.toUpperCase(), { width });
-    doc.font('Helvetica').fontSize(7.5);
+    doc.font(this.fonts.regular).fontSize(7.5);
     const valueH = doc.heightOfString(value || '-', { width });
     return labelH + 0.5 + valueH;
   }
@@ -511,12 +604,12 @@ export class UnidadPdfService {
     width: number,
   ): number {
     doc
-      .font('Helvetica-Bold')
+      .font(this.fonts.bold)
       .fontSize(6.5)
       .fillColor(C.muted)
       .text(label.toUpperCase(), x, y, { width });
     doc
-      .font('Helvetica')
+      .font(this.fonts.regular)
       .fontSize(7.5)
       .fillColor(C.text)
       .text(value || '-', x, doc.y + 0.5, { width });
@@ -572,12 +665,12 @@ export class UnidadPdfService {
     const inner = width - pad * 2;
     const titleH = opts.title
       ? doc
-          .font('Helvetica-Bold')
+          .font(this.fonts.bold)
           .fontSize(7.5)
           .heightOfString(opts.title, { width: inner }) + 4
       : 0;
     const textH = doc
-      .font('Helvetica')
+      .font(this.fonts.regular)
       .fontSize(opts.fontSize)
       .heightOfString(text, { width: inner, align: opts.align });
     const h = pad * 2 + titleH + textH;
@@ -589,18 +682,40 @@ export class UnidadPdfService {
     let ty = y + pad;
     if (opts.title) {
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(7.5)
         .fillColor(C.navyMid)
         .text(opts.title, x + pad, ty, { width: inner });
       ty = doc.y + 4;
     }
     doc
-      .font('Helvetica')
+      .font(this.fonts.regular)
       .fontSize(opts.fontSize)
       .fillColor(C.text)
       .text(text, x + pad, ty, { width: inner, align: opts.align });
     return fitsInPage ? y + h : doc.y + pad;
+  }
+
+  private measureTwoColumnPanels(
+    doc: PDFKit.PDFDocument,
+    cols: { title: string; text: string }[],
+    colW: number,
+  ): number {
+    const pad = 8;
+    const inner = colW - pad * 2;
+    return Math.max(
+      ...cols.map((c) => {
+        const titleH = doc
+          .font(this.fonts.bold)
+          .fontSize(7.5)
+          .heightOfString(c.title, { width: inner });
+        const textH = doc
+          .font(this.fonts.regular)
+          .fontSize(7)
+          .heightOfString(c.text, { width: inner });
+        return pad * 2 + titleH + 4 + textH;
+      }),
+    );
   }
 
   private drawTwoColumnPanels(
@@ -612,19 +727,7 @@ export class UnidadPdfService {
   ): number {
     const pad = 8;
     const inner = colW - pad * 2;
-    const h = Math.max(
-      ...cols.map((c) => {
-        const titleH = doc
-          .font('Helvetica-Bold')
-          .fontSize(7.5)
-          .heightOfString(c.title, { width: inner });
-        const textH = doc
-          .font('Helvetica')
-          .fontSize(7)
-          .heightOfString(c.text, { width: inner });
-        return pad * 2 + titleH + 4 + textH;
-      }),
-    );
+    const h = this.measureTwoColumnPanels(doc, cols, colW);
 
     if (h > this.pageBodyHeight(doc)) {
       cols.forEach((c, i) => {
@@ -641,12 +744,12 @@ export class UnidadPdfService {
     cols.forEach((c) => {
       this.drawPanelBox(doc, c.x, y, colW, h);
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(7.5)
         .fillColor(C.navyMid)
         .text(c.title, c.x + pad, y + pad, { width: inner });
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7)
         .fillColor(C.text)
         .text(c.text, c.x + pad, doc.y + 4, { width: inner });
@@ -667,8 +770,8 @@ export class UnidadPdfService {
     const rows: string[][] = funciones?.length
       ? funciones.map((f, i) => [
           String(i + 1),
-          (f.funcion || '').toString().trim() || '-',
-          (f.baseLegal || '').toString().trim() || '-',
+          this.clean(f.funcion) || '-',
+          this.clean(f.baseLegal) || '-',
         ])
       : [['-', '-', '-']];
 
@@ -688,7 +791,7 @@ export class UnidadPdfService {
     const drawHeader = (top: number): number => {
       doc.rect(x, top, width, headerH).fill(C.navy);
       drawColumnLines(top, headerH, C.navyMid);
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.white);
+      doc.font(this.fonts.bold).fontSize(7.5).fillColor(C.white);
       let cx = x;
       ['N°', 'Función', 'Base legal'].forEach((title, i) => {
         doc.text(title, cx + pad, top + 5, {
@@ -704,7 +807,7 @@ export class UnidadPdfService {
     y = drawHeader(y);
 
     rows.forEach((cells, r) => {
-      doc.font('Helvetica').fontSize(7);
+      doc.font(this.fonts.regular).fontSize(7);
       const rowH =
         Math.max(
           ...cells.map((c, i) =>
@@ -722,7 +825,7 @@ export class UnidadPdfService {
       doc.rect(x, y, width, rowH).strokeColor(C.line).lineWidth(0.5).stroke();
       drawColumnLines(y, rowH, C.line);
 
-      doc.font('Helvetica').fontSize(7).fillColor(C.text);
+      doc.font(this.fonts.regular).fontSize(7).fillColor(C.text);
       let cx = x;
       cells.forEach((c, i) => {
         doc.text(c, cx + pad, y + pad, {
@@ -738,7 +841,39 @@ export class UnidadPdfService {
   }
 
   private upper(value: string): string {
-    return (value || '').toString().trim().toUpperCase();
+    return this.clean(value).toUpperCase();
+  }
+
+  /** Deja el texto en caracteres que la fuente activa puede dibujar; lo que no, se sustituye o se descarta. */
+  private clean(value: string | null | undefined): string {
+    const text = (value ?? '')
+      .toString()
+      .normalize('NFC')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\t/g, ' ')
+      .replace(INVISIBLE_CHARS, '');
+
+    const supported = Array.from(text)
+      .map((ch) => {
+        if (ch === '\n') return ch;
+        const cp = ch.codePointAt(0)!;
+        if (this.hasGlyph) {
+          return this.hasGlyph(cp) ? ch : (ASCII_FALLBACKS[ch] ?? '');
+        }
+        return ASCII_FALLBACKS[ch] ?? ch;
+      })
+      .join('');
+
+    const encodable = this.hasGlyph
+      ? supported
+      : supported.replace(WIN_ANSI_UNSUPPORTED, '');
+
+    return encodable
+      .split('\n')
+      .map((line) => line.replace(/ {2,}/g, ' ').trim())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   private formatDate(value: Date | string | null | undefined): string {
@@ -755,7 +890,8 @@ export class UnidadPdfService {
   private dependenciasSinPadre(
     detail: UnidadPdfDetail,
   ): NonNullable<UnidadPdfDetail['dependenciasFuncionales']> {
-    const parentId = detail.parent?.id != null ? Number(detail.parent.id) : null;
+    const parentId =
+      detail.parent?.id != null ? Number(detail.parent.id) : null;
     const seen = new Set<number>();
     return (detail.dependenciasFuncionales || []).filter((d) => {
       if (d.id == null) return true;
@@ -766,9 +902,20 @@ export class UnidadPdfService {
     });
   }
 
-  private bulletList(lines: string[]): string {
-    const clean = lines.map((l) => this.upper(l)).filter(Boolean);
-    return clean.length ? clean.map((l) => `• ${l}`).join('\n') : '-';
+  private bulletList(items: string[]): string {
+    const blocks = items
+      .map((item) => {
+        const lines = this.upper(item).split('\n').filter(Boolean);
+        const ownMarkers = lines.length > 0 && LIST_MARKER.test(lines[0]);
+        return lines
+          .map((line, i) => {
+            if (i === 0) return ownMarkers ? line : `• ${line}`;
+            return ownMarkers && LIST_MARKER.test(line) ? line : `   ${line}`;
+          })
+          .join('\n');
+      })
+      .filter(Boolean);
+    return blocks.length ? blocks.join('\n') : '-';
   }
 
   private listNames(
@@ -784,9 +931,7 @@ export class UnidadPdfService {
     );
   }
 
-  private listDescripciones(
-    items?: { descripcion?: string | null }[],
-  ): string {
+  private listDescripciones(items?: { descripcion?: string | null }[]): string {
     return this.bulletList((items || []).map((i) => i.descripcion || ''));
   }
 }
