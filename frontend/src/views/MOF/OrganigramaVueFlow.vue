@@ -537,9 +537,14 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 });
 
 async function cambiarDependencia() {
+  const razonVal = typeof unidadRazon.value === "string" ? unidadRazon.value.trim() : "";
+  if (!unidadACambiar.value || !unidadDestino.value || razonVal.length < 6) {
+    mostrar("La razón del cambio es obligatoria y debe tener al menos 6 caracteres", "warning");
+    return;
+  }
   await unidadesStore.updateNodo(unidadACambiar.value, {
     parentId: parseInt(unidadDestino.value) || null,
-    razon: unidadRazon.value,
+    razon: razonVal,
   });
   if (!unidadesStore.error) {
     dialog_nodo_chance.value = false;
@@ -2170,6 +2175,20 @@ function resetFilters() {
                       >
                     </v-btn>
                     <v-btn
+                      v-if="!unidadesStore.unidades.length"
+                      prepend-icon="mdi-plus"
+                      color="primary"
+                      variant="flat"
+                      density="comfortable"
+                      class="rounded-lg font-weight-bold mr-2"
+                      @click="openForm(null, false)"
+                    >
+                      Añadir Raíz
+                      <v-tooltip activator="parent" location="top"
+                        >Crear la primera unidad raíz institucional</v-tooltip
+                      >
+                    </v-btn>
+                    <v-btn
                       prepend-icon="mdi-swap-horizontal"
                       color="primary"
                       variant="flat"
@@ -2179,8 +2198,7 @@ function resetFilters() {
                     >
                       Dependencia
                       <v-tooltip activator="parent" location="top"
-                        >Cambiar la unidad superior (Padre) de un
-                        nodo</v-tooltip
+                        >Cambiar la unidad superior (Padre) de un nodo o reasignar unidades huérfanas</v-tooltip
                       >
                     </v-btn>
                   </v-col>

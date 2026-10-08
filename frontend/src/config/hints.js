@@ -48,7 +48,7 @@ export const hints = {
     objetivo:
       "Propósito estratégico y razón de ser institucional de la unidad",
     dependenciasFuncionales:
-      "Unidades con las que mantiene coordinación operativa o dependencia técnica",
+      "Unidades de coordinación operativa transversal (NO define la jerarquía directa ni la unidad padre en el organigrama)",
     tipo:
       "Seleccione la naturaleza sustantiva, de apoyo o asesoramiento",
     nivel:
@@ -90,7 +90,7 @@ export const hints = {
    */
   unidadDependency: {
     unidadACambiar:
-      "Seleccione la unidad subordinada cuya dependencia jerárquica desea reasignar",
+      "Seleccione la unidad subordinada o huérfana cuya dependencia jerárquica desea reasignar",
     unidadDestino:
       "Seleccione la nueva unidad superior que pasará a ser la madre jerárquica",
     razon:

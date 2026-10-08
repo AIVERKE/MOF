@@ -115,6 +115,14 @@ export function useUnidadForm(stores) {
 
     const pIdVal = formData.value.parentId;
 
+    // 0. Bloqueo de creación de raíces sueltas cuando la estructura ya tiene unidades
+    if (!isEditMode.value && !pIdVal && unidadesStore.unidades?.length > 0) {
+      return {
+        success: false,
+        error: "No se puede crear una unidad raíz suelta cuando ya existe una estructura cargada. Debe registrarla como dependiente de una unidad existente.",
+      };
+    }
+
     // 1. Validación de Jerarquía
     if (pIdVal) {
       const parentNode = unidadesStore.unidades.find(u => String(u.id) === String(pIdVal));
