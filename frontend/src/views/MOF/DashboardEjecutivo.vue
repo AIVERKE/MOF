@@ -77,6 +77,9 @@ const cargarDashboard = async () => {
 };
 
 watch([filtroClase, filtroNivel, filtroTipo, filtroRelacion], () => {
+  if (dashboardData.value?.resumen) {
+    dashboardData.value.resumen.total = unidadesFiltradas.value.length;
+  }
   cargarDashboard();
 });
 
@@ -127,9 +130,14 @@ const unidadesFiltradas = computed(() => {
   if (filtroTipo.value)
     data = data.filter((u) => resolveTipo(u.tipo) === filtroTipo.value);
   if (filtroRelacion.value)
-    data = data.filter(
-      (u) => resolveRelacion(u.relacion) === filtroRelacion.value,
-    );
+    data = data.filter((u) => {
+      const relVal = u.str_relacion || resolveRelacion(u.relacion);
+      return (
+        relVal === filtroRelacion.value ||
+        resolveRelacion(relVal) === filtroRelacion.value ||
+        (u.relacion && resolveRelacion(u.relacion) === filtroRelacion.value)
+      );
+    });
 
   return data;
 });

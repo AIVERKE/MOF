@@ -212,8 +212,10 @@ export class UnidadesService {
       parent: u.parentId ? Number(u.parentId) : null,
       tipo: u.tipo?.descripcion ?? null,
       nivel: u.nivel?.descripcion ?? null,
-      relacion: u.relacion?.codigo ?? null,
+      relacion: u.relacion?.descripcion ?? null,
       str_relacion: u.relacion?.descripcion ?? null,
+      codigo_relacion: u.relacion?.codigo ?? null,
+      codigoRelacion: u.relacion?.codigo ?? null,
       relacion_id:
         u.relacionId != null
           ? Number(u.relacionId)
@@ -1164,7 +1166,9 @@ export class UnidadesService {
     }
     if (filters?.relacion) {
       params.push(filters.relacion.trim());
-      filterClauses.push(`cr_filter.descripcion = $${params.length}`);
+      filterClauses.push(
+        `(cr_filter.descripcion ILIKE $${params.length} OR cr_filter.codigo ILIKE $${params.length})`,
+      );
     }
 
     const filterJoinSql = `
@@ -1256,8 +1260,8 @@ export class UnidadesService {
     `;
     const porRelacion = await this.unidadRepo.query(porRelacionSql, params);
 
-    // 6. Recientes (últimas 6)
-    const recientes = await this.unidadRepo.query(`
+    // 6. Recientes (últimas 6 según universo filtrado)
+    const recientesSql = `
       SELECT
         u.id,
         u.codigo,
@@ -1269,10 +1273,12 @@ export class UnidadesService {
         u.created_at as "createdAt"
       FROM unidad u
       LEFT JOIN tipo_unidad tu ON u.tipo_unidad_id = tu.id AND tu.deleted_at IS NULL
-      WHERE u.deleted_at IS NULL
+      ${filterClauses.length ? filterJoinSql : ''}
+      WHERE ${whereBase}
       ORDER BY u.id DESC
       LIMIT 6
-    `);
+    `;
+    const recientes = await this.unidadRepo.query(recientesSql, params);
 
     const resumen = resumenRaw[0] || {
       total: 0,
