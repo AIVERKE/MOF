@@ -494,7 +494,7 @@ export class UnidadesService {
       dto.es_subtroncal ??
       false;
     const esSubTroncal = esTroncal ? false : incomingSubTroncal;
-    const lado = esTroncal ? 'CENTRO' : (dto.lado ?? 'AUTOMATICO');
+    const lado = dto.lado ?? 'AUTOMATICO';
     const entity = this.unidadRepo.create({
       codigo: dto.codigo,
       sigla,
@@ -600,13 +600,13 @@ export class UnidadesService {
     if (dto.esTroncal !== undefined) {
       u.esTroncal = dto.esTroncal;
       if (dto.esTroncal) {
-        u.lado = 'CENTRO';
         u.esSubTroncal = false;
-      } else if (dto.lado !== undefined) {
+      }
+      if (dto.lado !== undefined) {
         u.lado = dto.lado;
       }
     } else if (dto.lado !== undefined) {
-      u.lado = u.esTroncal ? 'CENTRO' : dto.lado;
+      u.lado = dto.lado;
     }
     const incomingSubTroncal =
       dto.esSubTroncal !== undefined
