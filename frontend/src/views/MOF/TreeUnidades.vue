@@ -503,11 +503,11 @@ const handleExportCsv = async () => {
 
               <v-chip
                 v-if="getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo) !== '-'"
-                size="x-small"
+                size="small"
                 label
                 variant="outlined"
                 color="primary"
-                class="font-weight-black ml-1 text-xxs"
+                class="font-weight-black ml-1 chip-sigla"
               >
                 <HighlightedText
                   v-if="hasSearchQuery"
@@ -517,6 +517,9 @@ const handleExportCsv = async () => {
                 <template v-else>
                   {{ getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo) }}
                 </template>
+                <v-tooltip activator="parent" location="top">
+                  Sigla: {{ getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo) }}
+                </v-tooltip>
               </v-chip>
             </span>
           </template>

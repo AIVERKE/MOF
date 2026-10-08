@@ -452,14 +452,16 @@ const panels = computed(() => {
           </v-chip>
           <v-chip
             v-if="getCleanSigla(detailData.sigla, detailData.codigo) !== '-'"
-            size="x-small"
+            size="small"
             label
             color="primary"
             variant="tonal"
-            class="font-weight-black"
-            style="font-size: 9px !important;"
+            class="font-weight-black chip-sigla"
           >
             SIGLA: {{ getCleanSigla(detailData.sigla, detailData.codigo) }}
+            <v-tooltip activator="parent" location="top">
+              Sigla: {{ getCleanSigla(detailData.sigla, detailData.codigo) }}
+            </v-tooltip>
           </v-chip>
         </div>
       </div>
@@ -589,13 +591,16 @@ const panels = computed(() => {
                   <div class="d-flex align-center gap-1 ml-2">
                     <v-chip
                       v-if="hija.sigla"
-                      size="x-small"
+                      size="small"
                       label
                       color="primary"
                       variant="tonal"
-                      style="font-size: 9px;"
+                      class="chip-sigla"
                     >
                       {{ hija.sigla }}
+                      <v-tooltip activator="parent" location="top">
+                        Sigla: {{ hija.sigla }}
+                      </v-tooltip>
                     </v-chip>
                     <v-chip
                       v-if="hija.codigo"
@@ -634,13 +639,16 @@ const panels = computed(() => {
                   <div class="d-flex align-center gap-1 ml-2">
                     <v-chip
                       v-if="hija.sigla"
-                      size="x-small"
+                      size="small"
                       label
                       color="primary"
                       variant="tonal"
-                      style="font-size: 9px;"
+                      class="chip-sigla"
                     >
                       {{ hija.sigla }}
+                      <v-tooltip activator="parent" location="top">
+                        Sigla: {{ hija.sigla }}
+                      </v-tooltip>
                     </v-chip>
                     <v-chip
                       v-if="hija.codigo"
@@ -745,13 +753,16 @@ const panels = computed(() => {
                   <div class="d-flex align-center gap-1 ml-2">
                     <v-chip
                       v-if="rel.sigla"
-                      size="x-small"
+                      size="small"
                       label
                       color="primary"
                       variant="tonal"
-                      style="font-size: 9px;"
+                      class="chip-sigla"
                     >
                       {{ rel.sigla }}
+                      <v-tooltip activator="parent" location="top">
+                        Sigla: {{ rel.sigla }}
+                      </v-tooltip>
                     </v-chip>
                     <v-chip
                       v-if="rel.codigo"

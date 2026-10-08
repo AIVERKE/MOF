@@ -111,12 +111,13 @@ const headers = [
     align: 'start', 
     sortable: true,
     sort: (a, b) => compareCodigos(a, b),
+    minWidth: '130px',
   },
-  { title: 'UNIDAD ADMINISTRATIVA', key: 'display_name', align: 'start', sortable: true },
-  { title: 'JERARQUÍA / CLASE', key: 'clase', align: 'start', sortable: true },
-  { title: 'NIVEL', key: 'nivel', align: 'start', sortable: true },
-  { title: 'ESTADO', key: 'oficial', align: 'center', sortable: true },
-  { title: 'ACCIONES', key: 'actions', align: 'center', sortable: false },
+  { title: 'UNIDAD ADMINISTRATIVA', key: 'display_name', align: 'start', sortable: true, minWidth: '300px' },
+  { title: 'JERARQUÍA / CLASE', key: 'clase', align: 'start', sortable: true, minWidth: '160px' },
+  { title: 'NIVEL', key: 'nivel', align: 'start', sortable: true, minWidth: '120px' },
+  { title: 'ESTADO', key: 'oficial', align: 'center', sortable: true, minWidth: '100px' },
+  { title: 'ACCIONES', key: 'actions', align: 'center', sortable: false, minWidth: '110px' },
 ]
 
 const vistaModo = ref('analitico')
@@ -460,25 +461,28 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
                   </div>
                 </div>
 
-                <div class="text-body-2 font-weight-bold text-slate-900 mb-2">
+                <div class="text-body-2 font-weight-bold text-slate-900 mb-2 d-flex align-center flex-wrap gap-1">
                   <HighlightedText :text="item.display_name" :query="search" />
                   <v-chip
                     v-if="getCleanSigla(item.sigla, item.codigo) !== '-'"
-                    size="x-small"
+                    size="small"
                     label
                     variant="outlined"
                     color="primary"
-                    class="font-weight-black ml-1 text-xxs"
+                    class="font-weight-black chip-sigla"
                   >
                     {{ getCleanSigla(item.sigla, item.codigo) }}
+                    <v-tooltip activator="parent" location="top">
+                      Sigla: {{ getCleanSigla(item.sigla, item.codigo) }}
+                    </v-tooltip>
                   </v-chip>
                 </div>
 
                 <div class="d-flex align-center flex-wrap gap-1 mt-2">
                   <v-chip
-                    size="x-small"
+                    size="small"
                     label
-                    class="font-weight-bold"
+                    class="font-weight-bold chip-clase"
                     :style="{
                       backgroundColor: resolveClaseColor(item.clase),
                       color: getContrastingTextColor(resolveClaseColor(item.clase)),
@@ -534,10 +538,20 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
             <!-- Custom Slot: Nombre -->
             <td class="text-start">
               <div class="py-2">
-                <div class="text-body-2 font-weight-bold text-slate-800 d-flex align-center gap-1">
+                <div class="text-body-2 font-weight-bold text-slate-800 d-flex align-center flex-wrap gap-1">
                   <HighlightedText :text="item.display_name" :query="search" />
-                  <v-chip v-if="getCleanSigla(item.sigla, item.codigo) !== '-'" size="x-small" label variant="outlined" color="primary" class="font-weight-black ml-1 text-xxs">
+                  <v-chip
+                    v-if="getCleanSigla(item.sigla, item.codigo) !== '-'"
+                    size="small"
+                    label
+                    variant="outlined"
+                    color="primary"
+                    class="font-weight-black ml-1 chip-sigla"
+                  >
                     {{ getCleanSigla(item.sigla, item.codigo) }}
+                    <v-tooltip activator="parent" location="top">
+                      Sigla: {{ getCleanSigla(item.sigla, item.codigo) }}
+                    </v-tooltip>
                   </v-chip>
                 </div>
                 <div class="text-xxs text-grey-darken-1 text-uppercase">{{ item.tipo }}</div>
@@ -547,12 +561,15 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
             <!-- Custom Slot: Clase -->
             <td class="text-start">
               <v-chip 
-                size="x-small" 
+                size="small" 
                 label 
-                class="font-weight-bold" 
+                class="font-weight-bold chip-clase" 
                 :style="{ backgroundColor: resolveClaseColor(item.clase), color: getContrastingTextColor(resolveClaseColor(item.clase)) }"
               >
                 {{ resolveClase(item.clase) }}
+                <v-tooltip activator="parent" location="top">
+                  {{ resolveClase(item.clase) }}
+                </v-tooltip>
               </v-chip>
             </td>
 
