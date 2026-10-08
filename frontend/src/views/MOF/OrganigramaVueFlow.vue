@@ -55,6 +55,7 @@ import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDependencyDialog from "./unidades/UnidadDependencyDialog.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import HighlightedText from "@/components/HighlightedText.vue";
+import MofLoadingOverlay from "./common/MofLoadingOverlay.vue";
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
@@ -206,6 +207,11 @@ const addDialog = ref(false);
 const deleteDialog = ref(false);
 const selectedNode = ref(null);
 const vistaModo = ref("analitico");
+
+const isGraphLoading = ref(true);
+const graphLoadingMessage = ref("Cargando organigrama...");
+const graphLoadingSubmessage = ref("Obteniendo unidades y catálogos...");
+const isExportingPdf = ref(false);
 
 const dialog_nodo_chance = ref(false);
 const unidadACambiar = ref(null);
@@ -480,8 +486,19 @@ const stats = computed(() => {
 
 // --- METHODS ---
 async function refreshChart(options = {}) {
-  await unidadesStore.getFetchUnidades(options);
-  updateGraph();
+  isGraphLoading.value = true;
+  graphLoadingMessage.value = "Actualizando organigrama...";
+  graphLoadingSubmessage.value = "Sincronizando cambios de la estructura...";
+  try {
+    await unidadesStore.getFetchUnidades(options);
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    updateGraph();
+  } catch (e) {
+    mostrar("Error al actualizar organigrama", "error");
+  } finally {
+    isGraphLoading.value = false;
+  }
 }
 
 async function openForm(nodeId = null, edit = false) {
@@ -571,6 +588,9 @@ function cleanPdfText(val) {
 }
 
 async function exportarOrganigrama() {
+  isExportingPdf.value = true;
+  await nextTick();
+  await new Promise((resolve) => setTimeout(resolve, 50));
   mostrar("Generando PDF institucional en alta resolución...", "info");
 
   try {
@@ -1122,6 +1142,23 @@ async function exportarOrganigrama() {
         const measuredSiglaW = pdf.getTextWidth(siglaStr);
         const siglaPillW = measuredSiglaW + pillPaddingX * 2;
         const siglaPillX = pillX + pillW + 1.2;
+
+        if (isDarkCard) {
+          pdf.setFillColor(
+            Math.round(bgRgb.r * 0.7),
+            Math.round(bgRgb.g * 0.7),
+            Math.round(bgRgb.b * 0.7),
+          );
+          pdf.setTextColor(255, 255, 255);
+        } else {
+          pdf.setFillColor(
+            Math.round(bgRgb.r + (255 - bgRgb.r) * 0.55),
+            Math.round(bgRgb.g + (255 - bgRgb.g) * 0.55),
+            Math.round(bgRgb.b + (255 - bgRgb.b) * 0.55),
+          );
+          pdf.setTextColor(15, 23, 42);
+        }
+
         pdf.roundedRect(
           siglaPillX,
           pillY,
@@ -1276,6 +1313,8 @@ async function exportarOrganigrama() {
     mostrar("¡PDF generado y descargado correctamente!", "success");
   } catch (error) {
     mostrar("Error al exportar: " + error.message, "error");
+  } finally {
+    isExportingPdf.value = false;
   }
 }
 
@@ -1773,22 +1812,35 @@ onMounted(async () => {
   if (typeof window !== "undefined" && window.innerWidth <= 960) {
     activePanels.value = null; // Colapsar filtros en móviles para ahorrar espacio vertical
   }
-  const promises = [unidadesStore.getFetchUnidades(), prefetchCatalogs()];
-  if (!unidadesStore.dashboardStats) {
-    promises.push(unidadesStore.getDashboardStats());
+  isGraphLoading.value = true;
+  graphLoadingMessage.value = "Cargando organigrama...";
+  graphLoadingSubmessage.value = "Obteniendo unidades y catálogos institucionales...";
+  try {
+    const promises = [unidadesStore.getFetchUnidades(), prefetchCatalogs()];
+    if (!unidadesStore.dashboardStats) {
+      promises.push(unidadesStore.getDashboardStats());
+    }
+    await Promise.all(promises);
+    const fetchError =
+      unidadesStore.error ||
+      tiposStore.error ||
+      nivelesStore.error ||
+      relacionesStore.error ||
+      cargosStore.error ||
+      clasesStore.error;
+    if (fetchError) {
+      mostrar(fetchError, "error");
+    }
+    graphLoadingMessage.value = "Renderizando estructura...";
+    graphLoadingSubmessage.value = "Calculando distribución jerárquica...";
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    updateGraph();
+  } catch (err) {
+    mostrar("Error al cargar organigrama", "error");
+  } finally {
+    isGraphLoading.value = false;
   }
-  await Promise.all(promises);
-  const fetchError =
-    unidadesStore.error ||
-    tiposStore.error ||
-    nivelesStore.error ||
-    relacionesStore.error ||
-    cargosStore.error ||
-    clasesStore.error;
-  if (fetchError) {
-    mostrar(fetchError, "error");
-  }
-  updateGraph();
 });
 
 onNodeClick(({ node }) => {
@@ -2017,6 +2069,8 @@ function resetFilters() {
                       variant="tonal"
                       density="comfortable"
                       class="rounded-lg font-weight-bold"
+                      :loading="isExportingPdf"
+                      :disabled="isExportingPdf"
                       @click="exportarOrganigrama"
                     >
                       PDF
@@ -2158,8 +2212,15 @@ function resetFilters() {
       elevation="3"
       class="flow-card flex-grow-1 rounded-lg overflow-hidden border mb-0 position-relative d-flex flex-column"
     >
+      <MofLoadingOverlay
+        :model-value="isGraphLoading || isExportingPdf"
+        :contained="true"
+        :message="isExportingPdf ? 'Generando reporte PDF...' : graphLoadingMessage"
+        :submessage="isExportingPdf ? 'Construyendo organigrama en alta resolución...' : graphLoadingSubmessage"
+      />
+
       <v-progress-linear
-        v-if="unidadesStore.loading"
+        v-if="unidadesStore.loading || isGraphLoading"
         indeterminate
         color="primary"
       />
