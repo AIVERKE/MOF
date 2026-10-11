@@ -1,11 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 
@@ -30,6 +33,20 @@ export class CargoDto {
   @IsOptional()
   @IsBoolean()
   activo?: boolean;
+
+  @ApiPropertyOptional({
+    example: 26,
+    nullable: true,
+    minimum: 1,
+    maximum: 99,
+    description: 'Nivel jerárquico (mayor = más alto); null = sin nivel',
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  nivelOrden?: number | null;
 
   @ApiPropertyOptional({
     example: 1,

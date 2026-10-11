@@ -23,7 +23,17 @@ const editingCargo = ref(null);
 const cargoName = ref("");
 const cargoDescripcion = ref("");
 const cargoActivo = ref(true);
+const cargoNivel = ref(null);
 const search = ref("");
+
+const nivelRules = [
+  (v) =>
+    v == null ||
+    v === "" ||
+    (Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 99) ||
+    "El nivel debe ser un entero entre 1 y 99",
+];
+const nivelValido = computed(() => nivelRules.every((r) => r(cargoNivel.value) === true));
 
 /**
  * Normaliza la lista de cargos garantizando que no haya duplicados visuales
@@ -99,26 +109,29 @@ function openDialog(item = null) {
     cargoName.value = item.nombre || item.descripcion || "";
     cargoDescripcion.value = item.descripcion || "";
     cargoActivo.value = item.activo ?? true;
+    cargoNivel.value = item.nivelOrden ?? null;
   } else {
     editingCargo.value = null;
     cargoName.value = search.value; // Pre-cargar lo que el usuario escribió en la búsqueda
     cargoDescripcion.value = "";
     cargoActivo.value = true;
+    cargoNivel.value = null;
   }
   dialog.value = true;
 }
 
 async function saveCargo() {
-  if (!cargoName.value.trim()) return;
+  if (!cargoName.value.trim() || !nivelValido.value) return;
 
   const nombre = cargoName.value.trim().slice(0, 255);
   const descripcion = cargoDescripcion.value.trim().slice(0, 512) || null;
+  const nivelOrden = cargoNivel.value === "" ? null : cargoNivel.value;
 
   let success = false;
   if (editingCargo.value) {
-    success = await cargosStore.updateCargo(editingCargo.value.id, nombre, descripcion, cargoActivo.value);
+    success = await cargosStore.updateCargo(editingCargo.value.id, nombre, descripcion, cargoActivo.value, nivelOrden);
   } else {
-    success = await cargosStore.createCargo(nombre, descripcion, cargoActivo.value);
+    success = await cargosStore.createCargo(nombre, descripcion, cargoActivo.value, null, nivelOrden);
   }
 
   if (success) {
@@ -126,6 +139,7 @@ async function saveCargo() {
     cargoName.value = "";
     cargoDescripcion.value = "";
     cargoActivo.value = true;
+    cargoNivel.value = null;
     editingCargo.value = null;
   }
 }
@@ -261,8 +275,21 @@ onMounted(async () => {
                         :hint="hints.cargos.descripcion"
                         :persistent-hint="false"
                         hide-details="auto"
-                        class="mb-6"
+                        class="mb-4"
                     ></v-textarea>
+                    <v-text-field
+                        v-model.number="cargoNivel"
+                        label="Nivel jerárquico"
+                        type="number"
+                        variant="outlined"
+                        min="1"
+                        max="99"
+                        clearable
+                        :hint="hints.cargos.nivel"
+                        :persistent-hint="false"
+                        :rules="nivelRules"
+                        class="mb-4"
+                    ></v-text-field>
                     
                     <div 
                         class="d-flex align-center justify-space-between pa-3 rounded cursor-pointer transition-colors" 
@@ -295,7 +322,7 @@ onMounted(async () => {
                         class="rounded-lg font-weight-bold px-4"
                         @click="saveCargo" 
                         :loading="cargosStore.loading"
-                        :disabled="!cargoName.trim()"
+                        :disabled="!cargoName.trim() || !nivelValido"
                     >
                         Guardar
                     </v-btn>

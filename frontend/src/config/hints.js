@@ -147,6 +147,8 @@ export const hints = {
       "Nombre del puesto de trabajo o cargo funcional (ej: Director de Carrera)",
     descripcion:
       "Descripción breve de responsabilidades generales asociadas al cargo",
+    nivel:
+      "Nivel jerárquico del cargo (mayor = más alto, ej: Rectorado 26). Vacío = sin nivel",
   },
 
   /**

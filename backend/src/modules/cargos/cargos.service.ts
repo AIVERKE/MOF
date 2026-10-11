@@ -174,6 +174,7 @@ export class CargosService {
         nombre: dto.nombre.trim(),
         descripcion: this.normalizeDescripcion(dto.descripcion),
         activo: dto.activo ?? true,
+        nivelOrden: dto.nivelOrden ?? null,
         unicoEnUnidad: false,
         parentId,
       }),
@@ -201,6 +202,7 @@ export class CargosService {
     c.nombre = dto.nombre.trim();
     c.descripcion = this.normalizeDescripcion(dto.descripcion);
     if (dto.activo !== undefined) c.activo = dto.activo;
+    if (dto.nivelOrden !== undefined) c.nivelOrden = dto.nivelOrden;
     await this.cargoRepo.save(c);
     return id;
   }
