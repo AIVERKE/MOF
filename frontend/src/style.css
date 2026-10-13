@@ -1,200 +1,769 @@
-/* Fuente global Inter */
-:root, body, .v-application {
-  font-family: 'Inter', sans-serif !important;
+/* ==============================================================================
+   ARCHIVO MAESTRO DE ESTILOS (MASTER THEME STYLESHEET) - SISTEMA MOF
+   ==============================================================================
+   Design System basado en Material Design 3, WCAG AA y la paleta institucional:
+   #1A4756 (Petróleo) | #028191 (Turquesa) | #E4F1DD (Marfil) | #3C6893 (Acero) | #F04D65 (Coral)
+   ============================================================================== */
+
+/* ------------------------------------------------------------------------------
+   0. VARIABLES CSS MAESTRAS (:root, Modo Claro, Modo Oscuro, Daltónico)
+   ------------------------------------------------------------------------------ */
+
+/* Variables en Modo Claro (Default) */
+:root,
+.v-theme--light,
+.light-theme {
+  /* Capas de Profundidad */
+  --mof-canvas: #E4F1DD;
+  --mof-surface: #FFFFFF;
+  --mof-border-color: #3C6893;
+  --mof-border-subtle: rgba(60, 104, 147, 0.20);
+  --mof-border-nav: rgba(60, 104, 147, 0.15);
+  --mof-border-input: rgba(60, 104, 147, 0.35);
+
+  /* Paleta Institucional */
+  --mof-petroleo: #1A4756;
+  --mof-turquesa: #028191;
+  --mof-marfil: #E4F1DD;
+  --mof-acero: #3C6893;
+  --mof-coral: #F04D65;
+
+  /* Estados y Feedback */
+  --mof-danger: #D93852;
+  --mof-success: #2E8B57;
+  --mof-warning: #E69F00;
+  --mof-warning-bg: #FFF3E0;
+  --mof-warning-text: #B45309;
+
+  /* Tipografía y Escala Slate */
+  --mof-title-color: #1A4756;
+  --mof-subtitle-color: #3C6893;
+  --mof-text-main: #1E293B;
+  --mof-text-muted: #64748B;
+  --mof-placeholder: #94A3B8;
+  --mof-gridline: #E2E8F0;
+
+  /* Tablas y Capa 2 */
+  --mof-capa-2: rgba(2, 129, 145, 0.08);
+  --mof-table-hover: rgba(228, 241, 221, 0.50);
+  --mof-table-head-bg: rgba(26, 71, 86, 0.06);
+
+  /* Clases Slate en Modo Claro */
+  --mof-slate-800: #1E293B;
+  --mof-slate-700: #334155;
+  --mof-slate-600: #475569;
+  --mof-slate-500: #64748B;
+  --mof-slate-100: #F1F5F9;
+  --mof-slate-50: #F8FAFC;
+
+  /* Series de Gráficos */
+  --mof-chart-1: #1A4756;
+  --mof-chart-2: #028191;
+  --mof-chart-3: #F04D65;
+  --mof-chart-4: #3C6893;
+  --mof-chart-5: #2E8B57;
+
+  /* Radios M3 */
+  --mof-radius-card: 16px;
+  --mof-radius-btn: 10px;
+  --mof-radius-pill: 9999px;
 }
 
-/* para que los submenues esten al mismo nivel del menu */
+/* Variables en Modo Oscuro Institucional (Petróleo Noche) */
+.v-theme--dark,
+.dark-theme {
+  --mof-canvas: #0A1920;
+  --mof-surface: #132630;
+  --mof-border-color: #5C8BB8;
+  --mof-border-subtle: rgba(112, 153, 194, 0.25);
+  --mof-border-nav: rgba(112, 153, 194, 0.20);
+  --mof-border-input: rgba(112, 153, 194, 0.40);
+
+  --mof-petroleo: #3BA3B8;
+  --mof-turquesa: #00BCD4;
+  --mof-marfil: rgba(228, 241, 221, 0.12);
+  --mof-acero: #82A7CD;
+  --mof-coral: #F45D74;
+
+  --mof-danger: #F87171;
+  --mof-success: #34D399;
+  --mof-warning: #FBBF24;
+  --mof-warning-bg: rgba(245, 158, 11, 0.15);
+  --mof-warning-text: #FCD34D;
+
+  --mof-title-color: #E4F1DD;
+  --mof-subtitle-color: #82A7CD;
+  --mof-text-main: #F1F5F9;
+  --mof-text-muted: #94A3B8;
+  --mof-placeholder: #64748B;
+  --mof-gridline: #1E3845;
+
+  --mof-capa-2: #1C3745;
+  --mof-table-hover: rgba(2, 129, 145, 0.20);
+  --mof-table-head-bg: rgba(30, 56, 69, 0.85);
+
+  /* Clases Slate en Modo Oscuro */
+  --mof-slate-800: #F1F5F9;
+  --mof-slate-700: #E2E8F0;
+  --mof-slate-600: #CBD5E1;
+  --mof-slate-500: #94A3B8;
+  --mof-slate-100: #132630;
+  --mof-slate-50: #0E1D24;
+
+  --mof-chart-1: #3BA3B8;
+  --mof-chart-2: #00BCD4;
+  --mof-chart-3: #F45D74;
+  --mof-chart-4: #82A7CD;
+  --mof-chart-5: #34D399;
+}
+
+/* Adaptación para Modos Daltónicos (Alto Contraste Accesible Wong) */
+.colorblind-mode {
+  --mof-border-subtle: rgba(0, 114, 178, 0.45);
+}
+
+/* ------------------------------------------------------------------------------
+   1. ARQUITECTURA DE FONDOS Y CAPAS (Canvas vs. Contenedores)
+   ------------------------------------------------------------------------------ */
+
+/* Capa 0: Fondo General Canvas (#E4F1DD en claro, #0A1920 en oscuro) */
+html,
+body,
+.v-application,
+.v-main {
+  background-color: var(--mof-canvas) !important;
+  color: var(--mof-text-main);
+  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Capa 1: Superficies (Tarjetas, Paneles, Formularios, Modales) */
+.v-card,
+.surface-card,
+.v-dialog > .v-overlay__content > .v-card {
+  background-color: var(--mof-surface) !important;
+  border: 1px solid var(--mof-border-subtle) !important;
+  border-radius: var(--mof-radius-card) !important;
+}
+
+/* Capa 2: Cabeceras y Bloques Internos Destacados */
+.capa-destacada,
+.bloque-destacado,
+.bg-indigo-lighten-5,
+.v-card-title.bg-indigo-lighten-5,
+.v-table thead.bg-indigo-lighten-5,
+.v-table tr.bg-indigo-lighten-5 {
+  background-color: var(--mof-capa-2) !important;
+  color: var(--mof-title-color) !important;
+}
+
+.bg-indigo-lighten-5 th,
+.bg-indigo-lighten-5 td,
+.bg-indigo-lighten-5 span,
+.bg-indigo-lighten-5 .v-card-title {
+  color: var(--mof-title-color) !important;
+}
+
+/* Clases utilitarias Slate sincronizadas con el tema */
+.text-slate-800 { color: var(--mof-slate-800) !important; }
+.text-slate-700 { color: var(--mof-slate-700) !important; }
+.text-slate-600 { color: var(--mof-slate-600) !important; }
+.text-slate-500 { color: var(--mof-slate-500) !important; }
+
+.bg-slate-50 { background-color: var(--mof-slate-50) !important; }
+.bg-slate-100 { background-color: var(--mof-slate-100) !important; }
+
+.border-slate-200,
+.v-card.border-slate-200 {
+  border: 1px solid var(--mof-border-subtle) !important;
+  border-color: var(--mof-border-subtle) !important;
+}
+
+.border-b-thin {
+  border-bottom: 1px solid var(--mof-border-nav) !important;
+}
+
+/* Paneles de Acordeón (v-expansion-panels) */
+.v-expansion-panel {
+  background-color: var(--mof-surface) !important;
+  color: var(--mof-text-main) !important;
+}
+
+.v-expansion-panel-title {
+  background-color: var(--mof-surface) !important;
+  color: var(--mof-text-main) !important;
+}
+
+/* ------------------------------------------------------------------------------
+   2. TIPOGRAFÍA COMPLETA (Urbanist)
+   ------------------------------------------------------------------------------ */
+
+/* Título Principal (h1 / h2) */
+h1, h2, .text-h1, .text-h2, .v-toolbar-title {
+  font-family: 'Urbanist', sans-serif !important;
+  color: var(--mof-title-color) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+}
+
+/* Título de Sección (h3 / h4) */
+h3, h4, .text-h3, .text-h4, .v-card-title {
+  font-family: 'Urbanist', sans-serif !important;
+  color: var(--mof-title-color) !important;
+  font-weight: 700 !important;
+}
+
+/* Subtítulos y Bajadas */
+.text-subtitle-1,
+.text-subtitle-2,
+.v-card-subtitle,
+.subtitle-descriptivo {
+  font-family: 'Urbanist', sans-serif !important;
+  color: var(--mof-subtitle-color) !important;
+  font-weight: 500 !important;
+}
+
+/* Texto de Cuerpo */
+p,
+body,
+.text-body-1,
+.text-body-2 {
+  font-family: 'Urbanist', sans-serif !important;
+  color: var(--mof-text-main);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Etiquetas de Formularios (Label) */
+.v-label,
+label,
+.form-label {
+  font-family: 'Urbanist', sans-serif !important;
+  color: var(--mof-title-color) !important;
+  font-weight: 600 !important;
+}
+
+/* Textos de Ayuda / Hints */
+.v-messages__message,
+.v-input__details,
+.text-caption,
+caption {
+  font-family: 'Urbanist', sans-serif !important;
+  color: var(--mof-text-muted) !important;
+  font-weight: 400 !important;
+  font-size: 12px !important;
+}
+
+/* Enlaces / Links de Texto */
+a,
+.link-texto {
+  color: var(--mof-turquesa) !important;
+  font-weight: 600 !important;
+  text-decoration: none;
+  transition: text-decoration 0.2s ease;
+}
+a:hover,
+.link-texto:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------------------
+   3. BARRAS Y NAVEGACIÓN (Header, Sidebar, Breadcrumbs, Tabs)
+   ------------------------------------------------------------------------------ */
+
+/* Barra Superior (Header / Navbar) */
+.v-app-bar {
+  background-color: var(--mof-surface) !important;
+  border-bottom: 1px solid var(--mof-border-nav) !important;
+  box-shadow: 0 1px 4px rgba(26, 71, 86, 0.05) !important;
+}
+
+.v-app-bar .v-app-bar-title,
+.v-app-bar .v-toolbar-title {
+  color: var(--mof-petroleo) !important;
+  font-weight: 800 !important;
+}
+
+.v-app-bar .v-btn {
+  color: var(--mof-petroleo) !important;
+  transition: color 0.2s ease;
+}
+
+.v-app-bar .v-btn:hover {
+  color: var(--mof-turquesa) !important;
+}
+
+/* Menú Lateral (Sidebar / Drawer) */
+.v-navigation-drawer {
+  background-color: var(--mof-surface) !important;
+  border-right: 1px solid var(--mof-border-nav) !important;
+}
+
+/* Ítem Normal Inactivo */
+.v-navigation-drawer .v-list-item {
+  color: var(--mof-text-muted) !important;
+  font-weight: 600 !important;
+  border-radius: 10px;
+  margin-inline: 8px;
+  margin-block: 2px;
+  transition: all 0.2s ease;
+}
+
+.v-navigation-drawer .v-list-item .v-icon {
+  color: var(--mof-text-muted) !important;
+}
+
+/* Ítem al pasar el mouse (Hover) */
+.v-navigation-drawer .v-list-item:hover:not(.v-list-item--active) {
+  background-color: var(--mof-marfil) !important;
+  color: var(--mof-petroleo) !important;
+}
+
+.v-navigation-drawer .v-list-item:hover:not(.v-list-item--active) .v-icon {
+  color: var(--mof-petroleo) !important;
+}
+
+/* Ítem Seleccionado (Active) */
+.v-navigation-drawer .v-list-item--active {
+  background-color: var(--mof-petroleo) !important;
+  color: #FFFFFF !important;
+}
+
+.v-navigation-drawer .v-list-item--active .v-icon,
+.v-navigation-drawer .v-list-item--active .v-list-item-title {
+  color: #FFFFFF !important;
+}
+
+/* Migajas de Pan (Breadcrumbs) */
+.v-breadcrumbs .v-breadcrumbs-item {
+  color: var(--mof-acero) !important;
+  font-weight: 500;
+}
+
+.v-breadcrumbs .v-breadcrumbs-item--disabled,
+.v-breadcrumbs .v-breadcrumbs-item--active {
+  color: var(--mof-petroleo) !important;
+  font-weight: 700 !important;
+}
+
+/* Pestañas de Navegación (Tabs) */
+.v-tab {
+  color: var(--mof-text-muted) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px;
+  text-transform: none !important;
+}
+
+.v-tab--selected {
+  color: var(--mof-turquesa) !important;
+  font-weight: 700 !important;
+}
+
+.v-tabs .v-slide-group__content .v-tabs-slider {
+  background-color: var(--mof-turquesa) !important;
+  height: 3px !important;
+}
+
+/* ------------------------------------------------------------------------------
+   4. JERARQUÍA DE BOTONES Y ACCIONES (Button System)
+   ------------------------------------------------------------------------------ */
+
+/* 1. Guardar / Crear (CTA Principal): Sólido Coral #F04D65 */
+.btn-cta,
+.v-btn.btn-cta {
+  background-color: var(--mof-coral) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border-radius: var(--mof-radius-btn) !important;
+  box-shadow: 0 2px 8px rgba(240, 77, 101, 0.25) !important;
+  text-transform: none !important;
+  transition: all 0.2s ease;
+}
+
+.btn-cta:hover,
+.v-btn.btn-cta:hover {
+  background-color: #E03E56 !important;
+  box-shadow: 0 4px 14px rgba(240, 77, 101, 0.35) !important;
+}
+
+/* 2. Acción Primaria Estándar: Sólido Petróleo #1A4756 */
+.btn-primary,
+.v-btn.btn-primary {
+  background-color: var(--mof-petroleo) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border-radius: var(--mof-radius-btn) !important;
+  text-transform: none !important;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover,
+.v-btn.btn-primary:hover {
+  background-color: #123440 !important;
+}
+
+/* 3. Acción Secundaria / Herramienta: Tonal Turquesa 15% */
+.btn-secondary,
+.v-btn.btn-secondary {
+  background-color: rgba(2, 129, 145, 0.15) !important;
+  color: var(--mof-turquesa) !important;
+  font-weight: 600 !important;
+  border-radius: var(--mof-radius-btn) !important;
+  text-transform: none !important;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover,
+.v-btn.btn-secondary:hover {
+  background-color: rgba(2, 129, 145, 0.25) !important;
+}
+
+/* 4. Neutro / Cancelar: Outlined Azul Acero */
+.btn-neutral,
+.btn-cancel,
+.v-btn.btn-neutral,
+.v-btn.btn-cancel {
+  background-color: transparent !important;
+  border: 1px solid var(--mof-acero) !important;
+  color: var(--mof-acero) !important;
+  font-weight: 600 !important;
+  border-radius: var(--mof-radius-btn) !important;
+  text-transform: none !important;
+  transition: all 0.2s ease;
+}
+
+.btn-neutral:hover,
+.btn-cancel:hover,
+.v-btn.btn-neutral:hover,
+.v-btn.btn-cancel:hover {
+  background-color: rgba(60, 104, 147, 0.08) !important;
+}
+
+/* 5. Peligro / Destructivo: Sólido Rojo #D93852 */
+.btn-destructive,
+.btn-danger,
+.v-btn.btn-destructive,
+.v-btn.btn-danger {
+  background-color: var(--mof-danger) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border-radius: var(--mof-radius-btn) !important;
+  text-transform: none !important;
+}
+
+.btn-destructive:hover,
+.v-btn.btn-destructive:hover {
+  background-color: #C22D45 !important;
+}
+
+/* 6. Botones de Icono en Filas de Tabla */
+.btn-icon-ver {
+  color: var(--mof-turquesa) !important;
+}
+.btn-icon-editar {
+  color: var(--mof-petroleo) !important;
+}
+.btn-icon-eliminar {
+  color: var(--mof-danger) !important;
+}
+
+/* 7. Botones Alternadores (Toggle) */
+.v-btn-toggle .v-btn--active {
+  background-color: var(--mof-turquesa) !important;
+  color: #FFFFFF !important;
+}
+
+/* ------------------------------------------------------------------------------
+   5. FORMULARIOS Y ENTRADAS DE DATOS (Inputs y Selectores)
+   ------------------------------------------------------------------------------ */
+
+.v-field {
+  background-color: var(--mof-surface) !important;
+  border-radius: 10px !important;
+}
+
+.v-field__outline {
+  color: var(--mof-border-input) !important;
+}
+
+/* Borde al escribir (Focus): Trazo de 2px en Turquesa #028191 */
+.v-field--focused .v-field__outline {
+  color: var(--mof-turquesa) !important;
+  --v-field-border-width: 2px !important;
+}
+
+/* Textos Placeholder */
+.v-field__input::placeholder,
+input::placeholder {
+  color: var(--mof-placeholder) !important;
+  opacity: 1 !important;
+}
+
+/* Campo con Error */
+.v-field--error .v-field__outline {
+  color: var(--mof-danger) !important;
+}
+
+/* Switches / Toggles Activos */
+.v-switch--inset .v-selection-control--dirty .v-switch__track {
+  background-color: var(--mof-success) !important;
+}
+
+/* Checkboxes y Radios */
+.v-checkbox .v-selection-control--dirty .v-icon,
+.v-radio .v-selection-control--dirty .v-icon {
+  color: var(--mof-petroleo) !important;
+}
+
+/* ------------------------------------------------------------------------------
+   6. TABLAS DE DATOS (Data Tables)
+   ------------------------------------------------------------------------------ */
+
+.v-table {
+  background-color: var(--mof-surface) !important;
+  border-radius: var(--mof-radius-card) !important;
+  overflow: hidden;
+}
+
+/* Cabecera (thead) */
+.v-table thead,
+.v-table th {
+  background-color: var(--mof-table-head-bg) !important;
+  color: var(--mof-title-color) !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+/* Borde divisorio inferior de cabecera */
+.v-table thead tr th {
+  border-bottom: 2px solid var(--mof-border-color) !important;
+}
+
+/* Líneas divisorias de filas */
+.v-table tbody tr td {
+  border-bottom: 1px solid var(--mof-gridline) !important;
+  color: var(--mof-text-main) !important;
+  font-size: 13px;
+}
+
+/* Fila al pasar el mouse */
+.v-table tbody tr:hover {
+  background-color: var(--mof-table-hover) !important;
+}
+
+/* Paginación activa */
+.v-pagination .v-pagination__item--is-active .v-btn {
+  background-color: var(--mof-petroleo) !important;
+  color: #FFFFFF !important;
+}
+
+/* ------------------------------------------------------------------------------
+   7. TARJETAS Y MÉTRICAS KPI (Cards)
+   ------------------------------------------------------------------------------ */
+
+.card-kpi {
+  background-color: var(--mof-surface) !important;
+  border: 1px solid var(--mof-border-subtle) !important;
+  border-radius: var(--mof-radius-card) !important;
+  padding: 20px;
+}
+
+.card-kpi .kpi-numero {
+  color: var(--mof-petroleo) !important;
+  font-size: 2.25rem !important;
+  font-weight: 800 !important;
+  line-height: 1.1;
+}
+
+.card-kpi .kpi-etiqueta {
+  color: var(--mof-acero) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.kpi-tendencia-positiva {
+  background-color: rgba(46, 139, 87, 0.15) !important;
+  color: var(--mof-success) !important;
+  font-weight: 700;
+  border-radius: var(--mof-radius-pill);
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.kpi-tendencia-negativa {
+  background-color: rgba(217, 56, 82, 0.15) !important;
+  color: var(--mof-danger) !important;
+  font-weight: 700;
+  border-radius: var(--mof-radius-pill);
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------------------------
+   8. MODALES, DIÁLOGOS Y MENÚS FLOTANTES
+   ------------------------------------------------------------------------------ */
+
+.v-dialog .v-card {
+  border-radius: var(--mof-radius-card) !important;
+  box-shadow: 0 12px 40px rgba(26, 71, 86, 0.18) !important;
+}
+
+.v-dialog .v-card-title {
+  color: var(--mof-petroleo) !important;
+  font-weight: 800 !important;
+  border-bottom: 1px solid var(--mof-border-nav);
+}
+
+.v-menu .v-overlay__content > .v-list {
+  background-color: var(--mof-surface) !important;
+  border: 1px solid var(--mof-border-nav) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(26, 71, 86, 0.12) !important;
+}
+
+.v-menu .v-list-item:hover {
+  background-color: var(--mof-marfil) !important;
+}
+
+/* Tooltips Flotantes: Fondo #1A4756 oscuro, texto blanco, radio 6px */
+.v-tooltip .v-overlay__content {
+  background-color: var(--mof-petroleo) !important;
+  color: #FFFFFF !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+  padding: 4px 10px !important;
+}
+
+/* ------------------------------------------------------------------------------
+   9. ESTADOS DE CARGA Y FEEDBACK DEL SISTEMA
+   ------------------------------------------------------------------------------ */
+
+.v-progress-linear {
+  color: var(--mof-turquesa) !important;
+}
+
+.v-progress-circular {
+  color: var(--mof-petroleo) !important;
+}
+
+.v-alert--type-success {
+  background-color: #E8F5E9 !important;
+  color: var(--mof-success) !important;
+  border: 1px solid var(--mof-success) !important;
+}
+
+.v-alert--type-error {
+  background-color: #FFEBEE !important;
+  color: var(--mof-danger) !important;
+  border: 1px solid var(--mof-danger) !important;
+}
+
+.v-alert--type-warning {
+  background-color: #FFF8E1 !important;
+  color: var(--mof-warning) !important;
+  border: 1px solid var(--mof-warning) !important;
+}
+
+.v-alert--type-info {
+  background-color: #E0F7FA !important;
+  color: var(--mof-turquesa) !important;
+  border: 1px solid var(--mof-turquesa) !important;
+}
+
+/* ------------------------------------------------------------------------------
+   10. CHIPS, BADGES Y ETIQUETAS DE ESTADO
+   ------------------------------------------------------------------------------ */
+
+/* Activo / Aprobado / Vigente */
+.chip-activo,
+.v-chip.chip-activo {
+  background-color: var(--mof-success) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+
+/* Pendiente / En Revisión */
+.chip-pendiente,
+.v-chip.chip-pendiente {
+  background-color: var(--mof-warning-bg) !important;
+  color: var(--mof-warning-text) !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(180, 83, 9, 0.25) !important;
+}
+
+/* Rechazado / Inactivo / Bloqueado */
+.chip-rechazado,
+.v-chip.chip-rechazado {
+  background-color: var(--mof-danger) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+
+/* Borrador / Sin Iniciar */
+.chip-borrador,
+.v-chip.chip-borrador {
+  background-color: #F1F5F9 !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+/* Categoría / Informativa */
+.chip-categoria,
+.v-chip.chip-categoria {
+  background-color: rgba(2, 129, 145, 0.12) !important;
+  color: var(--mof-turquesa) !important;
+  font-weight: 700 !important;
+}
+
+/* Badge de Contador (ej. "3 pendientes") */
+.badge-contador {
+  background-color: var(--mof-coral) !important;
+  color: #FFFFFF !important;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: var(--mof-radius-pill);
+  padding: 2px 7px;
+}
+
+/* ------------------------------------------------------------------------------
+   11. UTILIDADES Y REGLAS ESPECÍFICAS DEL SISTEMA MOF
+   ------------------------------------------------------------------------------ */
+
+/* Submenús alineados */
 .no-indent .v-list-group__items .v-list-item {
   padding-inline-start: 36px !important;
 }
 
-/* Clases de colores de texto Slate (Gris) y sus overrides para modo oscuro */
-.text-slate-800 {
-  color: #1e293b !important;
-}
-.text-slate-700 {
-  color: #334155 !important;
-}
-.text-slate-600 {
-  color: #475569 !important;
-}
-.text-slate-500 {
-  color: #64748b !important;
-}
-
-/* Overrides para Modo Oscuro de Vuetify (.v-theme--dark) */
-.v-theme--dark .text-slate-800 {
-  color: #f1f5f9 !important;
-}
-.v-theme--dark .text-slate-700 {
-  color: #e2e8f0 !important;
-}
-.v-theme--dark .text-slate-600 {
-  color: #cbd5e1 !important;
-}
-.v-theme--dark .text-slate-500 {
-  color: #94a3b8 !important;
-}
-
-/* Clases de colores de fondo Slate y bordes con soporte para modo oscuro */
-.bg-slate-50 {
-  background-color: #f8fafc !important;
-}
-.bg-slate-100 {
-  background-color: #f1f5f9 !important;
-}
-.border-b-thin {
-  border-bottom: 1px solid #f1f5f9 !important;
-}
-.border-slate-200,
-.v-card.border-slate-200 {
-  border: 2px solid #cbd5e1 !important;
-  border-color: #cbd5e1 !important;
-}
-
-/* Divisores reforzados y uniformes para tablas (Función / Base Legal) */
-.border-r-slate,
-.v-table td.border-r-slate,
-.v-table th.border-r-slate {
-  border-right: 2px solid #cbd5e1 !important; /* slate-300 emparejado */
-}
-
-.border-b-slate,
-.v-table tr.border-b-slate > td,
-.v-table tr.border-b-slate > th {
-  border-bottom: 2px solid #cbd5e1 !important; /* slate-300 emparejado */
-}
-
-.v-table tbody tr:last-child.border-b-slate > td {
-  border-bottom: none !important;
-}
-
-.v-theme--dark .bg-slate-50 {
-  background-color: #030712 !important; /* Slate 950 - Fondo más oscuro para distinguir filas no oficiales */
-}
-.v-theme--dark .bg-slate-100 {
-  background-color: #1e293b !important; /* Slate 800 */
-}
-.v-theme--dark .border-b-thin {
-  border-bottom: 1px solid #1e293b !important; /* Slate 800 - Borde oscuro */
-}
-.v-theme--dark .border-slate-200,
-.v-theme--dark .v-card.border-slate-200 {
-  border: 2px solid #475569 !important;
-  border-color: #475569 !important;
-}
-.v-theme--dark .border-r-slate,
-.v-theme--dark .v-table td.border-r-slate,
-.v-theme--dark .v-table th.border-r-slate {
-  border-right: 2px solid #475569 !important; /* slate-600 */
-}
-.v-theme--dark .border-b-slate,
-.v-theme--dark .v-table tr.border-b-slate > td,
-.v-theme--dark .v-table tr.border-b-slate > th {
-  border-bottom: 2px solid #475569 !important; /* slate-600 */
-}
-
-/* Adaptación de bg-indigo-lighten-5 para Modo Oscuro (usado en cabeceras de tablas) */
-.bg-indigo-lighten-5 {
-  background-color: #e8eaf6 !important;
-}
-.v-theme--dark .bg-indigo-lighten-5 {
-  background-color: #1a227e5b !important; /* Indigo oscuro */
-  color: #e8eaf6 !important;
-}
-.v-theme--dark .bg-indigo-lighten-5 th {
-  color: #e8eaf6 !important;
-}
-
-/* Mejorar la visibilidad de los v-btn-toggle en Modo Oscuro */
-.v-theme--dark .v-btn-toggle {
-  border: 1px solid #475569 !important;
-  background-color: #1e293b !important;
-}
-.v-theme--dark .v-btn-toggle .v-btn {
-  color: #94a3b8 !important;
-}
-.v-theme--dark .v-btn-toggle .v-btn--active {
-  background-color: #4f46e5 !important;
-  color: #ffffff !important;
-}
-
-/* Definición de la clase grayscale (escala de grises) */
-.grayscale {
-  /* Desactivado para conservar los colores originales de los nodos (barras de color y chips) */
-  filter: none !important;
-}
-
-/* Ajustes para filas no oficiales / atenuadas (aplica a modo claro y oscuro) */
-.opacity-60 .v-chip {
-  color: #1e293b !important; /* Letras oscuras para contrastar sobre el fondo de color del chip */
-}
-
-/* Ajustes para filas no oficiales / atenuadas en modo oscuro para garantizar legibilidad y clara diferenciación */
-.v-theme--dark .opacity-60 {
-  opacity: 0.45 !important; /* Reducir opacidad para notar claramente la diferencia de oficialidad */
-}
-.v-theme--dark .opacity-60 .v-chip {
-  opacity: 1 !important; /* Opacidad completa para el chip en modo oscuro */
-}
-
-/* Ajustes de contraste para los chips de Nivel en Modo Oscuro */
-.v-theme--dark .chip-nivel[class*="teal"] {
-  color: #80cbc4 !important; /* Teal claro */
-  background-color: rgba(128, 203, 196, 0.15) !important;
-}
-.v-theme--dark .chip-nivel[class*="indigo"] {
-  color: #9fa8da !important; /* Indigo claro */
-  background-color: rgba(159, 168, 218, 0.15) !important;
-}
-
-/* Ajustes de contraste para los chips de Relación en Modo Oscuro */
-.v-theme--dark .chip-relacion[class*="purple"] {
-  color: #b39ddb !important; /* Purple claro */
-  border-color: #b39ddb !important;
-  background-color: rgba(179, 157, 219, 0.1) !important;
-}
-
-/* Tarjetas métricas del dashboard en modo oscuro (letras y números blancos) */
-.v-theme--dark .card-metrica div {
-  color: #FFFFFF !important;
-}
-
-/* Organigrama: Nodos Planos y Líneas/Flechas de Alto Contraste */
+/* Organigrama: Bordes y líneas */
 .custom-node {
   box-shadow: none !important;
+  outline: none;
+  cursor: pointer;
 }
-.custom-node:hover {
-  box-shadow: none !important;
-}
-.v-theme--dark .custom-node {
-  box-shadow: none !important;
-}
-.v-theme--dark .custom-node:hover {
-  box-shadow: none !important;
+
+.custom-node:focus-visible {
+  outline: 4px solid var(--mof-turquesa) !important;
+  outline-offset: 3px !important;
+  border-radius: 8px !important;
+  z-index: 50 !important;
+  box-shadow: 0 0 0 6px rgba(2, 129, 145, 0.35) !important;
 }
 
 .vue-flow__edge-path {
   fill: none !important;
-  stroke: #000000 !important;
+  stroke: var(--mof-petroleo) !important;
   stroke-width: 3px !important;
 }
+
 .vue-flow__arrowhead,
 marker {
   display: none !important;
 }
 
-.v-theme--dark .vue-flow__edge-path {
-  fill: none !important;
-  stroke: #e2e8f0 !important;
-  stroke-width: 3px !important;
-}
-.v-theme--dark .vue-flow__arrowhead,
-.v-theme--dark marker {
-  display: none !important;
-}
-
-/* Utilidades tipográficas y componentes globales centralizados */
 .text-xxs {
   font-size: 10px !important;
   font-weight: 700;
@@ -209,7 +778,6 @@ marker {
   font-size: 10px !important;
   font-weight: 800 !important;
   letter-spacing: 0.2px !important;
-  max-width: none !important;
 }
 
 .chip-clase {
@@ -221,7 +789,6 @@ marker {
   font-size: 10px !important;
   font-weight: 700 !important;
   letter-spacing: 0.2px !important;
-  max-width: none !important;
 }
 
 .max-width-400 {
@@ -233,91 +800,5 @@ marker {
 }
 
 .shadow-sm {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 4px 20px rgba(26, 71, 86, 0.06) !important;
 }
-
-/* ==========================================================================
-   ACCESIBILIDAD WCAG AA: Contrastes en Barra, Tabs, Hints y Teclado (5 Temas)
-   ========================================================================== */
-
-/* 1. Barra Superior y Drawer Lateral (Barra) */
-.v-app-bar {
-  border-bottom: 1px solid #cbd5e1 !important;
-}
-.v-app-bar .v-toolbar-title,
-.v-app-bar .v-app-bar-title {
-  color: #0f172a !important; /* Slate 900: Ratio > 17:1 en fondo blanco */
-  font-weight: 700 !important;
-}
-.v-theme--dark .v-app-bar {
-  border-bottom: 1px solid #334155 !important;
-}
-.v-theme--dark .v-app-bar .v-toolbar-title,
-.v-theme--dark .v-app-bar .v-app-bar-title {
-  color: #f8fafc !important; /* Slate 50: Ratio > 16:1 en fondo oscuro */
-}
-.v-navigation-drawer .v-list-item-title {
-  font-weight: 600 !important;
-  color: #1e293b !important;
-}
-.v-theme--dark .v-navigation-drawer .v-list-item-title {
-  color: #f1f5f9 !important;
-}
-.v-navigation-drawer .v-list-item-subtitle {
-  color: #475569 !important; /* Slate 600: Ratio > 7:1 */
-}
-.v-theme--dark .v-navigation-drawer .v-list-item-subtitle {
-  color: #94a3b8 !important; /* Slate 400: Ratio > 6.8:1 */
-}
-
-/* 2. Tabs (Pestañas de Navegación) */
-.v-tab {
-  opacity: 0.92 !important;
-  font-weight: 600 !important;
-  color: #334155 !important; /* Slate 700: Ratio 10.35:1 en claro */
-  letter-spacing: 0.25px !important;
-}
-.v-tab--selected {
-  opacity: 1 !important;
-  font-weight: 700 !important;
-  color: var(--v-theme-primary) !important;
-}
-.v-theme--dark .v-tab {
-  color: #e2e8f0 !important; /* Slate 200: Ratio 14:1 en oscuro */
-  opacity: 0.95 !important;
-}
-.v-theme--dark .v-tab--selected {
-  color: var(--v-theme-primary) !important;
-  opacity: 1 !important;
-}
-
-/* 3. Hints y Textos de Ayuda en Formularios */
-.v-messages__message,
-.v-input__details {
-  opacity: 1 !important;
-  color: #334155 !important; /* Slate 700: Ratio 10.35:1 garantizado */
-  font-weight: 500 !important;
-}
-.v-theme--dark .v-messages__message,
-.v-theme--dark .v-input__details {
-  color: #cbd5e1 !important; /* Slate 300: Ratio 12:1 en fondo oscuro */
-}
-
-/* 4. Navegación por Teclado: Foco visible en Nodos del Organigrama */
-.custom-node {
-  outline: none;
-  cursor: pointer;
-}
-.custom-node:focus-visible {
-  outline: 4px solid #2563EB !important; /* Azul cobalto de alto contraste */
-  outline-offset: 3px !important;
-  border-radius: 8px !important;
-  z-index: 50 !important;
-  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.35) !important;
-}
-.v-theme--dark .custom-node:focus-visible {
-  outline: 4px solid #60A5FA !important; /* Azul claro brillante para fondo oscuro */
-  outline-offset: 3px !important;
-  box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.45) !important;
-}
-
