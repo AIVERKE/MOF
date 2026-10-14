@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAllUnidadesMofStore } from '../../stores/unidades_mof'
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
@@ -192,9 +192,9 @@ const handleExportPdf = async () => {
   isExportingList.value = true;
   exportListMessage.value = "Generando reporte PDF del listado...";
   loadingReport.value = true;
-  await nextTick();
-  await new Promise((resolve) => setTimeout(resolve, 50));
   try {
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     exportListarUnidadesPdf({
       title: "Listado de Unidades Administrativas",
       unidades: filteredUnidades.value,
@@ -217,9 +217,9 @@ const handleExportCsv = async () => {
   isExportingList.value = true;
   exportListMessage.value = "Generando archivo CSV del listado...";
   loadingReport.value = true;
-  await nextTick();
-  await new Promise((resolve) => setTimeout(resolve, 50));
   try {
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
       { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.display_name || u.nombre || u.denominacion || "" },
