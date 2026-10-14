@@ -1,10 +1,11 @@
 /**
  * Configuración centralizada de las URLs y endpoints de la API.
- * Permite cambiar la URL base desde la variable VITE_API_BASE_URL en .env
+ * Permite cambiar la URL base desde la variable VITE_API_BASE_URL en .env.
+ * Vacía: mismo origen (producción detrás de Apache). Sin definir: localhost:3000.
  */
 import { useSnackbar } from "@/composables/useSnackbar";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
 export const ENDPOINTS = {
   AUTH: {
