@@ -39,6 +39,17 @@ import {
   toBoolean,
 } from "@/utils/mofHelpers";
 import { getLayoutedElements } from "@/utils/organigramaLayout";
+import {
+  getEffectiveParentId,
+  getChildrenCountMap,
+  getRootUnits,
+  getVisibleUnits,
+  getBreadcrumbPath,
+  getParentNavigationId,
+  getDirectChildrenIds,
+  getAncestorsIds,
+  getNavigationCluster,
+} from "@/utils/organigramaNavigation";
 
 import "@vue-flow/core/dist/style.css";
 import "@vue-flow/core/dist/theme-default.css";
@@ -291,6 +302,273 @@ const findNearestOficialParentId = (unidad) => {
 
   return null; // No se encontró ancestro oficial, queda como raíz
 };
+
+// --- NAVEGACIÓN PROGRESIVA POR NIVELES Y BÚSQUEDA VISUAL (MOF-068) ---
+// modoExploracion:
+// 'enfoque' (por defecto): Búsqueda visual interactiva (todo el organigrama en el lienzo, auto-zoom en padre + hijos directos, atenuación del resto, subir/bajar niveles)
+// 'aislar': Aislamiento estricto de nivel (solo renderiza en el lienzo el clúster activo)
+// 'completo': Vista libre de todo el árbol (sin atenuación)
+const modoExploracion = ref("enfoque");
+const nodoNavegacionActualId = ref(null);
+const visibleUnitsCount = ref(0);
+
+const isAtRoot = computed(() => !nodoNavegacionActualId.value);
+
+const activeUnit = computed(() => {
+  if (!nodoNavegacionActualId.value) return null;
+  return unidadesByIdMap.value.get(String(nodoNavegacionActualId.value)) || null;
+});
+
+const breadcrumbItems = computed(() => {
+  return getBreadcrumbPath(
+    nodoNavegacionActualId.value,
+    unidadesByIdMap.value,
+    vistaModo.value,
+  );
+});
+
+const childrenCountMap = computed(() => {
+  let source = unidadesList.value;
+  if (vistaModo.value === "estricto") {
+    source = source.filter((u) => checkOficial(u));
+  }
+  return getChildrenCountMap(source, vistaModo.value, unidadesByIdMap.value);
+});
+
+const navigationCluster = computed(() => {
+  if (!nodoNavegacionActualId.value) {
+    return {
+      activeId: null,
+      directChildrenIds: [],
+      ancestorIds: [],
+      clusterIdsSet: new Set(),
+    };
+  }
+  let source = unidadesList.value;
+  if (vistaModo.value === "estricto") {
+    source = source.filter((u) => checkOficial(u));
+  }
+  return getNavigationCluster(
+    nodoNavegacionActualId.value,
+    source,
+    vistaModo.value,
+    unidadesByIdMap.value,
+  );
+});
+
+const activeDirectChildrenUnits = computed(() => {
+  let source = unidadesList.value;
+  if (vistaModo.value === "estricto") {
+    source = source.filter((u) => checkOficial(u));
+  }
+
+  if (!nodoNavegacionActualId.value) {
+    const roots = getRootUnits(source, vistaModo.value, unidadesByIdMap.value);
+    if (roots.length === 1) {
+      const rootId = String(roots[0].id);
+      const childrenIds = getDirectChildrenIds(
+        rootId,
+        source,
+        vistaModo.value,
+        unidadesByIdMap.value,
+      );
+      return childrenIds
+        .map((id) => unidadesByIdMap.value.get(id))
+        .filter(Boolean);
+    }
+    return roots;
+  }
+
+  const cluster = navigationCluster.value;
+  return cluster.directChildrenIds
+    .map((id) => unidadesByIdMap.value.get(id))
+    .filter(Boolean);
+});
+
+// --- BUSCADORES PARA SUBIR / BAJAR NIVELES ---
+const searchBajarNivel = ref("");
+const searchSubirNivel = ref("");
+const menuBajarNivelAbierto = ref(false);
+const menuSubirNivelAbierto = ref(false);
+
+const ancestorUnits = computed(() => {
+  if (!nodoNavegacionActualId.value) return [];
+  const cluster = navigationCluster.value;
+  return cluster.ancestorIds
+    .map((id) => unidadesByIdMap.value.get(id))
+    .filter(Boolean);
+});
+
+const filteredAncestorUnits = computed(() => {
+  const list = ancestorUnits.value;
+  const term = normalizeText(searchSubirNivel.value);
+  if (!term) return list;
+  return list.filter((u) => {
+    const nom = normalizeText(u.nombre || u.denominacion);
+    const sig = normalizeText(u.sigla);
+    const cod = normalizeText(u.codigo);
+    return nom.includes(term) || sig.includes(term) || cod.includes(term);
+  });
+});
+
+const filteredActiveDirectChildrenUnits = computed(() => {
+  const list = activeDirectChildrenUnits.value;
+  const term = normalizeText(searchBajarNivel.value);
+  if (!term) return list;
+  return list.filter((u) => {
+    const nom = normalizeText(u.nombre || u.denominacion);
+    const sig = normalizeText(u.sigla);
+    const cod = normalizeText(u.codigo);
+    return nom.includes(term) || sig.includes(term) || cod.includes(term);
+  });
+});
+
+function ejecutarBajarNivel(targetId) {
+  menuBajarNivelAbierto.value = false;
+  searchBajarNivel.value = "";
+  bajarNivel(targetId);
+}
+
+function seleccionarPrimerHijo() {
+  if (filteredActiveDirectChildrenUnits.value.length > 0) {
+    ejecutarBajarNivel(filteredActiveDirectChildrenUnits.value[0].id);
+  }
+}
+
+function ejecutarSubirNivel(targetId) {
+  menuSubirNivelAbierto.value = false;
+  searchSubirNivel.value = "";
+  manejarClickNodo(targetId);
+}
+
+function seleccionarPrimerAncestro() {
+  if (filteredAncestorUnits.value.length > 0) {
+    ejecutarSubirNivel(filteredAncestorUnits.value[0].id);
+  }
+}
+
+function isCurrentActiveNode(id) {
+  return String(id) === String(nodoNavegacionActualId.value);
+}
+
+function contarHijosDirectos(unidadId) {
+  return childrenCountMap.value.get(String(unidadId)) || 0;
+}
+
+function bajarNivel(targetId = null) {
+  if (targetId) {
+    manejarClickNodo(targetId);
+    return;
+  }
+  if (activeDirectChildrenUnits.value.length > 0) {
+    const firstChild = activeDirectChildrenUnits.value[0];
+    manejarClickNodo(firstChild.id);
+  }
+}
+
+let lastClickedNodeId = null;
+let lastClickedTime = 0;
+
+async function manejarClickNodo(nodeId) {
+  if (!nodeId) return;
+  const strId = String(nodeId);
+  const now = Date.now();
+  if (lastClickedNodeId === strId && now - lastClickedTime < 150) {
+    return;
+  }
+  lastClickedNodeId = strId;
+  lastClickedTime = now;
+
+  // 1. Abrir detalle de la unidad (ticket: mantener detalle sin interferir con la navegación)
+  showDetails(strId);
+
+  // 2. Establecer nodo enfocado para navegación jerárquica / búsqueda visual
+  nodoNavegacionActualId.value = strId;
+
+  // 3. Actualizar el grafo (en modo enfoque: actualiza clases visuales y edges instantáneamente)
+  updateGraph();
+
+  // 4. Si el modo no es libre ('completo'), encuadra animadamente la cámara en el nodo y sus hijos directos
+  if (modoExploracion.value !== "completo") {
+    await nextTick();
+    let source = unidadesList.value;
+    if (vistaModo.value === "estricto") {
+      source = source.filter((u) => checkOficial(u));
+    }
+    const directChildren = getDirectChildrenIds(
+      strId,
+      source,
+      vistaModo.value,
+      unidadesByIdMap.value,
+    );
+    const nodesToFrame = [strId, ...directChildren];
+    volarANodos(nodesToFrame, {
+      padding: nodesToFrame.length > 1 ? 0.25 : 0.4,
+      duration: 650,
+      maxZoom: 1.25,
+    });
+  }
+}
+
+function navegarANodo(unidadId) {
+  if (!unidadId) {
+    restablecerVista();
+    return;
+  }
+  manejarClickNodo(unidadId);
+}
+
+function restablecerVista() {
+  if (isAtRoot.value) return;
+  nodoNavegacionActualId.value = null;
+  updateGraph();
+  nextTick(() => {
+    fitView({ padding: 0.15, duration: 650 });
+  });
+}
+
+function subirNivel() {
+  if (isAtRoot.value) return;
+  const parentId = getParentNavigationId(
+    nodoNavegacionActualId.value,
+    unidadesByIdMap.value,
+    vistaModo.value,
+  );
+  if (parentId) {
+    manejarClickNodo(parentId);
+  } else {
+    restablecerVista();
+  }
+}
+
+function cambiarModoExploracion(nuevoModo) {
+  modoExploracion.value = nuevoModo;
+  updateGraph();
+  nextTick(() => {
+    if (nodoNavegacionActualId.value && nuevoModo !== "completo") {
+      const cluster = navigationCluster.value;
+      const nodesToFrame = [cluster.activeId, ...cluster.directChildrenIds].filter(Boolean);
+      volarANodos(nodesToFrame, { padding: 0.25, duration: 600 });
+    } else {
+      fitView({ padding: 0.15, duration: 600 });
+    }
+  });
+}
+
+function toggleVistaCompleta() {
+  if (modoExploracion.value === "enfoque") {
+    cambiarModoExploracion("aislar");
+  } else if (modoExploracion.value === "aislar") {
+    cambiarModoExploracion("completo");
+  } else {
+    cambiarModoExploracion("enfoque");
+  }
+}
+
+function seleccionarDesdeTabla(unidadId) {
+  if (!unidadId) return;
+  manejarClickNodo(unidadId);
+}
 
 // --- COMPUTEDS ---
 const unidadesFiltradas = computed(() => {
@@ -1384,8 +1662,15 @@ let cachedHierarchyKey = "";
 let cachedPositions = null;
 let cachedEdges = null;
 
-function computeHierarchyKey(sourceData, modo) {
-  let key = `${modo}:${isDark.value ? "dark" : "light"}:${sourceData.length}:`;
+function computeHierarchyKey(
+  sourceData,
+  modo,
+  modoExploracionVal = "enfoque",
+  activeNavId = null,
+) {
+  const isolationKey =
+    modoExploracionVal === "aislar" ? String(activeNavId || "root") : "full";
+  let key = `${modo}:${isDark.value ? "dark" : "light"}:${sourceData.length}:${modoExploracionVal}:${isolationKey}:`;
   for (let i = 0; i < sourceData.length; i++) {
     const u = sourceData[i];
     const pId =
@@ -1584,14 +1869,33 @@ const updateGraph = () => {
     sourceData = sourceData.filter((u) => checkOficial(u));
   }
 
-  const currentHierarchyKey = computeHierarchyKey(sourceData, vistaModo.value);
+  const cluster = navigationCluster.value;
 
-  // ⚡ LAYOUT INCREMENTAL: Si la jerarquía no cambió, solo actualizamos visuales (color, isMatch)
+  // En modo 'aislar', filtra al clúster activo (nodo + hijos directos + ancestros)
+  // En modo 'enfoque' (predeterminado) o 'completo', mantiene todo el organigrama en el lienzo
+  let visibleData;
+  if (modoExploracion.value === "aislar" && nodoNavegacionActualId.value) {
+    visibleData = sourceData.filter((u) =>
+      cluster.clusterIdsSet.has(String(u.id)),
+    );
+  } else {
+    visibleData = sourceData;
+  }
+  visibleUnitsCount.value = visibleData.length;
+
+  const currentHierarchyKey = computeHierarchyKey(
+    visibleData,
+    vistaModo.value,
+    modoExploracion.value,
+    nodoNavegacionActualId.value,
+  );
+
+  // ⚡ LAYOUT INCREMENTAL: Si la jerarquía no cambió, solo actualizamos visuales (color, isMatch, estados nav)
   if (
     currentHierarchyKey === cachedHierarchyKey &&
     cachedPositions &&
     nodes.value &&
-    nodes.value.length === sourceData.length
+    nodes.value.length === visibleData.length
   ) {
     const currentNodes = nodes.value;
     for (let i = 0; i < currentNodes.length; i++) {
@@ -1621,10 +1925,49 @@ const updateGraph = () => {
           isColorblindMode: isColorblind.value,
         });
 
+      const isNavSelected = cluster.activeId === node.id;
+      const isNavChild = cluster.directChildrenIds.includes(node.id);
+      const isNavAncestor = cluster.ancestorIds.includes(node.id);
+      const isNavFaded = Boolean(
+        cluster.activeId &&
+          !isNavSelected &&
+          !isNavChild &&
+          !isNavAncestor &&
+          modoExploracion.value === "enfoque",
+      );
+
       node.data.color = finalColor;
       node.data.isMatch = isMatch;
       node.data.isNonOficialInOficialView = isNodeNonOficialInOficialView;
       node.data.visualReinforcement = visualReinforcement;
+      node.data.childrenCount = contarHijosDirectos(node.id);
+      node.data.isNavSelected = isNavSelected;
+      node.data.isNavChild = isNavChild;
+      node.data.isNavAncestor = isNavAncestor;
+      node.data.isNavFaded = isNavFaded;
+    }
+
+    if (edges.value) {
+      const currentEdges = edges.value;
+      const edgeStrokeColor = isDark.value ? "#e2e8f0" : "#000000";
+      for (let i = 0; i < currentEdges.length; i++) {
+        const edge = currentEdges[i];
+        const isClusterEdge =
+          cluster.activeId &&
+          cluster.clusterIdsSet.has(edge.source) &&
+          cluster.clusterIdsSet.has(edge.target);
+        const isFadedEdge =
+          modoExploracion.value === "enfoque" &&
+          Boolean(cluster.activeId) &&
+          !isClusterEdge;
+
+        edge.style = {
+          ...edge.style,
+          stroke: isClusterEdge ? "#2563eb" : edgeStrokeColor,
+          strokeWidth: isClusterEdge ? 3.5 : (isFadedEdge ? 1.5 : 3),
+          opacity: isFadedEdge ? 0.15 : 1,
+        };
+      }
     }
 
     // Control de cámara inteligente inmediato sin setTimeout
@@ -1644,7 +1987,7 @@ const updateGraph = () => {
   }
 
   // Si la jerarquía cambió (modo estricto/analítico o recarga de datos), recalculamos layout
-  const baseNodes = sourceData.map((u) => {
+  const baseNodes = visibleData.map((u) => {
     const isStaff = isStaffNode(u, relacionesStore.relaciones);
     let pId = u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
 
@@ -1673,6 +2016,17 @@ const updateGraph = () => {
         activeRelacionId,
         isColorblindMode: isColorblind.value,
       });
+
+    const isNavSelected = cluster.activeId === String(u.id);
+    const isNavChild = cluster.directChildrenIds.includes(String(u.id));
+    const isNavAncestor = cluster.ancestorIds.includes(String(u.id));
+    const isNavFaded = Boolean(
+      cluster.activeId &&
+        !isNavSelected &&
+        !isNavChild &&
+        !isNavAncestor &&
+        modoExploracion.value === "enfoque",
+    );
 
     return {
       id: String(u.id),
@@ -1705,6 +2059,11 @@ const updateGraph = () => {
           u.es_subtroncal === true ||
           u.esSubtroncal === true,
         lado: u.lado || "AUTOMATICO",
+        childrenCount: contarHijosDirectos(u.id),
+        isNavSelected,
+        isNavChild,
+        isNavAncestor,
+        isNavFaded,
       },
     };
   });
@@ -1736,6 +2095,16 @@ const updateGraph = () => {
       if (n.data && n.data.isStaff) {
         targetH = n.data.staffSide === "right" ? "target-left" : "target-right";
       }
+
+      const isClusterEdge =
+        cluster.activeId &&
+        cluster.clusterIdsSet.has(String(n.parentId)) &&
+        cluster.clusterIdsSet.has(String(n.id));
+      const isFadedEdge =
+        modoExploracion.value === "enfoque" &&
+        Boolean(cluster.activeId) &&
+        !isClusterEdge;
+
       return {
         id: `e${n.parentId}-${n.id}`,
         source: String(n.parentId),
@@ -1747,9 +2116,11 @@ const updateGraph = () => {
         },
         style: {
           fill: "none",
-          stroke: edgeStrokeColor,
-          strokeWidth: 3,
+          stroke: isClusterEdge ? "#2563eb" : edgeStrokeColor,
+          strokeWidth: isClusterEdge ? 3.5 : (isFadedEdge ? 1.5 : 3),
+          opacity: isFadedEdge ? 0.15 : 1,
           strokeDasharray: n.data && n.data.isStaff ? "6 6" : "none",
+          transition: "stroke 0.25s ease, opacity 0.25s ease, stroke-width 0.25s ease",
         },
       };
     });
@@ -1914,11 +2285,10 @@ onMounted(async () => {
 
 onNodeClick(({ node }) => {
   if (node?.data?.isInvisible) return;
-  centrarNodo(node.id, { duration: 450 });
-  showDetails(node.id);
+  manejarClickNodo(node.id);
 });
 
-// Watcher inmediato para búsqueda, filtros categóricos y cambios estructurales (sin debounce ni timers)
+// Watcher inmediato para búsqueda, filtros categóricos, cambios estructurales y navegación
 watch(
   [
     () => unidadesList.value,
@@ -1931,6 +2301,8 @@ watch(
     filterInstancia,
     filterRelacion,
     searchTerm,
+    nodoNavegacionActualId,
+    modoExploracion,
   ],
   () => {
     cachedHierarchyKey = "";
@@ -1957,6 +2329,7 @@ function resetFilters() {
   filterRelacion.value = null;
   searchTerm.value = "";
   vistaModo.value = "analitico";
+  nodoNavegacionActualId.value = null;
   resetDependencias();
 }
 </script>
@@ -2238,7 +2611,7 @@ function resetFilters() {
               v-for="u in unidadesFiltradas"
               :key="u.id"
               class="row-hover cursor-pointer"
-              @click="volarANodos([u.id])"
+              @click="seleccionarDesdeTabla(u.id)"
             >
               <!-- Código con indicador de color integrado -->
               <td class="text-caption font-weight-black pa-0">
@@ -2337,8 +2710,303 @@ function resetFilters() {
       <!-- Vista Desktop / Landscape: Organigrama Interactivo con Vue Flow -->
       <div
         v-else
-        class="flow-container position-relative"
+        class="d-flex flex-column flex-grow-1 overflow-hidden"
       >
+        <!-- Barra de Navegación Progresiva por Niveles (Breadcrumbs + Controles MOF-068) -->
+        <div
+          class="organigrama-nav-toolbar px-4 py-2 border-b bg-surface d-flex align-center justify-space-between flex-wrap ga-2"
+        >
+          <!-- Controles de Retorno y Breadcrumb -->
+          <div class="d-flex align-center flex-wrap ga-2">
+            <!-- Botón Subir nivel (con menú buscador si hay más de 1 nivel superior) -->
+            <v-btn-group
+              v-if="ancestorUnits.length > 1"
+              density="compact"
+              color="primary"
+              variant="tonal"
+              class="rounded-lg"
+            >
+              <v-btn
+                size="small"
+                prepend-icon="mdi-arrow-up"
+                class="text-none font-weight-bold"
+                :disabled="isAtRoot || modoExploracion === 'completo'"
+                @click="subirNivel"
+              >
+                Subir nivel
+                <v-tooltip activator="parent" location="bottom">
+                  Subir al padre inmediato
+                </v-tooltip>
+              </v-btn>
+              <v-menu
+                v-model="menuSubirNivelAbierto"
+                location="bottom start"
+                :close-on-content-click="false"
+              >
+                <template v-slot:activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    size="small"
+                    icon="mdi-menu-down"
+                    :disabled="isAtRoot || modoExploracion === 'completo'"
+                    style="min-width: 28px; width: 28px;"
+                  >
+                    <v-icon size="16">mdi-menu-down</v-icon>
+                    <v-tooltip activator="parent" location="bottom">
+                      Buscar y subir a cualquier nivel superior ({{ ancestorUnits.length }})
+                    </v-tooltip>
+                  </v-btn>
+                </template>
+                <v-card width="340" elevation="4" class="rounded-lg pa-2">
+                  <div class="px-2 pt-1 pb-1">
+                    <div class="text-caption font-weight-bold text-uppercase text-slate-600 mb-1 d-flex justify-space-between align-center">
+                      <span>Niveles superiores</span>
+                      <span class="text-xxs text-primary font-weight-bold">
+                        {{ filteredAncestorUnits.length }} de {{ ancestorUnits.length }}
+                      </span>
+                    </div>
+                    <v-text-field
+                      v-model="searchSubirNivel"
+                      density="compact"
+                      variant="outlined"
+                      placeholder="Buscar nivel superior..."
+                      prepend-inner-icon="mdi-magnify"
+                      clearable
+                      hide-details
+                      autofocus
+                      class="mb-1"
+                      @keydown.enter="seleccionarPrimerAncestro"
+                    />
+                  </div>
+                  <v-divider class="my-1" />
+                  <v-list density="compact" max-height="260" class="pa-0 overflow-y-auto">
+                    <v-list-item
+                      v-for="(ancestro, idx) in filteredAncestorUnits"
+                      :key="ancestro.id"
+                      :title="ancestro.nombre || ancestro.denominacion"
+                      :subtitle="idx === 0 ? 'Padre inmediato' : `${idx + 1} niveles arriba`"
+                      prepend-icon="mdi-arrow-up-bold"
+                      class="rounded-md my-0.5"
+                      @click="ejecutarSubirNivel(ancestro.id)"
+                    />
+                    <v-list-item
+                      v-if="filteredAncestorUnits.length === 0"
+                      title="Sin coincidencias encontradas"
+                      prepend-icon="mdi-alert-circle-outline"
+                      class="text-medium-emphasis"
+                      disabled
+                    />
+                  </v-list>
+                </v-card>
+              </v-menu>
+            </v-btn-group>
+
+            <v-btn
+              v-else
+              size="small"
+              variant="tonal"
+              color="primary"
+              prepend-icon="mdi-arrow-up"
+              :disabled="isAtRoot || modoExploracion === 'completo'"
+              class="text-none font-weight-bold"
+              @click="subirNivel"
+            >
+              Subir nivel
+              <v-tooltip activator="parent" location="bottom">
+                Subir a la unidad superior (padre)
+              </v-tooltip>
+            </v-btn>
+
+            <!-- Botón Bajar nivel (con menú buscador si hay más de 1 subunidad directa) -->
+            <v-menu
+              v-if="activeDirectChildrenUnits.length > 1"
+              location="bottom start"
+              :close-on-content-click="false"
+              v-model="menuBajarNivelAbierto"
+            >
+              <template v-slot:activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  prepend-icon="mdi-arrow-down"
+                  append-icon="mdi-menu-down"
+                  class="text-none font-weight-bold"
+                  :disabled="modoExploracion === 'completo'"
+                >
+                  Bajar nivel ({{ activeDirectChildrenUnits.length }})
+                  <v-tooltip activator="parent" location="bottom">
+                    Buscar y seleccionar subunidad para descender de nivel
+                  </v-tooltip>
+                </v-btn>
+              </template>
+              <v-card width="340" elevation="4" class="rounded-lg pa-2">
+                <div class="px-2 pt-1 pb-1">
+                  <div class="text-caption font-weight-bold text-uppercase text-slate-600 mb-1 d-flex justify-space-between align-center">
+                    <span>Descender a subunidad directa</span>
+                    <span class="text-xxs text-primary font-weight-bold">
+                      {{ filteredActiveDirectChildrenUnits.length }} de {{ activeDirectChildrenUnits.length }}
+                    </span>
+                  </div>
+                  <v-text-field
+                    v-model="searchBajarNivel"
+                    density="compact"
+                    variant="outlined"
+                    placeholder="Buscar subunidad (nombre, sigla, cód)..."
+                    prepend-inner-icon="mdi-magnify"
+                    clearable
+                    hide-details
+                    autofocus
+                    class="mb-1"
+                    @keydown.enter="seleccionarPrimerHijo"
+                  />
+                </div>
+                <v-divider class="my-1" />
+                <v-list density="compact" max-height="260" class="pa-0 overflow-y-auto">
+                  <v-list-item
+                    v-for="child in filteredActiveDirectChildrenUnits"
+                    :key="child.id"
+                    :title="child.nombre || child.denominacion"
+                    :subtitle="child.sigla && child.sigla !== '-' ? `Sigla: ${child.sigla} · Cód: ${child.codigo}` : `Cód: ${child.codigo}`"
+                    prepend-icon="mdi-subdirectory-arrow-right"
+                    class="rounded-md my-0.5"
+                    @click="ejecutarBajarNivel(child.id)"
+                  />
+                  <v-list-item
+                    v-if="filteredActiveDirectChildrenUnits.length === 0"
+                    title="Sin coincidencias encontradas"
+                    prepend-icon="mdi-alert-circle-outline"
+                    class="text-medium-emphasis"
+                    disabled
+                  />
+                </v-list>
+              </v-card>
+            </v-menu>
+
+            <v-btn
+              v-else
+              size="small"
+              variant="tonal"
+              color="primary"
+              prepend-icon="mdi-arrow-down"
+              :disabled="activeDirectChildrenUnits.length === 0 || modoExploracion === 'completo'"
+              class="text-none font-weight-bold"
+              @click="() => bajarNivel()"
+            >
+              Bajar nivel
+              <v-tooltip activator="parent" location="bottom">
+                {{
+                  activeDirectChildrenUnits.length === 0
+                    ? 'Esta unidad no tiene subunidades dependientes'
+                    : 'Bajar al nivel inferior'
+                }}
+              </v-tooltip>
+            </v-btn>
+
+            <!-- Botón Restablecer vista -->
+            <v-btn
+              size="small"
+              variant="outlined"
+              color="grey-darken-1"
+              prepend-icon="mdi-restore"
+              :disabled="isAtRoot || modoExploracion === 'completo'"
+              class="text-none"
+              @click="restablecerVista"
+            >
+              Restablecer vista
+              <v-tooltip activator="parent" location="bottom">
+                Volver a la vista inicial (Raíz)
+              </v-tooltip>
+            </v-btn>
+
+            <v-divider vertical class="mx-1 my-1" style="height: 22px" />
+
+            <!-- Ruta Jerárquica (Breadcrumbs) -->
+            <div class="d-flex align-center flex-wrap ga-1">
+              <v-chip
+                size="small"
+                :color="isAtRoot ? 'primary' : 'default'"
+                :variant="isAtRoot ? 'flat' : 'text'"
+                class="font-weight-medium cursor-pointer"
+                :disabled="modoExploracion === 'completo'"
+                @click="restablecerVista"
+              >
+                <v-icon start size="14">mdi-home</v-icon>
+                Raíz
+              </v-chip>
+
+              <template v-for="(item, idx) in breadcrumbItems" :key="item.id">
+                <v-icon size="14" class="text-medium-emphasis">mdi-chevron-right</v-icon>
+                <v-chip
+                  size="small"
+                  :color="idx === breadcrumbItems.length - 1 ? 'primary' : 'default'"
+                  :variant="idx === breadcrumbItems.length - 1 ? 'flat' : 'text'"
+                  class="font-weight-medium cursor-pointer"
+                  :disabled="modoExploracion === 'completo'"
+                  @click="navegarANodo(item.id)"
+                >
+                  <span class="text-truncate" style="max-width: 170px">{{ item.sigla || item.nombre }}</span>
+                  <v-tooltip activator="parent" location="bottom">{{ item.nombre }}</v-tooltip>
+                </v-chip>
+              </template>
+            </div>
+          </div>
+
+          <!-- Indicador y Selector de Modo de Exploración -->
+          <div class="d-flex align-center ga-2">
+            <v-chip size="small" variant="tonal" color="info">
+              <v-icon start size="14">mdi-sitemap</v-icon>
+              {{ visibleUnitsCount }} {{ visibleUnitsCount === 1 ? 'unidad' : 'unidades' }}
+            </v-chip>
+
+            <!-- Menú de Modo de Exploración -->
+            <v-menu location="bottom end">
+              <template v-slot:activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  size="small"
+                  variant="outlined"
+                  :color="modoExploracion === 'enfoque' ? 'primary' : 'grey-darken-1'"
+                  class="text-none font-weight-medium"
+                >
+                  <v-icon start size="15">
+                    {{ modoExploracion === 'enfoque' ? 'mdi-crosshairs-gps' : modoExploracion === 'aislar' ? 'mdi-filter-outline' : 'mdi-eye-outline' }}
+                  </v-icon>
+                  {{ modoExploracion === 'enfoque' ? 'Enfoque visual' : modoExploracion === 'aislar' ? 'Aislar nivel' : 'Vista libre' }}
+                  <v-icon end size="14">mdi-chevron-down</v-icon>
+                </v-btn>
+              </template>
+              <v-list density="compact" elevation="3" class="rounded-lg">
+                <v-list-item
+                  title="Enfoque visual (Atenuar resto)"
+                  subtitle="Auto-zoom en nodo e hijos directos, lienzo completo"
+                  prepend-icon="mdi-crosshairs-gps"
+                  :active="modoExploracion === 'enfoque'"
+                  @click="cambiarModoExploracion('enfoque')"
+                />
+                <v-list-item
+                  title="Aislar nivel (Ocultar resto)"
+                  subtitle="Renderiza únicamente el clúster activo"
+                  prepend-icon="mdi-filter-outline"
+                  :active="modoExploracion === 'aislar'"
+                  @click="cambiarModoExploracion('aislar')"
+                />
+                <v-list-item
+                  title="Vista libre (Sin atenuar)"
+                  subtitle="Muestra todo el árbol sin atenuación"
+                  prepend-icon="mdi-eye-outline"
+                  :active="modoExploracion === 'completo'"
+                  @click="cambiarModoExploracion('completo')"
+                />
+              </v-list>
+            </v-menu>
+          </div>
+        </div>
+
+        <div
+          class="flow-container position-relative flex-grow-1"
+        >
         <!-- Botón Volver Flotante en Pantallas Reducidas -->
         <v-btn
           v-if="isMobile"
@@ -2447,13 +3115,17 @@ function resetFilters() {
               class="custom-node"
               tabindex="0"
               role="button"
-              :aria-label="`Unidad ${data.codigo}: ${data.nombre}. Presione Enter para ver detalles.`"
-              @keydown.enter.prevent="showDetails(id)"
-              @keydown.space.prevent="showDetails(id)"
+              :aria-label="`Unidad ${data.codigo}: ${data.nombre}. Presione Enter para interactuar.`"
+              @keydown.enter.prevent="manejarClickNodo(id)"
+              @keydown.space.prevent="manejarClickNodo(id)"
               :class="{
                 'staff-node': data.isStaff,
+                'nav-selected-node': data.isNavSelected,
+                'nav-child-node': data.isNavChild,
+                'nav-ancestor-node': data.isNavAncestor,
                 'faded-node':
-                  (hasAnyFilter || mostrarDependencias) && !data.isMatch,
+                  ((hasAnyFilter || mostrarDependencias) && !data.isMatch) ||
+                  data.isNavFaded,
                 'non-oficial-faded': data.isNonOficialInOficialView,
                 'dep-selected-node':
                   data.visualReinforcement?.role === 'dep-selected',
@@ -2491,6 +3163,24 @@ function resetFilters() {
                   mdi-account-tie-outline
                 </v-icon>
                 <span>STAFF - ASESORÍA</span>
+              </div>
+              <div
+                v-else-if="data.isNavSelected"
+                class="nav-badge-top"
+              >
+                <v-icon size="13" class="mr-1" color="white">
+                  mdi-bullseye-arrow
+                </v-icon>
+                <span>NODO SELECCIONADO</span>
+              </div>
+              <div
+                v-else-if="data.isNavChild"
+                class="nav-child-badge-top"
+              >
+                <v-icon size="13" class="mr-1" color="white">
+                  mdi-subdirectory-arrow-right
+                </v-icon>
+                <span>HIJO DIRECTO</span>
               </div>
               <div
                 v-else-if="data.isNonOficialInOficialView"
@@ -2540,7 +3230,7 @@ function resetFilters() {
                 </v-icon>
                 <span>{{ data.visualReinforcement.badgeText }}</span>
               </div>
-              <div class="node-content" @click="showDetails(id)">
+              <div class="node-content" @click="manejarClickNodo(id)">
                 <!-- Zona Central Hero: Nombre de la Unidad -->
                 <div class="node-center">
                   <div
@@ -2617,6 +3307,42 @@ function resetFilters() {
                     </v-icon>
                     <span>{{ data.tipo }}</span>
                   </div>
+
+                  <!-- Indicador de subunidades dependientes directas (MOF-068) -->
+                  <div
+                    v-if="data.childrenCount > 0"
+                    class="node-line detail-line children-badge mt-1"
+                    :style="{ color: getContrastingTextColor(data.color) }"
+                  >
+                    <v-icon
+                      size="13"
+                      class="mr-1"
+                      :color="
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'white'
+                          : '#0F172A'
+                      "
+                    >
+                      mdi-account-tree-outline
+                    </v-icon>
+                    <span class="font-weight-bold">
+                      {{ data.childrenCount }} {{ data.childrenCount === 1 ? 'subunidad' : 'subunidades' }}
+                      <template v-if="data.isNavSelected"> (seleccionado)</template>
+                      <template v-else-if="data.isNavChild"> (hijo directo)</template>
+                    </span>
+                    <v-icon
+                      v-if="!data.isNavSelected && modoExploracion !== 'completo'"
+                      size="14"
+                      class="ml-1"
+                      :color="
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'white'
+                          : '#0F172A'
+                      "
+                    >
+                      mdi-chevron-down
+                    </v-icon>
+                  </div>
                 </div>
                 <v-tooltip activator="parent" location="top" max-width="360">
                   {{ data.nombre }}
@@ -2659,7 +3385,8 @@ function resetFilters() {
           <Background pattern-color="#e0e0e0" :gap="20" /><Controls />
         </VueFlow>
       </div>
-    </v-card>
+    </div>
+  </v-card>
 
     <!-- MODULAR COMPONENTS -->
     <UnidadFormDialog
@@ -2824,6 +3551,89 @@ function resetFilters() {
 .v-theme--dark .bridge-line.dashed {
   border-left: 3px dashed #e2e8f0;
 }
+.organigrama-nav-toolbar {
+  min-height: 48px;
+  background-color: #ffffff;
+  z-index: 5;
+}
+.v-theme--dark .organigrama-nav-toolbar {
+  background-color: #1e293b;
+  border-color: #334155 !important;
+}
+
+.children-badge {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  opacity: 0.95;
+  display: flex;
+  align-items: center;
+}
+
+.custom-node.nav-selected-node {
+  outline: 3.5px solid #2563eb !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 18px rgba(37, 99, 235, 0.45) !important;
+  z-index: 20 !important;
+}
+.v-theme--dark .custom-node.nav-selected-node {
+  outline: 3.5px solid #60a5fa !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 18px rgba(96, 165, 250, 0.5) !important;
+  z-index: 20 !important;
+}
+
+.custom-node.nav-child-node {
+  outline: 2.5px solid #0284c7 !important;
+  outline-offset: 1.5px;
+  box-shadow: 0 0 12px rgba(2, 132, 199, 0.35) !important;
+  z-index: 15 !important;
+}
+.v-theme--dark .custom-node.nav-child-node {
+  outline: 2.5px solid #38bdf8 !important;
+  outline-offset: 1.5px;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35) !important;
+  z-index: 15 !important;
+}
+
+.custom-node.nav-ancestor-node {
+  outline: 2px dashed #6366f1 !important;
+  outline-offset: 1px;
+  z-index: 10 !important;
+}
+.v-theme--dark .custom-node.nav-ancestor-node {
+  outline: 2px dashed #818cf8 !important;
+  outline-offset: 1px;
+  z-index: 10 !important;
+}
+
+.nav-badge-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2.5px 4px;
+  width: 100%;
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.nav-child-badge-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2.5px 4px;
+  width: 100%;
+  background-color: #0284c7;
+  color: #ffffff;
+}
+
 .custom-node {
   border-radius: 8px;
   box-shadow: none !important;
@@ -2907,15 +3717,16 @@ function resetFilters() {
   background-color: #1e293b !important;
 }
 .faded-node {
-  opacity: 0.25;
-  filter: grayscale(1);
+  opacity: 0.22;
+  filter: grayscale(0.85);
   transition:
-    opacity 0.2s ease,
-    filter 0.2s ease;
+    opacity 0.25s ease,
+    filter 0.25s ease;
 }
 .faded-node:hover {
-  opacity: 0.45;
-  filter: grayscale(0.7);
+  opacity: 0.65;
+  filter: grayscale(0.3);
+  cursor: pointer;
 }
 .non-oficial-faded {
   opacity: 0.4;
