@@ -16,8 +16,10 @@ export const lightTheme = {
     warning: LIGHT_THEME_TOKENS.ambar, // #E69F00 Ámbar
     error: LIGHT_THEME_TOKENS.rojo, // #D93852 Rojo Sobrio
     info: LIGHT_THEME_TOKENS.turquesa, // #028191 Turquesa
-    background: LIGHT_THEME_TOKENS.canvas, // #E4F1DD Capa 0: Marfil Suave
-    surface: LIGHT_THEME_TOKENS.surface, // #FFFFFF Capa 1: Blanco Puro
+    background: LIGHT_THEME_TOKENS.canvas, // #EFF3EC
+    surface: LIGHT_THEME_TOKENS.surface, // #FFFFFF
+    'on-background': LIGHT_THEME_TOKENS.textMain, // #0B1920 Texto oscuro de alto contraste
+    'on-surface': LIGHT_THEME_TOKENS.textMain, // #0B1920 Texto oscuro sin plomos
     'primary-darken-1': '#11303B',
     'primary-lighten-1': '#2C6C82',
     'secondary-darken-1': '#2B4D6E',
@@ -26,12 +28,12 @@ export const lightTheme = {
     'neutral-100': '#F1F5F9',
     'neutral-200': '#E2E8F0',
     'neutral-300': '#CBD5E1',
-    'neutral-400': '#94A3B8',
-    'neutral-500': '#64748B',
-    'neutral-600': '#475569',
-    'neutral-700': '#334155',
-    'neutral-800': '#1E293B',
-    'neutral-900': '#0F172A',
+    'neutral-400': '#5A7584',
+    'neutral-500': '#1C3B4A', // Oscurecido: adiós al gris plomo deslavado
+    'neutral-600': '#153342', // Oscurecido
+    'neutral-700': '#102632', // Oscurecido
+    'neutral-800': '#0B1920', // Slate negro profundo
+    'neutral-900': '#050D11',
   },
 };
 

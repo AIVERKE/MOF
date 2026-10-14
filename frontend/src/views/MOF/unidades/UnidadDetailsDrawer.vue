@@ -399,7 +399,7 @@ const panels = computed(() => {
     </div>
 
     <v-toolbar :color="detailData?.color || 'primary'" dark density="compact">
-      <v-toolbar-title class="text-caption font-weight-bold">Detalles de la Unidad</v-toolbar-title>
+      <v-toolbar-title class="text-caption font-weight-bold text-white" style="color: #ffffff !important;">Detalles de la Unidad</v-toolbar-title>
       <v-spacer />
       <!-- Botón para alternar ancho normal (520px) o expandido (850px) en desktop -->
       <v-btn

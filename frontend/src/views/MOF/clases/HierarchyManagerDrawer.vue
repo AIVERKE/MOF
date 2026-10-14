@@ -403,11 +403,11 @@ const getDependencies = (item) => {
 </script>
 
 <template>
-  <v-card flat class="fill-height d-flex flex-column resizable-container">
+  <v-card flat class="fill-height d-flex flex-column resizable-container rounded-0">
     <div class="resize-handle" @mousedown="startResizing" @touchstart="startResizingTouch"></div>
 
     <v-toolbar color="secondary" dark density="compact">
-      <v-toolbar-title class="text-subtitle-1 font-weight-bold">
+      <v-toolbar-title class="text-subtitle-1 font-weight-bold text-white" style="color: #ffffff !important;">
         Gestión de Catálogos MOF
       </v-toolbar-title>
       <v-spacer></v-spacer>
@@ -423,27 +423,27 @@ const getDependencies = (item) => {
 
     <v-tabs v-model="tab" color="primary" show-arrows>
       <v-tab :value="0">
-        <v-badge color="grey" :content="clasesStore.clases.length" inline>
+        <v-badge color="primary" :content="clasesStore.clases.length" inline>
           <v-icon start>mdi-office-building</v-icon> Instancias
         </v-badge>
       </v-tab>
       <v-tab :value="1">
-        <v-badge color="grey" :content="nivelesStore.niveles.length" inline>
+        <v-badge color="primary" :content="nivelesStore.niveles.length" inline>
           <v-icon start>mdi-format-list-numbered</v-icon> Nivel
         </v-badge>
       </v-tab>
       <v-tab :value="2">
-        <v-badge color="grey" :content="tiposStore.tipos.length" inline>
+        <v-badge color="primary" :content="tiposStore.tipos.length" inline>
           <v-icon start>mdi-tag</v-icon> Tipo
         </v-badge>
       </v-tab>
       <v-tab :value="3">
-        <v-badge color="grey" :content="relacionesStore.relaciones.length" inline>
+        <v-badge color="primary" :content="relacionesStore.relaciones.length" inline>
           <v-icon start>mdi-transit-connection-variant</v-icon> Relación
         </v-badge>
       </v-tab>
       <v-tab :value="4">
-        <v-badge color="grey" :content="cargosStore.cargos.length" inline>
+        <v-badge color="primary" :content="cargosStore.cargos.length" inline>
           <v-icon start>mdi-badge-account-horizontal</v-icon> Cargos
         </v-badge>
       </v-tab>
@@ -457,7 +457,7 @@ const getDependencies = (item) => {
       <v-window-item :value="0">
         <div class="fill-height d-flex flex-column">
           <div class="flex-shrink-0">
-            <v-alert type="info" variant="tonal" density="compact" class="mx-3 my-2 text-caption">
+            <v-alert type="info" variant="tonal" density="compact" class="mx-3 my-2 text-caption font-weight-bold text-slate-800">
               Define la jerarquía visual del organigrama. ({{ clasesStore.clases.length }} ítems)
             </v-alert>
             <div class="px-3 mb-2">

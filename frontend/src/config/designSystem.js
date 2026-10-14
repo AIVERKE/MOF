@@ -9,10 +9,27 @@
 // 1. Tokens de Modo Claro (Light Mode) - Paleta Institucional
 export const LIGHT_THEME_TOKENS = {
   // Capas de Profundidad
-  canvas: '#E4F1DD', // Capa 0: Fondo general de pantalla (Marfil Suave)
-  surface: '#FFFFFF', // Capa 1: Tarjetas, tablas y paneles (Blanco Puro)
+  canvas: '#EFF3EC', // Capa 0: Fondo general de pantalla (Marfil Suave armonizado)
+  surface: '#FFFFFF', // Capa 1: Superficie general de tarjetas
   border: '#3C6893', // Borde perimetral (Azul Acero)
   borderRgba: 'rgba(60, 104, 147, 0.20)',
+
+  // Navegación (Header y Sidebar - Un poco más oscuro que antes para dar contraste suave)
+  headerBg: '#DCE6DE', // Header: tono suave contrastado (un poco más oscuro que el fondo/blanco)
+  headerText: '#0C232B', // Texto y botones oscuros nítidos
+  sidebarBg: '#E2EBE3', // Menú lateral: tono sutil de separación visual
+  sidebarText: '#1C3B4A', // Texto oscuro legible (sin plomos)
+  sidebarTextActive: '#FFFFFF',
+  sidebarActiveBg: '#028191', // Ítem activo en turquesa institucional
+  sidebarAppendBg: '#D6E2D8', // Pie de perfil de usuario
+
+  // Tablas Tonalizadas (Acorde a su tono, fondo uniforme sin intercalados)
+  tableBg: '#F4F7F2', // Fondo de tabla acorde al tono canvas/marfil
+  tableCardBg: '#F5F8F3', // Contenedor de tarjeta suave para tablas
+  tableHeadBg: '#E1EBE0', // Cabecera de tabla con tono marfil-petróleo sutil
+  tableRowBg: '#FAFDF8', // Fila uniforme con tono suave no blanco puro
+  tableHover: 'rgba(2, 129, 145, 0.12)', // Hover con brillo turquesa sutil
+  tableBorder: 'rgba(60, 104, 147, 0.18)',
 
   // Colores Institucionales y de Acción
   petroleo: '#1A4756', // Azul Petróleo (Títulos, navegación, botones estándar)
@@ -28,15 +45,13 @@ export const LIGHT_THEME_TOKENS = {
   ambarBg: '#FFF3E0', // Fondo ámbar suave para chips
   ambarText: '#B45309', // Texto ámbar oscuro legible
 
-  // Tipografía y Neutrales Slate
-  titleColor: '#1A4756',
-  subtitleColor: '#3C6893',
-  textMain: '#1E293B', // Slate Oscuro (Texto de cuerpo, lectura continua)
-  textMuted: '#64748B', // Gris Neutro (Hints, captions, subtítulos secundarios)
-  placeholder: '#94A3B8', // Gris claro para placeholders
-  gridline: '#E2E8F0', // Cuadrícula sutil de gráficos y divisores
-  tableHover: 'rgba(228, 241, 221, 0.50)',
-  tableHeadBg: 'rgba(26, 71, 86, 0.06)',
+  // Tipografía de Alto Contraste (Cero Plomo, Textos Más Oscuros)
+  titleColor: '#0C232B', // Títulos en petróleo ultra profundo
+  subtitleColor: '#153B4D', // Subtítulos nítidos de alto contraste
+  textMain: '#0B1920', // Slate negro profundo (Cuerpo de texto, lectura nítida)
+  textMuted: '#1C3B4A', // Petróleo oscuro legible (Adiós plomo/gris lavado)
+  placeholder: '#5A7584', // Placeholder legible
+  gridline: 'rgba(60, 104, 147, 0.16)', // Cuadrícula sutil armónica
 };
 
 // 2. Tokens de Modo Oscuro Institucional (Dark Mode - Petróleo Noche)
@@ -47,6 +62,24 @@ export const DARK_THEME_TOKENS = {
   surface: '#132630', // Capa 1: Superficie elevada de tarjetas en petróleo noche
   border: '#5C8BB8', // Borde perimetral nocturno
   borderRgba: 'rgba(112, 153, 194, 0.25)',
+
+  // Navegación Nocturna
+  headerBg: '#08151B',
+  headerText: '#FFFFFF',
+  sidebarBg: '#061217',
+  sidebarText: '#CBD5E1',
+  sidebarTextActive: '#FFFFFF',
+  sidebarActiveBg: '#028191',
+  sidebarAppendBg: '#040C10',
+
+  // Tablas Nocturnas
+  tableBg: '#0F212A',
+  tableCardBg: '#132630',
+  tableHeadBg: 'rgba(30, 56, 69, 0.95)',
+  tableRowBg: '#11242E',
+  tableRowEven: '#0E1D25',
+  tableHover: 'rgba(2, 129, 145, 0.22)',
+  tableBorder: 'rgba(112, 153, 194, 0.22)',
 
   // Colores Institucionales y de Acción Nocturnos
   petroleo: '#3BA3B8', // Versión clara y luminosa del azul petróleo
@@ -64,13 +97,11 @@ export const DARK_THEME_TOKENS = {
 
   // Tipografía y Neutrales
   titleColor: '#E4F1DD', // El marfil institucional ilumina los títulos nocturnos con calidez
-  subtitleColor: '#82A7CD',
-  textMain: '#F1F5F9', // Slate claro de alto contraste
-  textMuted: '#94A3B8',
-  placeholder: '#64748B',
+  subtitleColor: '#A5C4E5',
+  textMain: '#F8FAFC', // Slate claro de alto contraste
+  textMuted: '#CBD5E1',
+  placeholder: '#94A3B8',
   gridline: '#1E3845',
-  tableHover: 'rgba(2, 129, 145, 0.20)',
-  tableHeadBg: 'rgba(30, 56, 69, 0.85)',
 };
 
 // Alias por defecto

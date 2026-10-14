@@ -13,55 +13,73 @@
 :root,
 .v-theme--light,
 .light-theme {
+  /* Énfasis de tipografía (Elimina el 60% plomito por defecto de Vuetify) */
+  --v-medium-emphasis-opacity: 0.9 !important;
+  --v-high-emphasis-opacity: 1 !important;
+
   /* Capas de Profundidad */
-  --mof-canvas: #E4F1DD;
-  --mof-surface: #FFFFFF;
-  --mof-border-color: #3C6893;
-  --mof-border-subtle: rgba(60, 104, 147, 0.20);
+  --mof-canvas: #eff3ec;
+  --mof-surface: #ffffff;
+  --mof-border-color: #3c6893;
+  --mof-border-subtle: rgba(60, 104, 147, 0.2);
   --mof-border-nav: rgba(60, 104, 147, 0.15);
   --mof-border-input: rgba(60, 104, 147, 0.35);
 
   /* Paleta Institucional */
-  --mof-petroleo: #1A4756;
+  --mof-petroleo: #1a4756;
   --mof-turquesa: #028191;
-  --mof-marfil: #E4F1DD;
-  --mof-acero: #3C6893;
-  --mof-coral: #F04D65;
+  --mof-marfil: #e4f1dd;
+  --mof-acero: #3c6893;
+  --mof-coral: #f04d65;
+
+  /* Navegación (Header y Sidebar - Un poco más oscuro que antes para dar contraste suave) */
+  --mof-header-bg: #e2ebe3;
+  --mof-header-text: #0c232b;
+  --mof-sidebar-bg: #e2ebe3;
+  --mof-sidebar-text: #1c3b4a;
+  --mof-sidebar-active: #028191;
+  --mof-sidebar-hover: rgba(2, 129, 145, 0.12);
+  --mof-sidebar-append: #e2ebe3;
+  --mof-border-nav: rgba(60, 104, 147, 0.22);
 
   /* Estados y Feedback */
-  --mof-danger: #D93852;
-  --mof-success: #2E8B57;
-  --mof-warning: #E69F00;
-  --mof-warning-bg: #FFF3E0;
-  --mof-warning-text: #B45309;
+  --mof-danger: #d93852;
+  --mof-success: #2e8b57;
+  --mof-warning: #e69f00;
+  --mof-warning-bg: #fff3e0;
+  --mof-warning-text: #b45309;
 
-  /* Tipografía y Escala Slate */
-  --mof-title-color: #1A4756;
-  --mof-subtitle-color: #3C6893;
-  --mof-text-main: #1E293B;
-  --mof-text-muted: #64748B;
-  --mof-placeholder: #94A3B8;
-  --mof-gridline: #E2E8F0;
+  /* Tipografía Oscura de Alto Contraste (Cero Plomo) */
+  --mof-title-color: #0c232b;
+  --mof-subtitle-color: #153b4d;
+  --mof-text-main: #0b1920;
+  --mof-text-muted: #1c3b4a; /* Adiós al gris plomo lavado #64748b */
+  --mof-placeholder: #5a7584;
+  --mof-gridline: rgba(60, 104, 147, 0.16);
 
-  /* Tablas y Capa 2 */
+  /* Tablas Tonalizadas (Acorde a su tono, fondo uniforme sin intercalados) */
+  --mof-table-bg: #f4f7f2;
+  --mof-table-card-bg: #f5f8f3;
+  --mof-table-head-bg: #e1ebe0;
+  --mof-table-row-bg: #fafdf8;
+  --mof-table-hover: rgba(2, 129, 145, 0.12);
+  --mof-table-border: rgba(60, 104, 147, 0.18);
   --mof-capa-2: rgba(2, 129, 145, 0.08);
-  --mof-table-hover: rgba(228, 241, 221, 0.50);
-  --mof-table-head-bg: rgba(26, 71, 86, 0.06);
 
-  /* Clases Slate en Modo Claro */
-  --mof-slate-800: #1E293B;
-  --mof-slate-700: #334155;
-  --mof-slate-600: #475569;
-  --mof-slate-500: #64748B;
-  --mof-slate-100: #F1F5F9;
-  --mof-slate-50: #F8FAFC;
+  /* Clases Slate Oscurecidas para Máxima Legibilidad */
+  --mof-slate-800: #0b1920;
+  --mof-slate-700: #102632;
+  --mof-slate-600: #153342;
+  --mof-slate-500: #1c3e4f; /* Era #64748b plomo */
+  --mof-slate-100: #f1f5f9;
+  --mof-slate-50: #f8fafc;
 
   /* Series de Gráficos */
-  --mof-chart-1: #1A4756;
+  --mof-chart-1: #1a4756;
   --mof-chart-2: #028191;
-  --mof-chart-3: #F04D65;
-  --mof-chart-4: #3C6893;
-  --mof-chart-5: #2E8B57;
+  --mof-chart-3: #f04d65;
+  --mof-chart-4: #3c6893;
+  --mof-chart-5: #2e8b57;
 
   /* Radios M3 */
   --mof-radius-card: 16px;
@@ -72,49 +90,63 @@
 /* Variables en Modo Oscuro Institucional (Petróleo Noche) */
 .v-theme--dark,
 .dark-theme {
-  --mof-canvas: #0A1920;
+  --mof-canvas: #0a1920;
   --mof-surface: #132630;
-  --mof-border-color: #5C8BB8;
+  --mof-border-color: #5c8bb8;
   --mof-border-subtle: rgba(112, 153, 194, 0.25);
-  --mof-border-nav: rgba(112, 153, 194, 0.20);
-  --mof-border-input: rgba(112, 153, 194, 0.40);
+  --mof-border-nav: rgba(112, 153, 194, 0.2);
+  --mof-border-input: rgba(112, 153, 194, 0.4);
 
-  --mof-petroleo: #3BA3B8;
-  --mof-turquesa: #00BCD4;
+  --mof-petroleo: #3ba3b8;
+  --mof-turquesa: #00bcd4;
   --mof-marfil: rgba(228, 241, 221, 0.12);
-  --mof-acero: #82A7CD;
-  --mof-coral: #F45D74;
+  --mof-acero: #82a7cd;
+  --mof-coral: #f45d74;
 
-  --mof-danger: #F87171;
-  --mof-success: #34D399;
-  --mof-warning: #FBBF24;
+  /* Navegación Nocturna */
+  --mof-header-bg: #08151b;
+  --mof-header-text: #ffffff;
+  --mof-sidebar-bg: #061217;
+  --mof-sidebar-text: #cbd5e1;
+  --mof-sidebar-active: #028191;
+  --mof-sidebar-hover: rgba(2, 129, 145, 0.25);
+  --mof-sidebar-append: #040c10;
+
+  --mof-danger: #f87171;
+  --mof-success: #34d399;
+  --mof-warning: #fbbf24;
   --mof-warning-bg: rgba(245, 158, 11, 0.15);
-  --mof-warning-text: #FCD34D;
+  --mof-warning-text: #fcd34d;
 
-  --mof-title-color: #E4F1DD;
-  --mof-subtitle-color: #82A7CD;
-  --mof-text-main: #F1F5F9;
-  --mof-text-muted: #94A3B8;
-  --mof-placeholder: #64748B;
-  --mof-gridline: #1E3845;
+  --mof-title-color: #e4f1dd;
+  --mof-subtitle-color: #82a7cd;
+  --mof-text-main: #f1f5f9;
+  --mof-text-muted: #cbd5e1;
+  --mof-placeholder: #94a3b8;
+  --mof-gridline: #1e3845;
 
-  --mof-capa-2: #1C3745;
-  --mof-table-hover: rgba(2, 129, 145, 0.20);
-  --mof-table-head-bg: rgba(30, 56, 69, 0.85);
+  --mof-capa-2: #1c3745;
+  --mof-table-bg: #0f212a;
+  --mof-table-card-bg: #132630;
+  --mof-table-head-bg: rgba(30, 56, 69, 0.95);
+  --mof-table-row-bg: #11242e;
+  --mof-table-row-even: #0e1d25;
+  --mof-table-hover: rgba(2, 129, 145, 0.22);
+  --mof-table-border: rgba(112, 153, 194, 0.22);
 
   /* Clases Slate en Modo Oscuro */
-  --mof-slate-800: #F1F5F9;
-  --mof-slate-700: #E2E8F0;
-  --mof-slate-600: #CBD5E1;
-  --mof-slate-500: #94A3B8;
+  --mof-slate-800: #f1f5f9;
+  --mof-slate-700: #e2e8f0;
+  --mof-slate-600: #cbd5e1;
+  --mof-slate-500: #94a3b8;
   --mof-slate-100: #132630;
-  --mof-slate-50: #0E1D24;
+  --mof-slate-50: #0e1d24;
 
-  --mof-chart-1: #3BA3B8;
-  --mof-chart-2: #00BCD4;
-  --mof-chart-3: #F45D74;
-  --mof-chart-4: #82A7CD;
-  --mof-chart-5: #34D399;
+  --mof-chart-1: #3ba3b8;
+  --mof-chart-2: #00bcd4;
+  --mof-chart-3: #f45d74;
+  --mof-chart-4: #82a7cd;
+  --mof-chart-5: #34d399;
 }
 
 /* Adaptación para Modos Daltónicos (Alto Contraste Accesible Wong) */
@@ -133,7 +165,13 @@ body,
 .v-main {
   background-color: var(--mof-canvas) !important;
   color: var(--mof-text-main);
-  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family:
+    "Urbanist",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif !important;
 }
 
 /* Capa 1: Superficies (Tarjetas, Paneles, Formularios, Modales) */
@@ -163,14 +201,38 @@ body,
   color: var(--mof-title-color) !important;
 }
 
-/* Clases utilitarias Slate sincronizadas con el tema */
-.text-slate-800 { color: var(--mof-slate-800) !important; }
-.text-slate-700 { color: var(--mof-slate-700) !important; }
-.text-slate-600 { color: var(--mof-slate-600) !important; }
-.text-slate-500 { color: var(--mof-slate-500) !important; }
+/* Clases utilitarias Slate y de texto sincronizadas con el tema (Cero plomo/deslavado) */
+.text-slate-800 {
+  color: var(--mof-slate-800) !important;
+}
+.text-slate-700 {
+  color: var(--mof-slate-700) !important;
+}
+.text-slate-600 {
+  color: var(--mof-slate-600) !important;
+}
+.text-slate-500,
+.text-grey,
+.text-grey-darken-1,
+.text-grey-darken-2,
+.text-grey-darken-3,
+.text-grey-darken-4,
+.text-grey-lighten-1,
+.text-grey-lighten-2,
+.text-muted,
+.grey--text,
+.text--secondary,
+.text-medium-emphasis {
+  color: var(--mof-text-muted) !important; /* #1C3B4A: Petróleo neutro oscuro, alta legibilidad */
+  opacity: 1 !important;
+}
 
-.bg-slate-50 { background-color: var(--mof-slate-50) !important; }
-.bg-slate-100 { background-color: var(--mof-slate-100) !important; }
+.bg-slate-50 {
+  background-color: var(--mof-slate-50) !important;
+}
+.bg-slate-100 {
+  background-color: var(--mof-slate-100) !important;
+}
 
 .border-slate-200,
 .v-card.border-slate-200 {
@@ -198,28 +260,63 @@ body,
    ------------------------------------------------------------------------------ */
 
 /* Título Principal (h1 / h2) */
-h1, h2, .text-h1, .text-h2, .v-toolbar-title {
-  font-family: 'Urbanist', sans-serif !important;
+h1,
+h2,
+.text-h1,
+.text-h2 {
+  font-family: "Urbanist", sans-serif !important;
   color: var(--mof-title-color) !important;
   font-weight: 800 !important;
   letter-spacing: -0.02em;
 }
 
+/* Toolbars y cabeceras de paneles laterales (Texto blanco nítido, sin curvas recortadas) */
+.v-toolbar {
+  border-radius: 0 !important;
+}
+
+.v-toolbar .v-toolbar-title,
+.v-toolbar .v-toolbar-title span,
+.v-toolbar .v-toolbar-title .text-subtitle-1,
+.v-toolbar .v-toolbar-title .text-caption,
+.v-toolbar-title.text-white {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+.v-toolbar .v-btn {
+  color: #ffffff !important;
+}
+
+/* Cajones laterales (Drawers) y sus tarjetas: rectos al tope sin curvas que corten */
+.v-navigation-drawer,
+.v-navigation-drawer .v-card,
+.v-navigation-drawer .resizable-container {
+  border-radius: 0 !important;
+}
+
 /* Título de Sección (h3 / h4) */
-h3, h4, .text-h3, .text-h4, .v-card-title {
-  font-family: 'Urbanist', sans-serif !important;
+h3,
+h4,
+.text-h3,
+.text-h4,
+.v-card-title {
+  font-family: "Urbanist", sans-serif !important;
   color: var(--mof-title-color) !important;
   font-weight: 700 !important;
 }
 
-/* Subtítulos y Bajadas */
+/* Subtítulos y Bajadas (Sin opacidad deslavada plomo) */
 .text-subtitle-1,
 .text-subtitle-2,
 .v-card-subtitle,
+.v-list-item-subtitle,
+.v-list-subheader,
 .subtitle-descriptivo {
-  font-family: 'Urbanist', sans-serif !important;
+  font-family: "Urbanist", sans-serif !important;
   color: var(--mof-subtitle-color) !important;
-  font-weight: 500 !important;
+  opacity: 1 !important;
+  font-weight: 600 !important;
 }
 
 /* Texto de Cuerpo */
@@ -227,29 +324,33 @@ p,
 body,
 .text-body-1,
 .text-body-2 {
-  font-family: 'Urbanist', sans-serif !important;
-  color: var(--mof-text-main);
+  font-family: "Urbanist", sans-serif !important;
+  color: var(--mof-text-main) !important;
   font-weight: 400;
   line-height: 1.6;
 }
 
-/* Etiquetas de Formularios (Label) */
+/* Etiquetas de Formularios (Label - Siempre nítidos, sin plomo al perder foco) */
 .v-label,
 label,
-.form-label {
-  font-family: 'Urbanist', sans-serif !important;
+.form-label,
+.v-field-label,
+.v-field-label--floating {
+  font-family: "Urbanist", sans-serif !important;
   color: var(--mof-title-color) !important;
-  font-weight: 600 !important;
+  opacity: 1 !important;
+  font-weight: 700 !important;
 }
 
-/* Textos de Ayuda / Hints */
+/* Textos de Ayuda / Hints / Captions secundarios */
 .v-messages__message,
 .v-input__details,
 .text-caption,
 caption {
-  font-family: 'Urbanist', sans-serif !important;
+  font-family: "Urbanist", sans-serif !important;
   color: var(--mof-text-muted) !important;
-  font-weight: 400 !important;
+  opacity: 1 !important;
+  font-weight: 600 !important;
   font-size: 12px !important;
 }
 
@@ -270,67 +371,162 @@ a:hover,
    3. BARRAS Y NAVEGACIÓN (Header, Sidebar, Breadcrumbs, Tabs)
    ------------------------------------------------------------------------------ */
 
-/* Barra Superior (Header / Navbar) */
+/* Barra Superior (Header / Navbar - Contraste suave, un poco más oscuro que antes) */
 .v-app-bar {
-  background-color: var(--mof-surface) !important;
+  background-color: var(--mof-header-bg) !important;
+  color: var(--mof-header-text) !important;
   border-bottom: 1px solid var(--mof-border-nav) !important;
-  box-shadow: 0 1px 4px rgba(26, 71, 86, 0.05) !important;
+  box-shadow: 0 1px 4px rgba(26, 71, 86, 0.08) !important;
 }
 
 .v-app-bar .v-app-bar-title,
 .v-app-bar .v-toolbar-title {
-  color: var(--mof-petroleo) !important;
+  color: var(--mof-header-text) !important;
   font-weight: 800 !important;
+  letter-spacing: -0.01em;
+}
+
+.v-app-bar .v-app-bar-title .v-icon {
+  color: var(--mof-turquesa) !important;
+}
+
+.v-app-bar-nav-icon,
+.v-app-bar .v-app-bar-nav-icon {
+  color: var(--mof-header-text) !important;
 }
 
 .v-app-bar .v-btn {
-  color: var(--mof-petroleo) !important;
-  transition: color 0.2s ease;
+  color: var(--mof-header-text) !important;
+  transition: all 0.2s ease;
 }
 
 .v-app-bar .v-btn:hover {
   color: var(--mof-turquesa) !important;
+  background-color: var(--mof-sidebar-hover) !important;
 }
 
-/* Menú Lateral (Sidebar / Drawer) */
-.v-navigation-drawer {
-  background-color: var(--mof-surface) !important;
+.v-app-bar .v-icon {
+  color: var(--mof-header-text) !important;
+}
+
+/* Menú Lateral (Sidebar / Drawer - Contraste suave de separación visual) */
+.v-navigation-drawer:not(.unidad-details-drawer),
+.resizable-drawer {
+  background-color: var(--mof-sidebar-bg) !important;
   border-right: 1px solid var(--mof-border-nav) !important;
+  color: var(--mof-sidebar-text) !important;
 }
 
-/* Ítem Normal Inactivo */
-.v-navigation-drawer .v-list-item {
-  color: var(--mof-text-muted) !important;
+/* Ítem Normal Inactivo del Menú Lateral */
+.v-navigation-drawer:not(.unidad-details-drawer) .v-list-item,
+.resizable-drawer .v-list-item {
+  color: var(--mof-sidebar-text) !important;
   font-weight: 600 !important;
   border-radius: 10px;
   margin-inline: 8px;
-  margin-block: 2px;
+  margin-block: 3px;
   transition: all 0.2s ease;
 }
 
-.v-navigation-drawer .v-list-item .v-icon {
-  color: var(--mof-text-muted) !important;
+.v-navigation-drawer:not(.unidad-details-drawer) .v-list-item .v-icon,
+.resizable-drawer .v-list-item .v-icon {
+  color: var(--mof-petroleo) !important;
+  transition: color 0.2s ease;
+}
+
+.v-navigation-drawer:not(.unidad-details-drawer)
+  .v-list-item
+  .v-list-item-title,
+.resizable-drawer .v-list-item .v-list-item-title {
+  color: var(--mof-sidebar-text) !important;
 }
 
 /* Ítem al pasar el mouse (Hover) */
-.v-navigation-drawer .v-list-item:hover:not(.v-list-item--active) {
-  background-color: var(--mof-marfil) !important;
+.v-navigation-drawer:not(.unidad-details-drawer)
+  .v-list-item:hover:not(.v-list-item--active),
+.resizable-drawer .v-list-item:hover:not(.v-list-item--active) {
+  background-color: var(--mof-sidebar-hover) !important;
   color: var(--mof-petroleo) !important;
 }
 
-.v-navigation-drawer .v-list-item:hover:not(.v-list-item--active) .v-icon {
+.v-navigation-drawer:not(.unidad-details-drawer)
+  .v-list-item:hover:not(.v-list-item--active)
+  .v-icon,
+.v-navigation-drawer:not(.unidad-details-drawer)
+  .v-list-item:hover:not(.v-list-item--active)
+  .v-list-item-title,
+.resizable-drawer .v-list-item:hover:not(.v-list-item--active) .v-icon,
+.resizable-drawer
+  .v-list-item:hover:not(.v-list-item--active)
+  .v-list-item-title {
   color: var(--mof-petroleo) !important;
 }
 
 /* Ítem Seleccionado (Active) */
-.v-navigation-drawer .v-list-item--active {
-  background-color: var(--mof-petroleo) !important;
-  color: #FFFFFF !important;
+.v-navigation-drawer:not(.unidad-details-drawer) .v-list-item--active,
+.resizable-drawer .v-list-item--active {
+  background-color: var(--mof-sidebar-active) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(2, 129, 145, 0.35) !important;
 }
 
-.v-navigation-drawer .v-list-item--active .v-icon,
-.v-navigation-drawer .v-list-item--active .v-list-item-title {
-  color: #FFFFFF !important;
+.v-navigation-drawer:not(.unidad-details-drawer) .v-list-item--active .v-icon,
+.v-navigation-drawer:not(.unidad-details-drawer)
+  .v-list-item--active
+  .v-list-item-title,
+.resizable-drawer .v-list-item--active .v-icon,
+.resizable-drawer .v-list-item--active .v-list-item-title {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Submenús colapsables (v-list-group) */
+.v-navigation-drawer:not(.unidad-details-drawer)
+  .v-list-group__items
+  .v-list-item,
+.resizable-drawer .v-list-group__items .v-list-item {
+  color: var(--mof-sidebar-text) !important;
+}
+
+/* Footer de usuario en el append del sidebar */
+.v-navigation-drawer:not(.unidad-details-drawer) .v-navigation-drawer__append,
+.resizable-drawer .v-navigation-drawer__append {
+  background-color: var(--mof-sidebar-append) !important;
+  border-top: 1px solid var(--mof-border-nav) !important;
+}
+
+.v-navigation-drawer:not(.unidad-details-drawer)
+  .v-navigation-drawer__append
+  .v-list-item-title,
+.resizable-drawer .v-navigation-drawer__append .v-list-item-title {
+  color: var(--mof-header-text) !important;
+  font-weight: 700 !important;
+}
+
+.v-navigation-drawer:not(.unidad-details-drawer)
+  .v-navigation-drawer__append
+  .v-list-item-subtitle,
+.resizable-drawer .v-navigation-drawer__append .v-list-item-subtitle {
+  color: var(--mof-text-muted) !important;
+}
+
+/* Barra inferior móvil */
+.v-bottom-navigation {
+  background-color: var(--mof-header-bg) !important;
+  color: var(--mof-header-text) !important;
+  border-top: 1px solid var(--mof-border-nav) !important;
+}
+
+.v-bottom-navigation .v-btn {
+  color: var(--mof-sidebar-text) !important;
+}
+
+.v-bottom-navigation .v-btn--active {
+  color: var(--mof-turquesa) !important;
+}
+
+.v-bottom-navigation .v-btn--active .v-icon {
+  color: var(--mof-turquesa) !important;
 }
 
 /* Migajas de Pan (Breadcrumbs) */
@@ -371,7 +567,7 @@ a:hover,
 .btn-cta,
 .v-btn.btn-cta {
   background-color: var(--mof-coral) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
   border-radius: var(--mof-radius-btn) !important;
   box-shadow: 0 2px 8px rgba(240, 77, 101, 0.25) !important;
@@ -381,7 +577,7 @@ a:hover,
 
 .btn-cta:hover,
 .v-btn.btn-cta:hover {
-  background-color: #E03E56 !important;
+  background-color: #e03e56 !important;
   box-shadow: 0 4px 14px rgba(240, 77, 101, 0.35) !important;
 }
 
@@ -389,7 +585,7 @@ a:hover,
 .btn-primary,
 .v-btn.btn-primary {
   background-color: var(--mof-petroleo) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
   border-radius: var(--mof-radius-btn) !important;
   text-transform: none !important;
@@ -444,7 +640,7 @@ a:hover,
 .v-btn.btn-destructive,
 .v-btn.btn-danger {
   background-color: var(--mof-danger) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
   border-radius: var(--mof-radius-btn) !important;
   text-transform: none !important;
@@ -452,7 +648,7 @@ a:hover,
 
 .btn-destructive:hover,
 .v-btn.btn-destructive:hover {
-  background-color: #C22D45 !important;
+  background-color: #c22d45 !important;
 }
 
 /* 6. Botones de Icono en Filas de Tabla */
@@ -469,7 +665,7 @@ a:hover,
 /* 7. Botones Alternadores (Toggle) */
 .v-btn-toggle .v-btn--active {
   background-color: var(--mof-turquesa) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 
 /* ------------------------------------------------------------------------------
@@ -491,11 +687,13 @@ a:hover,
   --v-field-border-width: 2px !important;
 }
 
-/* Textos Placeholder */
+/* Textos Placeholder ("tipo fantasmita" permitido exclusivamente aquí) */
 .v-field__input::placeholder,
-input::placeholder {
-  color: var(--mof-placeholder) !important;
-  opacity: 1 !important;
+input::placeholder,
+textarea::placeholder {
+  color: #7b8e98 !important;
+  opacity: 0.75 !important;
+  font-weight: 400 !important;
 }
 
 /* Campo con Error */
@@ -515,47 +713,109 @@ input::placeholder {
 }
 
 /* ------------------------------------------------------------------------------
-   6. TABLAS DE DATOS (Data Tables)
+   6. TABLAS DE DATOS (Data Tables - Tonalizadas, acordes a su tono)
    ------------------------------------------------------------------------------ */
 
-.v-table {
-  background-color: var(--mof-surface) !important;
-  border-radius: var(--mof-radius-card) !important;
+/* Tarjetas contenedoras de tablas principales (excluye diálogos y modales) */
+.v-card.card-tabla,
+.v-card:not(.v-dialog .v-card):not(.v-card--variant-outlined):has(> .v-data-table),
+.v-card:not(.v-dialog .v-card):not(.v-card--variant-outlined):has(> .v-table),
+.v-card:not(.v-dialog .v-card):not(.v-card--variant-outlined):has(> .v-data-table__wrapper),
+.v-card:not(.v-dialog .v-card):not(.v-card--variant-outlined):has(> .v-table__wrapper) {
+  background-color: var(--mof-table-card-bg) !important;
+  border: 1px solid var(--mof-table-border) !important;
+}
+
+.v-card.card-tabla > .v-card-title,
+.v-card:not(.v-dialog .v-card):not(.v-card--variant-outlined):has(> .v-data-table) > .v-card-title,
+.v-card:not(.v-dialog .v-card):not(.v-card--variant-outlined):has(> .v-table) > .v-card-title {
+  background-color: var(--mof-table-card-bg) !important;
+  color: var(--mof-title-color) !important;
+}
+
+/* Tablas generales y Vuetify Data Tables */
+/* Tablas generales y Vuetify Data Tables (Cubre completo de borde a borde, sin curvas cortadas) */
+.v-table,
+.v-data-table,
+.v-table__wrapper,
+.v-data-table__wrapper,
+.v-table table,
+.v-data-table table {
+  background-color: var(--mof-table-bg) !important;
+  border-radius: 0 !important;
   overflow: hidden;
 }
 
-/* Cabecera (thead) */
+/* Cabecera de la tabla (thead / th - Sin curva en las esquinas, cubre recto de lado a lado) */
 .v-table thead,
-.v-table th {
+.v-table th,
+.v-table thead tr,
+.v-table thead tr th,
+.v-data-table thead,
+.v-data-table th,
+.v-data-table thead tr,
+.v-data-table thead tr th,
+.v-data-table thead th:first-child,
+.v-data-table thead th:last-child {
   background-color: var(--mof-table-head-bg) !important;
   color: var(--mof-title-color) !important;
-  font-weight: 700 !important;
+  border-radius: 0 !important;
+  font-weight: 800 !important;
   font-size: 12px !important;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 
 /* Borde divisorio inferior de cabecera */
-.v-table thead tr th {
-  border-bottom: 2px solid var(--mof-border-color) !important;
+.v-table thead tr th,
+.v-data-table thead tr th {
+  border-bottom: 2px solid var(--mof-table-border) !important;
 }
 
-/* Líneas divisorias de filas */
-.v-table tbody tr td {
-  border-bottom: 1px solid var(--mof-gridline) !important;
+/* Filas de la tabla (Fondo uniforme y limpio, sin intercalados) */
+.v-table tbody tr,
+.v-data-table tbody tr,
+tr.v-data-table__tr {
+  background-color: var(--mof-table-row-bg) !important;
+  transition: background-color 0.15s ease;
+}
+
+/* Celdas de fila (td) - Texto oscuro nítido, sin plomos */
+.v-table tbody tr td,
+.v-data-table tbody tr td,
+.v-data-table__tr td {
+  border-bottom: 1px solid var(--mof-table-border) !important;
   color: var(--mof-text-main) !important;
   font-size: 13px;
+  font-weight: 600;
 }
 
-/* Fila al pasar el mouse */
-.v-table tbody tr:hover {
+.v-table tbody tr td span,
+.v-data-table tbody tr td span,
+.v-data-table tbody tr td div {
+  color: inherit;
+}
+
+/* Fila al pasar el mouse (Hover) */
+.v-table tbody tr:hover,
+.v-data-table tbody tr:hover,
+tr.v-data-table__tr:hover {
   background-color: var(--mof-table-hover) !important;
 }
 
-/* Paginación activa */
+/* Pie de tabla y paginación */
+.v-data-table-footer,
+.v-data-table__footer {
+  background-color: var(--mof-table-head-bg) !important;
+  color: var(--mof-text-main) !important;
+  font-weight: 600 !important;
+  border-top: 1px solid var(--mof-table-border) !important;
+}
+
 .v-pagination .v-pagination__item--is-active .v-btn {
   background-color: var(--mof-petroleo) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
 }
 
 /* ------------------------------------------------------------------------------
@@ -631,7 +891,7 @@ input::placeholder {
 /* Tooltips Flotantes: Fondo #1A4756 oscuro, texto blanco, radio 6px */
 .v-tooltip .v-overlay__content {
   background-color: var(--mof-petroleo) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-size: 11px !important;
   font-weight: 500 !important;
   border-radius: 6px !important;
@@ -651,25 +911,25 @@ input::placeholder {
 }
 
 .v-alert--type-success {
-  background-color: #E8F5E9 !important;
+  background-color: #e8f5e9 !important;
   color: var(--mof-success) !important;
   border: 1px solid var(--mof-success) !important;
 }
 
 .v-alert--type-error {
-  background-color: #FFEBEE !important;
+  background-color: #ffebee !important;
   color: var(--mof-danger) !important;
   border: 1px solid var(--mof-danger) !important;
 }
 
 .v-alert--type-warning {
-  background-color: #FFF8E1 !important;
+  background-color: #fff8e1 !important;
   color: var(--mof-warning) !important;
   border: 1px solid var(--mof-warning) !important;
 }
 
 .v-alert--type-info {
-  background-color: #E0F7FA !important;
+  background-color: #e0f7fa !important;
   color: var(--mof-turquesa) !important;
   border: 1px solid var(--mof-turquesa) !important;
 }
@@ -682,7 +942,7 @@ input::placeholder {
 .chip-activo,
 .v-chip.chip-activo {
   background-color: var(--mof-success) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
 }
 
@@ -699,14 +959,14 @@ input::placeholder {
 .chip-rechazado,
 .v-chip.chip-rechazado {
   background-color: var(--mof-danger) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
 }
 
 /* Borrador / Sin Iniciar */
 .chip-borrador,
 .v-chip.chip-borrador {
-  background-color: #F1F5F9 !important;
+  background-color: #f1f5f9 !important;
   color: #475569 !important;
   font-weight: 600 !important;
 }
@@ -719,10 +979,54 @@ input::placeholder {
   font-weight: 700 !important;
 }
 
+/* Chip de Nivel Jerárquico (NIVEL) */
+.chip-nivel,
+.v-chip.chip-nivel {
+  font-weight: 700 !important;
+  letter-spacing: 0.3px;
+  background-color: rgba(67, 56, 202, 0.12) !important;
+  color: #312e81 !important; /* Índigo profundo de alto contraste en modo claro */
+  border: 1px solid rgba(67, 56, 202, 0.25) !important;
+}
+
+.v-chip.chip-nivel .v-chip__content,
+.chip-nivel .v-chip__content {
+  color: #312e81 !important;
+}
+
+/* Nivel y chips índigo en Modo Oscuro: Texto lavanda luminoso nítido y legible */
+.v-theme--dark .chip-nivel,
+.v-theme--dark .v-chip.chip-nivel,
+.dark-theme .chip-nivel,
+.dark-theme .v-chip.chip-nivel,
+.v-theme--dark .v-chip[class*="indigo-darken"],
+.dark-theme .v-chip[class*="indigo-darken"],
+.v-theme--dark .v-chip--variant-tonal.text-indigo-darken-2,
+.dark-theme .v-chip--variant-tonal.text-indigo-darken-2,
+.v-theme--dark .v-chip--variant-tonal.text-indigo-darken-1,
+.dark-theme .v-chip--variant-tonal.text-indigo-darken-1 {
+  background-color: rgba(129, 140, 248, 0.2) !important;
+  color: #e0e7ff !important; /* Lavanda claro de máxima visibilidad en fondo oscuro */
+  border: 1px solid rgba(165, 180, 252, 0.4) !important;
+}
+
+.v-theme--dark .v-chip.chip-nivel .v-chip__content,
+.v-theme--dark .chip-nivel .v-chip__content,
+.dark-theme .v-chip.chip-nivel .v-chip__content,
+.dark-theme .chip-nivel .v-chip__content,
+.v-theme--dark .v-chip[class*="indigo-darken"] .v-chip__content,
+.dark-theme .v-chip[class*="indigo-darken"] .v-chip__content,
+.v-theme--dark .v-chip--variant-tonal.text-indigo-darken-2 .v-chip__content,
+.dark-theme .v-chip--variant-tonal.text-indigo-darken-2 .v-chip__content,
+.v-theme--dark .v-chip--variant-tonal.text-indigo-darken-1 .v-chip__content,
+.dark-theme .v-chip--variant-tonal.text-indigo-darken-1 .v-chip__content {
+  color: #e0e7ff !important;
+}
+
 /* Badge de Contador (ej. "3 pendientes") */
 .badge-contador {
   background-color: var(--mof-coral) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-size: 11px;
   font-weight: 800;
   border-radius: var(--mof-radius-pill);
@@ -766,7 +1070,8 @@ marker {
 
 .text-xxs {
   font-size: 10px !important;
-  font-weight: 700;
+  font-weight: 700 !important;
+  color: var(--mof-text-muted) !important;
 }
 
 .chip-sigla {
