@@ -6,7 +6,7 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { useAllCargosMofStore } from "@/stores/cargos_mof";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
-import { swatches, getUsedColors, toBoolean } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, toBoolean, getIntenseNodeColor } from "@/utils/mofHelpers";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 const clasesStore = useAllClasesMofStore();
@@ -48,6 +48,10 @@ const form = ref({
 });
 
 const colorMenu = ref(false);
+
+function getItemColor(item) {
+  return item?.color || getIntenseNodeColor(item, clasesStore.clases) || "#1976D2";
+}
 
 const refreshData = async () => {
   loading.value = true;
@@ -471,10 +475,18 @@ const getDependencies = (item) => {
             <v-list-item v-for="(item, index) in clasesStore.clases" :key="item.id" 
               class="mb-2 rounded-lg border"
               :class="{ 'inactive-item': !item.activo }"
-              :style="{ borderLeft: `6px solid ${item.color || '#ccc'}` }">
+              :style="{ borderLeft: `6px solid ${getItemColor(item)} !important` }">
               <template v-slot:prepend>
-                <div class="d-flex flex-column align-center mr-2">
-                  <span class="text-caption font-weight-bold text-grey">{{ index + 1 }}</span>
+                <div class="d-flex align-center mr-2">
+                  <span class="text-caption font-weight-bold text-grey mr-2 text-center" style="min-width: 14px;">{{ index + 1 }}</span>
+                  <v-avatar
+                    :color="getItemColor(item)"
+                    size="18"
+                    class="elevation-1 border cursor-pointer"
+                    @click.stop="openDialog(item)"
+                  >
+                    <v-tooltip activator="parent" location="top">Color del nodo: {{ getItemColor(item) }}</v-tooltip>
+                  </v-avatar>
                 </div>
               </template>
               <v-list-item-title class="font-weight-bold text-body-2 d-flex align-center flex-wrap" :class="{ 'text-grey': !item.activo }">
