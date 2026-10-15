@@ -496,7 +496,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
                     label
                     variant="tonal"
                     color="indigo-darken-2"
-                    class="font-weight-bold"
+                    class="font-weight-bold chip-nivel"
                   >
                     {{ resolveNivel(item.nivel) }}
                   </v-chip>

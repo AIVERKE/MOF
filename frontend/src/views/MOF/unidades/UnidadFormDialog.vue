@@ -211,30 +211,29 @@ function moverAbajo(index) {
     persistent
   >
     <v-card>
-      <v-card-title class="d-flex align-center justify-space-between">
-        <span>
+      <v-card-title class="d-flex align-center justify-space-between py-3 px-4 border-b">
+        <span class="text-subtitle-1 font-weight-bold">
           <template v-if="isEditMode">
             Editar:
-            <strong class="text-primary">{{ formData.nombre || formData.denominacion }}</strong>
+            <strong class="text-primary ml-1">{{ formData.nombre || formData.denominacion }}</strong>
           </template>
           <template v-else-if="selectedNode">
             Agregar unidad dependiente (Hija de):
-            <strong class="text-primary">{{ selectedNode.nombre || selectedNode.denominacion }}</strong>
+            <strong class="text-primary ml-1">{{ selectedNode.nombre || selectedNode.denominacion }}</strong>
           </template>
           <template v-else>
             Crear Unidad:
-            <strong class="text-primary">RAÍZ INSTITUCIONAL</strong>
+            <strong class="text-primary ml-1">RAÍZ INSTITUCIONAL</strong>
           </template>
         </span>
-        <v-btn icon="mdi-close" variant="text" @click="close">
-          <v-icon>mdi-close</v-icon>
+        <v-btn icon="mdi-close" variant="text" size="small" @click="close">
+          <v-icon size="20">mdi-close</v-icon>
           <v-tooltip activator="parent" location="top"
             >Cerrar formulario</v-tooltip
           >
         </v-btn>
       </v-card-title>
-      <v-divider />
-      <v-card-text>
+      <v-card-text class="pt-4">
         <v-form v-model="localFormValid" autocomplete="off">
           <v-row>
             <v-col cols="12" md="8">
@@ -329,14 +328,22 @@ function moverAbajo(index) {
           <v-card
             v-if="formData.funciones?.length"
             variant="outlined"
-            class="rounded-md border-slate-200 overflow-hidden mb-4"
+            class="rounded-md border-slate-200 overflow-hidden mb-8"
           >
-            <v-table density="compact">
+            <v-table density="compact" fixed-header style="max-height: 280px;">
               <thead>
                 <tr class="bg-slate-100 border-b-slate">
-                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">Función</th>
-                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">Base Legal</th>
-                  <th class="text-caption font-weight-bold px-3 text-right" style="width: 20%">Acciones</th>
+                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">
+                    <v-icon size="14" color="primary" class="mr-1">mdi-cog-outline</v-icon>
+                    Función
+                  </th>
+                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">
+                    <v-icon size="14" color="primary" class="mr-1">mdi-scale-balance</v-icon>
+                    Base Legal
+                  </th>
+                  <th class="text-caption font-weight-bold px-3 text-right" style="width: 20%">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -399,11 +406,11 @@ function moverAbajo(index) {
               </tbody>
             </v-table>
           </v-card>
-          <v-alert v-else type="info" variant="tonal" class="mb-4"
+          <v-alert v-else type="info" variant="tonal" class="mb-8"
             >Sin funciones registradas.</v-alert
           >
 
-          <v-row>
+          <v-row class="mt-2">
             <v-col cols="12">
               <SelectAllUnidades
                 v-model="formData.dependenciasFuncionales"

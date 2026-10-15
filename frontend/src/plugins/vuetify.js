@@ -9,8 +9,10 @@ import '@mdi/font/css/materialdesignicons.css'
 import { es } from 'vuetify/locale'
 
 import { themes } from './themes'
+import { vuetifyDefaults } from '@/config/designSystem'
 
 const vuetify = createVuetify({
+    defaults: vuetifyDefaults,
     components: {
         ...components,
         ...labsComponents,

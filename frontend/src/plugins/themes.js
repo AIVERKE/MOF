@@ -3,61 +3,67 @@
  * Basadas en Material Design 3, WCAG AA y d3 Well_palettes / Wong / Okabe-Ito para accesibilidad daltónica.
  */
 
+import { LIGHT_THEME_TOKENS, DARK_THEME_TOKENS } from '@/config/designSystem';
+
 export const lightTheme = {
   dark: false,
   colors: {
-    primary: '#4F46E5', // Indigo 600
-    secondary: '#7C3AED', // Violet 600
-    accent: '#2563EB', // Blue 600
-    success: '#10B981', // Emerald 500
-    warning: '#F59E0B', // Amber 500
-    error: '#EF4444', // Red 500
-    info: '#06B6D4', // Cyan 500
-    background: '#F1F5F9', // Slate 100
-    surface: '#FFFFFF',
-    'primary-darken-1': '#3730A3',
-    'primary-lighten-1': '#818CF8',
-    'secondary-darken-1': '#5B21B6',
-    'secondary-lighten-1': '#A78BFA',
+    primary: LIGHT_THEME_TOKENS.petroleo, // #1A4756 Azul Petróleo
+    secondary: LIGHT_THEME_TOKENS.acero, // #3C6893 Azul Acero
+    accent: LIGHT_THEME_TOKENS.turquesa, // #028191 Turquesa
+    cta: LIGHT_THEME_TOKENS.coral, // #F04D65 Coral CTA
+    success: LIGHT_THEME_TOKENS.verde, // #2E8B57 Verde Esmeralda
+    warning: LIGHT_THEME_TOKENS.ambar, // #E69F00 Ámbar
+    error: LIGHT_THEME_TOKENS.rojo, // #D93852 Rojo Sobrio
+    info: LIGHT_THEME_TOKENS.turquesa, // #028191 Turquesa
+    background: LIGHT_THEME_TOKENS.canvas, // #EFF3EC
+    surface: LIGHT_THEME_TOKENS.surface, // #FFFFFF
+    'on-background': LIGHT_THEME_TOKENS.textMain, // #0B1920 Texto oscuro de alto contraste
+    'on-surface': LIGHT_THEME_TOKENS.textMain, // #0B1920 Texto oscuro sin plomos
+    'primary-darken-1': '#11303B',
+    'primary-lighten-1': '#2C6C82',
+    'secondary-darken-1': '#2B4D6E',
+    'secondary-lighten-1': '#5C8BB8',
     'neutral-50': '#F8FAFC',
     'neutral-100': '#F1F5F9',
     'neutral-200': '#E2E8F0',
     'neutral-300': '#CBD5E1',
-    'neutral-400': '#94A3B8',
-    'neutral-500': '#64748B',
-    'neutral-600': '#475569',
-    'neutral-700': '#334155',
-    'neutral-800': '#1E293B',
-    'neutral-900': '#0F172A',
+    'neutral-400': '#5A7584',
+    'neutral-500': '#1C3B4A', // Oscurecido: adiós al gris plomo deslavado
+    'neutral-600': '#153342', // Oscurecido
+    'neutral-700': '#102632', // Oscurecido
+    'neutral-800': '#0B1920', // Slate negro profundo
+    'neutral-900': '#050D11',
   },
 };
 
 export const darkTheme = {
   dark: true,
   colors: {
-    primary: '#818CF8', // Indigo 400
-    secondary: '#A78BFA', // Violet 400
-    accent: '#60A5FA', // Blue 400
-    success: '#34D399', // Emerald 400
-    warning: '#FBBF24', // Amber 400
-    error: '#F87171', // Red 400
-    info: '#22D3EE', // Cyan 400
-    background: '#030712', // Slate 950
-    surface: '#0F172A', // Slate 900
-    'primary-darken-1': '#4F46E5',
-    'primary-lighten-1': '#C7D2FE',
-    'secondary-darken-1': '#7C3AED',
-    'secondary-lighten-1': '#DDD6FE',
-    'neutral-50': '#030712',
-    'neutral-100': '#0F172A',
-    'neutral-200': '#1E293B',
-    'neutral-300': '#334155',
-    'neutral-400': '#475569',
-    'neutral-500': '#94A3B8',
+    primary: DARK_THEME_TOKENS.petroleo, // #3BA3B8 Petróleo nocturno
+    secondary: DARK_THEME_TOKENS.acero, // #82A7CD Azul Acero claro
+    accent: DARK_THEME_TOKENS.turquesa, // #00BCD4 Turquesa luminoso
+    cta: DARK_THEME_TOKENS.coral, // #F45D74 Coral M3
+    success: DARK_THEME_TOKENS.verde, // #34D399 Verde esmeralda
+    warning: DARK_THEME_TOKENS.ambar, // #FBBF24 Ámbar legible
+    error: DARK_THEME_TOKENS.rojo, // #F87171 Rojo accesible
+    info: DARK_THEME_TOKENS.turquesa, // #00BCD4
+    background: DARK_THEME_TOKENS.canvas, // #0A1920 Capa 0 nocturna
+    surface: DARK_THEME_TOKENS.surface, // #132630 Capa 1 nocturna
+    'primary-darken-1': '#1A4756',
+    'primary-lighten-1': '#5EC2D6',
+    'secondary-darken-1': '#3C6893',
+    'secondary-lighten-1': '#A5C4E5',
+    'neutral-50': '#0A1920',
+    'neutral-100': '#132630',
+    'neutral-200': '#1E3845',
+    'neutral-300': '#2D4E60',
+    'neutral-400': '#47687C',
+    'neutral-500': '#64748B',
     'neutral-600': '#94A3B8',
     'neutral-700': '#CBD5E1',
     'neutral-800': '#E2E8F0',
-    'neutral-900': '#F1F5F9',
+    'neutral-900': '#F8FAFC',
   },
 };
 
@@ -71,11 +77,12 @@ export const protanopiaTheme = {
     primary: '#0072B2', // Azul Wong accesible
     secondary: '#E69F00', // Ámbar / Naranja cálido
     accent: '#56B4E9', // Azul cielo
+    cta: '#D55E00', // Bermellón accesible para daltónicos
     success: '#0072B2', // Azul diferenciado
     warning: '#F0E442', // Amarillo de alta visibilidad
     error: '#D55E00', // Bermellón oscuro
     info: '#009E73', // Verde azulado
-    background: '#F8FAFC',
+    background: LIGHT_THEME_TOKENS.canvas,
     surface: '#FFFFFF',
     'primary-darken-1': '#005584',
     'primary-lighten-1': '#56B4E9',
@@ -104,11 +111,12 @@ export const deuteranopiaTheme = {
     primary: '#0072B2', // Azul profundo
     secondary: '#CC79A7', // Magenta / Púrpura rojizo Wong
     accent: '#56B4E9', // Azul cielo
+    cta: '#D55E00', // Bermellón accesible
     success: '#0072B2', // Azul seguro
     warning: '#E69F00', // Ámbar
     error: '#D55E00', // Bermellón
     info: '#56B4E9', // Azul cielo
-    background: '#F8FAFC',
+    background: LIGHT_THEME_TOKENS.canvas,
     surface: '#FFFFFF',
     'primary-darken-1': '#005584',
     'primary-lighten-1': '#56B4E9',
@@ -137,11 +145,12 @@ export const tritanopiaTheme = {
     primary: '#C2410C', // Bermellón accesible WCAG AA
     secondary: '#009E73', // Verde azulado profundo
     accent: '#CC79A7', // Púrpura
+    cta: '#C2410C', // Bermellón CTA
     success: '#009E73', // Verde azulado
     warning: '#C2410C', // Bermellón advertencia
     error: '#B91C1C', // Rojo oscuro contrastado
     info: '#009E73', // Verde azulado
-    background: '#F8FAFC',
+    background: LIGHT_THEME_TOKENS.canvas,
     surface: '#FFFFFF',
     'primary-darken-1': '#9C4500',
     'primary-lighten-1': '#FF7F24',
