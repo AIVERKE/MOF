@@ -184,7 +184,7 @@ const handleDefinirPassword = async () => {
                   </div>
                 </div>
 
-                <h2 class="text-h5 font-weight-bold mb-3 leading-snug">
+                <h2 class="text-h5 font-weight-bold text-white mb-3 leading-snug">
                   Manual de Organización y Funciones
                 </h2>
                 <p class="text-body-2 text-blue-grey-lighten-4 mb-6 leading-relaxed">
@@ -522,6 +522,16 @@ const handleDefinirPassword = async () => {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(2, 129, 145, 0.4), transparent);
   pointer-events: none;
+}
+
+.login-banner h1,
+.login-banner h2,
+.login-banner h3 {
+  color: #ffffff !important;
+}
+
+.login-banner p {
+  color: rgba(255, 255, 255, 0.92) !important;
 }
 
 .login-submit-btn {
