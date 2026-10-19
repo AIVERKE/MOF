@@ -7,9 +7,9 @@ import { useAllClasesMofStore } from "@/stores/clases_mof";
 
 const stubs = {
   "v-autocomplete": {
-    props: ["modelValue", "items", "itemTitle", "itemValue", "customFilter", "loading", "label"],
+    props: ["modelValue", "items", "itemTitle", "itemValue", "customFilter", "loading", "label", "placeholder", "variant"],
     template: `
-      <div class="v-autocomplete-stub">
+      <div class="v-autocomplete-stub" :data-variant="variant" :data-placeholder="placeholder">
         <slot name="prepend-item" />
         <div v-for="item in items" :key="item.id || item" class="item-wrapper">
           <slot name="item" :props="{}" :item="{ raw: item }">
@@ -124,6 +124,26 @@ describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
     expect(toolbar.text()).toContain("Institutos (0/2)");
   });
 
+  it("renders external label and outlined variant when enableBatchGroups is true to prevent overlap", () => {
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [56],
+        label: "Coordinación Interna (Unidades relacionadas)",
+        type: "autocomplete",
+        enableBatchGroups: true,
+      },
+      global: { stubs },
+    });
+
+    // Label should be in external container, not passed to v-autocomplete
+    const extLabel = wrapper.find(".select-all-label");
+    expect(extLabel.exists()).toBe(true);
+    expect(extLabel.text()).toContain("Coordinación Interna (Unidades relacionadas)");
+
+    const autocomplete = wrapper.findComponent(".v-autocomplete-stub");
+    expect(autocomplete.attributes("data-variant")).toBe("outlined");
+  });
+
   it("excludes excludeId from available group units and counts", () => {
     // If we exclude FMED (id: 70), Facultades should only have 2 units available (56, 83)
     const wrapper = mount(SelectAllUnidades, {
@@ -150,12 +170,11 @@ describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
       global: { stubs },
     });
 
-    // Find the Facultades chip in the toolbar
-    const chips = wrapper.findAll(".batch-groups-toolbar .v-chip");
-    const facultadesChip = chips.find((c) => c.text().includes("Facultades"));
-    expect(facultadesChip).toBeDefined();
+    const btns = wrapper.findAll(".batch-groups-toolbar .batch-group-btn");
+    const facultadesBtn = btns.find((b) => b.text().includes("Facultades"));
+    expect(facultadesBtn).toBeDefined();
 
-    await facultadesChip.trigger("click");
+    await facultadesBtn.trigger("click");
 
     const emitted = wrapper.emitted("update:modelValue");
     expect(emitted).toBeTruthy();
@@ -174,11 +193,11 @@ describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
       global: { stubs },
     });
 
-    const chips = wrapper.findAll(".batch-groups-toolbar .v-chip");
-    const facultadesChip = chips.find((c) => c.text().includes("Facultades"));
-    expect(facultadesChip.text()).toContain("Facultades (3/3)");
+    const btns = wrapper.findAll(".batch-groups-toolbar .batch-group-btn");
+    const facultadesBtn = btns.find((b) => b.text().includes("Facultades"));
+    expect(facultadesBtn.text()).toContain("Facultades (3/3)");
 
-    await facultadesChip.trigger("click");
+    await facultadesBtn.trigger("click");
 
     const emitted = wrapper.emitted("update:modelValue");
     expect(emitted).toBeTruthy();
@@ -198,11 +217,11 @@ describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
       global: { stubs },
     });
 
-    const chips = wrapper.findAll(".batch-groups-toolbar .v-chip");
-    const facultadesChip = chips.find((c) => c.text().includes("Facultades"));
-    expect(facultadesChip.text()).toContain("Facultades (1/3)");
+    const btns = wrapper.findAll(".batch-groups-toolbar .batch-group-btn");
+    const facultadesBtn = btns.find((b) => b.text().includes("Facultades"));
+    expect(facultadesBtn.text()).toContain("Facultades (1/3)");
 
-    await facultadesChip.trigger("click");
+    await facultadesBtn.trigger("click");
 
     const emitted = wrapper.emitted("update:modelValue");
     expect(emitted).toBeTruthy();
@@ -226,10 +245,10 @@ describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
       global: { stubs },
     });
 
-    const chips = wrapper.findAll(".batch-groups-toolbar .v-chip");
-    const facultadesChip = chips.find((c) => c.text().includes("Facultades"));
+    const btns = wrapper.findAll(".batch-groups-toolbar .batch-group-btn");
+    const facultadesBtn = btns.find((b) => b.text().includes("Facultades"));
 
-    await facultadesChip.trigger("click");
+    await facultadesBtn.trigger("click");
 
     const emitted = wrapper.emitted("update:modelValue");
     const lastEmitted = emitted[emitted.length - 1][0];
@@ -269,8 +288,8 @@ describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
       global: { stubs },
     });
 
-    const clearBtn = wrapper.findAll(".v-btn").find((b) => b.text().includes("Limpiar"));
-    expect(clearBtn).toBeDefined();
+    const clearBtn = wrapper.find(".batch-group-clear-btn");
+    expect(clearBtn.exists()).toBe(true);
 
     await clearBtn.trigger("click");
 
