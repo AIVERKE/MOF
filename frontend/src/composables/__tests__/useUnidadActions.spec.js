@@ -28,7 +28,8 @@ describe("useUnidadActions", () => {
     };
   });
 
-  it("confirmAddItem: guarda exitosamente, cierra diálogo y ejecuta onRefresh con { force: true }", async () => {
+  it("confirmAddItem: guarda exitosamente, cierra diálogo y ejecuta onRefresh con { force: true, targetNodeId }", async () => {
+    saveUnidad.mockResolvedValue({ success: true, unidadId: 99 });
     const actions = useUnidadActions({
       unidadesStore,
       saveUnidad,
@@ -42,7 +43,23 @@ describe("useUnidadActions", () => {
     expect(res.success).toBe(true);
     expect(addDialog.value).toBe(false);
     expect(onRefresh).toHaveBeenCalledTimes(1);
-    expect(onRefresh).toHaveBeenCalledWith({ force: true });
+    expect(onRefresh).toHaveBeenCalledWith({ force: true, targetNodeId: 99 });
+  });
+
+  it("confirmAddItem: usa selectedNode.id como fallback de targetNodeId si saveUnidad no retorna unidadId", async () => {
+    saveUnidad.mockResolvedValue({ success: true });
+    const actions = useUnidadActions({
+      unidadesStore,
+      saveUnidad,
+      onRefresh,
+      addDialog,
+      deleteDialog,
+      selectedNode,
+    });
+
+    const res = await actions.confirmAddItem();
+    expect(res.success).toBe(true);
+    expect(onRefresh).toHaveBeenCalledWith({ force: true, targetNodeId: 10 });
   });
 
   it("confirmAddItem: si no hay onRefresh llama a unidadesStore.getFetchUnidades({ force: true })", async () => {
@@ -109,7 +126,23 @@ describe("useUnidadActions", () => {
     expect(unidadesStore.deleteUnidad).toHaveBeenCalledWith(20);
     expect(deleteDialog.value).toBe(false);
     expect(onRefresh).toHaveBeenCalledTimes(1);
-    expect(onRefresh).toHaveBeenCalledWith({ force: true });
+    expect(onRefresh).toHaveBeenCalledWith({ force: true, targetNodeId: null });
+  });
+
+  it("confirmDelete: pasa parentId como targetNodeId a onRefresh al eliminar un hijo", async () => {
+    selectedNode.value = { id: 20, nombre: "Nodo Hoja", parent: 10 };
+
+    const actions = useUnidadActions({
+      unidadesStore,
+      saveUnidad,
+      onRefresh,
+      addDialog,
+      deleteDialog,
+      selectedNode,
+    });
+
+    await actions.confirmDelete();
+    expect(onRefresh).toHaveBeenCalledWith({ force: true, targetNodeId: 10 });
   });
 
   it("confirmDelete: si no hay onRefresh llama a unidadesStore.getFetchUnidades({ force: true })", async () => {
