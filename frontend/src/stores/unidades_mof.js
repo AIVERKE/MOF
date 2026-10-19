@@ -372,12 +372,29 @@ export const useAllUnidadesMofStore = defineStore(
             }
         };
 
-        const updatePersonalUnidad = async (unidadId, cargoId) => {
+        const updatePersonalUnidad = async (unidadId, cargoId, nivelOrden) => {
             loading.value = true;
             try {
+                const body = { cargoId: Number(cargoId) };
+                if (nivelOrden !== undefined) body.nivelOrden = nivelOrden;
                 const response = await apiFetch(`${API_PERSONAL_URL}/${unidadId}/personal`, {
                     method: 'POST',
-                    body: JSON.stringify({ cargoId })
+                    body: JSON.stringify(body)
+                });
+                return response.ok;
+            } catch {
+                return false;
+            } finally {
+                loading.value = false;
+            }
+        };
+
+        const updateNivelCargoUnidad = async (unidadId, assignmentId, nivelOrden) => {
+            loading.value = true;
+            try {
+                const response = await apiFetch(`${API_PERSONAL_URL}/${unidadId}/personal/${assignmentId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ nivelOrden: nivelOrden ?? null })
                 });
                 return response.ok;
             } catch {
@@ -607,6 +624,7 @@ export const useAllUnidadesMofStore = defineStore(
             bajarFuncion,
             getPersonalUnidad,
             updatePersonalUnidad,
+            updateNivelCargoUnidad,
             deletePersonalUnidad,
             deleteCargoDeUnidad,
             getRelacionesInternas,

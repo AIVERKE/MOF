@@ -5,13 +5,19 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CargosService } from './cargos.service';
-import { CargoDto, CargoSetParentDto, SetCargoDto } from './dto/cargo.dto';
+import {
+  CargoDto,
+  CargoSetParentDto,
+  SetCargoDto,
+  UpdateCargoUnidadDto,
+} from './dto/cargo.dto';
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -119,6 +125,20 @@ export class CargosController {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
       await this.cargosService.removerTodoPersonal(id),
+    );
+  }
+
+  @Patch(':id/personal/:assignmentId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Actualizar el nivel del cargo en la unidad' })
+  async actualizarAsignacion(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('assignmentId', ParseIntPipe) assignmentId: number,
+    @Body() dto: UpdateCargoUnidadDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.cargosService.actualizarAsignacion(id, assignmentId, dto),
     );
   }
 

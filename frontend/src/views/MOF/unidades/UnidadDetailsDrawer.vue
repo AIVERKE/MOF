@@ -835,6 +835,15 @@ const panels = computed(() => {
                     </span>
                   </div>
                   <v-chip
+                    v-if="c.nivelOrden != null"
+                    size="x-small"
+                    label
+                    variant="outlined"
+                    style="font-size: 9px;"
+                  >
+                    N{{ c.nivelOrden }}
+                  </v-chip>
+                  <v-chip
                     v-if="c.item"
                     size="x-small"
                     label
