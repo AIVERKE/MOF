@@ -153,6 +153,7 @@ const panels = computed(() => {
   const hijasFuncCount = data.hijas_funcionales?.length ?? 0;
   const relIntCount = data.relaciones_internas?.length ?? 0;
   const relExtCount = data.relaciones_externas?.length ?? 0;
+  const funcCount = data.funciones?.length ?? 0;
   const esDesconcentrada = Boolean(
     data.es_desconcentrada ||
     data.esDesconcentrada ||
