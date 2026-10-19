@@ -163,7 +163,7 @@ const handleDefinirPassword = async () => {
       <v-col cols="12" sm="10" md="10" lg="8" xl="6" class="pa-4 pa-sm-6">
         <v-card elevation="16" class="rounded-xl overflow-hidden login-card">
           <v-row no-gutters>
-            <!-- Columna izquierda: branding (desktop) -->
+            <!-- Columna izquierda: branding institucional (desktop) -->
             <v-col
               cols="12"
               md="6"
@@ -171,14 +171,14 @@ const handleDefinirPassword = async () => {
             >
               <div>
                 <div class="d-flex align-center gap-3 mb-6">
-                  <v-avatar color="white" size="56" class="elevation-4">
-                    <v-icon size="36" color="indigo-darken-3">mdi-view-dashboard</v-icon>
+                  <v-avatar color="white" size="56" class="elevation-3">
+                    <v-icon size="34" color="#1A4756">mdi-domain</v-icon>
                   </v-avatar>
                   <div>
                     <h1 class="text-h3 font-weight-black tracking-tight text-white mb-0">
                       S-MAU
                     </h1>
-                    <span class="text-caption font-weight-medium text-indigo-lighten-4">
+                    <span class="text-caption font-weight-bold text-teal-lighten-4 text-uppercase tracking-wider">
                       Plataforma Institucional
                     </span>
                   </div>
@@ -187,14 +187,26 @@ const handleDefinirPassword = async () => {
                 <h2 class="text-h5 font-weight-bold mb-3 leading-snug">
                   Manual de Organización y Funciones
                 </h2>
-                <p class="text-body-2 text-indigo-lighten-4 mb-8">
-                  Sistema centralizado para la gestión de la estructura organizacional,
-                  cargos y funciones de la Universidad Mayor de San Andrés.
+                <p class="text-body-2 text-blue-grey-lighten-4 mb-6 leading-relaxed">
+                  Sistema centralizado para la administración y consulta de la estructura
+                  organizacional, cargos, relaciones y funciones de la Universidad Mayor de San Andrés.
                 </p>
+
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                  <v-chip size="x-small" color="teal-lighten-4" variant="outlined" class="font-weight-medium">
+                    <v-icon start size="12">mdi-domain</v-icon>Facultades
+                  </v-chip>
+                  <v-chip size="x-small" color="teal-lighten-4" variant="outlined" class="font-weight-medium">
+                    <v-icon start size="12">mdi-school</v-icon>Carreras
+                  </v-chip>
+                  <v-chip size="x-small" color="teal-lighten-4" variant="outlined" class="font-weight-medium">
+                    <v-icon start size="12">mdi-flask</v-icon>Institutos
+                  </v-chip>
+                </div>
               </div>
 
-              <div class="pt-6 border-indigo-lighten-3">
-                <div class="text-caption text-indigo-lighten-3">
+              <div class="pt-6 border-petroleo-light">
+                <div class="text-caption text-blue-grey-lighten-3 font-weight-medium">
                   © 2026 Universidad Mayor de San Andrés - UMSA
                 </div>
               </div>
@@ -207,18 +219,18 @@ const handleDefinirPassword = async () => {
               class="pa-6 pa-sm-10 d-flex flex-column justify-space-between bg-surface"
             >
               <div class="d-md-none text-center mb-6">
-                <v-avatar color="primary" size="64" class="mb-3 elevation-3">
-                  <v-icon size="36" color="white">mdi-view-dashboard</v-icon>
+                <v-avatar color="#1A4756" size="64" class="mb-3 elevation-3">
+                  <v-icon size="36" color="white">mdi-domain</v-icon>
                 </v-avatar>
-                <h1 class="text-h3 font-weight-black text-primary mb-0">S-MAU</h1>
-                <div class="text-subtitle-1 font-weight-bold text-grey-darken-2 mt-1">
+                <h1 class="text-h3 font-weight-black text-petroleo mb-0">S-MAU</h1>
+                <div class="text-subtitle-1 font-weight-bold text-grey-darken-3 mt-1">
                   Manual de Organización y Funciones
                 </div>
-                <div class="text-caption text-grey">Universidad Mayor de San Andrés</div>
+                <div class="text-caption text-grey font-weight-medium">Universidad Mayor de San Andrés</div>
               </div>
 
               <div class="d-none d-md-block mb-6">
-                <h3 class="text-h5 font-weight-bold text-grey-darken-3">
+                <h3 class="text-h5 font-weight-black text-petroleo mb-1">
                   {{ titulos[step].titulo }}
                 </h3>
                 <p class="text-body-2 text-grey-darken-1">
@@ -297,13 +309,12 @@ const handleDefinirPassword = async () => {
 
                   <v-btn
                     type="submit"
-                    color="primary"
                     size="large"
                     block
                     :loading="loading"
                     :disabled="loading || !formValid"
                     elevation="3"
-                    class="rounded-lg text-button font-weight-bold py-6 text-none"
+                    class="login-submit-btn rounded-lg text-button font-weight-bold py-6 text-none"
                   >
                     <template #loader>
                       <v-progress-circular
@@ -318,9 +329,9 @@ const handleDefinirPassword = async () => {
 
                   <v-btn
                     variant="text"
-                    color="primary"
+                    color="#028191"
                     block
-                    class="mt-3 text-none"
+                    class="mt-3 text-none font-weight-bold"
                     :disabled="loading"
                     @click="irA('primer-acceso')"
                   >
@@ -369,22 +380,21 @@ const handleDefinirPassword = async () => {
 
                   <v-btn
                     type="submit"
-                    color="primary"
                     size="large"
                     block
                     :loading="loading"
                     :disabled="loading || !formValid"
                     elevation="3"
-                    class="rounded-lg text-button font-weight-bold py-6 text-none"
+                    class="login-submit-btn rounded-lg text-button font-weight-bold py-6 text-none"
                   >
                     CONTINUAR
                   </v-btn>
 
                   <v-btn
                     variant="text"
-                    color="primary"
+                    color="#028191"
                     block
-                    class="mt-3 text-none"
+                    class="mt-3 text-none font-weight-bold"
                     :disabled="loading"
                     @click="irA('login')"
                   >
@@ -432,22 +442,21 @@ const handleDefinirPassword = async () => {
 
                   <v-btn
                     type="submit"
-                    color="primary"
                     size="large"
                     block
                     :loading="loading"
                     :disabled="loading || !formValid"
                     elevation="3"
-                    class="rounded-lg text-button font-weight-bold py-6 text-none"
+                    class="login-submit-btn rounded-lg text-button font-weight-bold py-6 text-none"
                   >
                     GUARDAR CONTRASEÑA
                   </v-btn>
 
                   <v-btn
                     variant="text"
-                    color="primary"
+                    color="#028191"
                     block
-                    class="mt-3 text-none"
+                    class="mt-3 text-none font-weight-bold"
                     :disabled="loading"
                     @click="irA('login')"
                   >
@@ -460,7 +469,7 @@ const handleDefinirPassword = async () => {
                 <div class="text-caption font-weight-medium text-grey-darken-1">
                   MOF v1.0.0
                 </div>
-                <div class="d-md-none text-caption text-grey mt-1">
+                <div class="d-md-none text-caption text-grey mt-1 font-weight-medium">
                   © 2026 Universidad Mayor de San Andrés
                 </div>
               </div>
@@ -475,33 +484,69 @@ const handleDefinirPassword = async () => {
 <style scoped>
 .login-wrapper {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+  background: radial-gradient(circle at 15% 20%, rgba(2, 129, 145, 0.22) 0%, transparent 45%),
+              radial-gradient(circle at 85% 80%, rgba(60, 104, 147, 0.18) 0%, transparent 50%),
+              linear-gradient(135deg, #07151c 0%, #0c232b 50%, #102d38 100%);
 }
 
 .login-card {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(60, 104, 147, 0.25) !important;
+  box-shadow: 0 25px 60px -15px rgba(5, 15, 20, 0.6) !important;
+  backdrop-filter: blur(8px);
 }
 
 .login-banner {
-  background: linear-gradient(135deg, #3730a3 0%, #4f46e5 50%, #6366f1 100%);
+  background: linear-gradient(145deg, #091a21 0%, #0f2d37 40%, #1a4756 100%);
   position: relative;
   overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .login-banner::before {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  top: -40%;
+  right: -40%;
+  width: 180%;
+  height: 180%;
+  background: radial-gradient(circle, rgba(2, 129, 145, 0.22) 0%, rgba(60, 104, 147, 0.08) 40%, transparent 70%);
   pointer-events: none;
 }
 
-.border-indigo-lighten-3 {
-  border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+.login-banner::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(2, 129, 145, 0.4), transparent);
+  pointer-events: none;
+}
+
+.login-submit-btn {
+  background: linear-gradient(135deg, #1a4756 0%, #028191 100%) !important;
+  color: #ffffff !important;
+  letter-spacing: 0.5px;
+  transition: all 0.25s ease-in-out;
+}
+
+.login-submit-btn:hover {
+  background: linear-gradient(135deg, #0c232b 0%, #028191 100%) !important;
+  box-shadow: 0 8px 20px -4px rgba(2, 129, 145, 0.45) !important;
+  transform: translateY(-1px);
+}
+
+.text-petroleo {
+  color: #0c232b !important;
+}
+
+.border-petroleo-light {
+  border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.gap-2 {
+  gap: 8px;
 }
 
 .gap-3 {
