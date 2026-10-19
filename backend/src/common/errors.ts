@@ -11,7 +11,7 @@ export const ErrorCodes = {
   DEPENDENCIA_DUPLICADA: 'DEPENDENCIA_DUPLICADA',
   CLASE_YA_PRIMERA: 'CLASE_YA_PRIMERA',
   CLASE_YA_ULTIMA: 'CLASE_YA_ULTIMA',
-  CARGO_YA_ASIGNADO_UNICO: 'CARGO_YA_ASIGNADO_UNICO',
+  CARGO_YA_ASIGNADO: 'CARGO_YA_ASIGNADO',
   USUARIO_CI_DUPLICADO: 'USUARIO_CI_DUPLICADO',
   PRIMER_ACCESO_REQUERIDO: 'PRIMER_ACCESO_REQUERIDO',
   PRIMER_ACCESO_INVALIDO: 'PRIMER_ACCESO_INVALIDO',
@@ -83,10 +83,10 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     httpStatus: HttpStatus.BAD_REQUEST,
     message: 'La clase ya está en la última posición',
   },
-  CARGO_YA_ASIGNADO_UNICO: {
-    code: ErrorCodes.CARGO_YA_ASIGNADO_UNICO,
+  CARGO_YA_ASIGNADO: {
+    code: ErrorCodes.CARGO_YA_ASIGNADO,
     httpStatus: HttpStatus.BAD_REQUEST,
-    message: 'Ese cargo único ya está asignado en la unidad',
+    message: 'Ese cargo ya está asignado en la unidad',
   },
   USUARIO_CI_DUPLICADO: {
     code: ErrorCodes.USUARIO_CI_DUPLICADO,

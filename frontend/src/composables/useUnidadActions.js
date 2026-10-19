@@ -27,6 +27,7 @@ export function useUnidadActions({
   async function confirmAddItem() {
     mostrar("Procesando...", "info");
     const result = await saveUnidad();
+    if (result?.busy) return result;
     if (result?.success) {
       if (addDialog) addDialog.value = false;
       mostrar("¡Operación realizada con éxito!", "success");

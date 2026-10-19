@@ -72,6 +72,7 @@ const {
   formData,
   isEditMode,
   formValid,
+  saving: savingUnidad,
   openForm: openUnitForm,
   saveUnidad,
   addFuncion,
@@ -570,6 +571,7 @@ const handleExportCsv = async () => {
     v-model="addDialog"
     :form-data="formData"
     :is-edit-mode="isEditMode"
+    :saving="savingUnidad"
     :selected-node="selectedItem"
     v-model:form-valid="formValid"
     @confirm="confirmAddItem"

@@ -229,7 +229,7 @@ Catálogo fuente: [`src/common/errors.ts`](src/common/errors.ts).
 | `DEPENDENCIA_DUPLICADA` | 409 | La dependencia funcional ya existe | Mostrar mensaje |
 | `CLASE_YA_PRIMERA` | 400 | La clase ya está en la primera posición | Mostrar mensaje |
 | `CLASE_YA_ULTIMA` | 400 | La clase ya está en la última posición | Mostrar mensaje |
-| `CARGO_YA_ASIGNADO_UNICO` | 400 | Ese cargo único ya está asignado en la unidad | Mostrar mensaje |
+| `CARGO_YA_ASIGNADO` | 400 | Ese cargo ya está asignado en la unidad | Mostrar mensaje |
 | `USUARIO_CI_DUPLICADO` | 400 | Ya existe una persona registrada con ese C.I. | Mostrar mensaje / corregir C.I. |
 | `PRIMER_ACCESO_REQUERIDO` | 401 | Debe completar el primer acceso con su correo y C.I. | Ofrecer la pantalla de primer acceso |
 | `PRIMER_ACCESO_INVALIDO` | 401 | Los datos de primer acceso no son válidos | Mostrar mensaje |

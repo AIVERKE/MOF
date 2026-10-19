@@ -204,6 +204,7 @@ const {
   formData,
   isEditMode,
   formValid,
+  saving: savingUnidad,
   openForm: openUnitForm,
   saveUnidad,
   addFuncion,
@@ -3393,6 +3394,7 @@ function resetFilters() {
       v-model="addDialog"
       :form-data="formData"
       :is-edit-mode="isEditMode"
+      :saving="savingUnidad"
       :selected-node="selectedNode"
       v-model:form-valid="formValid"
       @confirm="confirmAddItem"

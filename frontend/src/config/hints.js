@@ -149,6 +149,8 @@ export const hints = {
       "Descripción breve de responsabilidades generales asociadas al cargo",
     nivel:
       "Nivel jerárquico del cargo (mayor = más alto, ej: Rectorado 26). Vacío = sin nivel",
+    nivelUnidad:
+      "Nivel del cargo en esta unidad (1-99); puede diferir del nivel sugerido del catálogo",
   },
 
   /**

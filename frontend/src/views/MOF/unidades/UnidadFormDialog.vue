@@ -10,7 +10,7 @@ import SelectAllRelaciones from "../relaciones/SelectAllRelaciones.vue";
 import SelectAllTipos from "../tipos/SelectAllTipos.vue";
 import SelectAllNiveles from "../niveles/SelectAllNiveles.vue";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
-import SelectAllCargos from "../cargos/SelectAllCargos.vue";
+import CargosUnidadTable from "../cargos/CargosUnidadTable.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
@@ -24,6 +24,7 @@ const props = defineProps({
   isEditMode: Boolean,
   selectedNode: Object,
   formValid: Boolean,
+  saving: Boolean,
 });
 
 const emit = defineEmits([
@@ -449,19 +450,18 @@ function moverAbajo(index) {
               />
             </v-col>
             <v-col cols="12" md="6">
-              <SelectAllCargos
-                v-model="formData.cargos"
-                :hint="hints.unidadForm.cargos"
-                :persistent-hint="false"
-              />
-            </v-col>
-            <v-col cols="12" md="6">
               <SelectAllClases
                 v-model="formData.clase"
                 label="Instancia"
                 :hint="hints.unidadForm.clase"
                 :persistent-hint="false"
                 :rules="[rules.required]"
+              />
+            </v-col>
+            <v-col cols="12">
+              <CargosUnidadTable
+                v-model="formData.cargos"
+                :hint="hints.unidadForm.cargos"
               />
             </v-col>
           </v-row>
@@ -789,7 +789,7 @@ function moverAbajo(index) {
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="close">Cancelar</v-btn>
-        <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" :disabled="!localFormValid" @click="confirm">
+        <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" :disabled="!localFormValid || saving" :loading="saving" @click="confirm">
           Guardar Unidad
           <v-tooltip activator="parent" location="top"
             >Persistir cambios en el manual</v-tooltip

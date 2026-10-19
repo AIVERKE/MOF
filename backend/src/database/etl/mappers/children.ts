@@ -379,8 +379,9 @@ export async function migrateAsignaciones(
 
       if (!seenCargoUnidad.has(key)) {
         await target.query(
-          `INSERT INTO cargo_unidad (cargo_id, unidad_id, activo, created_at, updated_at)
-           VALUES ($1,$2,true, now(), now())`,
+          `INSERT INTO cargo_unidad (cargo_id, unidad_id, nivel_orden, activo, created_at, updated_at)
+           SELECT c.id, $2, c.nivel_orden, true, now(), now() FROM cargo c WHERE c.id = $1
+           ON CONFLICT (unidad_id, cargo_id) WHERE deleted_at IS NULL DO NOTHING`,
           [row.cargo, row.unidad],
         );
         seenCargoUnidad.add(key);

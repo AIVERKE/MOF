@@ -35,7 +35,7 @@
  * dependenciasFuncionales dependenciasFuncionales dependenciasFuncionales    number[]
  * relacionesInternas     relacionesInternas      relacionesInternas          Array<{ relacionadaId, tipo }>
  * relacionesExternas     relacionesExternas      relacionesExternas          string[] (descripciones)
- * cargos                 -                       personal                    string[] (IDs de catalogo)
+ * cargos                 -                       personal                    Array<{ assignmentId, cargoId, nombre, nivelOrden }>
  * funciones              funciones               funciones                   Array<{ id, tempId, funcion, baseLegal, orden }>
  * 
  * (*) CASO ESPECIAL CLASE -> TIPO_UNIDAD:
@@ -114,11 +114,12 @@ export function resolveCatalogId(value, catalog = []) {
 }
 
 /**
- * Mapea asignaciones de personal del backend a cargos vinculados al catálogo
- * 
- * @param {Array|Object} personalData - Datos de personal devueltos por el backend
- * @param {Array} cargosCatalog - Catálogo de cargos disponibles
- * @returns {Array<{ catalogId: string, assignmentId: string }>}
+ * Mapea las filas de cargo_unidad devueltas por el backend a filas del formulario.
+ * El emparejamiento es por cargoId: el catálogo tiene cargos homónimos con ids distintos.
+ *
+ * @param {Array|Object} personalData - Filas de GET /unidades/:id/personal
+ * @param {Array} cargosCatalog - Catálogo de cargos (solo para completar el nombre)
+ * @returns {Array<{ assignmentId: string|null, cargoId: string, nombre: string, nivelOrden: number|null }>}
  */
 export function mapPersonalToCargos(personalData = [], cargosCatalog = []) {
   const personalArray = Array.isArray(personalData)
@@ -127,14 +128,24 @@ export function mapPersonalToCargos(personalData = [], cargosCatalog = []) {
       ? [personalData]
       : [];
 
+  const seen = new Set();
   return personalArray
+    .filter((p) => p && p.cargoId != null)
     .map((p) => {
-      const cat = cargosCatalog.find((c) => c.descripcion === p.descripcion);
-      return cat
-        ? { catalogId: String(cat.id), assignmentId: String(p.id) }
-        : null;
+      const cargoId = String(p.cargoId);
+      const cat = cargosCatalog.find((c) => String(c.id) === cargoId);
+      return {
+        assignmentId: p.id != null ? String(p.id) : null,
+        cargoId,
+        nombre: p.nombre || cat?.nombre || "",
+        nivelOrden: p.nivelOrden ?? null,
+      };
     })
-    .filter(Boolean);
+    .filter((c) => {
+      if (seen.has(c.cargoId)) return false;
+      seen.add(c.cargoId);
+      return true;
+    });
 }
 
 /**
@@ -158,18 +169,15 @@ export function mapBackendToForm(raw, options = {}) {
 
   const catalogs = options.catalogs || {};
 
-  // 1. Resolver Cargos
-  let cargosIds = [];
+  // 1. Resolver Cargos (filas de cargo_unidad)
+  let cargos = [];
   if (options.mappedCargos && Array.isArray(options.mappedCargos)) {
-    cargosIds = options.mappedCargos.map((m) => m.catalogId);
+    cargos = options.mappedCargos.map((m) => ({ ...m }));
   } else if (options.personalData || raw.personal) {
-    const mapped = mapPersonalToCargos(
+    cargos = mapPersonalToCargos(
       options.personalData || raw.personal,
       catalogs.cargos || [],
     );
-    cargosIds = mapped.map((m) => m.catalogId);
-  } else if (Array.isArray(raw.cargos)) {
-    cargosIds = raw.cargos.map(String);
   }
 
   // 2. Resolver Funciones (preservando IDs y formato requerido por tabla)
@@ -240,7 +248,7 @@ export function mapBackendToForm(raw, options = {}) {
     tipo: tipoId,
     relacion: relacionId,
     parentId: getSafeId(raw.parentId ?? raw.parent),
-    cargos: cargosIds,
+    cargos,
     color: raw.color || "#1976D2",
     oficial: raw.oficial !== false,
     es_troncal: raw.es_troncal === true || raw.esTroncal === true,

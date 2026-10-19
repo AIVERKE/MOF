@@ -76,6 +76,7 @@ const {
   formData, 
   isEditMode, 
   formValid, 
+  saving: savingUnidad,
   openForm: openUnitForm, 
   saveUnidad,
   addFuncion,
@@ -622,7 +623,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 
     <!-- COMPONENTES MODULARES -->
     <UnidadFormDialog
-      v-model="addDialog" :form-data="formData" :is-edit-mode="isEditMode" :selected-node="selectedNode" v-model:form-valid="formValid"
+      v-model="addDialog" :form-data="formData" :is-edit-mode="isEditMode" :selected-node="selectedNode" v-model:form-valid="formValid" :saving="savingUnidad"
       @confirm="confirmAddItem" @add-funcion="({ funcion, baseLegal }) => addFuncion(funcion, baseLegal)"
       @edit-funcion="({ index, funcion, baseLegal }) => updateFuncion(index, funcion, baseLegal)" @remove-funcion="(index) => removeFuncion(index)"
       @mover-arriba="(index) => moverFuncionArriba(index)" @mover-abajo="(index) => moverFuncionAbajo(index)"

@@ -80,4 +80,34 @@ export class SetCargoDto {
   @ApiProperty()
   @IsNumber()
   cargoId: number;
+
+  @ApiPropertyOptional({
+    example: 10,
+    nullable: true,
+    minimum: 1,
+    maximum: 99,
+    description:
+      'Nivel del cargo en la unidad; si se omite se usa el nivel sugerido del catálogo',
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  nivelOrden?: number | null;
+}
+
+export class UpdateCargoUnidadDto {
+  @ApiProperty({
+    example: 14,
+    nullable: true,
+    minimum: 1,
+    maximum: 99,
+    description: 'Nivel del cargo en la unidad; null = sin nivel',
+  })
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  nivelOrden: number | null;
 }
