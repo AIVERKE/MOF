@@ -29,6 +29,8 @@ export const hints = {
       "Tipo de vínculo o enlace formal con la unidad superior (ej: Línea Directa, Asesoría, Coordinación o Funcional).",
     baseLegal:
       "Normativa, resolución, estatuto o documento legal universitario que faculta formalmente la atribución o función.",
+    es_desconcentrada:
+      "Unidad con desconcentración funcional o administrativa que coordina transversalmente con dependencias técnicas.",
   },
 
   /**
@@ -49,6 +51,8 @@ export const hints = {
       "Propósito estratégico y razón de ser institucional de la unidad",
     dependenciasFuncionales:
       "Unidades de coordinación operativa transversal (NO define la jerarquía directa ni la unidad padre en el organigrama)",
+    es_desconcentrada:
+      "Habilita dependencias funcionales para unidades desconcentradas con coordinación transversal técnica",
     tipo:
       "Seleccione la naturaleza sustantiva, de apoyo o asesoramiento",
     nivel:

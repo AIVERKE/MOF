@@ -102,6 +102,18 @@ watch(
   },
 );
 
+/**
+ * Si se desmarca "¿Es Unidad Desconcentrada?", limpiar dependencias funcionales
+ */
+watch(
+  () => props.formData?.es_desconcentrada,
+  (val) => {
+    if (!val && props.formData?.dependenciasFuncionales?.length) {
+      props.formData.dependenciasFuncionales = [];
+    }
+  },
+);
+
 const nuevaRelacionExterna = ref("");
 
 const internalRelUnitIds = computed({
@@ -413,15 +425,51 @@ function moverAbajo(index) {
 
           <v-row class="mt-2">
             <v-col cols="12">
-              <SelectAllUnidades
-                v-model="formData.dependenciasFuncionales"
-                type="autocomplete"
-                label="Dependencias Funcionales (Coordinación transversal)"
-                :hint="hints.unidadForm.dependenciasFuncionales"
-                :persistent-hint="false"
-                multiple
-                :exclude-id="formData.id"
-              />
+              <v-card
+                variant="outlined"
+                class="pa-3 rounded-lg border-opacity-25"
+                style="border-color: rgba(var(--v-theme-primary), 0.35);"
+              >
+                <div class="d-flex align-center justify-space-between flex-wrap gap-2">
+                  <div class="d-flex align-center">
+                    <v-icon color="primary" class="mr-2" size="22">mdi-domain-plus</v-icon>
+                    <div>
+                      <div class="d-flex align-center text-subtitle-2 font-weight-bold text-primary">
+                        ¿Es Unidad Desconcentrada?
+                        <HelpTooltip :text="hints.conceptos.es_desconcentrada" />
+                      </div>
+                      <div class="text-caption text-grey-darken-1">
+                        {{ hints.unidadForm.es_desconcentrada }}
+                      </div>
+                    </div>
+                  </div>
+                  <v-switch
+                    v-model="formData.es_desconcentrada"
+                    color="primary"
+                    hide-details
+                    inset
+                    density="compact"
+                  >
+                    <v-tooltip activator="parent" location="top">
+                      {{ formData.es_desconcentrada ? 'Desactivar condición de unidad desconcentrada' : 'Marcar como unidad desconcentrada' }}
+                    </v-tooltip>
+                  </v-switch>
+                </div>
+
+                <v-expand-transition>
+                  <div v-if="formData.es_desconcentrada" class="mt-3 pt-2">
+                    <SelectAllUnidades
+                      v-model="formData.dependenciasFuncionales"
+                      type="autocomplete"
+                      label="Dependencias Funcionales (Coordinación transversal)"
+                      :hint="hints.unidadForm.dependenciasFuncionales"
+                      :persistent-hint="false"
+                      multiple
+                      :exclude-id="formData.id"
+                    />
+                  </div>
+                </v-expand-transition>
+              </v-card>
             </v-col>
             <v-col cols="12" md="4">
               <SelectAllTipos
