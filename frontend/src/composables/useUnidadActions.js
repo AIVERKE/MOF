@@ -31,8 +31,9 @@ export function useUnidadActions({
     if (result?.success) {
       if (addDialog) addDialog.value = false;
       mostrar("¡Operación realizada con éxito!", "success");
+      const targetNodeId = result?.unidadId || selectedNode?.value?.id || null;
       if (typeof onRefresh === "function") {
-        await onRefresh({ force: true });
+        await onRefresh({ force: true, targetNodeId });
       } else if (unidadesStore?.getFetchUnidades) {
         await unidadesStore.getFetchUnidades({ force: true });
       }
@@ -72,8 +73,12 @@ export function useUnidadActions({
     if (!unidadesStore?.error) {
       if (deleteDialog) deleteDialog.value = false;
       mostrar("¡Unidad eliminada!", "success");
+      let parentId = null;
+      if (node.parent) {
+        parentId = typeof node.parent === "object" ? node.parent.id : node.parent;
+      }
       if (typeof onRefresh === "function") {
-        await onRefresh({ force: true });
+        await onRefresh({ force: true, targetNodeId: parentId || null });
       } else if (unidadesStore?.getFetchUnidades) {
         await unidadesStore.getFetchUnidades({ force: true });
       }

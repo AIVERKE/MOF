@@ -220,6 +220,9 @@ const deleteDialog = ref(false);
 const selectedNode = ref(null);
 const vistaModo = ref("analitico");
 
+const isFirstRender = ref(true);
+const pendingTargetNodeId = ref(null);
+
 const isGraphLoading = ref(true);
 const graphLoadingMessage = ref("Cargando organigrama...");
 const graphLoadingSubmessage = ref("Obteniendo unidades y catálogos...");
@@ -771,6 +774,9 @@ const stats = computed(() => {
 
 // --- METHODS ---
 async function refreshChart(options = {}) {
+  if (options?.targetNodeId) {
+    pendingTargetNodeId.value = String(options.targetNodeId);
+  }
   isGraphLoading.value = true;
   graphLoadingMessage.value = "Actualizando organigrama...";
   graphLoadingSubmessage.value = "Sincronizando cambios de la estructura...";
@@ -792,6 +798,7 @@ async function openForm(nodeId = null, edit = false) {
   }
   const node = nodeId ? unidadesByIdMap.value.get(String(nodeId)) : null;
   selectedNode.value = node;
+  pendingTargetNodeId.value = nodeId ? String(nodeId) : null;
   await openUnitForm(node, edit);
   addDialog.value = true;
 }
@@ -821,14 +828,15 @@ async function cambiarDependencia() {
     mostrar("La razón del cambio es obligatoria y debe tener al menos 6 caracteres", "warning");
     return;
   }
-  await unidadesStore.updateNodo(unidadACambiar.value, {
+  const targetId = String(unidadACambiar.value);
+  await unidadesStore.updateNodo(targetId, {
     parentId: parseInt(unidadDestino.value) || null,
     razon: razonVal,
   });
   if (!unidadesStore.error) {
     dialog_nodo_chance.value = false;
     mostrar("¡Cambiado!", "success");
-    refreshChart({ force: true });
+    refreshChart({ force: true, targetNodeId: targetId });
   } else {
     mostrar("Error: " + unidadesStore.error, "error");
   }
@@ -1937,6 +1945,12 @@ const updateGraph = () => {
           modoExploracion.value === "enfoque",
       );
 
+      node.data.nombre = u.nombre || u.denominacion;
+      node.data.sigla = u.sigla || "-";
+      node.data.tipo = resolveTipo(u.tipo);
+      node.data.nivel = resolveNivel(u.nivel);
+      node.data.clase = resolveClase(u.clase);
+      node.data.codigo = u.codigo;
       node.data.color = finalColor;
       node.data.isMatch = isMatch;
       node.data.isNonOficialInOficialView = isNodeNonOficialInOficialView;
@@ -1981,6 +1995,16 @@ const updateGraph = () => {
           volarANodos(matchingIds);
         } else {
           fitView({ padding: 0.15, duration: 800 });
+        }
+      } else if (pendingTargetNodeId.value) {
+        const targetId = String(pendingTargetNodeId.value);
+        pendingTargetNodeId.value = null;
+        const targetNode = currentNodes.find((n) => String(n.id) === targetId);
+        if (targetNode && !targetNode.data?.isInvisible) {
+          if (modoExploracion.value !== "completo") {
+            nodoNavegacionActualId.value = targetId;
+          }
+          volarANodos([targetId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
         }
       }
     });
@@ -2153,7 +2177,46 @@ const updateGraph = () => {
       } else {
         fitView({ padding: 0.15, duration: 800 });
       }
-    } else {
+    } else if (pendingTargetNodeId.value) {
+      const targetId = String(pendingTargetNodeId.value);
+      pendingTargetNodeId.value = null;
+      // Buscar el nodo en su nueva posición tras el recálculo del layout (por si cambió de nivel, clase o padre, o recién se creó)
+      const targetNode = layoutedNodes.find((n) => String(n.id) === targetId);
+      if (targetNode && !targetNode.data?.isInvisible) {
+        if (modoExploracion.value !== "completo") {
+          nodoNavegacionActualId.value = targetId;
+        }
+        volarANodos([targetId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
+      } else {
+        fitView({ padding: 0.15, duration: 800 });
+      }
+    } else if (nodoNavegacionActualId.value) {
+      const navId = String(nodoNavegacionActualId.value);
+      const navNode = layoutedNodes.find((n) => String(n.id) === navId);
+      if (navNode && !navNode.data?.isInvisible) {
+        if (modoExploracion.value !== "completo") {
+          const currentCluster = navigationCluster.value;
+          const nodesToFrame = [
+            currentCluster.activeId,
+            ...currentCluster.directChildrenIds,
+          ].filter((id) =>
+            layoutedNodes.some(
+              (n) => String(n.id) === String(id) && !n.data?.isInvisible,
+            ),
+          );
+          volarANodos(nodesToFrame.length > 0 ? nodesToFrame : [navId], {
+            padding: nodesToFrame.length > 1 ? 0.25 : 0.4,
+            duration: 650,
+            maxZoom: 1.25,
+          });
+        } else {
+          volarANodos([navId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
+        }
+      } else {
+        fitView({ padding: 0.15, duration: 800 });
+      }
+    } else if (isFirstRender.value) {
+      isFirstRender.value = false;
       fitView({ padding: 0.15, duration: 800 });
     }
   });
@@ -2331,7 +2394,11 @@ function resetFilters() {
   searchTerm.value = "";
   vistaModo.value = "analitico";
   nodoNavegacionActualId.value = null;
+  pendingTargetNodeId.value = null;
   resetDependencias();
+  nextTick(() => {
+    fitView({ padding: 0.15, duration: 650 });
+  });
 }
 </script>
 
@@ -3475,7 +3542,7 @@ function resetFilters() {
       <HierarchyManagerDrawer
         :width="isMobile ? 360 : hierarchyDrawerWidth"
         @close="hierarchyDrawer = false"
-        @updated="refreshChart"
+        @updated="(targetId) => refreshChart({ force: true, targetNodeId: targetId })"
         @resize="(val) => (hierarchyDrawerWidth = val)"
       />
     </v-navigation-drawer>
