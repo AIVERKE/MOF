@@ -656,6 +656,7 @@ function moverAbajo(index) {
                   :hint="hints.unidadForm.coordinacionInterna"
                   :persistent-hint="false"
                   multiple
+                  :enable-batch-groups="true"
                   :exclude-id="formData.id"
                 />
               </v-col>
