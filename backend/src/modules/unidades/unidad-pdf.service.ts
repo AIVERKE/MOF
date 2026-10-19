@@ -338,12 +338,18 @@ export class UnidadPdfService {
       y = identityTop + identityBoxH + 12;
 
       // —— Dependencias ——
+      const depRows: [string, string][] = [];
+      const depsSinPadre = this.dependenciasSinPadre(detail);
+      if (depsSinPadre.length > 0) {
+        depRows.push(['Funcionales', funcionales]);
+      }
+      depRows.push(['Dependientes (lineal)', lineal]);
+      if (detail.hijasFuncionales && detail.hijasFuncionales.length > 0) {
+        depRows.push(['Dependientes (funcional)', funcional]);
+      }
+
       y = this.drawSectionStart(doc, marginL, y, 'DEPENDENCIAS', contentW);
-      y = this.drawMetaPanel(doc, marginL, y, contentW, [
-        ['Funcionales', funcionales],
-        ['Dependientes (lineal)', lineal],
-        ['Dependientes (funcional)', funcional],
-      ]);
+      y = this.drawMetaPanel(doc, marginL, y, contentW, depRows);
       y += 10;
 
       // —— Objetivo ——

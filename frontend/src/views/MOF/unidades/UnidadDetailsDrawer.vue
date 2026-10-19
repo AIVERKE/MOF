@@ -154,6 +154,11 @@ const panels = computed(() => {
   const relIntCount = data.relaciones_internas?.length ?? 0;
   const relExtCount = data.relaciones_externas?.length ?? 0;
   const funcCount = data.funciones?.length ?? 0;
+  const esDesconcentrada = Boolean(
+    data.es_desconcentrada ||
+    data.esDesconcentrada ||
+    depFuncCount > 0
+  );
 
   return [
     {
@@ -251,14 +256,18 @@ const panels = computed(() => {
         data.dependencia,
       emptyText: "--- (Raíz / Sin superior lineal)",
     },
-    {
-      key: "dependencias_funcionales",
-      title: "DEPENDENCIA FUNCIONAL",
-      icon: "mdi-source-branch",
-      avatarColor: "deep-purple-accent-3",
-      badge: depFuncCount > 0 ? depFuncCount : null,
-      type: "dependencias_funcionales",
-    },
+    ...(esDesconcentrada
+      ? [
+          {
+            key: "dependencias_funcionales",
+            title: "DEPENDENCIA FUNCIONAL",
+            icon: "mdi-source-branch",
+            avatarColor: "deep-purple-accent-3",
+            badge: depFuncCount > 0 ? depFuncCount : null,
+            type: "dependencias_funcionales",
+          },
+        ]
+      : []),
     {
       key: "unidades_dependientes_lineal",
       title: "UNIDADES DEPENDIENTES (LINEAL)",
@@ -461,6 +470,20 @@ const panels = computed(() => {
             SIGLA: {{ getCleanSigla(detailData.sigla, detailData.codigo) }}
             <v-tooltip activator="parent" location="top">
               Sigla: {{ getCleanSigla(detailData.sigla, detailData.codigo) }}
+            </v-tooltip>
+          </v-chip>
+          <v-chip
+            v-if="detailData.es_desconcentrada || (detailData.dependenciasFuncionales && detailData.dependenciasFuncionales.length)"
+            size="small"
+            label
+            color="primary"
+            variant="tonal"
+            class="font-weight-black"
+          >
+            <v-icon start size="14">mdi-domain-plus</v-icon>
+            DESCONCENTRADA
+            <v-tooltip activator="parent" location="top">
+              Unidad Desconcentrada
             </v-tooltip>
           </v-chip>
         </div>

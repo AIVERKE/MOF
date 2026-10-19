@@ -24,6 +24,7 @@
  * color                  color                   color                       string (hex, default "#1976D2")
  * oficial                oficial                 oficial                     boolean (default true)
  * es_troncal             esTroncal               es_troncal                  boolean (default false)
+ * es_desconcentrada      esDesconcentrada        es_desconcentrada           boolean (default false)
  * lado                   lado                    lado                        string ("AUTOMATICO", "IZQUIERDA", "DERECHA", "CENTRO")
  * tramitesAtendidos      tramitesAtendidos       tramites_atendidos          string | null (vacio -> null al persistir)
  * ejecucionPoa           ejecucionPoa            ejecucion_poa               string | null (vacio -> null al persistir)
@@ -75,6 +76,7 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     cargos: [],
     funciones: [],
     dependenciasFuncionales: [],
+    es_desconcentrada: d.es_desconcentrada === true || d.esDesconcentrada === true,
     tipo: d.tipo !== undefined ? d.tipo : null,
     nivel: d.nivel !== undefined ? d.nivel : null,
     clase: d.clase !== undefined ? d.clase : null,
@@ -211,6 +213,11 @@ export function mapBackendToForm(raw, options = {}) {
     .map((d) => getSafeId(d))
     .filter((id) => id !== null);
 
+  const esDesconcentrada =
+    raw.es_desconcentrada === true ||
+    raw.esDesconcentrada === true ||
+    dependenciasFuncionales.length > 0;
+
   // 5. Resolver Relaciones Internas
   const relacionesInternas = (raw.relacionesInternas || []).map((r) => ({
     id: r.id,
@@ -243,6 +250,7 @@ export function mapBackendToForm(raw, options = {}) {
     funciones,
     fecCreacion: parseDateFromApi(raw.fecCreacion || raw.fec_creacion),
     dependenciasFuncionales,
+    es_desconcentrada: esDesconcentrada,
     clase: claseId,
     nivel: nivelId,
     tipo: tipoId,
@@ -299,7 +307,14 @@ export function mapFormToBackend(formData) {
       formData.esSubTroncal === true ||
       formData.es_subtroncal === true ||
       formData.esSubtroncal === true);
+  const isDesconcentrada =
+    formData.es_desconcentrada === true || formData.esDesconcentrada === true;
   const pIdVal = formData.parentId ? getSafeId(formData.parentId) : null;
+  const dependenciasFuncionales = isDesconcentrada
+    ? (formData.dependenciasFuncionales || [])
+        .map((d) => getSafeId(d))
+        .filter((id) => id !== null)
+    : [];
 
   return {
     codigo: formData.codigo?.trim() || "",
@@ -323,9 +338,7 @@ export function mapFormToBackend(formData) {
     es_sub_troncal: isSubTroncal,
     es_subtroncal: isSubTroncal,
     lado: formData.lado || "AUTOMATICO",
-    dependenciasFuncionales: (formData.dependenciasFuncionales || [])
-      .map((d) => getSafeId(d))
-      .filter((id) => id !== null),
+    dependenciasFuncionales,
     tramitesAtendidos: (formData.tramitesAtendidos ?? formData.tramites_atendidos)?.trim() || null,
     ejecucionPoa: (formData.ejecucionPoa ?? formData.ejecucion_poa)?.trim() || null,
     ejecucionPresupuestaria: (formData.ejecucionPresupuestaria ?? formData.ejecucion_presupuestaria)?.trim() || null,

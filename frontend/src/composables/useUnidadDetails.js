@@ -61,6 +61,12 @@ export function useUnidadDetails({ unidadesStore }) {
 
         detailData.value = {
           ...data,
+          es_desconcentrada: Boolean(
+            data.es_desconcentrada ||
+            data.esDesconcentrada ||
+            (data.dependenciasFuncionales && data.dependenciasFuncionales.length > 0) ||
+            dependenciasDetalle.length > 0
+          ),
           nombre_display: data.denominacion || data.nombre,
           objetivo_display: data.objetivo_puesto || data.objetivo,
           dependencias_nombres: dependenciasDetalle,
