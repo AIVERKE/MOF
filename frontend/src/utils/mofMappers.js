@@ -337,8 +337,6 @@ export function mapFormToBackend(formData) {
     esSubtroncal: isSubTroncal,
     es_sub_troncal: isSubTroncal,
     es_subtroncal: isSubTroncal,
-    esDesconcentrada: isDesconcentrada,
-    es_desconcentrada: isDesconcentrada,
     lado: formData.lado || "AUTOMATICO",
     dependenciasFuncionales,
     tramitesAtendidos: (formData.tramitesAtendidos ?? formData.tramites_atendidos)?.trim() || null,
