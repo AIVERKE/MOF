@@ -171,6 +171,7 @@ onMounted(async () => {
               density="compact"
               variant="underlined"
               hide-details="auto"
+              class="nivel-cargo-input"
               :placeholder="rowNivelSugerido(row) != null ? `Sug. ${rowNivelSugerido(row)}` : ''"
               :hint="hints.cargos.nivelUnidad"
               :persistent-hint="false"
@@ -195,3 +196,25 @@ onMounted(async () => {
     />
   </div>
 </template>
+
+<style scoped>
+.nivel-cargo-input {
+  max-width: 120px;
+}
+
+.nivel-cargo-input :deep(.v-field) {
+  --v-field-padding-start: 12px !important;
+  padding-inline-start: 12px !important;
+  padding-inline-end: 8px !important;
+}
+
+.nivel-cargo-input :deep(.v-field__input) {
+  padding-inline-start: 6px !important;
+  padding-inline-end: 6px !important;
+}
+
+.nivel-cargo-input :deep(input) {
+  padding-inline-start: 4px !important;
+  text-align: left !important;
+}
+</style>

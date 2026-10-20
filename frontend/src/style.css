@@ -672,9 +672,52 @@ a:hover,
    5. FORMULARIOS Y ENTRADAS DE DATOS (Inputs y Selectores)
    ------------------------------------------------------------------------------ */
 
+/* Contenedor del campo: Fondo de superficie y contraste tipográfico maestro */
 .v-field {
   background-color: var(--mof-surface) !important;
+  color: var(--mof-text-main) !important;
   border-radius: 10px !important;
+}
+
+/* Texto ingresado en campos, áreas de texto, selects y autocompletes */
+.v-field__input,
+.v-field input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]),
+.v-field textarea,
+input.v-field__input,
+textarea.v-field__input,
+.v-select__selection,
+.v-select__selection-text,
+.v-autocomplete__selection,
+.v-autocomplete__selection-text,
+.v-combobox__selection,
+.v-combobox__selection-text {
+  color: var(--mof-text-main) !important;
+  -webkit-text-fill-color: var(--mof-text-main) !important;
+  font-family: "Urbanist", sans-serif !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
+}
+
+/* Cursor de inserción de texto institucional */
+.v-field input,
+.v-field textarea,
+.v-field__input input,
+input.v-field__input,
+textarea.v-field__input {
+  caret-color: var(--mof-turquesa) !important;
+}
+
+/* Campos con variante underlined: asegurar espaciado lateral para evitar números y textos pegados al borde */
+.v-field--variant-underlined {
+  padding-inline-start: 10px !important;
+  padding-inline-end: 10px !important;
+  --v-field-padding-start: 10px !important;
+  --v-field-padding-end: 10px !important;
+}
+
+.v-field--variant-underlined .v-field__input {
+  padding-inline-start: 4px !important;
+  padding-inline-end: 4px !important;
 }
 
 .v-field__outline {
@@ -690,9 +733,12 @@ a:hover,
 /* Textos Placeholder ("tipo fantasmita" permitido exclusivamente aquí) */
 .v-field__input::placeholder,
 input::placeholder,
-textarea::placeholder {
-  color: #7b8e98 !important;
-  opacity: 0.75 !important;
+textarea::placeholder,
+.v-field input::placeholder,
+.v-field textarea::placeholder {
+  color: var(--mof-placeholder) !important;
+  -webkit-text-fill-color: var(--mof-placeholder) !important;
+  opacity: 0.85 !important;
   font-weight: 400 !important;
 }
 
@@ -867,6 +913,8 @@ tr.v-data-table__tr:hover {
    ------------------------------------------------------------------------------ */
 
 .v-dialog .v-card {
+  background-color: var(--mof-surface) !important;
+  color: var(--mof-text-main) !important;
   border-radius: var(--mof-radius-card) !important;
   box-shadow: 0 12px 40px rgba(26, 71, 86, 0.18) !important;
 }
@@ -875,6 +923,17 @@ tr.v-data-table__tr:hover {
   color: var(--mof-petroleo) !important;
   font-weight: 800 !important;
   border-bottom: 1px solid var(--mof-border-nav);
+}
+
+.v-dialog .v-card-text {
+  color: var(--mof-text-main) !important;
+}
+
+.v-dialog input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]),
+.v-dialog textarea,
+.v-dialog .v-field__input {
+  color: var(--mof-text-main) !important;
+  -webkit-text-fill-color: var(--mof-text-main) !important;
 }
 
 .v-menu .v-overlay__content > .v-list {
