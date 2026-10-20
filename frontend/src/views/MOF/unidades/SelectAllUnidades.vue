@@ -44,6 +44,7 @@ const emit = defineEmits(['update:modelValue']);
 const undadesAllUnidadesStore = useAllUnidadesMofStore();
 const clasesStore = useAllClasesMofStore();
 const updateKey = ref(0);
+const search = ref('');
 
 onMounted(async () => {
     if (undadesAllUnidadesStore.unidades.length === 0) {
@@ -82,6 +83,18 @@ const PRESET_GROUPS = {
     27: { label: 'Todos los Vicedecanatos', shortLabel: 'Vicedecanatos', icon: 'mdi-account-tie', order: 8, keywords: ['vicedecanato', 'vicedecanatos'] },
     31: { label: 'Todas las Estaciones Experimentales', shortLabel: 'Estaciones Exp.', icon: 'mdi-sprout', order: 9, keywords: ['estacion', 'estaciones', 'experimental'] },
 };
+
+/** Agrupaciones por Tipo funcional (catálogo de tipos), identificadas por su descripción. */
+const PRESET_TIPO_GROUPS = {
+    ADMINISTRATIVO: { label: 'Todas las Unidades Administrativas', shortLabel: 'Administrativas', icon: 'mdi-briefcase', order: 2.5 },
+    'SUSTANTIVO (ACADEMICO)': { label: 'Todas las Unidades Sustantivas (Académicas)', shortLabel: 'Sustantivas', icon: 'mdi-school-outline', order: 100 },
+    ASESORAMIENTO: { label: 'Todas las Unidades de Asesoramiento', shortLabel: 'Asesoramiento', icon: 'mdi-account-voice', order: 100 },
+};
+
+function getPresetForTipo(descripcion) {
+    const key = normalizeText(descripcion).toUpperCase();
+    return PRESET_TIPO_GROUPS[key] || null;
+}
 
 function getPresetForClase(tipoId, descripcion) {
     if (tipoId && PRESET_GROUPS[tipoId]) {
@@ -160,6 +173,7 @@ const availableGroups = computed(() => {
         }
 
         groups.push({
+            key: String(tipoId),
             tipoId: Number(tipoId),
             rawName: rawDesc,
             label,
@@ -172,6 +186,37 @@ const availableGroups = computed(() => {
             totalCount,
             selectedCount,
             status,
+        });
+    }
+
+    const mapByTipoFuncional = new Map();
+    for (const u of currentUnits) {
+        const nombre = String(u.tipo || '').trim();
+        if (!nombre) continue;
+        if (!mapByTipoFuncional.has(nombre)) mapByTipoFuncional.set(nombre, []);
+        mapByTipoFuncional.get(nombre).push(u);
+    }
+
+    for (const [nombre, units] of mapByTipoFuncional.entries()) {
+        const preset = getPresetForTipo(nombre);
+        const availableUnitIds = units.map(u => Number(u.id));
+        const totalCount = availableUnitIds.length;
+        const selectedCount = availableUnitIds.filter(id => currentSelectedSet.has(String(id))).length;
+
+        groups.push({
+            key: `tipo:${nombre}`,
+            tipoId: null,
+            rawName: nombre,
+            label: preset?.label || `Todas las unidades de tipo ${nombre}`,
+            shortLabel: preset?.shortLabel || nombre,
+            icon: preset?.icon || 'mdi-shape-outline',
+            order: preset?.order || 100,
+            color: '#3F51B5',
+            keywords: [normalizeText(nombre)],
+            availableUnitIds,
+            totalCount,
+            selectedCount,
+            status: selectedCount === totalCount ? 'all' : selectedCount > 0 ? 'partial' : 'none',
         });
     }
 
@@ -196,8 +241,8 @@ const selectedCountTotal = computed(() => {
 /**
  * Alterna la selección de todo un grupo (tri-state: si todos están seleccionados, los deselecciona; si no, selecciona los faltantes).
  */
-function toggleGroup(tipoId) {
-    const group = availableGroups.value.find(g => String(g.tipoId) === String(tipoId));
+function toggleGroup(groupKey) {
+    const group = availableGroups.value.find(g => g.key === String(groupKey));
     if (!group || group.availableUnitIds.length === 0) return;
 
     const current = Array.isArray(value.value)
@@ -215,9 +260,19 @@ function toggleGroup(tipoId) {
         next = [...current, ...toAdd];
     }
     value.value = next;
+    search.value = '';
 }
 
+const CONFIRM_CLEAR_THRESHOLD = 10;
+
 function clearAllSelection() {
+    const total = selectedCountTotal.value;
+    if (
+        total > CONFIRM_CLEAR_THRESHOLD &&
+        !window.confirm(`¿Quitar las ${total} unidades seleccionadas?`)
+    ) {
+        return;
+    }
     value.value = [];
 }
 
@@ -234,8 +289,8 @@ const value = computed({
           .map(x => (typeof x === 'object' && x !== null ? (x.id || x.value) : x));
 
         for (const gItem of groupItems) {
-          const tipoId = gItem.replace('__group_', '');
-          const group = availableGroups.value.find(g => String(g.tipoId) === String(tipoId));
+          const groupKey = gItem.replace('__group_', '');
+          const group = availableGroups.value.find(g => g.key === groupKey);
           if (group) {
             const groupIds = group.availableUnitIds;
             const currentSet = new Set(currentClean.map(id => String(id)));
@@ -250,6 +305,7 @@ const value = computed({
           }
         }
         emit('update:modelValue', currentClean);
+        search.value = '';
         return;
       }
     }
@@ -264,12 +320,12 @@ const dropdownItems = computed(() => {
     }
 
     const groupItems = availableGroups.value.map(g => ({
-        id: `__group_${g.tipoId}`,
+        id: `__group_${g.key}`,
         isGroup: true,
-        groupTipoId: g.tipoId,
+        groupKey: g.key,
         nombre: g.label,
         sigla: 'GRUPO',
-        codigo: `GRUPO-${g.tipoId}`,
+        codigo: `GRUPO-${g.key}`,
         tipo_unidad: 'AGRUPACIÓN MACRO',
         count: g.totalCount,
         selectedCount: g.selectedCount,
@@ -285,7 +341,8 @@ const dropdownItems = computed(() => {
 const autocompleteProps = computed(() => {
     if (props.type !== 'autocomplete') return {};
     return {
-        clearable: true,
+        // Con grupos, el borrado total pasa por "Limpiar todas" (con confirmación).
+        clearable: !props.enableBatchGroups,
         chips: true,
         multiple: true,
         'closable-chips': true
@@ -418,10 +475,10 @@ function customFilter(value, query, item) {
       <div class="d-flex flex-wrap align-center gap-1">
         <button
           v-for="grp in mainQuickGroups"
-          :key="'tb-' + grp.tipoId"
+          :key="'tb-' + grp.key"
           type="button"
           :class="['batch-group-btn', `batch-group-btn--${grp.status}`]"
-          @click="toggleGroup(grp.tipoId)"
+          @click="toggleGroup(grp.key)"
         >
           <v-icon size="15" class="mr-1">
             {{ grp.status === 'all' ? 'mdi-check-circle' : grp.status === 'partial' ? 'mdi-minus-circle' : 'mdi-plus-circle' }}
@@ -447,8 +504,8 @@ function customFilter(value, query, item) {
           <v-list density="compact" class="py-1">
             <v-list-item
               v-for="grp in secondaryGroups"
-              :key="'menu-' + grp.tipoId"
-              @click="toggleGroup(grp.tipoId)"
+              :key="'menu-' + grp.key"
+              @click="toggleGroup(grp.key)"
             >
               <template #prepend>
                 <v-icon
@@ -483,6 +540,7 @@ function customFilter(value, query, item) {
     <component 
         :is="props.type === 'autocomplete' ? 'v-autocomplete' : 'v-select'"
         v-model="value"
+        v-model:search="search"
         :label="props.enableBatchGroups ? undefined : (props.label || 'Unidades')" 
         :placeholder="props.enableBatchGroups ? (props.placeholder || 'Buscar por nombre, sigla o código...') : undefined"
         :items="dropdownItems" 
@@ -517,7 +575,7 @@ function customFilter(value, query, item) {
                         'batch-group-menu-row--all': item.raw.status === 'all',
                         'batch-group-menu-row--partial': item.raw.status === 'partial'
                     }"
-                    @click.stop="toggleGroup(item.raw.groupTipoId)"
+                    @click.stop="toggleGroup(item.raw.groupKey)"
                 >
                     <div class="d-flex align-center flex-grow-1 mr-2">
                         <v-icon

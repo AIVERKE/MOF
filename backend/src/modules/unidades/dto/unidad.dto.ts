@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -11,6 +12,8 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IsFecCreacionInRange } from '../../../common/validators/fec-creacion-range.validator';
+
+const MAX_RELACIONES = 1000;
 
 export class UnidadDto {
   @ApiProperty()
@@ -132,6 +135,7 @@ export class UnidadDto {
   @ApiPropertyOptional({ type: [Number] })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
   @Type(() => Number)
   dependenciasFuncionales?: number[];
 
@@ -139,7 +143,8 @@ export class UnidadDto {
   @IsOptional()
   @IsString()
   @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message: 'Trámites atendidos contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+    message:
+      'Trámites atendidos contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
   })
   tramitesAtendidos?: string;
 
@@ -147,7 +152,8 @@ export class UnidadDto {
   @IsOptional()
   @IsString()
   @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message: 'Ejecución POA contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+    message:
+      'Ejecución POA contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
   })
   ejecucionPoa?: string;
 
@@ -155,7 +161,8 @@ export class UnidadDto {
   @IsOptional()
   @IsString()
   @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message: 'Ejecución presupuestaria contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+    message:
+      'Ejecución presupuestaria contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
   })
   ejecucionPresupuestaria?: string;
 
@@ -163,7 +170,8 @@ export class UnidadDto {
   @IsOptional()
   @IsString()
   @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message: 'Carga horaria programada contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+    message:
+      'Carga horaria programada contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
   })
   cargaHorariaProgramada?: string;
 
@@ -171,7 +179,8 @@ export class UnidadDto {
   @IsOptional()
   @IsString()
   @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message: 'Carga horaria ejecutada contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+    message:
+      'Carga horaria ejecutada contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
   })
   cargaHorariaEjecutada?: string;
 
@@ -179,7 +188,8 @@ export class UnidadDto {
   @IsOptional()
   @IsString()
   @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message: 'Infraestructura física contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+    message:
+      'Infraestructura física contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
   })
   infraestructura?: string;
 
@@ -187,13 +197,18 @@ export class UnidadDto {
   @IsOptional()
   @IsString()
   @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message: 'Ubicación física contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+    message:
+      'Ubicación física contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
   })
   ubicacion?: string;
 
-  @ApiPropertyOptional({ description: 'Relaciones internas asociadas' })
+  @ApiPropertyOptional({
+    description:
+      'Relaciones internas: ids de unidad o { relacionadaId, tipo }. Se ignoran repetidos, la propia unidad e ids inexistentes.',
+  })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
   relacionesInternas?: (number | UnidadRelacionInternaDto)[];
 
   @ApiPropertyOptional({ description: 'Relaciones externas asociadas' })

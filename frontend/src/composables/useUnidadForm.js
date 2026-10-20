@@ -9,6 +9,7 @@ import {
   mapBackendToForm,
   mapFormToBackend,
   mapPersonalToCargos,
+  toRelId,
 } from "@/utils/mofMappers";
 import { useConfigMofStore } from "@/stores/config_mof";
 
@@ -312,9 +313,9 @@ export function useUnidadForm(stores) {
   }
 
   function addRelacionInterna(relacionadaId, tipo = null) {
-    if (!relacionadaId) return;
+    if (toRelId(relacionadaId) == null) return;
     const exists = formData.value.relacionesInternas.some(
-      (r) => String(r.relacionadaId || r.id || r) === String(relacionadaId)
+      (r) => Number(typeof r === "object" && r !== null ? r.relacionadaId : r) === Number(relacionadaId)
     );
     if (!exists) {
       const encontrada = unidadesStore.unidades.find(

@@ -55,6 +55,22 @@ import {
   getCleanSigla,
 } from "@/utils/mofHelpers";
 
+/** Id de unidad relacionada como entero positivo, o null si no es válido. */
+export function toRelId(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** Descarta relaciones sin id válido y repetidas (conserva la primera). */
+export function uniqueByRelacionadaId(relaciones) {
+  const seen = new Set();
+  return (relaciones || []).filter((r) => {
+    if (r.relacionadaId == null || seen.has(r.relacionadaId)) return false;
+    seen.add(r.relacionadaId);
+    return true;
+  });
+}
+
 /**
  * Genera el estado inicial reactivo vacío para una unidad nueva
  * 
@@ -219,15 +235,17 @@ export function mapBackendToForm(raw, options = {}) {
     dependenciasFuncionales.length > 0;
 
   // 5. Resolver Relaciones Internas
-  const relacionesInternas = (raw.relacionesInternas || []).map((r) => ({
-    id: r.id,
-    relacionadaId: r.relacionadaId || r.unidadDestinoId || r.id,
-    codigo: r.codigo,
-    nombre: r.nombre || r.unidadDestinoNombre,
-    sigla: r.sigla,
-    tipo: r.tipo || null,
-    descripcion: r.descripcion || null,
-  }));
+  const relacionesInternas = uniqueByRelacionadaId(
+    (raw.relacionesInternas || []).map((r) => ({
+      id: r.id,
+      relacionadaId: toRelId(r.relacionadaId ?? r.unidadDestinoId),
+      codigo: r.codigo,
+      nombre: r.nombre || r.unidadDestinoNombre,
+      sigla: r.sigla,
+      tipo: r.tipo || null,
+      descripcion: r.descripcion || null,
+    })),
+  );
 
   // 6. Resolver Relaciones Externas
   const relacionesExternas = (raw.relacionesExternas || []).map((r) => ({
@@ -346,10 +364,12 @@ export function mapFormToBackend(formData) {
     cargaHorariaEjecutada: (formData.cargaHorariaEjecutada ?? formData.carga_horaria_ejecutada)?.trim() || null,
     infraestructura: (formData.infraestructura ?? formData.infraestructura_fisica)?.trim() || null,
     ubicacion: formData.ubicacion?.trim() || null,
-    relacionesInternas: (formData.relacionesInternas || []).map((r) => ({
-      relacionadaId: Number(r.relacionadaId || r.id || r),
-      tipo: r.tipo || null,
-    })),
+    relacionesInternas: uniqueByRelacionadaId(
+      (formData.relacionesInternas || []).map((r) => ({
+        relacionadaId: toRelId(typeof r === "object" && r !== null ? r.relacionadaId : r),
+        tipo: r?.tipo || null,
+      })),
+    ),
     relacionesExternas: (formData.relacionesExternas || [])
       .map((r) => (typeof r === "object" ? r.descripcion?.trim() : String(r).trim()))
       .filter(Boolean),
