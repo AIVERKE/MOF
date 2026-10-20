@@ -52,6 +52,33 @@ const usedColors = computed(() =>
   getUsedColors(unidadesStore.unidades, clasesStore.clases),
 );
 
+// Título y texto de apoyo accesible para el encabezado del diálogo
+const dialogTitle = computed(() => {
+  if (props.isEditMode) {
+    const nombre = props.formData?.nombre || props.formData?.denominacion || "";
+    return {
+      prefix: "Editar:",
+      target: nombre,
+      full: nombre ? `Editar: ${nombre}` : "Editar Unidad",
+    };
+  }
+  if (props.selectedNode) {
+    const nombre = props.selectedNode?.nombre || props.selectedNode?.denominacion || "";
+    return {
+      prefix: "Agregar unidad dependiente (Hija de):",
+      target: nombre,
+      full: nombre
+        ? `Agregar unidad dependiente (Hija de): ${nombre}`
+        : "Agregar unidad dependiente",
+    };
+  }
+  return {
+    prefix: "Crear Unidad:",
+    target: "RAÍZ INSTITUCIONAL",
+    full: "Crear Unidad: RAÍZ INSTITUCIONAL",
+  };
+});
+
 // Sincronizar formValid con el padre
 const localFormValid = ref(props.formValid);
 watch(localFormValid, (val) => emit("update:formValid", val));
@@ -233,26 +260,43 @@ function moverAbajo(index) {
     persistent
   >
     <v-card>
-      <v-card-title class="d-flex align-center justify-space-between py-3 px-4 border-b">
-        <span class="text-subtitle-1 font-weight-bold">
-          <template v-if="isEditMode">
-            Editar:
-            <strong class="text-primary ml-1">{{ formData.nombre || formData.denominacion }}</strong>
-          </template>
-          <template v-else-if="selectedNode">
-            Agregar unidad dependiente (Hija de):
-            <strong class="text-primary ml-1">{{ selectedNode.nombre || selectedNode.denominacion }}</strong>
-          </template>
-          <template v-else>
-            Crear Unidad:
-            <strong class="text-primary ml-1">RAÍZ INSTITUCIONAL</strong>
-          </template>
-        </span>
-        <v-btn icon="mdi-close" variant="text" size="small" @click="close">
-          <v-icon size="20">mdi-close</v-icon>
-          <v-tooltip activator="parent" location="top"
-            >Cerrar formulario</v-tooltip
+      <v-card-title
+        class="unidad-dialog-header d-flex align-start justify-space-between py-3 px-4 border-b text-wrap"
+      >
+        <div
+          class="unidad-dialog-title-wrapper flex-grow-1 pr-2 min-width-0"
+          tabindex="0"
+          role="heading"
+          aria-level="2"
+          :aria-label="dialogTitle.full"
+        >
+          <span
+            class="text-subtitle-1 font-weight-bold unidad-dialog-title-text"
+            data-test="dialog-header-title"
           >
+            {{ dialogTitle.prefix }}
+            <strong class="text-primary ml-1">{{ dialogTitle.target }}</strong>
+          </span>
+          <v-tooltip
+            activator="parent"
+            location="bottom start"
+            max-width="500"
+            open-delay="200"
+          >
+            <span>{{ dialogTitle.full }}</span>
+          </v-tooltip>
+        </div>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          class="flex-shrink-0 ml-1"
+          @click="close"
+        >
+          <v-icon size="20">mdi-close</v-icon>
+          <v-tooltip activator="parent" location="top">
+            Cerrar formulario
+          </v-tooltip>
         </v-btn>
       </v-card-title>
       <v-card-text class="pt-4">
@@ -899,3 +943,31 @@ function moverAbajo(index) {
     </v-dialog>
   </v-dialog>
 </template>
+
+<style scoped>
+.unidad-dialog-header {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.unidad-dialog-title-wrapper {
+  min-width: 0;
+  cursor: default;
+}
+
+.unidad-dialog-title-wrapper:focus-visible {
+  outline: 2px solid var(--v-theme-primary, #007bff);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.unidad-dialog-title-text {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  display: inline;
+}
+</style>
