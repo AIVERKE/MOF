@@ -162,6 +162,14 @@ const sectionsConfig = [
       "asignacion de cargos",
       "puestos",
       "items",
+      "nivel",
+      "nivel en la unidad",
+      "nivel de cargo",
+      "nivel del cargo",
+      "nivel de los cargos",
+      "nivel orden",
+      "nivel sugerido",
+      "jerarquia de cargo",
     ],
   },
   {
@@ -235,16 +243,55 @@ const sectionsConfig = [
   },
 ];
 
+const STOP_WORDS = new Set([
+  "de",
+  "la",
+  "los",
+  "las",
+  "el",
+  "en",
+  "del",
+  "y",
+  "a",
+  "al",
+  "por",
+  "para",
+  "un",
+  "una",
+  "unos",
+  "unas",
+]);
+
 const matchingSections = computed(() => {
   const q = normalizeText(searchQuery.value);
   if (!q) return sectionsConfig;
+
+  const words = q
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
+
   return sectionsConfig.filter((sec) => {
     const secNameNorm = normalizeText(sec.name);
+    // 1. Coincidencia directa en el nombre de la sección
     if (secNameNorm.includes(q)) return true;
-    return sec.keywords.some((kw) => {
-      const kwNorm = normalizeText(kw);
-      return kwNorm.includes(q) || q.includes(kwNorm);
-    });
+
+    // 2. Coincidencia si alguna keyword contiene el término buscado
+    if (sec.keywords.some((kw) => normalizeText(kw).includes(q))) {
+      return true;
+    }
+
+    // 3. Coincidencia multi-palabra (ej: "nivel de los cargos", "nivel cargo")
+    if (words.length > 1) {
+      const combined =
+        secNameNorm +
+        " " +
+        sec.keywords.map((kw) => normalizeText(kw)).join(" ");
+      if (words.every((w) => combined.includes(w))) {
+        return true;
+      }
+    }
+
+    return false;
   });
 });
 
