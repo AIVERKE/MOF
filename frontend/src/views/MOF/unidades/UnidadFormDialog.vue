@@ -436,7 +436,7 @@ function moverAbajo(index) {
             <v-col cols="12">
               <v-card
                 variant="outlined"
-                class="pa-3 rounded-lg border-opacity-25"
+                class="pa-3 rounded-lg border-opacity-25 mb-2"
                 style="border-color: rgba(var(--v-theme-primary), 0.35);"
               >
                 <div class="d-flex align-center justify-space-between flex-wrap gap-2">
@@ -480,7 +480,7 @@ function moverAbajo(index) {
                 </v-expand-transition>
               </v-card>
             </v-col>
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="4" class="pt-3">
               <SelectAllTipos
                 v-model="formData.tipo"
                 label="Tipo de Unidad"
@@ -489,7 +489,7 @@ function moverAbajo(index) {
                 :rules="[rules.required]"
               />
             </v-col>
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="4" class="pt-3">
               <SelectAllNiveles
                 v-model="formData.nivel"
                 label="Nivel Jerárquico"
@@ -498,7 +498,7 @@ function moverAbajo(index) {
                 :rules="[rules.required]"
               />
             </v-col>
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="4" class="pt-3">
               <SelectAllRelaciones
                 v-model="formData.relacion"
                 :hint="hints.unidadForm.relacion"
@@ -506,7 +506,7 @@ function moverAbajo(index) {
                 :rules="[rules.required]"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="6" class="pt-3">
               <SelectAllClases
                 v-model="formData.clase"
                 label="Instancia"
