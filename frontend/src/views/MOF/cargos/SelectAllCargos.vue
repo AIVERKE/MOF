@@ -2,6 +2,7 @@
 import { onMounted, computed, ref } from 'vue';
 import { useAllCargosMofStore } from '../../../stores/cargos_mof';
 import { hints } from "@/config/hints";
+import CargoCatalogDialog from './CargoCatalogDialog.vue';
 
 const props = defineProps({
   modelValue: {
@@ -17,12 +18,9 @@ const emit = defineEmits(['update:modelValue']);
 
 const cargosStore = useAllCargosMofStore();
 
-// Estados para gestión de catálogo
 const dialog = ref(false);
 const editingCargo = ref(null);
-const cargoName = ref("");
-const cargoDescripcion = ref("");
-const cargoActivo = ref(true);
+const dialogInitialName = ref("");
 const search = ref("");
 
 /**
@@ -92,42 +90,10 @@ function toggleSelect(item) {
   }
 }
 
-// Funciones de gestión
 function openDialog(item = null) {
-  if (item) {
-    editingCargo.value = item;
-    cargoName.value = item.nombre || item.descripcion || "";
-    cargoDescripcion.value = item.descripcion || "";
-    cargoActivo.value = item.activo ?? true;
-  } else {
-    editingCargo.value = null;
-    cargoName.value = search.value; // Pre-cargar lo que el usuario escribió en la búsqueda
-    cargoDescripcion.value = "";
-    cargoActivo.value = true;
-  }
+  editingCargo.value = item;
+  dialogInitialName.value = item ? "" : search.value;
   dialog.value = true;
-}
-
-async function saveCargo() {
-  if (!cargoName.value.trim()) return;
-
-  const nombre = cargoName.value.trim().slice(0, 255);
-  const descripcion = cargoDescripcion.value.trim().slice(0, 512) || null;
-
-  let success = false;
-  if (editingCargo.value) {
-    success = await cargosStore.updateCargo(editingCargo.value.id, nombre, descripcion, cargoActivo.value);
-  } else {
-    success = await cargosStore.createCargo(nombre, descripcion, cargoActivo.value);
-  }
-
-  if (success) {
-    dialog.value = false;
-    cargoName.value = "";
-    cargoDescripcion.value = "";
-    cargoActivo.value = true;
-    editingCargo.value = null;
-  }
 }
 
 onMounted(async () => {
@@ -231,76 +197,10 @@ onMounted(async () => {
             </template>
         </v-autocomplete>
 
-        <!-- Diálogo para crear/editar -->
-         <v-dialog v-model="dialog" max-width="480">
-            <v-card>
-                <v-card-title class="text-h6">
-                    {{ editingCargo ? 'Editar Cargo' : 'Nuevo Cargo' }}
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pt-4">
-                    <v-text-field
-                        v-model="cargoName"
-                        label="Nombre"
-                        variant="outlined"
-                        autofocus
-                        maxlength="255"
-                        counter="255"
-                        :hint="hints.cargos.nombre"
-                        :persistent-hint="false"
-                        :rules="[v => !!String(v || '').trim() || 'El nombre es obligatorio']"
-                        class="mb-4"
-                    ></v-text-field>
-                    <v-textarea
-                        v-model="cargoDescripcion"
-                        label="Descripción"
-                        variant="outlined"
-                        rows="2"
-                        maxlength="512"
-                        counter="512"
-                        :hint="hints.cargos.descripcion"
-                        :persistent-hint="false"
-                        hide-details="auto"
-                        class="mb-6"
-                    ></v-textarea>
-                    
-                    <div 
-                        class="d-flex align-center justify-space-between pa-3 rounded cursor-pointer transition-colors" 
-                        :class="{ 'bg-green-lighten-5 border-s-4 border-green': cargoActivo, 'bg-grey-lighten-4 border-s-4 border-grey-darken-1': !cargoActivo }"
-                        @click="cargoActivo = !cargoActivo"
-                    >
-                        <div class="flex-grow-1">
-                            <div class="text-caption font-weight-bold" :class="{ 'text-green-darken-2': cargoActivo, 'text-grey-darken-1': !cargoActivo }">
-                                Estado: <span class="font-weight-bold">{{ cargoActivo ? 'ACTIVO' : 'INACTIVO' }}</span>
-                            </div>
-                            <div class="text-xs text-grey-darken-1">
-                                {{ cargoActivo ? 'Visible y seleccionable para asignar a unidades' : 'Visible (atenuado) pero no seleccionable ni asignable' }}
-                            </div>
-                        </div>
-                        <v-checkbox
-                            :model-value="cargoActivo"
-                            hide-details
-                            density="compact"
-                            class="ml-2"
-                            @click.stop="cargoActivo = !cargoActivo"
-                        ></v-checkbox>
-                    </div>
-                </v-card-text>
-                <v-card-actions class="pa-4">
-                    <v-spacer></v-spacer>
-                    <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="dialog = false">Cancelar</v-btn>
-                    <v-btn 
-                        color="primary" 
-                        variant="flat"
-                        class="rounded-lg font-weight-bold px-4"
-                        @click="saveCargo" 
-                        :loading="cargosStore.loading"
-                        :disabled="!cargoName.trim()"
-                    >
-                        Guardar
-                    </v-btn>
-                </v-card-actions>
-            </v-card>
-        </v-dialog>
+        <CargoCatalogDialog
+            v-model="dialog"
+            :cargo="editingCargo"
+            :initial-name="dialogInitialName"
+        />
     </div>
 </template>

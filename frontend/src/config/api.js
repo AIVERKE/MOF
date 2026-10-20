@@ -1,10 +1,11 @@
 /**
  * Configuración centralizada de las URLs y endpoints de la API.
- * Permite cambiar la URL base desde la variable VITE_API_BASE_URL en .env
+ * Permite cambiar la URL base desde la variable VITE_API_BASE_URL en .env.
+ * Vacía: mismo origen (producción detrás de Apache). Sin definir: localhost:3000.
  */
 import { useSnackbar } from "@/composables/useSnackbar";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
 export const ENDPOINTS = {
   AUTH: {
@@ -50,7 +51,7 @@ export const ERROR_CODE_MESSAGES = {
   DEPENDENCIA_DUPLICADA: "La dependencia funcional ya existe",
   CLASE_YA_PRIMERA: "La clase ya está en la primera posición",
   CLASE_YA_ULTIMA: "La clase ya está en la última posición",
-  CARGO_YA_ASIGNADO_UNICO: "Ese cargo único ya está asignado en la unidad",
+  CARGO_YA_ASIGNADO: "Ese cargo ya está asignado en la unidad",
   USUARIO_CI_DUPLICADO: "Ya existe una persona registrada con ese C.I.",
   PRIMER_ACCESO_REQUERIDO:
     "Debe completar el primer acceso con su correo y C.I. para definir su contraseña",

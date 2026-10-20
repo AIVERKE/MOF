@@ -1,0 +1,410 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { mount } from "@vue/test-utils";
+import { setActivePinia, createPinia } from "pinia";
+import SelectAllUnidades from "../SelectAllUnidades.vue";
+import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
+import { useAllClasesMofStore } from "@/stores/clases_mof";
+
+const stubs = {
+  "v-autocomplete": {
+    props: ["modelValue", "items", "itemTitle", "itemValue", "customFilter", "loading", "label", "placeholder", "variant"],
+    template: `
+      <div class="v-autocomplete-stub" :data-variant="variant" :data-placeholder="placeholder">
+        <slot name="prepend-item" />
+        <div v-for="item in items" :key="item.id || item" class="item-wrapper">
+          <slot name="item" :props="{}" :item="{ raw: item }">
+            <span>{{ typeof itemTitle === 'function' ? itemTitle(item) : item.nombre }}</span>
+          </slot>
+        </div>
+        <div v-for="sel in (Array.isArray(modelValue) ? modelValue : [modelValue])" :key="'chip-' + sel" class="chip-wrapper">
+          <slot name="chip" :props="{}" :item="{ raw: items ? items.find(i => String(i.id) === String(sel)) : {} }">
+            <span>{{ sel }}</span>
+          </slot>
+        </div>
+      </div>
+    `,
+  },
+  "v-select": {
+    props: ["modelValue", "items"],
+    template: `<div class="v-select-stub"><slot /></div>`,
+  },
+  "v-chip": {
+    props: ["color", "variant", "size"],
+    template: `<button class="v-chip" :data-color="color" :data-variant="variant" @click="$emit('click', $event)"><slot /></button>`,
+  },
+  "v-icon": {
+    props: ["icon", "start", "size", "color"],
+    template: `<i class="v-icon" :data-icon="icon"><slot /></i>`,
+  },
+  "v-list-item": {
+    props: ["title", "subtitle"],
+    template: `
+      <div class="v-list-item" @click="$emit('click', $event)">
+        <slot name="prepend" />
+        <slot name="title">{{ title }}</slot>
+        <slot name="subtitle">{{ subtitle }}</slot>
+        <slot />
+      </div>
+    `,
+  },
+  "v-menu": {
+    template: `<div class="v-menu"><slot name="activator" :props="{}" /><slot /></div>`,
+  },
+  "v-list": {
+    template: `<div class="v-list"><slot /></div>`,
+  },
+  "v-list-item-title": {
+    template: `<div class="v-list-item-title"><slot /></div>`,
+  },
+  "v-btn": {
+    props: ["color", "variant", "size"],
+    template: `<button class="v-btn" @click="$emit('click', $event)"><slot /></button>`,
+  },
+};
+
+const mockUnidades = [
+  // 3 Facultades (tipoUnidad = 24)
+  { id: 56, nombre: "FACULTAD DE AGRONOMÍA", sigla: "FAD", tipoUnidad: 24, clase: "DECANATOS" },
+  { id: 70, nombre: "FACULTAD DE MEDICINA", sigla: "FMED", tipoUnidad: 24, clase: "DECANATOS" },
+  { id: 83, nombre: "FACULTAD DE INGENIERÍA", sigla: "FID", tipoUnidad: 24, clase: "DECANATOS" },
+
+  // 2 Carreras (tipoUnidad = 28)
+  { id: 241, nombre: "CARRERA DE INGENIERÍA CIVIL", sigla: "CIVIL", tipoUnidad: 28, clase: "DIRECCIONES DE CARRERA" },
+  { id: 248, nombre: "CARRERA DE ELECTRÓNICA", sigla: "ELEC", tipoUnidad: 28, clase: "DIRECCIONES DE CARRERA" },
+
+  // 2 Institutos (tipoUnidad = 29)
+  { id: 301, nombre: "INSTITUTO DE INVESTIGACIONES QUÍMICAS", sigla: "IIQ", tipoUnidad: 29, clase: "DIRECCIONES DE INSTITUTOS" },
+  { id: 302, nombre: "INSTITUTO DE INVESTIGACIONES FÍSICAS", sigla: "IIF", tipoUnidad: 29, clase: "DIRECCIONES DE INSTITUTOS" },
+];
+
+const mockClases = [
+  { id: 24, descripcion: "DECANATOS", color: "#C62828" },
+  { id: 28, descripcion: "DIRECCIONES DE CARRERA", color: "#03A9F4" },
+  { id: 29, descripcion: "DIRECCIONES DE INSTITUTOS", color: "#1A237E" },
+];
+
+describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    const uStore = useAllUnidadesMofStore();
+    uStore.unidades = [...mockUnidades];
+    const cStore = useAllClasesMofStore();
+    cStore.clases = [...mockClases];
+  });
+
+  it("does not render batch toolbar when enableBatchGroups is false (default)", () => {
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [],
+        type: "autocomplete",
+        enableBatchGroups: false,
+      },
+      global: { stubs },
+    });
+
+    expect(wrapper.find(".batch-groups-toolbar").exists()).toBe(false);
+  });
+
+  it("renders batch toolbar when enableBatchGroups is true", () => {
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [],
+        type: "autocomplete",
+        enableBatchGroups: true,
+      },
+      global: { stubs },
+    });
+
+    const toolbar = wrapper.find(".batch-groups-toolbar");
+    expect(toolbar.exists()).toBe(true);
+    expect(toolbar.text()).toContain("Seleccionar grupo:");
+    // Should show Facultades (3), Carreras (2), Institutos (2)
+    expect(toolbar.text()).toContain("Facultades (0/3)");
+    expect(toolbar.text()).toContain("Carreras (0/2)");
+    expect(toolbar.text()).toContain("Institutos (0/2)");
+  });
+
+  it("renders external label and outlined variant when enableBatchGroups is true to prevent overlap", () => {
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [56],
+        label: "Coordinación Interna (Unidades relacionadas)",
+        type: "autocomplete",
+        enableBatchGroups: true,
+      },
+      global: { stubs },
+    });
+
+    // Label should be in external container, not passed to v-autocomplete
+    const extLabel = wrapper.find(".select-all-label");
+    expect(extLabel.exists()).toBe(true);
+    expect(extLabel.text()).toContain("Coordinación Interna (Unidades relacionadas)");
+
+    const autocomplete = wrapper.findComponent(".v-autocomplete-stub");
+    expect(autocomplete.attributes("data-variant")).toBe("outlined");
+  });
+
+  it("excludes excludeId from available group units and counts", () => {
+    // If we exclude FMED (id: 70), Facultades should only have 2 units available (56, 83)
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [],
+        type: "autocomplete",
+        enableBatchGroups: true,
+        excludeId: 70,
+      },
+      global: { stubs },
+    });
+
+    const toolbar = wrapper.find(".batch-groups-toolbar");
+    expect(toolbar.text()).toContain("Facultades (0/2)");
+  });
+
+  it("selects all units in a group when clicked from 0 selected (none -> all)", async () => {
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [],
+        type: "autocomplete",
+        enableBatchGroups: true,
+      },
+      global: { stubs },
+    });
+
+    const btns = wrapper.findAll(".batch-groups-toolbar .batch-group-btn");
+    const facultadesBtn = btns.find((b) => b.text().includes("Facultades"));
+    expect(facultadesBtn).toBeDefined();
+
+    await facultadesBtn.trigger("click");
+
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted).toBeTruthy();
+    const lastEmitted = emitted[emitted.length - 1][0];
+    expect(lastEmitted).toEqual([56, 70, 83]);
+  });
+
+  it("deselects all units in a group when clicked from all selected (all -> none)", async () => {
+    // All 3 faculties are currently in modelValue
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [56, 70, 83],
+        type: "autocomplete",
+        enableBatchGroups: true,
+      },
+      global: { stubs },
+    });
+
+    const btns = wrapper.findAll(".batch-groups-toolbar .batch-group-btn");
+    const facultadesBtn = btns.find((b) => b.text().includes("Facultades"));
+    expect(facultadesBtn.text()).toContain("Facultades (3/3)");
+
+    await facultadesBtn.trigger("click");
+
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted).toBeTruthy();
+    const lastEmitted = emitted[emitted.length - 1][0];
+    // Facultades removed, resulting in empty array
+    expect(lastEmitted).toEqual([]);
+  });
+
+  it("completes the group when partially selected (partial -> all)", async () => {
+    // Only 1 faculty is currently selected, plus 1 carrera
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [56, 241],
+        type: "autocomplete",
+        enableBatchGroups: true,
+      },
+      global: { stubs },
+    });
+
+    const btns = wrapper.findAll(".batch-groups-toolbar .batch-group-btn");
+    const facultadesBtn = btns.find((b) => b.text().includes("Facultades"));
+    expect(facultadesBtn.text()).toContain("Facultades (1/3)");
+
+    await facultadesBtn.trigger("click");
+
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted).toBeTruthy();
+    const lastEmitted = emitted[emitted.length - 1][0];
+    // Preserves 241 (carrera) and completes faculties (56, 70, 83)
+    expect(lastEmitted).toContain(241);
+    expect(lastEmitted).toContain(56);
+    expect(lastEmitted).toContain(70);
+    expect(lastEmitted).toContain(83);
+    expect(lastEmitted.length).toBe(4);
+  });
+
+  it("does not select excludeId when selecting a group", async () => {
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [],
+        type: "autocomplete",
+        enableBatchGroups: true,
+        excludeId: 70, // Unit being edited (e.g. Medicina)
+      },
+      global: { stubs },
+    });
+
+    const btns = wrapper.findAll(".batch-groups-toolbar .batch-group-btn");
+    const facultadesBtn = btns.find((b) => b.text().includes("Facultades"));
+
+    await facultadesBtn.trigger("click");
+
+    const emitted = wrapper.emitted("update:modelValue");
+    const lastEmitted = emitted[emitted.length - 1][0];
+    // Should contain 56 and 83, but NOT 70!
+    expect(lastEmitted).toContain(56);
+    expect(lastEmitted).toContain(83);
+    expect(lastEmitted).not.toContain(70);
+  });
+
+  it("includes macro-groups in dropdown items", () => {
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [],
+        type: "autocomplete",
+        enableBatchGroups: true,
+      },
+      global: { stubs },
+    });
+
+    const autocomplete = wrapper.findComponent(".v-autocomplete-stub");
+    const items = autocomplete.props("items");
+    const groupItems = items.filter((i) => i.isGroup);
+
+    expect(groupItems.length).toBe(3); // Facultades, Carreras, Institutos
+    expect(groupItems.some((g) => g.nombre.includes("Facultades"))).toBe(true);
+    expect(groupItems.some((g) => g.nombre.includes("Carreras"))).toBe(true);
+    expect(groupItems.some((g) => g.nombre.includes("Institutos"))).toBe(true);
+  });
+
+  describe("grupos por Tipo funcional", () => {
+    beforeEach(() => {
+      const uStore = useAllUnidadesMofStore();
+      uStore.unidades = [
+        ...mockUnidades.map((u) => ({ ...u, tipo: "Sustantivo (Académico)" })),
+        { id: 401, nombre: "DIVISION DE PERSONAL", tipoUnidad: 23, clase: "DIVISIONES", tipo: "Administrativo" },
+        { id: 402, nombre: "DIVISION DE TESORO", tipoUnidad: 23, clase: "DIVISIONES", tipo: "Administrativo" },
+      ];
+    });
+
+    it("muestra el grupo de unidades administrativas en la barra rápida", () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      const toolbar = wrapper.find(".batch-groups-toolbar");
+      expect(toolbar.text()).toContain("Administrativas (0/2)");
+    });
+
+    it("selecciona todas las unidades administrativas y luego las quita", async () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [56], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      const btn = () =>
+        wrapper.findAll(".batch-groups-toolbar .batch-group-btn").find((b) => b.text().includes("Administrativas"));
+
+      await btn().trigger("click");
+      let emitted = wrapper.emitted("update:modelValue");
+      expect(emitted[emitted.length - 1][0]).toEqual([56, 401, 402]);
+
+      await wrapper.setProps({ modelValue: [56, 401, 402] });
+      await btn().trigger("click");
+      emitted = wrapper.emitted("update:modelValue");
+      expect(emitted[emitted.length - 1][0]).toEqual([56]);
+    });
+
+    it("incluye los grupos por tipo en el desplegable", () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      const items = wrapper.findComponent(".v-autocomplete-stub").props("items");
+      const keys = items.filter((i) => i.isGroup).map((i) => i.groupKey);
+      expect(keys).toContain("tipo:Administrativo");
+      expect(keys).toContain("tipo:Sustantivo (Académico)");
+    });
+  });
+
+  it("clears all selections when clicking 'Limpiar todas'", async () => {
+    const wrapper = mount(SelectAllUnidades, {
+      props: {
+        modelValue: [56, 70, 241],
+        type: "autocomplete",
+        enableBatchGroups: true,
+      },
+      global: { stubs },
+    });
+
+    const clearBtn = wrapper.find(".batch-group-clear-btn");
+    expect(clearBtn.exists()).toBe(true);
+
+    await clearBtn.trigger("click");
+
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted[emitted.length - 1][0]).toEqual([]);
+  });
+
+  describe("protecciones de UX", () => {
+    const manyIds = Array.from({ length: 12 }, (_, i) => 1000 + i);
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("pide confirmación antes de limpiar muchas unidades y respeta la cancelación", async () => {
+      const confirmSpy = vi.fn(() => false);
+      vi.stubGlobal("confirm", confirmSpy);
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: manyIds, type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      await wrapper.find(".batch-group-clear-btn").trigger("click");
+
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(wrapper.emitted("update:modelValue")).toBeFalsy();
+    });
+
+    it("limpia tras confirmar", async () => {
+      vi.stubGlobal("confirm", vi.fn(() => true));
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: manyIds, type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      await wrapper.find(".batch-group-clear-btn").trigger("click");
+
+      const emitted = wrapper.emitted("update:modelValue");
+      expect(emitted[emitted.length - 1][0]).toEqual([]);
+    });
+
+    it("no ofrece el botón clearable del autocomplete cuando hay grupos", () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [56], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      expect(wrapper.findComponent(".v-autocomplete-stub").attributes("clearable")).toBe("false");
+    });
+
+    it("completar un grupo parcial no duplica las unidades ya elegidas", async () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [56, 83], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      const btn = wrapper
+        .findAll(".batch-groups-toolbar .batch-group-btn")
+        .find((b) => b.text().includes("Facultades"));
+      await btn.trigger("click");
+
+      const emitted = wrapper.emitted("update:modelValue");
+      const last = emitted[emitted.length - 1][0];
+      expect(last).toEqual([56, 83, 70]);
+      expect(new Set(last).size).toBe(last.length);
+    });
+  });
+});

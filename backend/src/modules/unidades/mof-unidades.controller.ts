@@ -57,7 +57,9 @@ export class MofUnidadesController {
   }
 
   @Get('config')
-  @ApiOperation({ summary: 'Configuración global y reglas de negocio dinámicas del MOF' })
+  @ApiOperation({
+    summary: 'Configuración global y reglas de negocio dinámicas del MOF',
+  })
   async config() {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
@@ -68,7 +70,8 @@ export class MofUnidadesController {
   @Put('config')
   @Roles('ADMIN')
   @ApiOperation({
-    summary: 'Actualizar configuración MOF (defaults, reglas, paleta, política de contraseña)',
+    summary:
+      'Actualizar configuración MOF (defaults, reglas, paleta, política de contraseña)',
   })
   async updateConfig(@Body() dto: UpdateMofConfigDto) {
     return ResultResponse.ok(
@@ -78,7 +81,9 @@ export class MofUnidadesController {
   }
 
   @Get('dashboard/stats')
-  @ApiOperation({ summary: 'Estadísticas agregadas para Dashboard y Organigrama' })
+  @ApiOperation({
+    summary: 'Estadísticas agregadas para Dashboard y Organigrama',
+  })
   async dashboardStats(
     @Query('clase') clase?: string,
     @Query('nivel') nivel?: string,
@@ -87,7 +92,12 @@ export class MofUnidadesController {
   ) {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
-      await this.unidadesService.getDashboardStats({ clase, nivel, tipo, relacion }),
+      await this.unidadesService.getDashboardStats({
+        clase,
+        nivel,
+        tipo,
+        relacion,
+      }),
     );
   }
 
@@ -111,7 +121,9 @@ export class MofUnidadesController {
   }
 
   @Get('unidades/:id/descendientes-stats')
-  @ApiOperation({ summary: 'Árbol y estadísticas de dependientes para Dashboard Facultativo' })
+  @ApiOperation({
+    summary: 'Árbol y estadísticas de dependientes para Dashboard Facultativo',
+  })
   async descendientesStats(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,

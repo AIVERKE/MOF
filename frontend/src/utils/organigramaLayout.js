@@ -1,9 +1,10 @@
-import { compareCodigos } from "@/utils/mofHelpers";
+import { compareCodigos } from "./mofHelpers.js";
 
 export const NODE_WIDTH = 320;
 export const NODE_HEIGHT = 210; // Altura fija garantizada para evitar cualquier solapamiento
 export const H_GAP = 90; // Separación horizontal generosa entre ramas
 export const V_GAP = 140; // Separación vertical generosa tipo mapa conceptual para trazo ortogonal limpio
+export const FACULTADES_EXTRA_GAP = 700; // Separación vertical adicional para dar respiro al piso de Facultades
 
 export const LADO_RANK = {
   IZQUIERDA: 1,
@@ -11,6 +12,52 @@ export const LADO_RANK = {
   AUTOMATICO: 3,
   DERECHA: 4,
 };
+
+/**
+ * Mapea el peso jerárquico a un nivel visual unificado (tier) para las alas superiores:
+ * - Secretarías (peso <= 7, ej. Secretaría General, Secretaría Académica): Tier 0
+ * - Direcciones (peso 8, ej. DAF, Defensoría): Tier 1
+ * - Departamentos (peso 9, ej. DAJD, DIPGIS, DTIC, DBS, DPD, etc.): Tier 2
+ * - Divisiones (peso 10, ej. Transparencia, Biblioteca Central, etc.): Tier 3
+ * - Posgrados directos (peso 15, ej. CEPIES, CIDES): Tier 4
+ * - Secciones (peso 16, ej. Becas Académicas, Desconcentradas, Tributarias): Tier 5
+ * - Estaciones / Centros / otros (peso >= 17): Tier 6
+ */
+export function getUpperUnifiedTier(peso) {
+  if (peso <= 7) return 0; // Secretarías
+  if (peso === 8) return 1; // Direcciones
+  if (peso === 9) return 2; // Departamentos
+  if (peso === 10) return 3; // Divisiones
+  if (peso === 15) return 4; // Posgrados directos
+  if (peso === 16) return 5; // Secciones
+  if (peso >= 17) return 6; // Estaciones / Centros
+  return 5;
+}
+
+export const isRectoradoNode = (n) =>
+  n?.data?.orden === 5 ||
+  String(n?.id) === "33" ||
+  String(n?.data?.sigla || "").toUpperCase() === "REC" ||
+  String(n?.data?.nombre || "")
+    .toUpperCase()
+    .includes("RECTORADO");
+
+export const isVicerrectoradoNode = (n) =>
+  n?.data?.orden === 6 ||
+  String(n?.id) === "44" ||
+  String(n?.data?.sigla || "").toUpperCase() === "VR" ||
+  String(n?.data?.nombre || "")
+    .toUpperCase()
+    .includes("VICERRECTORADO");
+
+export const isDecanato = (c) =>
+  c?.data?.orden === 11 ||
+  String(c?.data?.clase || "")
+    .toUpperCase()
+    .includes("DECANATO") ||
+  String(c?.data?.nombre || "")
+    .toUpperCase()
+    .includes("DECANATO");
 
 /**
  * Calcula las coordenadas (x, y) de los nodos para el organigrama respetando:
@@ -85,7 +132,8 @@ export function getLayoutedElements(nodes, edges) {
     const rootPeso = rootUnit.data?.orden ?? 99;
     const uPeso = unit.data?.orden ?? 99;
 
-    if (rootPeso === 11) { // Decanatos (Piso 3 bajo Vicerrectorado)
+    if (rootPeso === 11) {
+      // Decanatos (Piso 3 bajo Vicerrectorado)
       if (uPeso <= 11) return 0; // Decanatos
       if (uPeso === 12) return 1; // Vicedecanatos (Piso 4)
       if (uPeso === 13) return 2; // Carreras (Piso 5)
@@ -96,29 +144,34 @@ export function getLayoutedElements(nodes, edges) {
       if (uPeso === 18) return 7; // Centros Experimentales (Piso 10)
       return 8; // Centros de Investigaciones (Piso 11)
     }
-    if (rootPeso === 8) { // Direcciones (DAF, Piso 1 bajo Rectorado)
+    if (rootPeso === 8) {
+      // Direcciones (DAF, Piso 1 bajo Rectorado)
       if (uPeso <= 8) return 0;
       if (uPeso === 9) return 1; // Departamentos (Piso 2)
       if (uPeso === 10) return 2; // Divisiones (Piso 3)
       return 3; // Secciones (Piso 4)
     }
-    if (rootPeso === 9) { // Departamentos
+    if (rootPeso === 9) {
+      // Departamentos
       if (uPeso <= 9) return 0;
       if (uPeso === 10) return 1; // Divisiones
       return 2; // Secciones
     }
-    if (rootPeso === 10) { // Divisiones
+    if (rootPeso === 10) {
+      // Divisiones
       if (uPeso <= 10) return 0;
       return 1; // Secciones
     }
-    if (rootPeso === 7) { // Secretaría (Piso 0)
+    if (rootPeso === 7) {
+      // Secretaría (Piso 0)
       if (uPeso <= 7) return 0;
       if (uPeso === 8) return 1;
       if (uPeso === 9) return 2;
       if (uPeso === 10) return 3; // Divisiones
       return 4; // Secciones
     }
-    if (rootPeso === 12) { // Vicedecanatos (Piso 4)
+    if (rootPeso === 12) {
+      // Vicedecanatos (Piso 4)
       if (uPeso <= 12) return 0;
       if (uPeso === 13) return 1; // Carreras (Piso 5)
       if (uPeso === 14) return 2; // Institutos (Piso 6)
@@ -128,13 +181,15 @@ export function getLayoutedElements(nodes, edges) {
       if (uPeso === 18) return 6; // Centros Experimentales (Piso 10)
       return 7; // Centros de Investigaciones (Piso 11)
     }
-    if (rootPeso === 14) { // Institutos (Piso 6)
+    if (rootPeso === 14) {
+      // Institutos (Piso 6)
       if (uPeso <= 14) return 0;
       if (uPeso === 17) return 1; // Estaciones (Piso 9)
       if (uPeso === 18) return 2; // Centros Experimentales (Piso 10)
       return 3; // Centros de Investigaciones (Piso 11)
     }
-    if (rootPeso === 15) { // Posgrados (Piso 7)
+    if (rootPeso === 15) {
+      // Posgrados (Piso 7)
       if (uPeso <= 15) return 0;
       return 1; // Secciones (Piso 8)
     }
@@ -206,8 +261,7 @@ export function getLayoutedElements(nodes, edges) {
           (c) => c.data?.lado === "DERECHA",
         );
         const autoWings = otherChildren.filter(
-          (c) =>
-            c.data?.lado !== "IZQUIERDA" && c.data?.lado !== "DERECHA",
+          (c) => c.data?.lado !== "IZQUIERDA" && c.data?.lado !== "DERECHA",
         );
         autoWings.forEach((c) => {
           if (leftWings.length <= rightWings.length) leftWings.push(c);
@@ -282,11 +336,14 @@ export function getLayoutedElements(nodes, edges) {
     parentY = null,
   ) {
     const curUnit = byId[nodeId];
+    if (!curUnit) return;
     if (!rootUnit) rootUnit = curUnit;
     const uPeso = curUnit.data?.orden ?? 99;
 
     let nodeY;
-    if (pesoRankMap && pesoRankMap.has(uPeso)) {
+    if (typeof pesoRankMap === "function") {
+      nodeY = startY + pesoRankMap(uPeso) * STEP;
+    } else if (pesoRankMap && pesoRankMap.has(uPeso)) {
       nodeY = startY + pesoRankMap.get(uPeso) * STEP;
     } else {
       const tier = getSubtreeTier(rootUnit, curUnit);
@@ -319,8 +376,7 @@ export function getLayoutedElements(nodes, edges) {
         (c) => c.data?.lado === "DERECHA",
       );
       const autoWings = otherChildren.filter(
-        (c) =>
-          c.data?.lado !== "IZQUIERDA" && c.data?.lado !== "DERECHA",
+        (c) => c.data?.lado !== "IZQUIERDA" && c.data?.lado !== "DERECHA",
       );
       autoWings.forEach((c) => {
         if (leftWings.length <= rightWings.length) leftWings.push(c);
@@ -336,7 +392,10 @@ export function getLayoutedElements(nodes, edges) {
           : 0;
       const wSubTrunk = getSubtreeWidth(String(primarySubTrunk.id));
       const leftOffset = wLeft > 0 ? wLeft + H_GAP : 0;
-      const spineX = startX + leftOffset + (Math.max(NODE_WIDTH, wSubTrunk) - NODE_WIDTH) / 2;
+      const spineX =
+        startX +
+        leftOffset +
+        (Math.max(NODE_WIDTH, wSubTrunk) - NODE_WIDTH) / 2;
 
       positions[nodeId] = { x: forceX !== null ? forceX : spineX, y: nodeY };
 
@@ -344,19 +403,43 @@ export function getLayoutedElements(nodes, edges) {
       let curLeftX = startX;
       leftWings.forEach((c) => {
         const w = getSubtreeWidth(String(c.id));
-        layoutSubtree(String(c.id), curLeftX, startY, rootUnit, null, pesoRankMap, nodeY);
+        layoutSubtree(
+          String(c.id),
+          curLeftX,
+          startY,
+          rootUnit,
+          null,
+          pesoRankMap,
+          nodeY,
+        );
         curLeftX += w + H_GAP;
       });
 
       // Nodo sub-troncal alineado verticalmente en el EXACTO mismo eje X local (spineX)
       const subTrunkStartX = startX + leftOffset;
-      layoutSubtree(String(primarySubTrunk.id), subTrunkStartX, startY, rootUnit, spineX, pesoRankMap, nodeY);
+      layoutSubtree(
+        String(primarySubTrunk.id),
+        subTrunkStartX,
+        startY,
+        rootUnit,
+        spineX,
+        pesoRankMap,
+        nodeY,
+      );
 
       // Alas derechas: colocadas secuencialmente después del subtronco
       let curRightX = subTrunkStartX + Math.max(NODE_WIDTH, wSubTrunk) + H_GAP;
       rightWings.forEach((c) => {
         const w = getSubtreeWidth(String(c.id));
-        layoutSubtree(String(c.id), curRightX, startY, rootUnit, null, pesoRankMap, nodeY);
+        layoutSubtree(
+          String(c.id),
+          curRightX,
+          startY,
+          rootUnit,
+          null,
+          pesoRankMap,
+          nodeY,
+        );
         curRightX += w + H_GAP;
       });
       return;
@@ -369,11 +452,19 @@ export function getLayoutedElements(nodes, edges) {
         0,
       ) - H_GAP;
 
-    let curX = forceX !== null ? (forceX + NODE_WIDTH / 2 - totalW / 2) : startX;
+    let curX = forceX !== null ? forceX + NODE_WIDTH / 2 - totalW / 2 : startX;
     const childCenters = [];
     children.forEach((c) => {
       const w = getSubtreeWidth(String(c.id));
-      layoutSubtree(String(c.id), curX, startY, rootUnit, null, pesoRankMap, nodeY);
+      layoutSubtree(
+        String(c.id),
+        curX,
+        startY,
+        rootUnit,
+        null,
+        pesoRankMap,
+        nodeY,
+      );
       childCenters.push(positions[String(c.id)].x + NODE_WIDTH / 2);
       curX += w + H_GAP;
     });
@@ -387,13 +478,27 @@ export function getLayoutedElements(nodes, edges) {
     }
   }
 
+  // Función comparadora de nodos troncales: orden jerárquico por peso/nivel, luego por código numérico
+  const compareTroncales = (a, b) => {
+    const pesoA = a.data?.orden ?? 99;
+    const pesoB = b.data?.orden ?? 99;
+    if (pesoA !== pesoB) return pesoA - pesoB;
+    return compareCodigos(a, b);
+  };
+
   // Comprobar si hay unidades marcadas como troncales
   // Nodos con esTroncal === true pertenecen al Eje Central Institucional
   const trunkNodes = layoutNodes
     .filter((n) => n.data?.esTroncal === true)
-    .sort(compareCodigos);
+    .sort(compareTroncales);
 
-  const hasInstitutionalSpine = trunkNodes.length >= 2;
+  const hasInstitutionalSpine =
+    trunkNodes.length >= 2 ||
+    trunkNodes.some(isVicerrectoradoNode) ||
+    trunkNodes.some(isRectoradoNode);
+
+  let decanatosBusY = null;
+  const decanatosSet = new Set();
 
   if (hasInstitutionalSpine) {
     // =========================================================================
@@ -408,7 +513,7 @@ export function getLayoutedElements(nodes, edges) {
     const trunkRoots = trunkNodes.filter(
       (n) => !n.parentId || !trunkIds.has(String(n.parentId)),
     );
-    trunkRoots.sort(compareCodigos);
+    trunkRoots.sort(compareTroncales);
 
     // Recorrer la cadena del tronco en orden jerárquico topológico
     const orderedTrunk = [];
@@ -416,93 +521,452 @@ export function getLayoutedElements(nodes, edges) {
       orderedTrunk.push(node);
       const trunkChildren = (childrenMap[String(node.id)] || [])
         .filter((c) => trunkIds.has(String(c.id)))
-        .sort(compareCodigos);
+        .sort(compareTroncales);
       trunkChildren.forEach(traverseTrunk);
     }
     trunkRoots.forEach(traverseTrunk);
 
     // Por seguridad, si algún nodo troncal quedó fuera (árboles desconectados), agregarlo
-    trunkNodes.forEach((n) => {
-      if (!orderedTrunk.some((o) => String(o.id) === String(n.id))) {
-        orderedTrunk.push(n);
-      }
-    });
+    trunkNodes
+      .slice()
+      .sort(compareTroncales)
+      .forEach((n) => {
+        if (!orderedTrunk.some((o) => String(o.id) === String(n.id))) {
+          orderedTrunk.push(n);
+        }
+      });
 
-    // Procesar cada nodo del tronco en pisos sucesivos
+    const recNode = orderedTrunk.find(isRectoradoNode);
+    const vrNode = orderedTrunk.find(isVicerrectoradoNode);
+
+    const processedTrunkIds = new Set();
     let curTrunkY = 50;
 
     orderedTrunk.forEach((tNode) => {
       const tId = String(tNode.id);
+      if (processedTrunkIds.has(tId)) return;
 
-      // 1. Posicionar el nodo troncal actual en el eje central
+      // =========================================================================
+      // CASO 1: RECTORADO Y VICERRECTORADO AMBOS PRESENTES
+      // =========================================================================
+      if (
+        recNode &&
+        vrNode &&
+        (tId === String(recNode.id) || tId === String(vrNode.id))
+      ) {
+        const recId = String(recNode.id);
+        const vrId = String(vrNode.id);
+        processedTrunkIds.add(recId);
+        processedTrunkIds.add(vrId);
+
+        // 1. Posicionar Rectorado y Vicerrectorado directamente en el tronco central
+        positions[recId] = { x: TRUNK_X, y: curTrunkY };
+        const recY = curTrunkY;
+        const vrY = recY + NODE_HEIGHT + V_GAP;
+        positions[vrId] = { x: TRUNK_X, y: vrY };
+
+        // 2. Obtener dependencias no troncales
+        const recChildren = (childrenMap[recId] || []).filter(
+          (c) => !trunkIds.has(String(c.id)),
+        );
+        const vrChildren = (childrenMap[vrId] || []).filter(
+          (c) => !trunkIds.has(String(c.id)),
+        );
+
+        // Decanatos: van alineados abajo con la línea larga
+        const decanatos = [
+          ...vrChildren.filter(isDecanato),
+          ...recChildren.filter(isDecanato),
+        ];
+        decanatos.forEach((d) => decanatosSet.add(String(d.id)));
+
+        // Distribución dinámica de dependencias superiores según el lado configurado en cada troncal:
+        // Rectorado: por defecto 'IZQUIERDA' (o según recNode.data?.lado)
+        // Vicerrectorado: por defecto 'DERECHA' (o según vrNode.data?.lado)
+        const recNonDec = recChildren.filter((c) => !isDecanato(c));
+        const vrNonDec = vrChildren.filter((c) => !isDecanato(c));
+
+        const recLado = recNode.data?.lado;
+        const vrLado = vrNode.data?.lado;
+
+        const leftWings = [];
+        const rightWings = [];
+
+        // Dependencias de Rectorado
+        if (recLado === "DERECHA") {
+          rightWings.push(...recNonDec);
+        } else if (recLado === "CENTRO") {
+          recNonDec.forEach((c) => {
+            if (c.data?.lado === "DERECHA") rightWings.push(c);
+            else if (c.data?.lado === "IZQUIERDA") leftWings.push(c);
+            else {
+              if (leftWings.length <= rightWings.length) leftWings.push(c);
+              else rightWings.push(c);
+            }
+          });
+        } else {
+          // Default institucional: Ala Izquierda
+          leftWings.push(...recNonDec);
+        }
+
+        // Dependencias de Vicerrectorado
+        if (vrLado === "IZQUIERDA") {
+          leftWings.push(...vrNonDec);
+        } else if (vrLado === "CENTRO") {
+          vrNonDec.forEach((c) => {
+            if (c.data?.lado === "IZQUIERDA") leftWings.push(c);
+            else if (c.data?.lado === "DERECHA") rightWings.push(c);
+            else {
+              if (rightWings.length <= leftWings.length) rightWings.push(c);
+              else leftWings.push(c);
+            }
+          });
+        } else {
+          // Default académico: Ala Derecha
+          rightWings.push(...vrNonDec);
+        }
+
+        // En el ala izquierda (se despliega de derecha a izquierda, alejándose del tronco hacia X negativo):
+        // DERECHA significa pegado al eje central (se procesa primero cerca de -90)
+        // IZQUIERDA significa hacia el borde exterior (se procesa al final lejos de -90)
+        leftWings.sort((a, b) => {
+          const rankA = a.data?.lado === "DERECHA" ? 1 : a.data?.lado === "IZQUIERDA" ? 3 : 2;
+          const rankB = b.data?.lado === "DERECHA" ? 1 : b.data?.lado === "IZQUIERDA" ? 3 : 2;
+          if (rankA !== rankB) return rankA - rankB;
+
+          const pesoA = a.data?.orden ?? 99;
+          const pesoB = b.data?.orden ?? 99;
+          if (pesoA !== pesoB) return pesoA - pesoB;
+
+          return compareCodigos(a, b);
+        });
+
+        // En el ala derecha (se despliega de izquierda a derecha, alejándose del tronco hacia X positivo):
+        // IZQUIERDA significa pegado al eje central (se procesa primero cerca de 410)
+        // DERECHA significa hacia el borde exterior (se procesa al final lejos de 410)
+        rightWings.sort((a, b) => {
+          const rankA = a.data?.lado === "IZQUIERDA" ? 1 : a.data?.lado === "DERECHA" ? 3 : 2;
+          const rankB = b.data?.lado === "IZQUIERDA" ? 1 : b.data?.lado === "DERECHA" ? 3 : 2;
+          if (rankA !== rankB) return rankA - rankB;
+
+          const pesoA = a.data?.orden ?? 99;
+          const pesoB = b.data?.orden ?? 99;
+          if (pesoA !== pesoB) return pesoA - pesoB;
+
+          return compareCodigos(a, b);
+        });
+
+        const upperWingsStartY = vrY + NODE_HEIGHT + V_GAP;
+
+        // Trazar Ala Izquierda (se expande hacia X negativo)
+        let curLeftX = TRUNK_X - H_GAP;
+        leftWings.forEach((c) => {
+          const w = getSubtreeWidth(String(c.id));
+          curLeftX -= w;
+          const parentTrunkY = String(c.parentId) === vrId ? vrY : recY;
+          layoutSubtree(
+            String(c.id),
+            curLeftX,
+            upperWingsStartY,
+            c,
+            null,
+            getUpperUnifiedTier,
+            parentTrunkY,
+          );
+          curLeftX -= H_GAP;
+        });
+
+        // Trazar Ala Derecha (se expande hacia X positivo)
+        let curRightX = TRUNK_X + NODE_WIDTH + H_GAP;
+        rightWings.forEach((c) => {
+          const w = getSubtreeWidth(String(c.id));
+          const parentTrunkY = String(c.parentId) === recId ? recY : vrY;
+          layoutSubtree(
+            String(c.id),
+            curRightX,
+            upperWingsStartY,
+            c,
+            null,
+            getUpperUnifiedTier,
+            parentTrunkY,
+          );
+          curRightX += w + H_GAP;
+        });
+
+        // Calcular cota inferior alcanzada por todas las unidades superiores
+        let maxUpperY = vrY;
+        Object.keys(positions).forEach((id) => {
+          if (positions[id].y > maxUpperY) maxUpperY = positions[id].y;
+        });
+
+        // Trazar Decanatos en piso inferior alineado horizontalmente con línea central larga
+        if (decanatos.length > 0) {
+          const decanatosY =
+            maxUpperY + NODE_HEIGHT + V_GAP + FACULTADES_EXTRA_GAP;
+          decanatosBusY = decanatosY - (V_GAP + FACULTADES_EXTRA_GAP) / 2;
+
+          const totalDecWidth =
+            decanatos.reduce(
+              (sum, d) => sum + getSubtreeWidth(String(d.id)) + H_GAP,
+              0,
+            ) - H_GAP;
+          const trunkCenterX = TRUNK_X + NODE_WIDTH / 2;
+          let curDecX = trunkCenterX - totalDecWidth / 2;
+
+          decanatos.forEach((d) => {
+            const w = getSubtreeWidth(String(d.id));
+            layoutSubtree(
+              String(d.id),
+              curDecX,
+              decanatosY,
+              d,
+              null,
+              null,
+              null,
+            );
+            curDecX += w + H_GAP;
+          });
+        }
+
+        let maxOverallY = vrY;
+        Object.keys(positions).forEach((id) => {
+          if (positions[id].y > maxOverallY) maxOverallY = positions[id].y;
+        });
+        curTrunkY = maxOverallY + NODE_HEIGHT + V_GAP;
+        return;
+      }
+
+      // =========================================================================
+      // CASO 2: SÓLO VICERRECTORADO EN EL TRONCO (VISTA FILTRADA DESDE VR)
+      // =========================================================================
+      if (vrNode && tId === String(vrNode.id)) {
+        const vrId = String(vrNode.id);
+        processedTrunkIds.add(vrId);
+        positions[vrId] = { x: TRUNK_X, y: curTrunkY };
+        const vrY = curTrunkY;
+
+        const vrChildren = (childrenMap[vrId] || []).filter(
+          (c) => !trunkIds.has(String(c.id)),
+        );
+        const decanatos = vrChildren.filter(isDecanato);
+        decanatos.forEach((d) => decanatosSet.add(String(d.id)));
+
+        const wings = vrChildren.filter((c) => !isDecanato(c));
+        const vrLado = vrNode.data?.lado;
+        let leftWings = [];
+        let rightWings = [];
+        if (vrLado === "IZQUIERDA") {
+          leftWings = wings;
+        } else if (vrLado === "DERECHA") {
+          rightWings = wings;
+        } else {
+          leftWings = wings.filter((c) => c.data?.lado === "IZQUIERDA");
+          rightWings = wings.filter((c) => c.data?.lado !== "IZQUIERDA");
+        }
+
+        const upperWingsStartY = vrY + NODE_HEIGHT + V_GAP;
+
+        let curLeftX = TRUNK_X - H_GAP;
+        leftWings.forEach((c) => {
+          const w = getSubtreeWidth(String(c.id));
+          curLeftX -= w;
+          layoutSubtree(
+            String(c.id),
+            curLeftX,
+            upperWingsStartY,
+            c,
+            null,
+            getUpperUnifiedTier,
+            vrY,
+          );
+          curLeftX -= H_GAP;
+        });
+
+        let curRightX = TRUNK_X + NODE_WIDTH + H_GAP;
+        rightWings.forEach((c) => {
+          const w = getSubtreeWidth(String(c.id));
+          layoutSubtree(
+            String(c.id),
+            curRightX,
+            upperWingsStartY,
+            c,
+            null,
+            getUpperUnifiedTier,
+            vrY,
+          );
+          curRightX += w + H_GAP;
+        });
+
+        let maxUpperY = vrY;
+        Object.keys(positions).forEach((id) => {
+          if (positions[id].y > maxUpperY) maxUpperY = positions[id].y;
+        });
+
+        if (decanatos.length > 0) {
+          const decanatosY =
+            maxUpperY + NODE_HEIGHT + V_GAP + FACULTADES_EXTRA_GAP;
+          decanatosBusY = decanatosY - (V_GAP + FACULTADES_EXTRA_GAP) / 2;
+
+          const totalDecWidth =
+            decanatos.reduce(
+              (sum, d) => sum + getSubtreeWidth(String(d.id)) + H_GAP,
+              0,
+            ) - H_GAP;
+          const trunkCenterX = TRUNK_X + NODE_WIDTH / 2;
+          let curDecX = trunkCenterX - totalDecWidth / 2;
+
+          decanatos.forEach((d) => {
+            const w = getSubtreeWidth(String(d.id));
+            layoutSubtree(
+              String(d.id),
+              curDecX,
+              decanatosY,
+              d,
+              null,
+              null,
+              null,
+            );
+            curDecX += w + H_GAP;
+          });
+        }
+
+        let maxOverallY = vrY;
+        Object.keys(positions).forEach((id) => {
+          if (positions[id].y > maxOverallY) maxOverallY = positions[id].y;
+        });
+        curTrunkY = maxOverallY + NODE_HEIGHT + V_GAP;
+        return;
+      }
+
+      // =========================================================================
+      // CASO 3: NODO TRONCAL GENERAL (CI, ADE, HCU, CE-HCU, ETC.)
+      // =========================================================================
+      processedTrunkIds.add(tId);
       positions[tId] = { x: TRUNK_X, y: curTrunkY };
       const T_Y = curTrunkY;
 
-      // 2. Obtener hijos NO troncales (dependencias y alas del piso)
       const nonTrunkChildren = (childrenMap[tId] || []).filter(
         (c) => !trunkIds.has(String(c.id)),
       );
 
       if (nonTrunkChildren.length > 0) {
-        // Construir mapa dinámico de pesos para esta sección troncal
         const sectionPesoRankMap = buildDynamicSectionPesoMap(tId, trunkIds);
 
-        const left = nonTrunkChildren.filter((c) => c.data?.lado === "IZQUIERDA");
-        const right = nonTrunkChildren.filter((c) => c.data?.lado === "DERECHA");
-        const center = nonTrunkChildren.filter((c) => c.data?.lado === "CENTRO");
-        const auto = nonTrunkChildren.filter(
-          (c) =>
-            c.data?.lado !== "IZQUIERDA" &&
-            c.data?.lado !== "DERECHA" &&
-            c.data?.lado !== "CENTRO",
-        );
+        const trunkLado = tNode.data?.lado;
+        let left = [];
+        let right = [];
+        let center = [];
 
-        // Repartir automáticos balanceando dinámicamente las alas
-        auto.forEach((c) => {
-          if (left.length <= right.length) left.push(c);
-          else right.push(c);
+        if (trunkLado === "IZQUIERDA") {
+          left = nonTrunkChildren;
+        } else if (trunkLado === "DERECHA") {
+          right = nonTrunkChildren;
+        } else {
+          // CENTRO o AUTOMATICO: se distribuyen a ambos lados equilibradamente
+          left = nonTrunkChildren.filter(
+            (c) => c.data?.lado === "IZQUIERDA",
+          );
+          right = nonTrunkChildren.filter(
+            (c) => c.data?.lado === "DERECHA",
+          );
+          center = nonTrunkChildren.filter(
+            (c) => c.data?.lado === "CENTRO",
+          );
+          const auto = nonTrunkChildren.filter(
+            (c) =>
+              c.data?.lado !== "IZQUIERDA" &&
+              c.data?.lado !== "DERECHA" &&
+              c.data?.lado !== "CENTRO",
+          );
+
+          auto.forEach((c) => {
+            if (left.length <= right.length) left.push(c);
+            else right.push(c);
+          });
+        }
+
+        left.sort((a, b) => {
+          const rankA = a.data?.lado === "DERECHA" ? 1 : a.data?.lado === "IZQUIERDA" ? 3 : 2;
+          const rankB = b.data?.lado === "DERECHA" ? 1 : b.data?.lado === "IZQUIERDA" ? 3 : 2;
+          if (rankA !== rankB) return rankA - rankB;
+
+          const pesoA = a.data?.orden ?? 99;
+          const pesoB = b.data?.orden ?? 99;
+          if (pesoA !== pesoB) return pesoA - pesoB;
+
+          return compareCodigos(a, b);
+        });
+
+        right.sort((a, b) => {
+          const rankA = a.data?.lado === "IZQUIERDA" ? 1 : a.data?.lado === "DERECHA" ? 3 : 2;
+          const rankB = b.data?.lado === "IZQUIERDA" ? 1 : b.data?.lado === "DERECHA" ? 3 : 2;
+          if (rankA !== rankB) return rankA - rankB;
+
+          const pesoA = a.data?.orden ?? 99;
+          const pesoB = b.data?.orden ?? 99;
+          if (pesoA !== pesoB) return pesoA - pesoB;
+
+          return compareCodigos(a, b);
         });
 
         const wingsStartY = T_Y + NODE_HEIGHT + V_GAP;
 
-        // Ala Izquierda: se expande hacia X negativo alejándose del eje central
         let curLeftX = TRUNK_X - H_GAP;
         left.forEach((c) => {
           const w = getSubtreeWidth(String(c.id));
           curLeftX -= w;
-          layoutSubtree(String(c.id), curLeftX, wingsStartY, null, null, sectionPesoRankMap, T_Y);
+          layoutSubtree(
+            String(c.id),
+            curLeftX,
+            wingsStartY,
+            null,
+            null,
+            sectionPesoRankMap,
+            T_Y,
+          );
           curLeftX -= H_GAP;
         });
 
-        // Ala Derecha: se expande hacia X positivo alejándose del eje central
         let curRightX = TRUNK_X + NODE_WIDTH + H_GAP;
         right.forEach((c) => {
           const w = getSubtreeWidth(String(c.id));
-          layoutSubtree(String(c.id), curRightX, wingsStartY, null, null, sectionPesoRankMap, T_Y);
+          layoutSubtree(
+            String(c.id),
+            curRightX,
+            wingsStartY,
+            null,
+            null,
+            sectionPesoRankMap,
+            T_Y,
+          );
           curRightX += w + H_GAP;
         });
 
-        // Nodos dependientes centrales no troncales (en el pasillo central)
-        let curCenterY = wingsStartY;
         center.forEach((c) => {
-          layoutSubtree(String(c.id), TRUNK_X, wingsStartY, null, null, sectionPesoRankMap, T_Y);
-          curCenterY += NODE_HEIGHT + V_GAP;
+          layoutSubtree(
+            String(c.id),
+            TRUNK_X,
+            wingsStartY,
+            null,
+            null,
+            sectionPesoRankMap,
+            T_Y,
+          );
         });
       }
 
-      // 3. Calcular el nivel Y más bajo alcanzado hasta ahora por todas las unidades posicionadas
       let maxCurrentY = T_Y;
       Object.keys(positions).forEach((id) => {
         if (positions[id].y > maxCurrentY) maxCurrentY = positions[id].y;
       });
 
-      // El siguiente piso troncal arrancará DEBAJO de todo lo generado por este piso y sus alas
       curTrunkY = maxCurrentY + NODE_HEIGHT + V_GAP;
     });
 
     // 4. Posicionar cualquier nodo que no esté conectado al tronco (ej: raíces secundarias)
     const unpositionedRoots = layoutNodes.filter(
-      (n) => !positions[String(n.id)] && (!n.parentId || !byId[String(n.parentId)]),
+      (n) =>
+        !positions[String(n.id)] && (!n.parentId || !byId[String(n.parentId)]),
     );
     if (unpositionedRoots.length > 0) {
       let maxPlacedX = TRUNK_X + NODE_WIDTH;
@@ -579,9 +1043,15 @@ export function getLayoutedElements(nodes, edges) {
     const childNode = byId[String(edge.target)];
     const isStaff = childNode?.data?.isStaff;
     if (parentPos && !isStaff) {
+      const isDecanatoChild = decanatosSet.has(String(edge.target));
+      const busY =
+        isDecanatoChild && decanatosBusY !== null
+          ? decanatosBusY
+          : parentPos.y + NODE_HEIGHT + V_GAP / 2;
+
       edge.data = {
         ...edge.data,
-        busY: parentPos.y + NODE_HEIGHT + V_GAP / 2,
+        busY,
         borderRadius: 0,
       };
     }
@@ -589,5 +1059,3 @@ export function getLayoutedElements(nodes, edges) {
 
   return { nodes, edges };
 }
-
-

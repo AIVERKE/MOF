@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { Unidad } from './entities/unidad.entity';
 import { UnidadFuncion } from './entities/unidad-funcion.entity';
 import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcional.entity';
@@ -12,8 +12,6 @@ import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
 import {
   MofConfig,
   type MofConfigDefaults,
-  type MofConfigReglas,
-  type MofPasswordPolicy,
 } from './entities/mof-config.entity';
 import {
   DependenciaFuncionalDto,
@@ -30,6 +28,7 @@ import {
   throwBusiness,
 } from '../../common/exceptions/business.exception';
 import { ErrorCodes } from '../../common/errors';
+import { resumirRelacionesInternas } from './relaciones-internas-resumen';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -37,6 +36,34 @@ import { InjectRepository } from '@nestjs/typeorm';
 function toDateOnly(value?: string | null): string | null {
   if (!value) return null;
   return value.slice(0, 10);
+}
+
+type RelItem =
+  | number
+  | string
+  | { relacionadaId?: unknown; tipo?: unknown }
+  | null
+  | undefined;
+
+/**
+ * Ids de unidades relacionadas: enteros positivos, sin la propia unidad y sin
+ * repetidos (se conserva el primer `tipo`). La tabla tiene UNIQUE por par.
+ */
+export function normalizeRelIds(
+  items: readonly RelItem[] | undefined | null,
+  selfId: number | string | null,
+): Map<number, string | null> {
+  const out = new Map<number, string | null>();
+  const self = selfId != null ? Number(selfId) : null;
+  for (const item of items ?? []) {
+    const isObj = item !== null && typeof item === 'object';
+    const relId = Number(isObj ? item.relacionadaId : item);
+    if (!Number.isInteger(relId) || relId <= 0) continue;
+    if (relId === self || out.has(relId)) continue;
+    const tipo = isObj && typeof item.tipo === 'string' ? item.tipo : null;
+    out.set(relId, tipo);
+  }
+  return out;
 }
 
 /** Valores históricos usados cuando aún no hay fila en mof_config. */
@@ -57,7 +84,7 @@ export const MOF_CONFIG_FALLBACK = {
     defaultClaseColor: '#757575',
     staffRelacionCodigos: ['S'],
     ladoTroncalForzado: 'CENTRO',
-  } as MofConfigReglas,
+  },
   paleta: [
     ['#1976D2', '#2196F3', '#03A9F4', '#00BCD4', '#00ACC1'],
     ['#2E7D32', '#4CAF50', '#8BC34A', '#CDDC39', '#C0CA33'],
@@ -72,7 +99,7 @@ export const MOF_CONFIG_FALLBACK = {
     ['#212121', '#424242', '#616161', '#757575', '#9E9E9E'],
     ['#BF360C', '#D84315', '#E64A19', '#F4511E', '#FF5722'],
   ] as string[][],
-  passwordPolicy: { minLength: 6 } as MofPasswordPolicy,
+  passwordPolicy: { minLength: 6 },
 };
 
 @Injectable()
@@ -134,8 +161,10 @@ export class UnidadesService {
     else if (clean === 'CONGRESO INTERNO') base = 'CI';
     else if (clean === 'ASAMBLEA DOCENTE ESTUDIANTIL') base = 'ADE';
     else if (clean === 'HONORABLE CONSEJO UNIVERSITARIO') base = 'HCU';
-    else if (clean.includes('COMITE EJECUTIVO DEL HONORABLE CONSEJO')) base = 'CE-HCU';
-    else if (clean === 'SECRETARÍA GENERAL' || clean === 'SECRETARIA GENERAL') base = 'SG';
+    else if (clean.includes('COMITE EJECUTIVO DEL HONORABLE CONSEJO'))
+      base = 'CE-HCU';
+    else if (clean === 'SECRETARÍA GENERAL' || clean === 'SECRETARIA GENERAL')
+      base = 'SG';
     else {
       const prefixMatch = clean.match(/^([A-Z0-9]{2,10})\s*[-–]\s*(.+)$/);
       if (prefixMatch) {
@@ -143,12 +172,28 @@ export class UnidadesService {
         const rest = prefixMatch[2];
         if (rest.includes('VICEDECANATO')) base = `${prefix}-VD`;
         else if (rest.includes('DECANATO')) base = `${prefix}-DEC`;
-        else if (rest.includes('DIRECCION') || rest.includes('DIRECCIÓN')) base = `${prefix}-DIR`;
-        else if (rest.includes('CARRERA') || rest.includes('CARR')) base = `${prefix}-CARR`;
-        else if (rest.includes('INSTITUTO') || rest.includes('INST')) base = `${prefix}-INST`;
+        else if (rest.includes('DIRECCION') || rest.includes('DIRECCIÓN'))
+          base = `${prefix}-DIR`;
+        else if (rest.includes('CARRERA') || rest.includes('CARR'))
+          base = `${prefix}-CARR`;
+        else if (rest.includes('INSTITUTO') || rest.includes('INST'))
+          base = `${prefix}-INST`;
         else base = prefix;
       } else {
-        const stopWords = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y', 'E', 'EN', 'POR', 'PARA', 'A', 'AL']);
+        const stopWords = new Set([
+          'DE',
+          'DEL',
+          'LA',
+          'LAS',
+          'LOS',
+          'Y',
+          'E',
+          'EN',
+          'POR',
+          'PARA',
+          'A',
+          'AL',
+        ]);
         const words = clean
           .replace(/[^\w\s-]/g, ' ')
           .split(/[\s-]+/)
@@ -158,7 +203,10 @@ export class UnidadesService {
           base = words[0].slice(0, 8);
         } else {
           const initials = words.map((w) => w[0]).join('');
-          base = initials.length >= 2 && initials.length <= 10 ? initials : clean.slice(0, 12).replace(/\s+/g, '');
+          base =
+            initials.length >= 2 && initials.length <= 10
+              ? initials
+              : clean.slice(0, 12).replace(/\s+/g, '');
         }
       }
     }
@@ -167,8 +215,13 @@ export class UnidadesService {
     let candidate = base;
     let counter = 1;
     while (true) {
-      const existing = await this.unidadRepo.findOne({ where: { sigla: candidate } });
-      if (!existing || (excludeId && String(existing.id) === String(excludeId))) {
+      const existing = await this.unidadRepo.findOne({
+        where: { sigla: candidate },
+      });
+      if (
+        !existing ||
+        (excludeId && String(existing.id) === String(excludeId))
+      ) {
         return candidate;
       }
       counter++;
@@ -188,8 +241,22 @@ export class UnidadesService {
       parent: u.parentId ? Number(u.parentId) : null,
       tipo: u.tipo?.descripcion ?? null,
       nivel: u.nivel?.descripcion ?? null,
-      relacion: u.relacion?.codigo ?? null,
+      relacion: u.relacion?.descripcion ?? null,
       str_relacion: u.relacion?.descripcion ?? null,
+      codigo_relacion: u.relacion?.codigo ?? null,
+      codigoRelacion: u.relacion?.codigo ?? null,
+      relacion_id:
+        u.relacionId != null
+          ? Number(u.relacionId)
+          : u.relacion?.id != null
+            ? Number(u.relacion.id)
+            : null,
+      relacionId:
+        u.relacionId != null
+          ? Number(u.relacionId)
+          : u.relacion?.id != null
+            ? Number(u.relacion.id)
+            : null,
       dependencia: parentNombre ?? null,
       oficial: u.oficial,
       es_troncal: u.esTroncal ?? false,
@@ -267,24 +334,16 @@ export class UnidadesService {
       relations: ['relacionada'],
       order: { id: 'ASC' },
     });
-    const relacionesInternas = await Promise.all(
-      relsIntRaw.map(async (r) => {
-        let relUnit: Unidad | null = r.relacionada ?? null;
-        if (!relUnit && r.relacionadaId) {
-          relUnit = await this.unidadRepo.findOne({
-            where: { id: String(r.relacionadaId) },
-          });
-        }
-        return {
-          id: Number(r.id),
-          relacionadaId: Number(r.relacionadaId),
-          codigo: relUnit?.codigo ?? null,
-          nombre: relUnit?.nombre ?? null,
-          sigla: relUnit?.sigla ?? null,
-          tipo: r.tipo ?? null,
-        };
-      }),
-    );
+    const relacionesInternas = relsIntRaw
+      .filter((r) => r.relacionada)
+      .map((r) => ({
+        id: Number(r.id),
+        relacionadaId: Number(r.relacionadaId),
+        codigo: r.relacionada.codigo ?? null,
+        nombre: r.relacionada.nombre ?? null,
+        sigla: r.relacionada.sigla ?? null,
+        tipo: r.tipo ?? null,
+      }));
 
     const relsExtRaw = await this.relExtRepo.find({
       where: { unidadId: u.id },
@@ -303,6 +362,19 @@ export class UnidadesService {
       tipo: u.tipo?.descripcion ?? null,
       nivel: u.nivel?.descripcion ?? null,
       relacion: u.relacion?.codigo ?? null,
+      str_relacion: u.relacion?.descripcion ?? null,
+      relacion_id:
+        u.relacionId != null
+          ? Number(u.relacionId)
+          : u.relacion?.id != null
+            ? Number(u.relacion.id)
+            : null,
+      relacionId:
+        u.relacionId != null
+          ? Number(u.relacionId)
+          : u.relacion?.id != null
+            ? Number(u.relacion.id)
+            : null,
       resCreacion: u.resCreacion,
       res_creacion: u.resCreacion,
       baseLegal: u.baseLegal,
@@ -445,7 +517,7 @@ export class UnidadesService {
       dto.es_subtroncal ??
       false;
     const esSubTroncal = esTroncal ? false : incomingSubTroncal;
-    const lado = esTroncal ? 'CENTRO' : (dto.lado ?? 'AUTOMATICO');
+    const lado = dto.lado ?? 'AUTOMATICO';
     const entity = this.unidadRepo.create({
       codigo: dto.codigo,
       sigla,
@@ -471,47 +543,19 @@ export class UnidadesService {
       infraestructura: dto.infraestructura ?? null,
       ubicacion: dto.ubicacion ?? null,
     });
-    const saved = await this.unidadRepo.save(entity);
-
-    if (dto.dependenciasFuncionales?.length) {
-      for (const depId of dto.dependenciasFuncionales) {
-        if (Number(depId) === Number(saved.id)) continue;
-        await this.depRepo.save(
-          this.depRepo.create({
-            unidadId: saved.id,
-            dependenciaId: String(depId),
-          }),
-        );
+    const saved = await this.unidadRepo.manager.transaction(async (m) => {
+      const row = await m.save(entity);
+      if (dto.dependenciasFuncionales?.length) {
+        await this.replaceDependencias(m, row.id, dto.dependenciasFuncionales);
       }
-    }
-
-    if (dto.relacionesInternas?.length) {
-      for (const item of dto.relacionesInternas) {
-        const relId = typeof item === 'object' ? item.relacionadaId : item;
-        const tipo = typeof item === 'object' ? item.tipo : null;
-        if (Number(relId) === Number(saved.id)) continue;
-        await this.relIntRepo.save(
-          this.relIntRepo.create({
-            unidadId: saved.id,
-            relacionadaId: String(relId),
-            tipo: tipo ?? null,
-          }),
-        );
+      if (dto.relacionesInternas?.length) {
+        await this.replaceRelacionesInternas(m, row.id, dto.relacionesInternas);
       }
-    }
-
-    if (dto.relacionesExternas?.length) {
-      for (const item of dto.relacionesExternas) {
-        const desc = typeof item === 'object' ? item.descripcion : item;
-        if (!desc || !String(desc).trim()) continue;
-        await this.relExtRepo.save(
-          this.relExtRepo.create({
-            unidadId: saved.id,
-            descripcion: String(desc).trim(),
-          }),
-        );
+      if (dto.relacionesExternas?.length) {
+        await this.replaceRelacionesExternas(m, row.id, dto.relacionesExternas);
       }
-    }
+      return row;
+    });
 
     return {
       id: Number(saved.id),
@@ -551,13 +595,13 @@ export class UnidadesService {
     if (dto.esTroncal !== undefined) {
       u.esTroncal = dto.esTroncal;
       if (dto.esTroncal) {
-        u.lado = 'CENTRO';
         u.esSubTroncal = false;
-      } else if (dto.lado !== undefined) {
+      }
+      if (dto.lado !== undefined) {
         u.lado = dto.lado;
       }
     } else if (dto.lado !== undefined) {
-      u.lado = u.esTroncal ? 'CENTRO' : dto.lado;
+      u.lado = dto.lado;
     }
     const incomingSubTroncal =
       dto.esSubTroncal !== undefined
@@ -576,7 +620,8 @@ export class UnidadesService {
     if (dto.fecCreacion !== undefined) {
       u.fecCreacion = toDateOnly(dto.fecCreacion);
     }
-    if (dto.tramitesAtendidos !== undefined) u.tramitesAtendidos = dto.tramitesAtendidos;
+    if (dto.tramitesAtendidos !== undefined)
+      u.tramitesAtendidos = dto.tramitesAtendidos;
     if (dto.ejecucionPoa !== undefined) u.ejecucionPoa = dto.ejecucionPoa;
     if (dto.ejecucionPresupuestaria !== undefined) {
       u.ejecucionPresupuestaria = dto.ejecucionPresupuestaria;
@@ -587,7 +632,8 @@ export class UnidadesService {
     if (dto.cargaHorariaEjecutada !== undefined) {
       u.cargaHorariaEjecutada = dto.cargaHorariaEjecutada;
     }
-    if (dto.infraestructura !== undefined) u.infraestructura = dto.infraestructura;
+    if (dto.infraestructura !== undefined)
+      u.infraestructura = dto.infraestructura;
     if (dto.ubicacion !== undefined) u.ubicacion = dto.ubicacion;
     if (dto.tipo !== undefined) {
       u.tipoId = await this.resolveCatalogId(this.tipoRepo, dto.tipo);
@@ -613,61 +659,96 @@ export class UnidadesService {
       u.parentId = dto.parentId != null ? String(dto.parentId) : null;
     }
 
-    await this.unidadRepo.save(u);
-
-    if (dto.dependenciasFuncionales) {
-      const existing = await this.depRepo.find({
-        where: { unidadId: String(id) },
-      });
-      await this.depRepo.remove(existing);
-      for (const depId of dto.dependenciasFuncionales) {
-        if (Number(depId) === id) continue;
-        await this.depRepo.save(
-          this.depRepo.create({
-            unidadId: String(id),
-            dependenciaId: String(depId),
-          }),
-        );
+    await this.unidadRepo.manager.transaction(async (m) => {
+      await m.save(u);
+      if (dto.dependenciasFuncionales) {
+        await this.replaceDependencias(m, id, dto.dependenciasFuncionales);
       }
-    }
-
-    if (dto.relacionesInternas !== undefined) {
-      const existingInt = await this.relIntRepo.find({
-        where: { unidadId: String(id) },
-      });
-      await this.relIntRepo.remove(existingInt);
-      for (const item of dto.relacionesInternas) {
-        const relId = typeof item === 'object' ? item.relacionadaId : item;
-        const tipo = typeof item === 'object' ? item.tipo : null;
-        if (Number(relId) === id) continue;
-        await this.relIntRepo.save(
-          this.relIntRepo.create({
-            unidadId: String(id),
-            relacionadaId: String(relId),
-            tipo: tipo ?? null,
-          }),
-        );
+      if (dto.relacionesInternas !== undefined) {
+        await this.replaceRelacionesInternas(m, id, dto.relacionesInternas);
       }
-    }
-
-    if (dto.relacionesExternas !== undefined) {
-      const existingExt = await this.relExtRepo.find({
-        where: { unidadId: String(id) },
-      });
-      await this.relExtRepo.remove(existingExt);
-      for (const item of dto.relacionesExternas) {
-        const desc = typeof item === 'object' ? item.descripcion : item;
-        if (!desc || !String(desc).trim()) continue;
-        await this.relExtRepo.save(
-          this.relExtRepo.create({
-            unidadId: String(id),
-            descripcion: String(desc).trim(),
-          }),
-        );
+      if (dto.relacionesExternas !== undefined) {
+        await this.replaceRelacionesExternas(m, id, dto.relacionesExternas);
       }
-    }
+    });
 
     return id;
+  }
+
+  /** Conserva el orden de `ids` y descarta unidades inexistentes o eliminadas. */
+  private async existingUnidadIds(
+    m: EntityManager,
+    ids: number[],
+  ): Promise<number[]> {
+    if (!ids.length) return [];
+    const rows = await m.find(Unidad, {
+      select: { id: true },
+      where: { id: In(ids.map(String)) },
+    });
+    const found = new Set(rows.map((r) => Number(r.id)));
+    return ids.filter((x) => found.has(x));
+  }
+
+  private async replaceRelacionesInternas(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly RelItem[],
+  ) {
+    const rels = normalizeRelIds(items, unidadId);
+    const ids = await this.existingUnidadIds(m, [...rels.keys()]);
+    await m.delete(UnidadRelacionInterna, { unidadId: String(unidadId) });
+    if (!ids.length) return;
+    await m.insert(
+      UnidadRelacionInterna,
+      ids.map((relId) => ({
+        unidadId: String(unidadId),
+        relacionadaId: String(relId),
+        tipo: rels.get(relId) ?? null,
+      })),
+    );
+  }
+
+  private async replaceDependencias(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly RelItem[],
+  ) {
+    const deps = normalizeRelIds(items, unidadId);
+    const ids = await this.existingUnidadIds(m, [...deps.keys()]);
+    await m.delete(UnidadDependenciaFuncional, {
+      unidadId: String(unidadId),
+    });
+    if (!ids.length) return;
+    await m.insert(
+      UnidadDependenciaFuncional,
+      ids.map((depId) => ({
+        unidadId: String(unidadId),
+        dependenciaId: String(depId),
+      })),
+    );
+  }
+
+  private async replaceRelacionesExternas(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly (string | UnidadRelacionExternaDto)[],
+  ) {
+    const descripciones = items
+      .map((item) =>
+        String(
+          (typeof item === 'object' ? item?.descripcion : item) ?? '',
+        ).trim(),
+      )
+      .filter(Boolean);
+    await m.delete(UnidadRelacionExterna, { unidadId: String(unidadId) });
+    if (!descripciones.length) return;
+    await m.insert(
+      UnidadRelacionExterna,
+      descripciones.map((descripcion) => ({
+        unidadId: String(unidadId),
+        descripcion,
+      })),
+    );
   }
 
   async remove(id: number) {
@@ -963,7 +1044,9 @@ export class UnidadesService {
 
   // --- RELACIONES INTERNAS ---
   async listRelacionesInternas(unidadId: number) {
-    const u = await this.unidadRepo.findOne({ where: { id: String(unidadId) } });
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
     if (!u) notFound(unidadId);
     const rows = await this.relIntRepo.find({
       where: { unidadId: String(unidadId) },
@@ -981,7 +1064,9 @@ export class UnidadesService {
   }
 
   async addRelacionInterna(unidadId: number, dto: UnidadRelacionInternaDto) {
-    const u = await this.unidadRepo.findOne({ where: { id: String(unidadId) } });
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
     if (!u) notFound(unidadId);
     if (Number(dto.relacionadaId) === unidadId) {
       throw new BusinessException(
@@ -1029,7 +1114,9 @@ export class UnidadesService {
 
   // --- RELACIONES EXTERNAS ---
   async listRelacionesExternas(unidadId: number) {
-    const u = await this.unidadRepo.findOne({ where: { id: String(unidadId) } });
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
     if (!u) notFound(unidadId);
     const rows = await this.relExtRepo.find({
       where: { unidadId: String(unidadId) },
@@ -1042,7 +1129,9 @@ export class UnidadesService {
   }
 
   async addRelacionExterna(unidadId: number, dto: UnidadRelacionExternaDto) {
-    const u = await this.unidadRepo.findOne({ where: { id: String(unidadId) } });
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
     if (!u) notFound(unidadId);
     const entity = this.relExtRepo.create({
       unidadId: String(unidadId),
@@ -1079,7 +1168,26 @@ export class UnidadesService {
       relations: ['tipo', 'nivel', 'relacion', 'tipoUnidad', 'parent'],
     });
     if (!u) notFound(id);
-    return this.mapDetail(u);
+    const detail = await this.mapDetail(u);
+    if (!detail.relacionesInternas.length) return detail;
+
+    const universo = await this.unidadRepo.find({
+      relations: ['tipo', 'tipoUnidad'],
+    });
+    return {
+      ...detail,
+      relacionesInternas: resumirRelacionesInternas(
+        detail.relacionesInternas,
+        universo.map((x) => ({
+          id: Number(x.id),
+          claseId: x.tipoUnidadId != null ? Number(x.tipoUnidadId) : null,
+          claseNombre: x.tipoUnidad?.descripcion ?? null,
+          tipoId: x.tipoId != null ? Number(x.tipoId) : null,
+          tipoNombre: x.tipo?.descripcion ?? null,
+        })),
+        id,
+      ),
+    };
   }
 
   async getDashboardStats(filters?: {
@@ -1105,7 +1213,9 @@ export class UnidadesService {
     }
     if (filters?.relacion) {
       params.push(filters.relacion.trim());
-      filterClauses.push(`cr_filter.descripcion = $${params.length}`);
+      filterClauses.push(
+        `(cr_filter.descripcion ILIKE $${params.length} OR cr_filter.codigo ILIKE $${params.length})`,
+      );
     }
 
     const filterJoinSql = `
@@ -1197,8 +1307,8 @@ export class UnidadesService {
     `;
     const porRelacion = await this.unidadRepo.query(porRelacionSql, params);
 
-    // 6. Recientes (últimas 6)
-    const recientes = await this.unidadRepo.query(`
+    // 6. Recientes (últimas 6 según universo filtrado)
+    const recientesSql = `
       SELECT
         u.id,
         u.codigo,
@@ -1206,14 +1316,16 @@ export class UnidadesService {
         u.sigla,
         COALESCE(tu.color, '#1976D2') as color,
         tu.descripcion as clase,
-        u.fec_creacion as "fecCreacion",
+        u.fec_creacion::text as "fecCreacion",
         u.created_at as "createdAt"
       FROM unidad u
       LEFT JOIN tipo_unidad tu ON u.tipo_unidad_id = tu.id AND tu.deleted_at IS NULL
-      WHERE u.deleted_at IS NULL
+      ${filterClauses.length ? filterJoinSql : ''}
+      WHERE ${whereBase}
       ORDER BY u.id DESC
       LIMIT 6
-    `);
+    `;
+    const recientes = await this.unidadRepo.query(recientesSql, params);
 
     const resumen = resumenRaw[0] || {
       total: 0,

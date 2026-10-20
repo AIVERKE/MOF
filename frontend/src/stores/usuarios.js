@@ -7,11 +7,15 @@ export const useUsuariosStore = defineStore("usuarios", () => {
   const loading = ref(false);
   const error = ref(null);
 
-  async function fetchUsuarios() {
+  async function fetchUsuarios(params = {}) {
     loading.value = true;
     error.value = null;
     try {
-      const response = await apiFetch(ENDPOINTS.SEGURIDAD.USUARIOS);
+      let url = ENDPOINTS.SEGURIDAD.USUARIOS;
+      if (params && params.enabled !== undefined && params.enabled !== null && params.enabled !== '') {
+        url += `?enabled=${encodeURIComponent(params.enabled)}`;
+      }
+      const response = await apiFetch(url);
       if (!response.ok) {
         throw new Error(await parseApiError(response));
       }

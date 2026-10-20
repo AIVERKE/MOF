@@ -76,7 +76,8 @@ export async function migrateUnidad(
 
   for (const row of src.rows) {
     let codigo = row.codigo;
-    if (usedCodigos.has(codigo)) codigo = `${codigo}-${row.unidad_id}`.slice(0, 64);
+    if (usedCodigos.has(codigo))
+      codigo = `${codigo}-${row.unidad_id}`.slice(0, 64);
     usedCodigos.add(codigo);
 
     let sigla = (row.sigla || '').trim();

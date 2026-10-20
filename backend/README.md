@@ -7,7 +7,8 @@ Backend NestJS del Manual de Organización y Funciones (MOF): catálogos, organi
 - NestJS 11
 - TypeORM + PostgreSQL (`synchronize: false`)
 - Passport JWT / Local
-- Swagger en `/api`
+- Swagger en `/api` (solo fuera de `NODE_ENV=production`)
+- Helmet (cabeceras de seguridad)
 - Jest (unit + e2e)
 
 ## Requisitos
@@ -35,7 +36,7 @@ npm run start:dev
 ```
 
 - API: `http://localhost:3000`
-- Swagger: `http://localhost:3000/api`
+- Swagger: `http://localhost:3000/api` (JSON en `/api-json`). Con `NODE_ENV=production` no se publica ni la UI ni el documento OpenAPI.
 
 Para Docker, usa `.env.docker.example` (`DB_HOST=db`).
 
@@ -160,7 +161,8 @@ Variables en `.env` (ver `.env.example`):
 | Variable | Descripción |
 |----------|-------------|
 | `PORT` | Puerto HTTP o HTTPS (3000) |
-| `HTTPS_KEY_PATH`, `HTTPS_CERT_PATH` | Opcionales. Definidas juntas, Nest sirve HTTPS en `PORT` con esa clave y certificado (usar `fullchain.pem`, no `cert.pem`). Vacías, HTTP (dev o detrás de Apache). El usuario de Node debe poder leer la clave y hay que reiniciar Nest al renovar el certificado. Con HTTPS directo usar `TRUST_PROXY=0` |
+| `HTTPS_KEY_PATH`, `HTTPS_CERT_PATH` | Opcionales. Definidas juntas, Nest sirve HTTPS en `PORT` con esa clave y certificado (usar `fullchain.pem`, no `cert.pem`). Vacías, HTTP (dev o detrás de Apache). En producción Nest va detrás de Apache, así que deben quedar vacías. El usuario de Node debe poder leer la clave y hay que reiniciar Nest al renovar el certificado. Con HTTPS directo usar `TRUST_PROXY=0` |
+| `HSTS_ENABLED` | Opcional. `true` hace que Helmet envíe `Strict-Transport-Security` (180 días, sin subdominios). Activarlo solo cuando el HTTPS del dominio ya esté estable. Por defecto apagado |
 | `CORS_ORIGIN` | Orígenes permitidos (coma-separados). En producción obligatorio y no puede ser `*` |
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` | PostgreSQL destino (`mof_db`) |
 | `JWT_SECRET`, `JWT_EXPIRES_IN` | Auth JWT (`JWT_SECRET` obligatorio; no puede ser vacío ni `secret`). Con `NODE_ENV=production` tampoco puede ser el valor de ejemplo `super_secret_key_random_string` ni tener menos de 32 caracteres (`openssl rand -base64 48`) |
@@ -173,7 +175,7 @@ El backend de MPP descarga las unidades y sus cargos sin login, enviando el toke
 
 ```bash
 curl -H "X-Api-Key: $MPP_SERVICE_TOKEN" \
-  https://mof-smau.fcpn.edu.bo:3000/api/v1/integraciones/mpp/unidades
+  https://mof-smau.fcpn.edu.bo/api/v1/integraciones/mpp/unidades
 ```
 
 La respuesta usa el envelope estándar y `data` es la misma lista que `GET /api/v1/mof/unidades`.
@@ -182,7 +184,7 @@ Para sincronizar cargos, MPP pide el personal de cada unidad con el mismo header
 
 ```bash
 curl -H "X-Api-Key: $MPP_SERVICE_TOKEN" \
-  https://mof-smau.fcpn.edu.bo:3000/api/v1/integraciones/mpp/unidades/12/personal
+  https://mof-smau.fcpn.edu.bo/api/v1/integraciones/mpp/unidades/12/personal
 ```
 
 `data` trae un elemento por cargo asignado a la unidad, ya en el formato de MPP: `{ id, descripcion, detalle }`, donde `id` es el id del cargo, `descripcion` su nombre y `detalle` su descripción (`''` si no tiene). Una unidad inexistente responde `404`.
@@ -227,7 +229,7 @@ Catálogo fuente: [`src/common/errors.ts`](src/common/errors.ts).
 | `DEPENDENCIA_DUPLICADA` | 409 | La dependencia funcional ya existe | Mostrar mensaje |
 | `CLASE_YA_PRIMERA` | 400 | La clase ya está en la primera posición | Mostrar mensaje |
 | `CLASE_YA_ULTIMA` | 400 | La clase ya está en la última posición | Mostrar mensaje |
-| `CARGO_YA_ASIGNADO_UNICO` | 400 | Ese cargo único ya está asignado en la unidad | Mostrar mensaje |
+| `CARGO_YA_ASIGNADO` | 400 | Ese cargo ya está asignado en la unidad | Mostrar mensaje |
 | `USUARIO_CI_DUPLICADO` | 400 | Ya existe una persona registrada con ese C.I. | Mostrar mensaje / corregir C.I. |
 | `PRIMER_ACCESO_REQUERIDO` | 401 | Debe completar el primer acceso con su correo y C.I. | Ofrecer la pantalla de primer acceso |
 | `PRIMER_ACCESO_INVALIDO` | 401 | Los datos de primer acceso no son válidos | Mostrar mensaje |

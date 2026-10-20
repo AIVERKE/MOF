@@ -1,4 +1,8 @@
-import { INestApplication, UnauthorizedException, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  UnauthorizedException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -36,7 +40,10 @@ describe('AuthController (e2e)', () => {
       .useValue({
         canActivate: (context: {
           switchToHttp: () => {
-            getRequest: () => { body: { email?: string; password?: string }; user?: AuthUser };
+            getRequest: () => {
+              body: { email?: string; password?: string };
+              user?: AuthUser;
+            };
           };
         }) => {
           const req = context.switchToHttp().getRequest();

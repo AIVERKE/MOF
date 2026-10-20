@@ -7,7 +7,9 @@ describe('RolesGuard', () => {
   let guard: RolesGuard;
   let reflector: Reflector;
 
-  const createContext = (user: { roles?: string[] } | undefined): ExecutionContext =>
+  const createContext = (
+    user: { roles?: string[] } | undefined,
+  ): ExecutionContext =>
     ({
       getHandler: () => jest.fn(),
       getClass: () => jest.fn(),

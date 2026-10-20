@@ -24,7 +24,8 @@
  * color                  color                   color                       string (hex, default "#1976D2")
  * oficial                oficial                 oficial                     boolean (default true)
  * es_troncal             esTroncal               es_troncal                  boolean (default false)
- * lado                   lado                    lado                        string ("CENTRO" si esTroncal, sino "AUTOMATICO")
+ * es_desconcentrada      esDesconcentrada        es_desconcentrada           boolean (default false)
+ * lado                   lado                    lado                        string ("AUTOMATICO", "IZQUIERDA", "DERECHA", "CENTRO")
  * tramitesAtendidos      tramitesAtendidos       tramites_atendidos          string | null (vacio -> null al persistir)
  * ejecucionPoa           ejecucionPoa            ejecucion_poa               string | null (vacio -> null al persistir)
  * ejecucionPresupuestaria ejecucionPresupuestaria ejecucion_presupuestaria   string | null (vacio -> null al persistir)
@@ -35,7 +36,7 @@
  * dependenciasFuncionales dependenciasFuncionales dependenciasFuncionales    number[]
  * relacionesInternas     relacionesInternas      relacionesInternas          Array<{ relacionadaId, tipo }>
  * relacionesExternas     relacionesExternas      relacionesExternas          string[] (descripciones)
- * cargos                 -                       personal                    string[] (IDs de catalogo)
+ * cargos                 -                       personal                    Array<{ assignmentId, cargoId, nombre, nivelOrden }>
  * funciones              funciones               funciones                   Array<{ id, tempId, funcion, baseLegal, orden }>
  * 
  * (*) CASO ESPECIAL CLASE -> TIPO_UNIDAD:
@@ -53,6 +54,22 @@ import {
   resolveCatalogItem,
   getCleanSigla,
 } from "@/utils/mofHelpers";
+
+/** Id de unidad relacionada como entero positivo, o null si no es válido. */
+export function toRelId(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** Descarta relaciones sin id válido y repetidas (conserva la primera). */
+export function uniqueByRelacionadaId(relaciones) {
+  const seen = new Set();
+  return (relaciones || []).filter((r) => {
+    if (r.relacionadaId == null || seen.has(r.relacionadaId)) return false;
+    seen.add(r.relacionadaId);
+    return true;
+  });
+}
 
 /**
  * Genera el estado inicial reactivo vacío para una unidad nueva
@@ -75,6 +92,7 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     cargos: [],
     funciones: [],
     dependenciasFuncionales: [],
+    es_desconcentrada: d.es_desconcentrada === true || d.esDesconcentrada === true,
     tipo: d.tipo !== undefined ? d.tipo : null,
     nivel: d.nivel !== undefined ? d.nivel : null,
     clase: d.clase !== undefined ? d.clase : null,
@@ -114,11 +132,12 @@ export function resolveCatalogId(value, catalog = []) {
 }
 
 /**
- * Mapea asignaciones de personal del backend a cargos vinculados al catálogo
- * 
- * @param {Array|Object} personalData - Datos de personal devueltos por el backend
- * @param {Array} cargosCatalog - Catálogo de cargos disponibles
- * @returns {Array<{ catalogId: string, assignmentId: string }>}
+ * Mapea las filas de cargo_unidad devueltas por el backend a filas del formulario.
+ * El emparejamiento es por cargoId: el catálogo tiene cargos homónimos con ids distintos.
+ *
+ * @param {Array|Object} personalData - Filas de GET /unidades/:id/personal
+ * @param {Array} cargosCatalog - Catálogo de cargos (solo para completar el nombre)
+ * @returns {Array<{ assignmentId: string|null, cargoId: string, nombre: string, nivelOrden: number|null }>}
  */
 export function mapPersonalToCargos(personalData = [], cargosCatalog = []) {
   const personalArray = Array.isArray(personalData)
@@ -127,14 +146,24 @@ export function mapPersonalToCargos(personalData = [], cargosCatalog = []) {
       ? [personalData]
       : [];
 
+  const seen = new Set();
   return personalArray
+    .filter((p) => p && p.cargoId != null)
     .map((p) => {
-      const cat = cargosCatalog.find((c) => c.descripcion === p.descripcion);
-      return cat
-        ? { catalogId: String(cat.id), assignmentId: String(p.id) }
-        : null;
+      const cargoId = String(p.cargoId);
+      const cat = cargosCatalog.find((c) => String(c.id) === cargoId);
+      return {
+        assignmentId: p.id != null ? String(p.id) : null,
+        cargoId,
+        nombre: p.nombre || cat?.nombre || "",
+        nivelOrden: p.nivelOrden ?? null,
+      };
     })
-    .filter(Boolean);
+    .filter((c) => {
+      if (seen.has(c.cargoId)) return false;
+      seen.add(c.cargoId);
+      return true;
+    });
 }
 
 /**
@@ -158,18 +187,15 @@ export function mapBackendToForm(raw, options = {}) {
 
   const catalogs = options.catalogs || {};
 
-  // 1. Resolver Cargos
-  let cargosIds = [];
+  // 1. Resolver Cargos (filas de cargo_unidad)
+  let cargos = [];
   if (options.mappedCargos && Array.isArray(options.mappedCargos)) {
-    cargosIds = options.mappedCargos.map((m) => m.catalogId);
+    cargos = options.mappedCargos.map((m) => ({ ...m }));
   } else if (options.personalData || raw.personal) {
-    const mapped = mapPersonalToCargos(
+    cargos = mapPersonalToCargos(
       options.personalData || raw.personal,
       catalogs.cargos || [],
     );
-    cargosIds = mapped.map((m) => m.catalogId);
-  } else if (Array.isArray(raw.cargos)) {
-    cargosIds = raw.cargos.map(String);
   }
 
   // 2. Resolver Funciones (preservando IDs y formato requerido por tabla)
@@ -203,16 +229,23 @@ export function mapBackendToForm(raw, options = {}) {
     .map((d) => getSafeId(d))
     .filter((id) => id !== null);
 
+  const esDesconcentrada =
+    raw.es_desconcentrada === true ||
+    raw.esDesconcentrada === true ||
+    dependenciasFuncionales.length > 0;
+
   // 5. Resolver Relaciones Internas
-  const relacionesInternas = (raw.relacionesInternas || []).map((r) => ({
-    id: r.id,
-    relacionadaId: r.relacionadaId || r.unidadDestinoId || r.id,
-    codigo: r.codigo,
-    nombre: r.nombre || r.unidadDestinoNombre,
-    sigla: r.sigla,
-    tipo: r.tipo || null,
-    descripcion: r.descripcion || null,
-  }));
+  const relacionesInternas = uniqueByRelacionadaId(
+    (raw.relacionesInternas || []).map((r) => ({
+      id: r.id,
+      relacionadaId: toRelId(r.relacionadaId ?? r.unidadDestinoId),
+      codigo: r.codigo,
+      nombre: r.nombre || r.unidadDestinoNombre,
+      sigla: r.sigla,
+      tipo: r.tipo || null,
+      descripcion: r.descripcion || null,
+    })),
+  );
 
   // 6. Resolver Relaciones Externas
   const relacionesExternas = (raw.relacionesExternas || []).map((r) => ({
@@ -235,12 +268,13 @@ export function mapBackendToForm(raw, options = {}) {
     funciones,
     fecCreacion: parseDateFromApi(raw.fecCreacion || raw.fec_creacion),
     dependenciasFuncionales,
+    es_desconcentrada: esDesconcentrada,
     clase: claseId,
     nivel: nivelId,
     tipo: tipoId,
     relacion: relacionId,
     parentId: getSafeId(raw.parentId ?? raw.parent),
-    cargos: cargosIds,
+    cargos,
     color: raw.color || "#1976D2",
     oficial: raw.oficial !== false,
     es_troncal: raw.es_troncal === true || raw.esTroncal === true,
@@ -291,7 +325,14 @@ export function mapFormToBackend(formData) {
       formData.esSubTroncal === true ||
       formData.es_subtroncal === true ||
       formData.esSubtroncal === true);
+  const isDesconcentrada =
+    formData.es_desconcentrada === true || formData.esDesconcentrada === true;
   const pIdVal = formData.parentId ? getSafeId(formData.parentId) : null;
+  const dependenciasFuncionales = isDesconcentrada
+    ? (formData.dependenciasFuncionales || [])
+        .map((d) => getSafeId(d))
+        .filter((id) => id !== null)
+    : [];
 
   return {
     codigo: formData.codigo?.trim() || "",
@@ -314,10 +355,8 @@ export function mapFormToBackend(formData) {
     esSubtroncal: isSubTroncal,
     es_sub_troncal: isSubTroncal,
     es_subtroncal: isSubTroncal,
-    lado: isTroncal ? "CENTRO" : (formData.lado || "AUTOMATICO"),
-    dependenciasFuncionales: (formData.dependenciasFuncionales || [])
-      .map((d) => getSafeId(d))
-      .filter((id) => id !== null),
+    lado: formData.lado || "AUTOMATICO",
+    dependenciasFuncionales,
     tramitesAtendidos: (formData.tramitesAtendidos ?? formData.tramites_atendidos)?.trim() || null,
     ejecucionPoa: (formData.ejecucionPoa ?? formData.ejecucion_poa)?.trim() || null,
     ejecucionPresupuestaria: (formData.ejecucionPresupuestaria ?? formData.ejecucion_presupuestaria)?.trim() || null,
@@ -325,10 +364,12 @@ export function mapFormToBackend(formData) {
     cargaHorariaEjecutada: (formData.cargaHorariaEjecutada ?? formData.carga_horaria_ejecutada)?.trim() || null,
     infraestructura: (formData.infraestructura ?? formData.infraestructura_fisica)?.trim() || null,
     ubicacion: formData.ubicacion?.trim() || null,
-    relacionesInternas: (formData.relacionesInternas || []).map((r) => ({
-      relacionadaId: Number(r.relacionadaId || r.id || r),
-      tipo: r.tipo || null,
-    })),
+    relacionesInternas: uniqueByRelacionadaId(
+      (formData.relacionesInternas || []).map((r) => ({
+        relacionadaId: toRelId(typeof r === "object" && r !== null ? r.relacionadaId : r),
+        tipo: r?.tipo || null,
+      })),
+    ),
     relacionesExternas: (formData.relacionesExternas || [])
       .map((r) => (typeof r === "object" ? r.descripcion?.trim() : String(r).trim()))
       .filter(Boolean),

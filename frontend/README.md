@@ -45,6 +45,8 @@ Copy-Item .env.example .env
 VITE_API_BASE_URL=http://localhost:3000
 ```
 
+Sin definir, se usa `http://localhost:3000`. En producción (`docker-compose.prod.yml`) se construye vacía: el SPA llama al API por su mismo origen (`/auth/...`, `/api/v1/...`) a través de Apache. Nunca hornear una URL con `:3000` en producción.
+
 La configuración centralizada está en `src/config/api.js`.
 
 ## Estructura

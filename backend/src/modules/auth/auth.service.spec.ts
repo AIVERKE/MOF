@@ -34,7 +34,9 @@ describe('AuthService', () => {
       save: jest.fn(),
     };
     mofConfigRepo = {
-      findOne: jest.fn().mockResolvedValue({ passwordPolicy: { minLength: 6 } }),
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ passwordPolicy: { minLength: 6 } }),
     };
     jwtService = {
       sign: jest.fn().mockReturnValue('signed.jwt.token'),

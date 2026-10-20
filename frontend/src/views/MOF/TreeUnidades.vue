@@ -13,6 +13,7 @@ import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import MofReportMenu from "./common/MofReportMenu.vue";
+import MofLoadingOverlay from "./common/MofLoadingOverlay.vue";
 import HighlightedText from "@/components/HighlightedText.vue";
 import { exportTreeUnidadesPdf, exportToCsv } from "@/utils/mofReport";
 
@@ -71,6 +72,7 @@ const {
   formData,
   isEditMode,
   formValid,
+  saving: savingUnidad,
   openForm: openUnitForm,
   saveUnidad,
   addFuncion,
@@ -108,13 +110,26 @@ const collapseAll = () => {
   openedIds.value = [];
 };
 
+const isTreeLoading = ref(true);
+const treeLoadingMessage = ref("Cargando estructura organizacional...");
+const isExportingTree = ref(false);
+const exportTreeMessage = ref("");
+
 onMounted(async () => {
-  await Promise.all([
-    unidadesStore.getFetchUnidades(),
-    prefetchCatalogs(),
-  ]);
-  if (isMobile.value && filteredTreeItems.value?.length) {
-    openedIds.value = collectTreeIds(filteredTreeItems.value);
+  isTreeLoading.value = true;
+  treeLoadingMessage.value = "Cargando estructura organizacional...";
+  try {
+    await Promise.all([
+      unidadesStore.getFetchUnidades(),
+      prefetchCatalogs(),
+    ]);
+    if (isMobile.value && filteredTreeItems.value?.length) {
+      openedIds.value = collectTreeIds(filteredTreeItems.value);
+    }
+  } catch (e) {
+    mostrar("Error al cargar la estructura del árbol", "error");
+  } finally {
+    isTreeLoading.value = false;
   }
 });
 
@@ -284,9 +299,13 @@ const flatTreeList = computed(() => {
   });
 });
 
-const handleExportPdf = () => {
+const handleExportPdf = async () => {
+  isExportingTree.value = true;
+  exportTreeMessage.value = "Generando reporte PDF del árbol...";
+  loadingReport.value = true;
   try {
-    loadingReport.value = true;
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     exportTreeUnidadesPdf({
       title: "Estructura Organizacional - Árbol de Unidades",
       flatTreeRows: flatTreeList.value,
@@ -297,16 +316,21 @@ const handleExportPdf = () => {
       isOficialCheck: checkOficial,
       isColorblind: isColorblind.value,
     });
-  } catch {
-    // Silently handled in UI via loading state
+  } catch (e) {
+    mostrar("Error al exportar PDF: " + (e?.message || e), "error");
   } finally {
+    isExportingTree.value = false;
     loadingReport.value = false;
   }
 };
 
-const handleExportCsv = () => {
+const handleExportCsv = async () => {
+  isExportingTree.value = true;
+  exportTreeMessage.value = "Generando archivo CSV del árbol...";
+  loadingReport.value = true;
   try {
-    loadingReport.value = true;
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
       { header: "Profundidad en el árbol", getter: (u) => u._depth ?? 0 },
@@ -332,9 +356,10 @@ const handleExportCsv = () => {
       columns,
       rows: flatTreeList.value,
     });
-  } catch {
-    // Silently handled in UI via loading state
+  } catch (e) {
+    mostrar("Error al exportar CSV: " + (e?.message || e), "error");
   } finally {
+    isExportingTree.value = false;
     loadingReport.value = false;
   }
 };
@@ -355,13 +380,19 @@ const handleExportCsv = () => {
     </div>
 
     <v-progress-linear
-      v-if="unidadesStore.loading"
+      v-if="unidadesStore.loading || isTreeLoading"
       indeterminate
       color="primary"
       class="mb-4"
     />
 
-    <v-card class="rounded-lg border shadow-sm" elevation="0">
+    <v-card class="rounded-lg border shadow-sm position-relative overflow-hidden" elevation="0">
+      <MofLoadingOverlay
+        :model-value="isTreeLoading || isExportingTree"
+        :contained="true"
+        :message="isExportingTree ? exportTreeMessage : treeLoadingMessage"
+        :submessage="isExportingTree ? 'Procesando jerarquía institucional...' : 'Obteniendo dependencias institucionales...'"
+      />
       <v-card-title class="pa-4 d-flex align-center flex-wrap gap-2">
         <v-text-field
           v-model="search"
@@ -473,11 +504,11 @@ const handleExportCsv = () => {
 
               <v-chip
                 v-if="getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo) !== '-'"
-                size="x-small"
+                size="small"
                 label
                 variant="outlined"
                 color="primary"
-                class="font-weight-black ml-1 text-xxs"
+                class="font-weight-black ml-1 chip-sigla"
               >
                 <HighlightedText
                   v-if="hasSearchQuery"
@@ -487,6 +518,9 @@ const handleExportCsv = () => {
                 <template v-else>
                   {{ getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo) }}
                 </template>
+                <v-tooltip activator="parent" location="top">
+                  Sigla: {{ getCleanSigla((item?.raw || item).sigla, (item?.raw || item).codigo) }}
+                </v-tooltip>
               </v-chip>
             </span>
           </template>
@@ -537,6 +571,7 @@ const handleExportCsv = () => {
     v-model="addDialog"
     :form-data="formData"
     :is-edit-mode="isEditMode"
+    :saving="savingUnidad"
     :selected-node="selectedItem"
     v-model:form-valid="formValid"
     @confirm="confirmAddItem"
@@ -557,6 +592,7 @@ const handleExportCsv = () => {
   />
 
   <UnidadDetailsDrawer
+    v-if="detailsDrawer"
     v-model="detailsDrawer"
     :detail-data="detailData"
     :loading="loadingDetail"

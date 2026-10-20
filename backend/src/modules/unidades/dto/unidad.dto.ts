@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -7,23 +8,36 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsFecCreacionInRange } from '../../../common/validators/fec-creacion-range.validator';
+
+const MAX_RELACIONES = 1000;
 
 export class UnidadDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  @Matches(/^[A-Za-z0-9.-]+$/, {
+    message: 'El código solo puede contener letras, números, puntos y guiones',
+  })
   codigo: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @Matches(/^[\p{L}0-9-]*$/u, {
+    message: 'La sigla solo puede contener letras, números y guiones',
+  })
   sigla?: string;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  @Matches(/^[\p{L}0-9\s.,\-/()°º"']+$/u, {
+    message: 'El nombre contiene caracteres especiales no permitidos',
+  })
   nombre: string;
 
   @ApiPropertyOptional()
@@ -43,12 +57,17 @@ export class UnidadDto {
   @IsBoolean()
   oficial: boolean;
 
-  @ApiPropertyOptional({ description: 'Indica si es unidad troncal del eje central de gobierno' })
+  @ApiPropertyOptional({
+    description: 'Indica si es unidad troncal del eje central de gobierno',
+  })
   @IsOptional()
   @IsBoolean()
   esTroncal?: boolean;
 
-  @ApiPropertyOptional({ description: 'Indica si es unidad sub-troncal (eje central local en su facultad o dirección)' })
+  @ApiPropertyOptional({
+    description:
+      'Indica si es unidad sub-troncal (eje central local en su facultad o dirección)',
+  })
   @IsOptional()
   @IsBoolean()
   esSubTroncal?: boolean;
@@ -68,7 +87,10 @@ export class UnidadDto {
   @IsBoolean()
   es_subtroncal?: boolean;
 
-  @ApiPropertyOptional({ description: 'Lado o disposición en organigrama (CENTRO, IZQUIERDA, DERECHA, AUTOMATICO)' })
+  @ApiPropertyOptional({
+    description:
+      'Lado o disposición en organigrama (CENTRO, IZQUIERDA, DERECHA, AUTOMATICO)',
+  })
   @IsOptional()
   @IsString()
   lado?: string;
@@ -82,9 +104,13 @@ export class UnidadDto {
   @IsString()
   resCreacion?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    example: '1990-05-10',
+    description: 'Entre 1825-01-01 y el 31/12 del año actual',
+  })
   @IsOptional()
   @IsDateString()
+  @IsFecCreacionInRange()
   fecCreacion?: string;
 
   @ApiPropertyOptional()
@@ -109,47 +135,80 @@ export class UnidadDto {
   @ApiPropertyOptional({ type: [Number] })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
   @Type(() => Number)
   dependenciasFuncionales?: number[];
 
   @ApiPropertyOptional({ description: 'Trámites atendidos por la unidad' })
   @IsOptional()
   @IsString()
+  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
+    message:
+      'Trámites atendidos contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+  })
   tramitesAtendidos?: string;
 
   @ApiPropertyOptional({ description: 'Ejecución del POA de la unidad' })
   @IsOptional()
   @IsString()
+  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
+    message:
+      'Ejecución POA contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+  })
   ejecucionPoa?: string;
 
   @ApiPropertyOptional({ description: 'Ejecución presupuestaria de la unidad' })
   @IsOptional()
   @IsString()
+  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
+    message:
+      'Ejecución presupuestaria contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+  })
   ejecucionPresupuestaria?: string;
 
   @ApiPropertyOptional({ description: 'Carga horaria programada' })
   @IsOptional()
   @IsString()
+  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
+    message:
+      'Carga horaria programada contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+  })
   cargaHorariaProgramada?: string;
 
   @ApiPropertyOptional({ description: 'Carga horaria ejecutada' })
   @IsOptional()
   @IsString()
+  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
+    message:
+      'Carga horaria ejecutada contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+  })
   cargaHorariaEjecutada?: string;
 
   @ApiPropertyOptional({ description: 'Infraestructura física utilizada' })
   @IsOptional()
   @IsString()
+  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
+    message:
+      'Infraestructura física contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+  })
   infraestructura?: string;
 
   @ApiPropertyOptional({ description: 'Ubicación física de la unidad' })
   @IsOptional()
   @IsString()
+  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
+    message:
+      'Ubicación física contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+  })
   ubicacion?: string;
 
-  @ApiPropertyOptional({ description: 'Relaciones internas asociadas' })
+  @ApiPropertyOptional({
+    description:
+      'Relaciones internas: ids de unidad o { relacionadaId, tipo }. Se ignoran repetidos, la propia unidad e ids inexistentes.',
+  })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
   relacionesInternas?: (number | UnidadRelacionInternaDto)[];
 
   @ApiPropertyOptional({ description: 'Relaciones externas asociadas' })
@@ -204,4 +263,3 @@ export class UnidadRelacionExternaDto {
   @IsNotEmpty()
   descripcion: string;
 }
-

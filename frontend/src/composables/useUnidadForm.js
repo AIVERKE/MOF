@@ -9,6 +9,7 @@ import {
   mapBackendToForm,
   mapFormToBackend,
   mapPersonalToCargos,
+  toRelId,
 } from "@/utils/mofMappers";
 import { useConfigMofStore } from "@/stores/config_mof";
 
@@ -36,6 +37,7 @@ export function useUnidadForm(stores) {
   const isEditMode = ref(false);
   const formValid = ref(false);
   const loading = ref(false);
+  const saving = ref(false);
   const selectedNode = ref(null);
 
   // Estados para deltas
@@ -87,7 +89,7 @@ export function useUnidadForm(stores) {
             mappedCargos,
           });
 
-          cargosOriginales.value = [...mappedCargos];
+          cargosOriginales.value = mappedCargos.map((c) => ({ ...c }));
           funcionesOriginales.value = [...(funcionesData || [])];
           dependenciasOriginales.value = [...formData.value.dependenciasFuncionales];
           formValid.value = true;
@@ -111,9 +113,28 @@ export function useUnidadForm(stores) {
    * Guarda o actualiza la unidad y sincroniza sus relaciones
    */
   async function saveUnidad() {
+    // Un segundo clic mientras se guarda reenviaría todos los cargos nuevos con el mismo snapshot original.
+    if (saving.value) return { success: false, busy: true };
+    saving.value = true;
+    try {
+      return await doSaveUnidad();
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function doSaveUnidad() {
     if (!formValid.value) return { success: false, error: "Formulario inválido" };
 
     const pIdVal = formData.value.parentId;
+
+    // 0. Bloqueo de creación de raíces sueltas cuando la estructura ya tiene unidades
+    if (!isEditMode.value && !pIdVal && unidadesStore.unidades?.length > 0) {
+      return {
+        success: false,
+        error: "No se puede crear una unidad raíz suelta cuando ya existe una estructura cargada. Debe registrarla como dependiente de una unidad existente.",
+      };
+    }
 
     // 1. Validación de Jerarquía
     if (pIdVal) {
@@ -152,17 +173,27 @@ export function useUnidadForm(stores) {
 
       if (success && unidadId) {
         // --- SINCRONIZACIÓN DE CARGOS ---
-        const oldIds = cargosOriginales.value.map(m => String(m.catalogId));
-        const newIds = (formData.value.cargos || []).map(c => String(c));
-        
-        const toAdd = newIds.filter(id => !oldIds.includes(id));
-        const toRem = oldIds.filter(id => !newIds.includes(id));
+        const oldByCargo = new Map(
+          cargosOriginales.value.map((m) => [String(m.cargoId), m]),
+        );
+        const newByCargo = new Map(
+          (formData.value.cargos || []).map((c) => [String(c.cargoId), c]),
+        );
 
-        for (const id of toRem) {
-          const m = cargosOriginales.value.find(x => x.catalogId === id);
-          if (m?.assignmentId) await unidadesStore.deleteCargoDeUnidad(unidadId, m.assignmentId);
+        for (const [cargoId, old] of oldByCargo) {
+          if (!newByCargo.has(cargoId) && old.assignmentId) {
+            await unidadesStore.deleteCargoDeUnidad(unidadId, old.assignmentId);
+          }
         }
-        for (const id of toAdd) await unidadesStore.updatePersonalUnidad(unidadId, id);
+        for (const [cargoId, row] of newByCargo) {
+          const old = oldByCargo.get(cargoId);
+          const nivelOrden = row.nivelOrden ?? null;
+          if (!old) {
+            await unidadesStore.updatePersonalUnidad(unidadId, cargoId, nivelOrden);
+          } else if (old.assignmentId && (old.nivelOrden ?? null) !== nivelOrden) {
+            await unidadesStore.updateNivelCargoUnidad(unidadId, old.assignmentId, nivelOrden);
+          }
+        }
 
         // --- SINCRONIZACIÓN DE FUNCIONES (MOF-013) ---
         // Regla de oro: Blindar IDs. Nunca delete+create de filas existentes.
@@ -282,9 +313,9 @@ export function useUnidadForm(stores) {
   }
 
   function addRelacionInterna(relacionadaId, tipo = null) {
-    if (!relacionadaId) return;
+    if (toRelId(relacionadaId) == null) return;
     const exists = formData.value.relacionesInternas.some(
-      (r) => String(r.relacionadaId || r.id || r) === String(relacionadaId)
+      (r) => Number(typeof r === "object" && r !== null ? r.relacionadaId : r) === Number(relacionadaId)
     );
     if (!exists) {
       const encontrada = unidadesStore.unidades.find(
@@ -325,6 +356,7 @@ export function useUnidadForm(stores) {
     isEditMode,
     formValid,
     loading,
+    saving,
     selectedNode,
     openForm,
     saveUnidad,

@@ -8,7 +8,9 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 export const USUARIO_ROLE_CODES = ['ADMIN', 'OPERADOR', 'USER'] as const;
@@ -25,26 +27,44 @@ export class CreateUsuarioDto {
 
   @ApiProperty({ example: '8123456' })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El C.I. es obligatorio' })
   @MaxLength(32)
+  @Matches(/^\d{4,10}(?:-[a-zA-Z0-9]{1,3})?$/, {
+    message:
+      'El C.I. debe tener entre 4 y 10 dígitos numéricos, con complemento opcional (ej. 8123456 o 8123456-1A)',
+  })
   ci: string;
 
   @ApiProperty({ example: 'Juan Carlos' })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Los nombres son obligatorios' })
   @MaxLength(128)
+  @Matches(/^[\p{L}\s]+$/u, {
+    message:
+      'Los nombres solo deben contener letras, acentos, diéresis y espacios',
+  })
   nombres: string;
 
   @ApiPropertyOptional({ example: 'Pérez' })
   @IsOptional()
+  @ValidateIf((_, val) => val != null && val !== '')
   @IsString()
   @MaxLength(128)
+  @Matches(/^[\p{L}\s]+$/u, {
+    message:
+      'El apellido paterno solo debe contener letras, acentos, diéresis y espacios',
+  })
   apellidoPaterno?: string;
 
   @ApiPropertyOptional({ example: 'Gutiérrez' })
   @IsOptional()
+  @ValidateIf((_, val) => val != null && val !== '')
   @IsString()
   @MaxLength(128)
+  @Matches(/^[\p{L}\s]+$/u, {
+    message:
+      'El apellido materno solo debe contener letras, acentos, diéresis y espacios',
+  })
   apellidoMaterno?: string;
 
   @ApiProperty({

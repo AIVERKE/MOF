@@ -7,10 +7,11 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 /** Forma que JwtStrategy deja en `req.user`. */
 type UsuarioAutenticado = { userId: string };
@@ -34,10 +35,22 @@ export class UsuariosController {
 
   @Get()
   @ApiOperation({ summary: 'Listar usuarios' })
-  async list() {
+  @ApiQuery({
+    name: 'enabled',
+    required: false,
+    type: Boolean,
+    description: 'Filtrar por estado activo/inactivo (opcional)',
+  })
+  async list(@Query('enabled') enabled?: string) {
+    let enabledFilter: boolean | undefined = undefined;
+    if (enabled === 'true' || enabled === '1') {
+      enabledFilter = true;
+    } else if (enabled === 'false' || enabled === '0') {
+      enabledFilter = false;
+    }
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
-      await this.usuariosService.listar(),
+      await this.usuariosService.listar(enabledFilter),
     );
   }
 

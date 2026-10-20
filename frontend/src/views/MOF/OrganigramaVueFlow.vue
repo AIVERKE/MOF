@@ -1,6 +1,12 @@
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from "vue";
-import { VueFlow, useVueFlow, Handle, BaseEdge, getSmoothStepPath } from "@vue-flow/core";
+import {
+  VueFlow,
+  useVueFlow,
+  Handle,
+  BaseEdge,
+  getSmoothStepPath,
+} from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import dagre from "dagre";
@@ -33,6 +39,17 @@ import {
   toBoolean,
 } from "@/utils/mofHelpers";
 import { getLayoutedElements } from "@/utils/organigramaLayout";
+import {
+  getEffectiveParentId,
+  getChildrenCountMap,
+  getRootUnits,
+  getVisibleUnits,
+  getBreadcrumbPath,
+  getParentNavigationId,
+  getDirectChildrenIds,
+  getAncestorsIds,
+  getNavigationCluster,
+} from "@/utils/organigramaNavigation";
 
 import "@vue-flow/core/dist/style.css";
 import "@vue-flow/core/dist/theme-default.css";
@@ -49,6 +66,7 @@ import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDependencyDialog from "./unidades/UnidadDependencyDialog.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import HighlightedText from "@/components/HighlightedText.vue";
+import MofLoadingOverlay from "./common/MofLoadingOverlay.vue";
 
 // --- COMPOSABLES ---
 import { useUnidadForm } from "@/composables/useUnidadForm";
@@ -61,12 +79,21 @@ import { useResponsive } from "@/composables/useResponsive";
 import { useRouter } from "vue-router";
 
 // --- VUE FLOW COMPOSABLES ---
-const { nodes, edges, setNodes, setEdges, fitView, zoomIn, zoomOut, onNodeClick } = useVueFlow();
+const {
+  nodes,
+  edges,
+  setNodes,
+  setEdges,
+  fitView,
+  zoomIn,
+  zoomOut,
+  onNodeClick,
+} = useVueFlow();
 
 const router = useRouter();
 const { isMobile, isPortrait } = useResponsive();
-const showMobileOrientationAlert = ref(true);
-const isRotated90 = ref(false);
+// Bloqueo de montaje de Vue Flow en celulares en modo vertical (portrait) para evitar error de dimensiones
+const isMobilePortrait = computed(() => isMobile.value && isPortrait.value);
 
 function handleZoomIn() {
   zoomIn({ duration: 250 });
@@ -97,14 +124,6 @@ function getCustomEdgePath(edgeProps) {
         : (edgeProps.sourceY + edgeProps.targetY) / 2,
   });
   return path;
-}
-
-
-function toggleRotation() {
-  isRotated90.value = !isRotated90.value;
-  nextTick(() => {
-    fitView({ padding: 0.15, duration: 300 });
-  });
 }
 
 function handleVolver() {
@@ -185,6 +204,7 @@ const {
   formData,
   isEditMode,
   formValid,
+  saving: savingUnidad,
   openForm: openUnitForm,
   saveUnidad,
   addFuncion,
@@ -200,6 +220,14 @@ const deleteDialog = ref(false);
 const selectedNode = ref(null);
 const vistaModo = ref("analitico");
 
+const isFirstRender = ref(true);
+const pendingTargetNodeId = ref(null);
+
+const isGraphLoading = ref(true);
+const graphLoadingMessage = ref("Cargando organigrama...");
+const graphLoadingSubmessage = ref("Obteniendo unidades y catálogos...");
+const isExportingPdf = ref(false);
+
 const dialog_nodo_chance = ref(false);
 const unidadACambiar = ref(null);
 const unidadDestino = ref(null);
@@ -212,9 +240,15 @@ const {
   detailData,
   loadingDetail,
   initialOpenPanels,
-  showDetails,
+  showDetails: baseShowDetails,
   verReporte,
 } = useUnidadDetails({ unidadesStore });
+
+function showDetails(unidadId) {
+  if (!unidadId) return;
+  centrarNodo(unidadId, { duration: 450 });
+  return baseShowDetails(unidadId);
+}
 const hierarchyDrawer = ref(false);
 const hierarchyDrawerWidth = ref(450);
 
@@ -273,6 +307,273 @@ const findNearestOficialParentId = (unidad) => {
   return null; // No se encontró ancestro oficial, queda como raíz
 };
 
+// --- NAVEGACIÓN PROGRESIVA POR NIVELES Y BÚSQUEDA VISUAL (MOF-068) ---
+// modoExploracion:
+// 'enfoque' (por defecto): Búsqueda visual interactiva (todo el organigrama en el lienzo, auto-zoom en padre + hijos directos, atenuación del resto, subir/bajar niveles)
+// 'aislar': Aislamiento estricto de nivel (solo renderiza en el lienzo el clúster activo)
+// 'completo': Vista libre de todo el árbol (sin atenuación)
+const modoExploracion = ref("enfoque");
+const nodoNavegacionActualId = ref(null);
+const visibleUnitsCount = ref(0);
+
+const isAtRoot = computed(() => !nodoNavegacionActualId.value);
+
+const activeUnit = computed(() => {
+  if (!nodoNavegacionActualId.value) return null;
+  return unidadesByIdMap.value.get(String(nodoNavegacionActualId.value)) || null;
+});
+
+const breadcrumbItems = computed(() => {
+  return getBreadcrumbPath(
+    nodoNavegacionActualId.value,
+    unidadesByIdMap.value,
+    vistaModo.value,
+  );
+});
+
+const childrenCountMap = computed(() => {
+  let source = unidadesList.value;
+  if (vistaModo.value === "estricto") {
+    source = source.filter((u) => checkOficial(u));
+  }
+  return getChildrenCountMap(source, vistaModo.value, unidadesByIdMap.value);
+});
+
+const navigationCluster = computed(() => {
+  if (!nodoNavegacionActualId.value) {
+    return {
+      activeId: null,
+      directChildrenIds: [],
+      ancestorIds: [],
+      clusterIdsSet: new Set(),
+    };
+  }
+  let source = unidadesList.value;
+  if (vistaModo.value === "estricto") {
+    source = source.filter((u) => checkOficial(u));
+  }
+  return getNavigationCluster(
+    nodoNavegacionActualId.value,
+    source,
+    vistaModo.value,
+    unidadesByIdMap.value,
+  );
+});
+
+const activeDirectChildrenUnits = computed(() => {
+  let source = unidadesList.value;
+  if (vistaModo.value === "estricto") {
+    source = source.filter((u) => checkOficial(u));
+  }
+
+  if (!nodoNavegacionActualId.value) {
+    const roots = getRootUnits(source, vistaModo.value, unidadesByIdMap.value);
+    if (roots.length === 1) {
+      const rootId = String(roots[0].id);
+      const childrenIds = getDirectChildrenIds(
+        rootId,
+        source,
+        vistaModo.value,
+        unidadesByIdMap.value,
+      );
+      return childrenIds
+        .map((id) => unidadesByIdMap.value.get(id))
+        .filter(Boolean);
+    }
+    return roots;
+  }
+
+  const cluster = navigationCluster.value;
+  return cluster.directChildrenIds
+    .map((id) => unidadesByIdMap.value.get(id))
+    .filter(Boolean);
+});
+
+// --- BUSCADORES PARA SUBIR / BAJAR NIVELES ---
+const searchBajarNivel = ref("");
+const searchSubirNivel = ref("");
+const menuBajarNivelAbierto = ref(false);
+const menuSubirNivelAbierto = ref(false);
+
+const ancestorUnits = computed(() => {
+  if (!nodoNavegacionActualId.value) return [];
+  const cluster = navigationCluster.value;
+  return cluster.ancestorIds
+    .map((id) => unidadesByIdMap.value.get(id))
+    .filter(Boolean);
+});
+
+const filteredAncestorUnits = computed(() => {
+  const list = ancestorUnits.value;
+  const term = normalizeText(searchSubirNivel.value);
+  if (!term) return list;
+  return list.filter((u) => {
+    const nom = normalizeText(u.nombre || u.denominacion);
+    const sig = normalizeText(u.sigla);
+    const cod = normalizeText(u.codigo);
+    return nom.includes(term) || sig.includes(term) || cod.includes(term);
+  });
+});
+
+const filteredActiveDirectChildrenUnits = computed(() => {
+  const list = activeDirectChildrenUnits.value;
+  const term = normalizeText(searchBajarNivel.value);
+  if (!term) return list;
+  return list.filter((u) => {
+    const nom = normalizeText(u.nombre || u.denominacion);
+    const sig = normalizeText(u.sigla);
+    const cod = normalizeText(u.codigo);
+    return nom.includes(term) || sig.includes(term) || cod.includes(term);
+  });
+});
+
+function ejecutarBajarNivel(targetId) {
+  menuBajarNivelAbierto.value = false;
+  searchBajarNivel.value = "";
+  bajarNivel(targetId);
+}
+
+function seleccionarPrimerHijo() {
+  if (filteredActiveDirectChildrenUnits.value.length > 0) {
+    ejecutarBajarNivel(filteredActiveDirectChildrenUnits.value[0].id);
+  }
+}
+
+function ejecutarSubirNivel(targetId) {
+  menuSubirNivelAbierto.value = false;
+  searchSubirNivel.value = "";
+  manejarClickNodo(targetId);
+}
+
+function seleccionarPrimerAncestro() {
+  if (filteredAncestorUnits.value.length > 0) {
+    ejecutarSubirNivel(filteredAncestorUnits.value[0].id);
+  }
+}
+
+function isCurrentActiveNode(id) {
+  return String(id) === String(nodoNavegacionActualId.value);
+}
+
+function contarHijosDirectos(unidadId) {
+  return childrenCountMap.value.get(String(unidadId)) || 0;
+}
+
+function bajarNivel(targetId = null) {
+  if (targetId) {
+    manejarClickNodo(targetId);
+    return;
+  }
+  if (activeDirectChildrenUnits.value.length > 0) {
+    const firstChild = activeDirectChildrenUnits.value[0];
+    manejarClickNodo(firstChild.id);
+  }
+}
+
+let lastClickedNodeId = null;
+let lastClickedTime = 0;
+
+async function manejarClickNodo(nodeId) {
+  if (!nodeId) return;
+  const strId = String(nodeId);
+  const now = Date.now();
+  if (lastClickedNodeId === strId && now - lastClickedTime < 150) {
+    return;
+  }
+  lastClickedNodeId = strId;
+  lastClickedTime = now;
+
+  // 1. Abrir detalle de la unidad (ticket: mantener detalle sin interferir con la navegación)
+  showDetails(strId);
+
+  // 2. Establecer nodo enfocado para navegación jerárquica / búsqueda visual
+  nodoNavegacionActualId.value = strId;
+
+  // 3. Actualizar el grafo (en modo enfoque: actualiza clases visuales y edges instantáneamente)
+  updateGraph();
+
+  // 4. Si el modo no es libre ('completo'), encuadra animadamente la cámara en el nodo y sus hijos directos
+  if (modoExploracion.value !== "completo") {
+    await nextTick();
+    let source = unidadesList.value;
+    if (vistaModo.value === "estricto") {
+      source = source.filter((u) => checkOficial(u));
+    }
+    const directChildren = getDirectChildrenIds(
+      strId,
+      source,
+      vistaModo.value,
+      unidadesByIdMap.value,
+    );
+    const nodesToFrame = [strId, ...directChildren];
+    volarANodos(nodesToFrame, {
+      padding: nodesToFrame.length > 1 ? 0.25 : 0.4,
+      duration: 650,
+      maxZoom: 1.25,
+    });
+  }
+}
+
+function navegarANodo(unidadId) {
+  if (!unidadId) {
+    restablecerVista();
+    return;
+  }
+  manejarClickNodo(unidadId);
+}
+
+function restablecerVista() {
+  if (isAtRoot.value) return;
+  nodoNavegacionActualId.value = null;
+  updateGraph();
+  nextTick(() => {
+    fitView({ padding: 0.15, duration: 650 });
+  });
+}
+
+function subirNivel() {
+  if (isAtRoot.value) return;
+  const parentId = getParentNavigationId(
+    nodoNavegacionActualId.value,
+    unidadesByIdMap.value,
+    vistaModo.value,
+  );
+  if (parentId) {
+    manejarClickNodo(parentId);
+  } else {
+    restablecerVista();
+  }
+}
+
+function cambiarModoExploracion(nuevoModo) {
+  modoExploracion.value = nuevoModo;
+  updateGraph();
+  nextTick(() => {
+    if (nodoNavegacionActualId.value && nuevoModo !== "completo") {
+      const cluster = navigationCluster.value;
+      const nodesToFrame = [cluster.activeId, ...cluster.directChildrenIds].filter(Boolean);
+      volarANodos(nodesToFrame, { padding: 0.25, duration: 600 });
+    } else {
+      fitView({ padding: 0.15, duration: 600 });
+    }
+  });
+}
+
+function toggleVistaCompleta() {
+  if (modoExploracion.value === "enfoque") {
+    cambiarModoExploracion("aislar");
+  } else if (modoExploracion.value === "aislar") {
+    cambiarModoExploracion("completo");
+  } else {
+    cambiarModoExploracion("enfoque");
+  }
+}
+
+function seleccionarDesdeTabla(unidadId) {
+  if (!unidadId) return;
+  manejarClickNodo(unidadId);
+}
+
 // --- COMPUTEDS ---
 const unidadesFiltradas = computed(() => {
   const getFilterId = (val) =>
@@ -288,7 +589,9 @@ const unidadesFiltradas = computed(() => {
   // Pre-resolver descripciones fuera del bucle para máximo rendimiento (O(1) por iteración)
   let expectedNivelDesc = "";
   if (activeNivelId) {
-    const item = nivelesStore.niveles.find((n) => String(n.id) === activeNivelId);
+    const item = nivelesStore.niveles.find(
+      (n) => String(n.id) === activeNivelId,
+    );
     expectedNivelDesc = item ? normalizeText(item.descripcion) : "";
   }
 
@@ -302,6 +605,25 @@ const unidadesFiltradas = computed(() => {
   if (activeClaseId) {
     const item = clasesStore.clases.find((c) => String(c.id) === activeClaseId);
     expectedClaseDesc = item ? normalizeText(item.descripcion) : "";
+  }
+
+  let expectedRelacionCode = "";
+  let expectedRelacionDesc = "";
+  let isFilterForStaff = false;
+  if (activeRelacionId) {
+    const item = relacionesStore.relaciones.find(
+      (r) => String(r.id) === activeRelacionId || String(r.value) === activeRelacionId,
+    );
+    if (item) {
+      expectedRelacionCode = normalizeText(item.codigo || item.value || "");
+      expectedRelacionDesc = normalizeText(
+        item.descripcion || item.description || item.nombre || "",
+      );
+      isFilterForStaff =
+        expectedRelacionCode === "s" ||
+        expectedRelacionDesc.includes("staff") ||
+        expectedRelacionDesc.includes("asesor");
+    }
   }
 
   const isEstricto = vistaModo.value === "estricto";
@@ -341,8 +663,26 @@ const unidadesFiltradas = computed(() => {
       }
     }
 
-    if (activeRelacionId && String(u.relacion) !== activeRelacionId) {
-      return false;
+    if (activeRelacionId) {
+      const uRelNorm = normalizeText(u.relacion);
+      const uStrRelNorm = normalizeText(u.str_relacion);
+      const uRelIdStr = String(u.relacion_id ?? u.relacionId ?? "");
+
+      const matchesId =
+        (uRelIdStr && uRelIdStr === activeRelacionId) ||
+        (uRelNorm && uRelNorm === activeRelacionId);
+      const matchesCode =
+        expectedRelacionCode &&
+        (uRelNorm === expectedRelacionCode || uStrRelNorm === expectedRelacionCode);
+      const matchesDesc =
+        expectedRelacionDesc &&
+        (uStrRelNorm === expectedRelacionDesc || uRelNorm === expectedRelacionDesc);
+      const matchesStaff =
+        isFilterForStaff && isStaffNode(u, relacionesStore.relaciones);
+
+      if (!matchesId && !matchesCode && !matchesDesc && !matchesStaff) {
+        return false;
+      }
     }
 
     return true;
@@ -399,11 +739,12 @@ const stats = computed(() => {
     ];
   }
 
-  const oficiales = all.filter((u) => checkOficial(u));
+  const baseList = hasAnyFilter.value ? unidadesFiltradas.value : all;
+  const oficiales = baseList.filter((u) => checkOficial(u));
   return [
     {
       title: "Total Unidades",
-      value: all.length,
+      value: baseList.length,
       icon: "mdi-sitemap",
       color: "primary",
     },
@@ -415,13 +756,13 @@ const stats = computed(() => {
     },
     {
       title: "No Oficiales",
-      value: all.length - oficiales.length,
+      value: baseList.length - oficiales.length,
       icon: "mdi-alert-circle-outline",
       color: "warning",
     },
     {
       title: "Asesoría/Staff",
-      value: all.filter((u) => isStaffNode(u, relacionesStore.relaciones))
+      value: baseList.filter((u) => isStaffNode(u, relacionesStore.relaciones))
         .length,
       icon: "mdi-account-tie",
       color: "orange-darken-2",
@@ -429,26 +770,43 @@ const stats = computed(() => {
   ];
 });
 
-
-
 // --- ESTRUCTURA VISUAL & LAYOUT (importado desde @/utils/organigramaLayout) ---
 
 // --- METHODS ---
 async function refreshChart(options = {}) {
-  await unidadesStore.getFetchUnidades(options);
-  updateGraph();
+  if (options?.targetNodeId) {
+    pendingTargetNodeId.value = String(options.targetNodeId);
+  }
+  isGraphLoading.value = true;
+  graphLoadingMessage.value = "Actualizando organigrama...";
+  graphLoadingSubmessage.value = "Sincronizando cambios de la estructura...";
+  try {
+    await unidadesStore.getFetchUnidades(options);
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    updateGraph();
+  } catch (e) {
+    mostrar("Error al actualizar organigrama", "error");
+  } finally {
+    isGraphLoading.value = false;
+  }
 }
 
 async function openForm(nodeId = null, edit = false) {
-  const node = nodeId
-    ? unidadesByIdMap.value.get(String(nodeId))
-    : null;
+  if (nodeId) {
+    centrarNodo(nodeId, { duration: 400 });
+  }
+  const node = nodeId ? unidadesByIdMap.value.get(String(nodeId)) : null;
   selectedNode.value = node;
+  pendingTargetNodeId.value = nodeId ? String(nodeId) : null;
   await openUnitForm(node, edit);
   addDialog.value = true;
 }
 
 function openDeleteDialog(nodeId) {
+  if (nodeId) {
+    centrarNodo(nodeId, { duration: 400 });
+  }
   selectedNode.value = nodeId
     ? unidadesByIdMap.value.get(String(nodeId))
     : null;
@@ -465,14 +823,20 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 });
 
 async function cambiarDependencia() {
-  await unidadesStore.updateNodo(unidadACambiar.value, {
+  const razonVal = typeof unidadRazon.value === "string" ? unidadRazon.value.trim() : "";
+  if (!unidadACambiar.value || !unidadDestino.value || razonVal.length < 6) {
+    mostrar("La razón del cambio es obligatoria y debe tener al menos 6 caracteres", "warning");
+    return;
+  }
+  const targetId = String(unidadACambiar.value);
+  await unidadesStore.updateNodo(targetId, {
     parentId: parseInt(unidadDestino.value) || null,
-    razon: unidadRazon.value,
+    razon: razonVal,
   });
   if (!unidadesStore.error) {
     dialog_nodo_chance.value = false;
     mostrar("¡Cambiado!", "success");
-    refreshChart({ force: true });
+    refreshChart({ force: true, targetNodeId: targetId });
   } else {
     mostrar("Error: " + unidadesStore.error, "error");
   }
@@ -528,9 +892,12 @@ function cleanPdfText(val) {
 }
 
 async function exportarOrganigrama() {
-  mostrar("Generando PDF institucional en alta resolución...", "info");
-
+  isExportingPdf.value = true;
   try {
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    mostrar("Generando PDF institucional en alta resolución...", "info");
+
     let validNodes = (nodes.value || []).filter(
       (n) => n.data && !n.data.isInvisible,
     );
@@ -617,21 +984,26 @@ async function exportarOrganigrama() {
         label: "MODO: INTEGRAL",
         badgeBg: [29, 78, 216], // #1D4ED8 Azul 700
         subtitle: "Estructura Organizativa Integral (Totalidad de Unidades)",
-        footerText: "Sistema SMAU-MOF - Vista Integral - Estructura Organizativa Completa",
+        footerText:
+          "Sistema SMAU-MOF - Vista Integral - Estructura Organizativa Completa",
         fileSuffix: "integral",
       },
       analitico: {
         label: "MODO: ANAL\xCDTICA",
         badgeBg: [109, 40, 217], // #6D28D9 Violeta 700
-        subtitle: "Estructura Organizativa Anal\xEDtica (Diferenciaci\xF3n de Oficialidad)",
-        footerText: "Sistema SMAU-MOF - Vista Anal\xEDtica - Unidades Oficiales y No Oficiales Identificadas",
+        subtitle:
+          "Estructura Organizativa Anal\xEDtica (Diferenciaci\xF3n de Oficialidad)",
+        footerText:
+          "Sistema SMAU-MOF - Vista Anal\xEDtica - Unidades Oficiales y No Oficiales Identificadas",
         fileSuffix: "analitico",
       },
       estricto: {
         label: "MODO: OFICIAL",
         badgeBg: [4, 120, 87], // #047857 Esmeralda 700
-        subtitle: "Estructura Organizativa Oficial (Aprobada por Resoluci\xF3n)",
-        footerText: "Sistema SMAU-MOF - Documento de Car\xE1cter Oficial - Estructura Organizativa Aprobada",
+        subtitle:
+          "Estructura Organizativa Oficial (Aprobada por Resoluci\xF3n)",
+        footerText:
+          "Sistema SMAU-MOF - Documento de Car\xE1cter Oficial - Estructura Organizativa Aprobada",
         fileSuffix: "oficial",
       },
     };
@@ -651,10 +1023,19 @@ async function exportarOrganigrama() {
     const modeBadgeW = pdf.getTextWidth(currentConfig.label) + 8;
     const modeBadgeH = 6.2;
     const modeBadgeX = marginMm + mainTitleW + 10;
-    pdf.setFillColor(currentConfig.badgeBg[0], currentConfig.badgeBg[1], currentConfig.badgeBg[2]);
+    pdf.setFillColor(
+      currentConfig.badgeBg[0],
+      currentConfig.badgeBg[1],
+      currentConfig.badgeBg[2],
+    );
     pdf.roundedRect(modeBadgeX, 11.5, modeBadgeW, modeBadgeH, 1.6, 1.6, "F");
     pdf.setTextColor(255, 255, 255);
-    pdf.text(currentConfig.label, modeBadgeX + modeBadgeW / 2, 11.5 + modeBadgeH * 0.72, { align: "center" });
+    pdf.text(
+      currentConfig.label,
+      modeBadgeX + modeBadgeW / 2,
+      11.5 + modeBadgeH * 0.72,
+      { align: "center" },
+    );
 
     // Subtítulos institucionales
     pdf.setFontSize(11);
@@ -674,8 +1055,12 @@ async function exportarOrganigrama() {
 
     // Resumen estadístico adaptativo
     const totalCount = validNodes.length;
-    const oficialesCount = validNodes.filter((n) => n.data?.isOficial !== false).length;
-    const noOficialesCount = validNodes.filter((n) => n.data?.isOficial === false).length;
+    const oficialesCount = validNodes.filter(
+      (n) => n.data?.isOficial !== false,
+    ).length;
+    const noOficialesCount = validNodes.filter(
+      (n) => n.data?.isOficial === false,
+    ).length;
     const staffCount = validNodes.filter((n) => n.data?.isStaff).length;
 
     let statsStr = `Total: ${totalCount} unidades`;
@@ -700,15 +1085,43 @@ async function exportarOrganigrama() {
     const legendDotR = 1.3;
     const legendItems = [];
     if (modo === "analitico") {
-      legendItems.push({ label: "Oficial", color: [29, 78, 216], dashed: false });
-      legendItems.push({ label: "No Oficial", color: [148, 163, 184], dashed: true });
-      legendItems.push({ label: "Staff / Asesor\xEDa", color: [194, 65, 12], dashed: true });
+      legendItems.push({
+        label: "Oficial",
+        color: [29, 78, 216],
+        dashed: false,
+      });
+      legendItems.push({
+        label: "No Oficial",
+        color: [148, 163, 184],
+        dashed: true,
+      });
+      legendItems.push({
+        label: "Staff / Asesor\xEDa",
+        color: [194, 65, 12],
+        dashed: true,
+      });
     } else if (modo === "estricto") {
-      legendItems.push({ label: "Estructura Oficial", color: [4, 120, 87], dashed: false });
-      legendItems.push({ label: "Staff / Asesor\xEDa", color: [194, 65, 12], dashed: true });
+      legendItems.push({
+        label: "Estructura Oficial",
+        color: [4, 120, 87],
+        dashed: false,
+      });
+      legendItems.push({
+        label: "Staff / Asesor\xEDa",
+        color: [194, 65, 12],
+        dashed: true,
+      });
     } else {
-      legendItems.push({ label: "Estructura Institucional", color: [29, 78, 216], dashed: false });
-      legendItems.push({ label: "Staff / Asesor\xEDa", color: [194, 65, 12], dashed: true });
+      legendItems.push({
+        label: "Estructura Institucional",
+        color: [29, 78, 216],
+        dashed: false,
+      });
+      legendItems.push({
+        label: "Staff / Asesor\xEDa",
+        color: [194, 65, 12],
+        dashed: true,
+      });
     }
 
     legendItems.forEach((item) => {
@@ -766,42 +1179,60 @@ async function exportarOrganigrama() {
       const parentBottomY = pY + nodeHeightMm;
 
       if (normalChildren.length > 0) {
-        // Ordenar hijos por coordenada X para trazar los extremos del bus
-        normalChildren.sort(
-          (a, b) => Number(a.position?.x || 0) - Number(b.position?.x || 0),
-        );
-
-        const minChildY = Math.min(
-          ...normalChildren.map((ch) => Number(ch.position?.y || 0)),
-        );
-        const firstChildY = offsetY + (minChildY - minY) * scale;
-        const busY = (parentBottomY + firstChildY) / 2;
-
-        // Tronco vertical único desde la base del padre hasta la barra de distribución
-        pdf.setLineDashPattern([], 0);
-        pdf.line(parentBottomX, parentBottomY, parentBottomX, busY);
-
-        // Barra horizontal del bus que une a todos los hermanos
-        let minChildCenterX = parentBottomX;
-        let maxChildCenterX = parentBottomX;
-
+        // Agrupar hijos normales según su busY asignado en layout (ej. Decanatos vs unidades centrales)
+        const groupsByBus = new Map();
         normalChildren.forEach((ch) => {
-          const cCenterX =
-            offsetX +
-            (Number(ch.position?.x || 0) - minX) * scale +
-            nodeWidthMm / 2;
-          if (cCenterX < minChildCenterX) minChildCenterX = cCenterX;
-          if (cCenterX > maxChildCenterX) maxChildCenterX = cCenterX;
+          const edge = (cachedEdges || []).find(
+            (e) => String(e.source) === String(parentId) && String(e.target) === String(ch.id),
+          );
+          const rawBusY = edge?.data?.busY;
+          const key = rawBusY !== undefined ? String(rawBusY) : "default";
+          if (!groupsByBus.has(key)) {
+            groupsByBus.set(key, { rawBusY, children: [] });
+          }
+          groupsByBus.get(key).children.push(ch);
         });
 
-        pdf.line(minChildCenterX, busY, maxChildCenterX, busY);
+        groupsByBus.forEach(({ rawBusY, children: groupChildren }) => {
+          groupChildren.sort(
+            (a, b) => Number(a.position?.x || 0) - Number(b.position?.x || 0),
+          );
 
-        // Bajantes verticales desde la barra a cada nodo hijo
-        normalChildren.forEach((ch) => {
-          const cX = offsetX + (Number(ch.position?.x || 0) - minX) * scale;
-          const cY = offsetY + (Number(ch.position?.y || 0) - minY) * scale;
-          const cCenterX = cX + nodeWidthMm / 2;
-          pdf.line(cCenterX, busY, cCenterX, cY);
+          const minChildY = Math.min(
+            ...groupChildren.map((ch) => Number(ch.position?.y || 0)),
+          );
+          const firstChildY = offsetY + (minChildY - minY) * scale;
+          const busY =
+            rawBusY !== undefined
+              ? offsetY + (rawBusY - minY) * scale
+              : (parentBottomY + firstChildY) / 2;
+
+          // Tronco vertical único desde la base del padre hasta la barra de distribución
+          pdf.setLineDashPattern([], 0);
+          pdf.line(parentBottomX, parentBottomY, parentBottomX, busY);
+
+          // Barra horizontal del bus que une a todos los hermanos del grupo
+          let minChildCenterX = parentBottomX;
+          let maxChildCenterX = parentBottomX;
+
+          groupChildren.forEach((ch) => {
+            const cCenterX =
+              offsetX +
+              (Number(ch.position?.x || 0) - minX) * scale +
+              nodeWidthMm / 2;
+            if (cCenterX < minChildCenterX) minChildCenterX = cCenterX;
+            if (cCenterX > maxChildCenterX) maxChildCenterX = cCenterX;
+          });
+
+          pdf.line(minChildCenterX, busY, maxChildCenterX, busY);
+
+          // Bajantes verticales desde la barra a cada nodo hijo
+          groupChildren.forEach((ch) => {
+            const cX = offsetX + (Number(ch.position?.x || 0) - minX) * scale;
+            const cY = offsetY + (Number(ch.position?.y || 0) - minY) * scale;
+            const cCenterX = cX + nodeWidthMm / 2;
+            pdf.line(cCenterX, busY, cCenterX, cY);
+          });
         });
       }
 
@@ -846,7 +1277,7 @@ async function exportarOrganigrama() {
 
       if (isGhost) {
         pdf.saveGraphicsState();
-        const ghostOpacity = isFilterFaded ? 0.30 : 0.45;
+        const ghostOpacity = isFilterFaded ? 0.3 : 0.45;
         pdf.setGState(new pdf.GState({ opacity: ghostOpacity }));
       }
 
@@ -921,31 +1352,95 @@ async function exportarOrganigrama() {
         });
       }
 
-      // 4. Pastilla del Código
+      // 4. Medición y cálculo de dimensiones del Footer (Código, Sigla, Nivel, Tipo)
       const codigoStr = cleanPdfText(n.data?.codigo || "-");
-      const codeFontSize = Math.max(3.4, scale * 52);
+      const codeFontSize = Math.max(3.3, scale * 50);
       pdf.setFontSize(codeFontSize);
       pdf.setFont("helvetica", "bold");
 
       const measuredCodeW = pdf.getTextWidth(codigoStr);
       const pillPaddingX = Math.max(1.0, 2.0 * scale);
       const pillW = Math.min(
-        nodeWidthMm - padX * 2,
+        nodeWidthMm - padX * 2 - 8,
         measuredCodeW + pillPaddingX * 2 + 0.6,
       );
       const pillH = Math.max(1.8, codeFontSize * 0.38 + 0.6);
+
+      const hasSigla = Boolean(n.data?.sigla && n.data.sigla !== "-");
+      const hasNivel = Boolean(n.data?.nivel && n.data.nivel !== "---");
+      const hasTipo = Boolean(n.data?.tipo && n.data.tipo !== "---");
+
+      const detailFontSize = Math.max(2.8, scale * 44);
+      const detailLineSpacing = detailFontSize * 0.4;
+      const iconW = Math.max(1.0, 2.2 * scale);
+      const iconH = Math.max(0.8, 1.8 * scale);
+      const textOffsetX = iconW + Math.max(0.6, 1.0 * scale);
+      const maxDetailTextW = nodeWidthMm - padX * 2 - textOffsetX - 8;
+
+      let detailLinesCount = (hasNivel ? 1 : 0) + (hasTipo ? 1 : 0);
+      const footerH = pillH + detailLinesCount * detailLineSpacing + 1.2;
+      const footerY = ny + nodeHeightMm - footerH - padY;
+
+      // 5. Título de la Unidad en el Área Central (Hero, escalado adaptativo al largo del texto)
+      const titleLen = cleanPdfText(n.data?.nombre || "").length;
+      let titleFontSize;
+      if (titleLen <= 28) {
+        titleFontSize = Math.max(4.8, scale * 78);
+      } else if (titleLen <= 52) {
+        titleFontSize = Math.max(4.2, scale * 68);
+      } else if (titleLen <= 74) {
+        titleFontSize = Math.max(3.8, scale * 60);
+      } else {
+        titleFontSize = Math.max(3.3, scale * 53);
+      }
+      pdf.setFontSize(titleFontSize);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
+
+      const titleText = cleanPdfText(n.data?.nombre || "").toUpperCase();
+      const maxTitleW = nodeWidthMm - padX * 2;
+      let titleLines = pdf.splitTextToSize(titleText, maxTitleW);
+
+      if (titleLines.length > 5) {
+        titleFontSize = Math.max(2.8, titleFontSize * 0.82);
+        pdf.setFontSize(titleFontSize);
+        titleLines = pdf.splitTextToSize(titleText, maxTitleW);
+      }
+
+      const maxLines = Math.min(5, titleLines.length);
+      const titleLineSpacing = titleFontSize * 0.38;
+      const titleBlockH = maxLines * titleLineSpacing;
+      const titleTopBound = ny + topBadgeHeight + padY + 1.0;
+      const titleAvailableH = Math.max(titleBlockH, footerY - titleTopBound);
+      const titleStartY =
+        titleTopBound +
+        (titleAvailableH - titleBlockH) / 2 +
+        titleLineSpacing * 0.8;
+
+      for (let i = 0; i < maxLines; i++) {
+        let lineStr = titleLines[i];
+        if (i === 4 && titleLines.length > 5) {
+          lineStr = lineStr.slice(0, Math.max(6, lineStr.length - 3)) + "...";
+        }
+        pdf.text(
+          lineStr,
+          nx + nodeWidthMm / 2,
+          titleStartY + i * titleLineSpacing,
+          { align: "center" },
+        );
+      }
+
+      // 6. Dibujo del Footer en la parte inferior (Código + Sigla + Nivel + Tipo)
       const pillX = nx + padX;
-      const pillY = ny + topBadgeHeight + padY;
+      const pillY = footerY;
       if (isDarkCard) {
-        // Fondo traslúcido armónico más oscuro que la tarjeta (igual a rgba(0, 0, 0, 0.22) en UI)
         pdf.setFillColor(
-          Math.round(bgRgb.r * 0.70),
-          Math.round(bgRgb.g * 0.70),
-          Math.round(bgRgb.b * 0.70),
+          Math.round(bgRgb.r * 0.7),
+          Math.round(bgRgb.g * 0.7),
+          Math.round(bgRgb.b * 0.7),
         );
         pdf.setTextColor(255, 255, 255);
       } else {
-        // Fondo traslúcido claro para tarjetas de fondo claro
         pdf.setFillColor(
           Math.round(bgRgb.r + (255 - bgRgb.r) * 0.55),
           Math.round(bgRgb.g + (255 - bgRgb.g) * 0.55),
@@ -956,57 +1451,54 @@ async function exportarOrganigrama() {
       const pillRadius = Math.max(0.4, 1.5 * scale);
       pdf.roundedRect(pillX, pillY, pillW, pillH, pillRadius, pillRadius, "F");
 
-      pdf.text(
-        codigoStr,
-        pillX + pillW / 2,
-        pillY + pillH * 0.74,
-        { align: "center" },
-      );
-
-      // 5. Título de la Unidad
-      let titleFontSize = Math.max(3.6, scale * 58);
-      pdf.setFontSize(titleFontSize);
+      pdf.setFontSize(codeFontSize);
       pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
+      pdf.text(codigoStr, pillX + pillW / 2, pillY + pillH * 0.74, {
+        align: "center",
+      });
 
-      const titleText = cleanPdfText(n.data?.nombre || "").toUpperCase();
-      const maxTitleW = nodeWidthMm - padX * 2;
-      let titleLines = pdf.splitTextToSize(titleText, maxTitleW);
+      // Si tiene sigla, dibujar pastilla de sigla al lado del código
+      if (hasSigla) {
+        const siglaStr = cleanPdfText(n.data.sigla);
+        pdf.setFontSize(codeFontSize * 0.95);
+        const measuredSiglaW = pdf.getTextWidth(siglaStr);
+        const siglaPillW = measuredSiglaW + pillPaddingX * 2;
+        const siglaPillX = pillX + pillW + 1.2;
 
-      if (titleLines.length > 3) {
-        titleFontSize = Math.max(3.0, titleFontSize * 0.88);
-        pdf.setFontSize(titleFontSize);
-        titleLines = pdf.splitTextToSize(titleText, maxTitleW);
-      }
-
-      const maxLines = Math.min(3, titleLines.length);
-      const titleLineSpacing = titleFontSize * 0.36;
-      const titleStartY = pillY + pillH + titleLineSpacing + 0.5;
-
-      for (let i = 0; i < maxLines; i++) {
-        let lineStr = titleLines[i];
-        if (i === 2 && titleLines.length > 3) {
-          lineStr = lineStr.slice(0, Math.max(6, lineStr.length - 3)) + "...";
+        if (isDarkCard) {
+          pdf.setFillColor(
+            Math.round(bgRgb.r * 0.7),
+            Math.round(bgRgb.g * 0.7),
+            Math.round(bgRgb.b * 0.7),
+          );
+          pdf.setTextColor(255, 255, 255);
+        } else {
+          pdf.setFillColor(
+            Math.round(bgRgb.r + (255 - bgRgb.r) * 0.55),
+            Math.round(bgRgb.g + (255 - bgRgb.g) * 0.55),
+            Math.round(bgRgb.b + (255 - bgRgb.b) * 0.55),
+          );
+          pdf.setTextColor(15, 23, 42);
         }
-        pdf.text(lineStr, nx + padX, titleStartY + i * titleLineSpacing);
+
+        pdf.roundedRect(
+          siglaPillX,
+          pillY,
+          siglaPillW,
+          pillH,
+          pillRadius,
+          pillRadius,
+          "F",
+        );
+        pdf.text(siglaStr, siglaPillX + siglaPillW / 2, pillY + pillH * 0.74, {
+          align: "center",
+        });
       }
 
-      // 6. Filas de Detalles con iconos vectoriales tipo web UI (Sigla, Nivel, Tipo)
-      const detailFontSize = Math.max(2.9, scale * 46);
+      // Detalles: Nivel y Tipo
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
-
-      const detailLineSpacing = detailFontSize * 0.40;
-      let detailY =
-        titleStartY +
-        (maxLines - 1) * titleLineSpacing +
-        detailLineSpacing +
-        0.8;
-
-      const iconW = Math.max(1.0, 2.2 * scale);
-      const iconH = Math.max(0.8, 1.8 * scale);
-      const textOffsetX = iconW + Math.max(0.6, 1.0 * scale);
-      const maxDetailTextW = nodeWidthMm - padX * 2 - textOffsetX;
+      let detailY = pillY + pillH + detailLineSpacing * 0.9;
 
       // Función que garantiza que el texto de detalle quepa completo en una sola línea
       function drawDetailText(text, x, y, maxW, baseFontSize) {
@@ -1020,7 +1512,10 @@ async function exportarOrganigrama() {
         }
         let outText = text;
         if (tw > maxW) {
-          while (outText.length > 4 && pdf.getTextWidth(outText + "...") > maxW) {
+          while (
+            outText.length > 4 &&
+            pdf.getTextWidth(outText + "...") > maxW
+          ) {
             outText = outText.slice(0, -1);
           }
           outText += "...";
@@ -1028,31 +1523,8 @@ async function exportarOrganigrama() {
         pdf.text(outText, x, y);
       }
 
-      // 6.1 Sigla (icono mdi-identifier)
-      if (n.data?.sigla && n.data.sigla !== "-") {
-        const siglaStr = cleanPdfText(n.data.sigla);
-        const siglaFullText = `SIGLA: ${siglaStr}`;
-        pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
-        pdf.setLineWidth(Math.max(0.12, 0.4 * scale));
-        pdf.roundedRect(nx + padX, detailY - iconH * 0.8, iconW, iconH, 0.2, 0.2, "S");
-        pdf.line(
-          nx + padX + iconW * 0.25,
-          detailY - iconH * 0.4,
-          nx + padX + iconW * 0.75,
-          detailY - iconH * 0.4,
-        );
-        drawDetailText(
-          siglaFullText,
-          nx + padX + textOffsetX,
-          detailY,
-          maxDetailTextW,
-          detailFontSize,
-        );
-        detailY += detailLineSpacing;
-      }
-
-      // 6.2 Nivel Jerárquico (icono mdi-layers-outline)
-      if (n.data?.nivel && n.data.nivel !== "---") {
+      // 6.1 Nivel Jerárquico (icono mdi-layers-outline)
+      if (hasNivel) {
         const nivelStr = cleanPdfText(n.data.nivel);
         pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
         pdf.setLineWidth(Math.max(0.12, 0.4 * scale));
@@ -1072,7 +1544,12 @@ async function exportarOrganigrama() {
           true,
         );
         pdf.line(ix, iy + iconH * 0.25, ix + iconW * 0.5, iy + iconH * 0.55);
-        pdf.line(ix + iconW * 0.5, iy + iconH * 0.55, ix + iconW, iy + iconH * 0.25);
+        pdf.line(
+          ix + iconW * 0.5,
+          iy + iconH * 0.55,
+          ix + iconW,
+          iy + iconH * 0.25,
+        );
         drawDetailText(
           nivelStr,
           nx + padX + textOffsetX,
@@ -1083,8 +1560,8 @@ async function exportarOrganigrama() {
         detailY += detailLineSpacing;
       }
 
-      // 6.3 Tipo de Unidad (icono mdi-tag-outline)
-      if (n.data?.tipo && n.data.tipo !== "---") {
+      // 6.2 Tipo de Unidad (icono mdi-tag-outline)
+      if (hasTipo) {
         const tipoStr = cleanPdfText(n.data.tipo);
         pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
         pdf.setLineWidth(Math.max(0.12, 0.4 * scale));
@@ -1092,7 +1569,12 @@ async function exportarOrganigrama() {
         const ty = detailY - iconH * 0.7;
         pdf.roundedRect(ix, ty, iconW, iconH, 0.2, 0.2, "S");
         pdf.setFillColor(textRgb.r, textRgb.g, textRgb.b);
-        pdf.circle(ix + iconW * 0.3, ty + iconH * 0.5, Math.max(0.12, 0.35 * scale), "F");
+        pdf.circle(
+          ix + iconW * 0.3,
+          ty + iconH * 0.5,
+          Math.max(0.12, 0.35 * scale),
+          "F",
+        );
         drawDetailText(
           tipoStr,
           nx + padX + textOffsetX,
@@ -1130,12 +1612,9 @@ async function exportarOrganigrama() {
     // 5. Pie de página adaptativo según el modo activo
     pdf.setFontSize(10);
     pdf.setTextColor(148, 163, 184); // Slate 400
-    pdf.text(
-      currentConfig.footerText,
-      pageWidth / 2,
-      pageHeight - 8,
-      { align: "center" },
-    );
+    pdf.text(currentConfig.footerText, pageWidth / 2, pageHeight - 8, {
+      align: "center",
+    });
 
     // 6. Descarga del archivo con nombre descriptivo del modo
     const blob = pdf.output("blob");
@@ -1156,14 +1635,14 @@ async function exportarOrganigrama() {
     mostrar("¡PDF generado y descargado correctamente!", "success");
   } catch (error) {
     mostrar("Error al exportar: " + error.message, "error");
+  } finally {
+    isExportingPdf.value = false;
   }
 }
 
 async function verDependencias(id) {
   try {
-    const node = unidadesList.value.find(
-      (u) => String(u.id) === String(id),
-    );
+    const node = unidadesList.value.find((u) => String(u.id) === String(id));
     if (!node) return;
     const full = await unidadesStore.getUnidadById(node.id);
     if (full && full.dependenciasFuncionales?.length) {
@@ -1192,11 +1671,19 @@ let cachedHierarchyKey = "";
 let cachedPositions = null;
 let cachedEdges = null;
 
-function computeHierarchyKey(sourceData, modo) {
-  let key = `${modo}:${isDark.value ? "dark" : "light"}:${sourceData.length}:`;
+function computeHierarchyKey(
+  sourceData,
+  modo,
+  modoExploracionVal = "enfoque",
+  activeNavId = null,
+) {
+  const isolationKey =
+    modoExploracionVal === "aislar" ? String(activeNavId || "root") : "full";
+  let key = `${modo}:${isDark.value ? "dark" : "light"}:${sourceData.length}:${modoExploracionVal}:${isolationKey}:`;
   for (let i = 0; i < sourceData.length; i++) {
     const u = sourceData[i];
-    const pId = u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
+    const pId =
+      u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
     key += `${u.id}-${pId}-${u.lado || "A"}-${u.es_troncal || u.esTroncal ? 1 : 0}-${u.es_sub_troncal || u.esSubTroncal || u.es_subtroncal || u.esSubtroncal ? 1 : 0};`;
   }
   return key;
@@ -1226,7 +1713,20 @@ function computeNodeVisuals({
   const colors = isColorblindMode ? FILTER_COLORS_COLORBLIND : FILTER_COLORS;
 
   let finalColor =
-    (isColorblindMode ? null : (u.color && !["#757575", "#9E9E9E", "#CCCCCC", "#CBD5E1", "#E2E8F0", "#FFFFFF", "#F8FAFC"].includes(String(u.color).trim().toUpperCase()) ? u.color : null)) ||
+    (isColorblindMode
+      ? null
+      : u.color &&
+          ![
+            "#757575",
+            "#9E9E9E",
+            "#CCCCCC",
+            "#CBD5E1",
+            "#E2E8F0",
+            "#FFFFFF",
+            "#F8FAFC",
+          ].includes(String(u.color).trim().toUpperCase())
+        ? u.color
+        : null) ||
     getIntenseNodeColor(u.clase, clasesStore.clases, isColorblindMode) ||
     (isStaff ? colors.staffDefault : colors.claseDefault);
 
@@ -1293,15 +1793,36 @@ function computeNodeVisuals({
           badgeText: "INSTANCIA",
         };
       } else if (activeRelacionId) {
-        finalColor =
-          (isColorblindMode ? null : (u.color && !["#757575", "#9E9E9E", "#CCCCCC", "#CBD5E1", "#E2E8F0", "#FFFFFF", "#F8FAFC"].includes(String(u.color).trim().toUpperCase()) ? u.color : null)) ||
-          getIntenseNodeColor(u.clase, clasesStore.clases, isColorblindMode) ||
-          (isStaff ? colors.staffDefault : colors.relacionFilter);
-        visualReinforcement = {
-          role: "filter-relacion",
-          icon: "mdi-vector-polyline",
-          badgeText: "RELACIÓN",
-        };
+        if (
+          isStaff ||
+          (u.relacion && String(u.relacion).toUpperCase() === "S") ||
+          (u.str_relacion && normalizeText(u.str_relacion).includes("staff")) ||
+          (u.str_relacion && normalizeText(u.str_relacion).includes("asesor"))
+        ) {
+          finalColor = colors.staffDefault;
+          visualReinforcement = {
+            role: "filter-relacion",
+            icon: "mdi-account-tie",
+            badgeText: "STAFF",
+          };
+        } else if (
+          (u.relacion && String(u.relacion).toUpperCase() === "F") ||
+          (u.str_relacion && normalizeText(u.str_relacion).includes("funcional"))
+        ) {
+          finalColor = colors.depFuncional;
+          visualReinforcement = {
+            role: "filter-relacion",
+            icon: "mdi-transit-connection-variant",
+            badgeText: "FUNCIONAL",
+          };
+        } else {
+          finalColor = colors.relacionFilter;
+          visualReinforcement = {
+            role: "filter-relacion",
+            icon: "mdi-vector-polyline",
+            badgeText: "LINEAL",
+          };
+        }
       }
     }
   }
@@ -1309,7 +1830,19 @@ function computeNodeVisuals({
   return { finalColor, isNodeNonOficialInOficialView, visualReinforcement };
 }
 
+function getTitleClass(nombre) {
+  const len = (nombre || "").length;
+  if (len <= 28) return "title-short";
+  if (len <= 52) return "title-medium";
+  if (len <= 74) return "title-long";
+  return "title-xlong";
+}
+
 const updateGraph = () => {
+  if (isMobilePortrait.value) {
+    return;
+  }
+
   const isDepMode =
     mostrarDependencias.value && unidadDependenciaSeleccionada.value;
   let selectedDepId = "";
@@ -1345,14 +1878,33 @@ const updateGraph = () => {
     sourceData = sourceData.filter((u) => checkOficial(u));
   }
 
-  const currentHierarchyKey = computeHierarchyKey(sourceData, vistaModo.value);
+  const cluster = navigationCluster.value;
 
-  // ⚡ LAYOUT INCREMENTAL: Si la jerarquía no cambió, solo actualizamos visuales (color, isMatch)
+  // En modo 'aislar', filtra al clúster activo (nodo + hijos directos + ancestros)
+  // En modo 'enfoque' (predeterminado) o 'completo', mantiene todo el organigrama en el lienzo
+  let visibleData;
+  if (modoExploracion.value === "aislar" && nodoNavegacionActualId.value) {
+    visibleData = sourceData.filter((u) =>
+      cluster.clusterIdsSet.has(String(u.id)),
+    );
+  } else {
+    visibleData = sourceData;
+  }
+  visibleUnitsCount.value = visibleData.length;
+
+  const currentHierarchyKey = computeHierarchyKey(
+    visibleData,
+    vistaModo.value,
+    modoExploracion.value,
+    nodoNavegacionActualId.value,
+  );
+
+  // ⚡ LAYOUT INCREMENTAL: Si la jerarquía no cambió, solo actualizamos visuales (color, isMatch, estados nav)
   if (
     currentHierarchyKey === cachedHierarchyKey &&
     cachedPositions &&
     nodes.value &&
-    nodes.value.length === sourceData.length
+    nodes.value.length === visibleData.length
   ) {
     const currentNodes = nodes.value;
     for (let i = 0; i < currentNodes.length; i++) {
@@ -1382,10 +1934,55 @@ const updateGraph = () => {
           isColorblindMode: isColorblind.value,
         });
 
+      const isNavSelected = cluster.activeId === node.id;
+      const isNavChild = cluster.directChildrenIds.includes(node.id);
+      const isNavAncestor = cluster.ancestorIds.includes(node.id);
+      const isNavFaded = Boolean(
+        cluster.activeId &&
+          !isNavSelected &&
+          !isNavChild &&
+          !isNavAncestor &&
+          modoExploracion.value === "enfoque",
+      );
+
+      node.data.nombre = u.nombre || u.denominacion;
+      node.data.sigla = u.sigla || "-";
+      node.data.tipo = resolveTipo(u.tipo);
+      node.data.nivel = resolveNivel(u.nivel);
+      node.data.clase = resolveClase(u.clase);
+      node.data.codigo = u.codigo;
       node.data.color = finalColor;
       node.data.isMatch = isMatch;
       node.data.isNonOficialInOficialView = isNodeNonOficialInOficialView;
       node.data.visualReinforcement = visualReinforcement;
+      node.data.childrenCount = contarHijosDirectos(node.id);
+      node.data.isNavSelected = isNavSelected;
+      node.data.isNavChild = isNavChild;
+      node.data.isNavAncestor = isNavAncestor;
+      node.data.isNavFaded = isNavFaded;
+    }
+
+    if (edges.value) {
+      const currentEdges = edges.value;
+      const edgeStrokeColor = isDark.value ? "#e2e8f0" : "#000000";
+      for (let i = 0; i < currentEdges.length; i++) {
+        const edge = currentEdges[i];
+        const isClusterEdge =
+          cluster.activeId &&
+          cluster.clusterIdsSet.has(edge.source) &&
+          cluster.clusterIdsSet.has(edge.target);
+        const isFadedEdge =
+          modoExploracion.value === "enfoque" &&
+          Boolean(cluster.activeId) &&
+          !isClusterEdge;
+
+        edge.style = {
+          ...edge.style,
+          stroke: isClusterEdge ? "#2563eb" : edgeStrokeColor,
+          strokeWidth: isClusterEdge ? 3.5 : (isFadedEdge ? 1.5 : 3),
+          opacity: isFadedEdge ? 0.15 : 1,
+        };
+      }
     }
 
     // Control de cámara inteligente inmediato sin setTimeout
@@ -1399,13 +1996,23 @@ const updateGraph = () => {
         } else {
           fitView({ padding: 0.15, duration: 800 });
         }
+      } else if (pendingTargetNodeId.value) {
+        const targetId = String(pendingTargetNodeId.value);
+        pendingTargetNodeId.value = null;
+        const targetNode = currentNodes.find((n) => String(n.id) === targetId);
+        if (targetNode && !targetNode.data?.isInvisible) {
+          if (modoExploracion.value !== "completo") {
+            nodoNavegacionActualId.value = targetId;
+          }
+          volarANodos([targetId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
+        }
       }
     });
     return;
   }
 
   // Si la jerarquía cambió (modo estricto/analítico o recarga de datos), recalculamos layout
-  const baseNodes = sourceData.map((u) => {
+  const baseNodes = visibleData.map((u) => {
     const isStaff = isStaffNode(u, relacionesStore.relaciones);
     let pId = u.parent && typeof u.parent === "object" ? u.parent.id : u.parent;
 
@@ -1434,6 +2041,17 @@ const updateGraph = () => {
         activeRelacionId,
         isColorblindMode: isColorblind.value,
       });
+
+    const isNavSelected = cluster.activeId === String(u.id);
+    const isNavChild = cluster.directChildrenIds.includes(String(u.id));
+    const isNavAncestor = cluster.ancestorIds.includes(String(u.id));
+    const isNavFaded = Boolean(
+      cluster.activeId &&
+        !isNavSelected &&
+        !isNavChild &&
+        !isNavAncestor &&
+        modoExploracion.value === "enfoque",
+    );
 
     return {
       id: String(u.id),
@@ -1466,6 +2084,11 @@ const updateGraph = () => {
           u.es_subtroncal === true ||
           u.esSubtroncal === true,
         lado: u.lado || "AUTOMATICO",
+        childrenCount: contarHijosDirectos(u.id),
+        isNavSelected,
+        isNavChild,
+        isNavAncestor,
+        isNavFaded,
       },
     };
   });
@@ -1497,6 +2120,16 @@ const updateGraph = () => {
       if (n.data && n.data.isStaff) {
         targetH = n.data.staffSide === "right" ? "target-left" : "target-right";
       }
+
+      const isClusterEdge =
+        cluster.activeId &&
+        cluster.clusterIdsSet.has(String(n.parentId)) &&
+        cluster.clusterIdsSet.has(String(n.id));
+      const isFadedEdge =
+        modoExploracion.value === "enfoque" &&
+        Boolean(cluster.activeId) &&
+        !isClusterEdge;
+
       return {
         id: `e${n.parentId}-${n.id}`,
         source: String(n.parentId),
@@ -1508,9 +2141,11 @@ const updateGraph = () => {
         },
         style: {
           fill: "none",
-          stroke: edgeStrokeColor,
-          strokeWidth: 3,
+          stroke: isClusterEdge ? "#2563eb" : edgeStrokeColor,
+          strokeWidth: isClusterEdge ? 3.5 : (isFadedEdge ? 1.5 : 3),
+          opacity: isFadedEdge ? 0.15 : 1,
           strokeDasharray: n.data && n.data.isStaff ? "6 6" : "none",
+          transition: "stroke 0.25s ease, opacity 0.25s ease, stroke-width 0.25s ease",
         },
       };
     });
@@ -1542,7 +2177,46 @@ const updateGraph = () => {
       } else {
         fitView({ padding: 0.15, duration: 800 });
       }
-    } else {
+    } else if (pendingTargetNodeId.value) {
+      const targetId = String(pendingTargetNodeId.value);
+      pendingTargetNodeId.value = null;
+      // Buscar el nodo en su nueva posición tras el recálculo del layout (por si cambió de nivel, clase o padre, o recién se creó)
+      const targetNode = layoutedNodes.find((n) => String(n.id) === targetId);
+      if (targetNode && !targetNode.data?.isInvisible) {
+        if (modoExploracion.value !== "completo") {
+          nodoNavegacionActualId.value = targetId;
+        }
+        volarANodos([targetId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
+      } else {
+        fitView({ padding: 0.15, duration: 800 });
+      }
+    } else if (nodoNavegacionActualId.value) {
+      const navId = String(nodoNavegacionActualId.value);
+      const navNode = layoutedNodes.find((n) => String(n.id) === navId);
+      if (navNode && !navNode.data?.isInvisible) {
+        if (modoExploracion.value !== "completo") {
+          const currentCluster = navigationCluster.value;
+          const nodesToFrame = [
+            currentCluster.activeId,
+            ...currentCluster.directChildrenIds,
+          ].filter((id) =>
+            layoutedNodes.some(
+              (n) => String(n.id) === String(id) && !n.data?.isInvisible,
+            ),
+          );
+          volarANodos(nodesToFrame.length > 0 ? nodesToFrame : [navId], {
+            padding: nodesToFrame.length > 1 ? 0.25 : 0.4,
+            duration: 650,
+            maxZoom: 1.25,
+          });
+        } else {
+          volarANodos([navId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
+        }
+      } else {
+        fitView({ padding: 0.15, duration: 800 });
+      }
+    } else if (isFirstRender.value) {
+      isFirstRender.value = false;
       fitView({ padding: 0.15, duration: 800 });
     }
   });
@@ -1553,6 +2227,14 @@ watch(isDark, () => {
   updateGraph();
 });
 
+watch(isMobilePortrait, (isBlocked) => {
+  if (!isBlocked) {
+    nextTick(() => {
+      updateGraph();
+    });
+  }
+});
+
 /**
  * Vuela animadamente la cámara hacia uno o varios nodos (estilo Google Maps).
  * - 1 match: Encuadra el nodo con padding suficiente (maxZoom 1.25).
@@ -1561,7 +2243,8 @@ watch(isDark, () => {
  *
  * @param {Array<string|number>} ids - Lista de IDs de nodos a enfocar
  */
-const volarANodos = async (ids = []) => {
+async function volarANodos(ids = [], options = {}) {
+  if (isMobilePortrait.value) return;
   await nextTick();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("resize"));
@@ -1573,8 +2256,12 @@ const volarANodos = async (ids = []) => {
     }
   }
 
+  const duration = options.duration ?? 800;
+  const padding = options.padding ?? (ids.length === 1 ? 0.35 : 0.2);
+  const maxZoom = options.maxZoom ?? 1.25;
+
   if (!ids || ids.length === 0) {
-    await fitView({ padding: 0.1, duration: 800 });
+    await fitView({ padding: 0.1, duration });
     return;
   }
 
@@ -1583,48 +2270,89 @@ const volarANodos = async (ids = []) => {
   if (strIds.length === 1) {
     await fitView({
       nodes: [strIds[0]],
-      padding: 0.35,
-      duration: 800,
-      maxZoom: 1.25,
+      padding,
+      duration,
+      maxZoom,
     });
     return;
   }
 
-  await fitView({ nodes: strIds, duration: 800, padding: 0.2, maxZoom: 1.25 });
-};
+  await fitView({ nodes: strIds, duration, padding, maxZoom });
+}
+
+let lastCenteringId = null;
+let lastCenteringTime = 0;
+
+/**
+ * Centra la vista del organigrama en un nodo específico si está visible en el viewport.
+ * Respeta móvil portrait (MOF-049) y evita enfocar nodos invisibles por filtros.
+ *
+ * @param {string|number} unidadId - ID de la unidad
+ * @param {Object} options - Opciones adicionales para volarANodos (duration, padding, maxZoom)
+ */
+async function centrarNodo(unidadId, options = {}) {
+  if (!unidadId || isMobilePortrait.value) return;
+  const now = Date.now();
+  const strId = String(unidadId);
+  if (lastCenteringId === strId && now - lastCenteringTime < 150) {
+    return;
+  }
+  lastCenteringId = strId;
+  lastCenteringTime = now;
+
+  const targetNode = (nodes.value || []).find((n) => String(n.id) === strId);
+  if (targetNode?.data?.isInvisible) return;
+  return volarANodos([strId], {
+    duration: options.duration ?? 450,
+    padding: options.padding ?? 0.35,
+    maxZoom: options.maxZoom ?? 1.15,
+  });
+}
 
 // --- EVENTS ---
 onMounted(async () => {
+  detailsDrawer.value = false;
+  hierarchyDrawer.value = false;
   if (typeof window !== "undefined" && window.innerWidth <= 960) {
     activePanels.value = null; // Colapsar filtros en móviles para ahorrar espacio vertical
   }
-  const promises = [
-    unidadesStore.getFetchUnidades(),
-    prefetchCatalogs(),
-  ];
-  if (!unidadesStore.dashboardStats) {
-    promises.push(unidadesStore.getDashboardStats());
+  isGraphLoading.value = true;
+  graphLoadingMessage.value = "Cargando organigrama...";
+  graphLoadingSubmessage.value = "Obteniendo unidades y catálogos institucionales...";
+  try {
+    const promises = [unidadesStore.getFetchUnidades(), prefetchCatalogs()];
+    if (!unidadesStore.dashboardStats) {
+      promises.push(unidadesStore.getDashboardStats());
+    }
+    await Promise.all(promises);
+    const fetchError =
+      unidadesStore.error ||
+      tiposStore.error ||
+      nivelesStore.error ||
+      relacionesStore.error ||
+      cargosStore.error ||
+      clasesStore.error;
+    if (fetchError) {
+      mostrar(fetchError, "error");
+    }
+    graphLoadingMessage.value = "Renderizando estructura...";
+    graphLoadingSubmessage.value = "Calculando distribución jerárquica...";
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    updateGraph();
+  } catch (err) {
+    mostrar("Error al cargar organigrama", "error");
+  } finally {
+    isGraphLoading.value = false;
   }
-  await Promise.all(promises);
-  const fetchError =
-    unidadesStore.error ||
-    tiposStore.error ||
-    nivelesStore.error ||
-    relacionesStore.error ||
-    cargosStore.error ||
-    clasesStore.error;
-  if (fetchError) {
-    mostrar(fetchError, "error");
-  }
-  updateGraph();
 });
 
 onNodeClick(({ node }) => {
-  if (node.data.isInvisible) return;
-  showDetails(node.id);
+  if (node?.data?.isInvisible) return;
+  manejarClickNodo(node.id);
 });
 
-// Watcher inmediato para búsqueda, filtros categóricos y cambios estructurales (sin debounce ni timers)
+// Watcher inmediato para búsqueda, filtros categóricos, cambios estructurales y navegación
 watch(
   [
     () => unidadesList.value,
@@ -1637,6 +2365,8 @@ watch(
     filterInstancia,
     filterRelacion,
     searchTerm,
+    nodoNavegacionActualId,
+    modoExploracion,
   ],
   () => {
     cachedHierarchyKey = "";
@@ -1663,7 +2393,12 @@ function resetFilters() {
   filterRelacion.value = null;
   searchTerm.value = "";
   vistaModo.value = "analitico";
+  nodoNavegacionActualId.value = null;
+  pendingTargetNodeId.value = null;
   resetDependencias();
+  nextTick(() => {
+    fitView({ padding: 0.15, duration: 650 });
+  });
 }
 </script>
 
@@ -1845,6 +2580,8 @@ function resetFilters() {
                       variant="tonal"
                       density="comfortable"
                       class="rounded-lg font-weight-bold"
+                      :loading="isExportingPdf"
+                      :disabled="isExportingPdf"
                       @click="exportarOrganigrama"
                     >
                       PDF
@@ -1879,6 +2616,20 @@ function resetFilters() {
                       >
                     </v-btn>
                     <v-btn
+                      v-if="!unidadesStore.unidades.length"
+                      prepend-icon="mdi-plus"
+                      color="primary"
+                      variant="flat"
+                      density="comfortable"
+                      class="rounded-lg font-weight-bold mr-2"
+                      @click="openForm(null, false)"
+                    >
+                      Añadir Raíz
+                      <v-tooltip activator="parent" location="top"
+                        >Crear la primera unidad raíz institucional</v-tooltip
+                      >
+                    </v-btn>
+                    <v-btn
                       prepend-icon="mdi-swap-horizontal"
                       color="primary"
                       variant="flat"
@@ -1888,8 +2639,7 @@ function resetFilters() {
                     >
                       Dependencia
                       <v-tooltip activator="parent" location="top"
-                        >Cambiar la unidad superior (Padre) de un
-                        nodo</v-tooltip
+                        >Cambiar la unidad superior (Padre) de un nodo o reasignar unidades huérfanas</v-tooltip
                       >
                     </v-btn>
                   </v-col>
@@ -1899,7 +2649,6 @@ function resetFilters() {
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
-
     </div>
 
     <!-- RESULTS TABLE -->
@@ -1930,15 +2679,18 @@ function resetFilters() {
               v-for="u in unidadesFiltradas"
               :key="u.id"
               class="row-hover cursor-pointer"
-              @click="volarANodos([u.id])"
+              @click="seleccionarDesdeTabla(u.id)"
             >
               <!-- Código con indicador de color integrado -->
               <td class="text-caption font-weight-black pa-0">
                 <div class="d-flex align-center fill-height">
                   <div
                     :style="{
-                      backgroundColor:
-                        getIntenseNodeColor(u.clase, clasesStore.clases, isColorblind),
+                      backgroundColor: getIntenseNodeColor(
+                        u.clase,
+                        clasesStore.clases,
+                        isColorblind,
+                      ),
                       height: '32px',
                       width: '4px',
                     }"
@@ -1984,41 +2736,346 @@ function resetFilters() {
       elevation="3"
       class="flow-card flex-grow-1 rounded-lg overflow-hidden border mb-0 position-relative d-flex flex-column"
     >
+      <MofLoadingOverlay
+        :model-value="isGraphLoading || isExportingPdf"
+        :contained="true"
+        :message="isExportingPdf ? 'Generando reporte PDF...' : graphLoadingMessage"
+        :submessage="isExportingPdf ? 'Construyendo organigrama en alta resolución...' : graphLoadingSubmessage"
+      />
+
       <v-progress-linear
-        v-if="unidadesStore.loading"
+        v-if="unidadesStore.loading || isGraphLoading"
         indeterminate
         color="primary"
       />
-      <!-- Alerta Orientación Móvil -->
-      <v-alert
-        v-if="isMobile && isPortrait && showMobileOrientationAlert"
-        type="info"
-        variant="tonal"
-        closable
-        class="mb-2 rounded-lg"
-        density="compact"
-        icon="mdi-phone-rotate-landscape"
-        @click:close="showMobileOrientationAlert = false"
+      <!-- Vista Móvil (Portrait): Pantalla vacía clara con CTA a Árbol de Unidades (NO monta Vue Flow) -->
+      <div
+        v-if="isMobilePortrait"
+        class="mobile-organigrama-blocked flex-grow-1 d-flex flex-column align-center justify-center pa-6 text-center"
       >
-        <div class="d-flex align-center justify-space-between flex-wrap gap-2">
-          <span class="text-caption font-weight-medium">
-            Para una mejor visualización, rota tu dispositivo en horizontal (Landscape).
-          </span>
-          <v-btn
-            size="x-small"
-            variant="outlined"
-            color="primary"
-            class="rounded-lg font-weight-bold"
-            @click="toggleRotation"
-          >
-            <v-icon start size="14">mdi-rotate-right</v-icon>
-            {{ isRotated90 ? 'Vista Estándar' : 'Rotar 90°' }}
-          </v-btn>
-        </div>
-      </v-alert>
+        <v-empty-state
+          icon="mdi-devices"
+          title="Vista recomendada para PC o Tablet"
+          text="El organigrama interactivo está pensado para PC o tablet en horizontal. En el celular usá Árbol de Unidades."
+          class="my-auto py-8"
+        >
+          <template #actions>
+            <v-btn
+              color="primary"
+              variant="elevated"
+              elevation="2"
+              prepend-icon="mdi-file-tree"
+              size="large"
+              class="rounded-lg font-weight-bold text-none px-6"
+              :to="{ name: 'tree_unidades' }"
+            >
+              Ir al Árbol de Unidades
+            </v-btn>
+          </template>
+        </v-empty-state>
+      </div>
 
-      <div class="flow-container position-relative" :class="{ 'flow-container--rotated-90': isRotated90 }">
-        <!-- Botón Volver Flotante en Móvil -->
+      <!-- Vista Desktop / Landscape: Organigrama Interactivo con Vue Flow -->
+      <div
+        v-else
+        class="d-flex flex-column flex-grow-1 overflow-hidden"
+      >
+        <!-- Barra de Navegación Progresiva por Niveles (Breadcrumbs + Controles MOF-068) -->
+        <div
+          class="organigrama-nav-toolbar px-4 py-2 border-b bg-surface d-flex align-center justify-space-between flex-wrap ga-2"
+        >
+          <!-- Controles de Retorno y Breadcrumb -->
+          <div class="d-flex align-center flex-wrap ga-2">
+            <!-- Botón Subir nivel (con menú buscador si hay más de 1 nivel superior) -->
+            <v-btn-group
+              v-if="ancestorUnits.length > 1"
+              density="compact"
+              color="primary"
+              variant="tonal"
+              class="rounded-lg"
+            >
+              <v-btn
+                size="small"
+                prepend-icon="mdi-arrow-up"
+                class="text-none font-weight-bold"
+                :disabled="isAtRoot || modoExploracion === 'completo'"
+                @click="subirNivel"
+              >
+                Subir nivel
+                <v-tooltip activator="parent" location="bottom">
+                  Subir al padre inmediato
+                </v-tooltip>
+              </v-btn>
+              <v-menu
+                v-model="menuSubirNivelAbierto"
+                location="bottom start"
+                :close-on-content-click="false"
+              >
+                <template v-slot:activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    size="small"
+                    icon="mdi-menu-down"
+                    :disabled="isAtRoot || modoExploracion === 'completo'"
+                    style="min-width: 28px; width: 28px;"
+                  >
+                    <v-icon size="16">mdi-menu-down</v-icon>
+                    <v-tooltip activator="parent" location="bottom">
+                      Buscar y subir a cualquier nivel superior ({{ ancestorUnits.length }})
+                    </v-tooltip>
+                  </v-btn>
+                </template>
+                <v-card width="340" elevation="4" class="rounded-lg pa-2">
+                  <div class="px-2 pt-1 pb-1">
+                    <div class="text-caption font-weight-bold text-uppercase text-slate-600 mb-1 d-flex justify-space-between align-center">
+                      <span>Niveles superiores</span>
+                      <span class="text-xxs text-primary font-weight-bold">
+                        {{ filteredAncestorUnits.length }} de {{ ancestorUnits.length }}
+                      </span>
+                    </div>
+                    <v-text-field
+                      v-model="searchSubirNivel"
+                      density="compact"
+                      variant="outlined"
+                      placeholder="Buscar nivel superior..."
+                      prepend-inner-icon="mdi-magnify"
+                      clearable
+                      hide-details
+                      autofocus
+                      class="mb-1"
+                      @keydown.enter="seleccionarPrimerAncestro"
+                    />
+                  </div>
+                  <v-divider class="my-1" />
+                  <v-list density="compact" max-height="260" class="pa-0 overflow-y-auto">
+                    <v-list-item
+                      v-for="(ancestro, idx) in filteredAncestorUnits"
+                      :key="ancestro.id"
+                      :title="ancestro.nombre || ancestro.denominacion"
+                      :subtitle="idx === 0 ? '1 nivel arriba' : `${idx + 1} niveles arriba`"
+                      prepend-icon="mdi-arrow-up-bold"
+                      class="rounded-md my-0.5"
+                      @click="ejecutarSubirNivel(ancestro.id)"
+                    />
+                    <v-list-item
+                      v-if="filteredAncestorUnits.length === 0"
+                      title="Sin coincidencias encontradas"
+                      prepend-icon="mdi-alert-circle-outline"
+                      class="text-medium-emphasis"
+                      disabled
+                    />
+                  </v-list>
+                </v-card>
+              </v-menu>
+            </v-btn-group>
+
+            <v-btn
+              v-else
+              size="small"
+              variant="tonal"
+              color="primary"
+              prepend-icon="mdi-arrow-up"
+              :disabled="isAtRoot || modoExploracion === 'completo'"
+              class="text-none font-weight-bold"
+              @click="subirNivel"
+            >
+              Subir nivel
+              <v-tooltip activator="parent" location="bottom">
+                Subir a la unidad superior (padre)
+              </v-tooltip>
+            </v-btn>
+
+            <!-- Botón Bajar nivel (con menú buscador si hay más de 1 subunidad directa) -->
+            <v-menu
+              v-if="activeDirectChildrenUnits.length > 1"
+              location="bottom start"
+              :close-on-content-click="false"
+              v-model="menuBajarNivelAbierto"
+            >
+              <template v-slot:activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  prepend-icon="mdi-arrow-down"
+                  append-icon="mdi-menu-down"
+                  class="text-none font-weight-bold"
+                  :disabled="modoExploracion === 'completo'"
+                >
+                  Bajar nivel ({{ activeDirectChildrenUnits.length }})
+                  <v-tooltip activator="parent" location="bottom">
+                    Buscar y seleccionar subunidad para descender de nivel
+                  </v-tooltip>
+                </v-btn>
+              </template>
+              <v-card width="340" elevation="4" class="rounded-lg pa-2">
+                <div class="px-2 pt-1 pb-1">
+                  <div class="text-caption font-weight-bold text-uppercase text-slate-600 mb-1 d-flex justify-space-between align-center">
+                    <span>Descender a subunidad directa</span>
+                    <span class="text-xxs text-primary font-weight-bold">
+                      {{ filteredActiveDirectChildrenUnits.length }} de {{ activeDirectChildrenUnits.length }}
+                    </span>
+                  </div>
+                  <v-text-field
+                    v-model="searchBajarNivel"
+                    density="compact"
+                    variant="outlined"
+                    placeholder="Buscar subunidad (nombre, sigla, cód)..."
+                    prepend-inner-icon="mdi-magnify"
+                    clearable
+                    hide-details
+                    autofocus
+                    class="mb-1"
+                    @keydown.enter="seleccionarPrimerHijo"
+                  />
+                </div>
+                <v-divider class="my-1" />
+                <v-list density="compact" max-height="260" class="pa-0 overflow-y-auto">
+                  <v-list-item
+                    v-for="child in filteredActiveDirectChildrenUnits"
+                    :key="child.id"
+                    :title="child.nombre || child.denominacion"
+                    :subtitle="'1 nivel abajo'"
+                    prepend-icon="mdi-arrow-down-bold"
+                    class="rounded-md my-0.5"
+                    @click="ejecutarBajarNivel(child.id)"
+                  />
+                  <v-list-item
+                    v-if="filteredActiveDirectChildrenUnits.length === 0"
+                    title="Sin coincidencias encontradas"
+                    prepend-icon="mdi-alert-circle-outline"
+                    class="text-medium-emphasis"
+                    disabled
+                  />
+                </v-list>
+              </v-card>
+            </v-menu>
+
+            <v-btn
+              v-else
+              size="small"
+              variant="tonal"
+              color="primary"
+              prepend-icon="mdi-arrow-down"
+              :disabled="activeDirectChildrenUnits.length === 0 || modoExploracion === 'completo'"
+              class="text-none font-weight-bold"
+              @click="() => bajarNivel()"
+            >
+              Bajar nivel
+              <v-tooltip activator="parent" location="bottom">
+                {{
+                  activeDirectChildrenUnits.length === 0
+                    ? 'Esta unidad no tiene subunidades dependientes'
+                    : 'Bajar al nivel inferior'
+                }}
+              </v-tooltip>
+            </v-btn>
+
+            <!-- Botón Restablecer vista -->
+            <v-btn
+              size="small"
+              variant="outlined"
+              color="grey-darken-1"
+              prepend-icon="mdi-restore"
+              :disabled="isAtRoot || modoExploracion === 'completo'"
+              class="text-none"
+              @click="restablecerVista"
+            >
+              Restablecer vista
+              <v-tooltip activator="parent" location="bottom">
+                Volver a la vista inicial (Raíz)
+              </v-tooltip>
+            </v-btn>
+
+            <v-divider vertical class="mx-1 my-1" style="height: 22px" />
+
+            <!-- Ruta Jerárquica (Breadcrumbs) -->
+            <div class="d-flex align-center flex-wrap ga-1">
+              <v-chip
+                size="small"
+                :color="isAtRoot ? 'primary' : 'default'"
+                :variant="isAtRoot ? 'flat' : 'text'"
+                class="font-weight-medium cursor-pointer"
+                :disabled="modoExploracion === 'completo'"
+                @click="restablecerVista"
+              >
+                <v-icon start size="14">mdi-home</v-icon>
+                Raíz
+              </v-chip>
+
+              <template v-for="(item, idx) in breadcrumbItems" :key="item.id">
+                <v-icon size="14" class="text-medium-emphasis">mdi-chevron-right</v-icon>
+                <v-chip
+                  size="small"
+                  :color="idx === breadcrumbItems.length - 1 ? 'primary' : 'default'"
+                  :variant="idx === breadcrumbItems.length - 1 ? 'flat' : 'text'"
+                  class="font-weight-medium cursor-pointer"
+                  :disabled="modoExploracion === 'completo'"
+                  @click="navegarANodo(item.id)"
+                >
+                  <span class="text-truncate" style="max-width: 170px">{{ item.sigla || item.nombre }}</span>
+                  <v-tooltip activator="parent" location="bottom">{{ item.nombre }}</v-tooltip>
+                </v-chip>
+              </template>
+            </div>
+          </div>
+
+          <!-- Indicador y Selector de Modo de Exploración -->
+          <div class="d-flex align-center ga-2">
+            <v-chip size="small" variant="tonal" color="info">
+              <v-icon start size="14">mdi-sitemap</v-icon>
+              {{ visibleUnitsCount }} {{ visibleUnitsCount === 1 ? 'unidad' : 'unidades' }}
+            </v-chip>
+
+            <!-- Menú de Modo de Exploración -->
+            <v-menu location="bottom end">
+              <template v-slot:activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  size="small"
+                  variant="outlined"
+                  :color="modoExploracion === 'enfoque' ? 'primary' : 'grey-darken-1'"
+                  class="text-none font-weight-medium"
+                >
+                  <v-icon start size="15">
+                    {{ modoExploracion === 'enfoque' ? 'mdi-crosshairs-gps' : modoExploracion === 'aislar' ? 'mdi-filter-outline' : 'mdi-eye-outline' }}
+                  </v-icon>
+                  {{ modoExploracion === 'enfoque' ? 'Enfoque visual' : modoExploracion === 'aislar' ? 'Aislar nivel' : 'Vista libre' }}
+                  <v-icon end size="14">mdi-chevron-down</v-icon>
+                </v-btn>
+              </template>
+              <v-list density="compact" elevation="3" class="rounded-lg">
+                <v-list-item
+                  title="Enfoque visual (Atenuar resto)"
+                  subtitle="Auto-zoom en nodo e hijos directos, lienzo completo"
+                  prepend-icon="mdi-crosshairs-gps"
+                  :active="modoExploracion === 'enfoque'"
+                  @click="cambiarModoExploracion('enfoque')"
+                />
+                <v-list-item
+                  title="Aislar nivel (Ocultar resto)"
+                  subtitle="Renderiza únicamente el clúster activo"
+                  prepend-icon="mdi-filter-outline"
+                  :active="modoExploracion === 'aislar'"
+                  @click="cambiarModoExploracion('aislar')"
+                />
+                <v-list-item
+                  title="Vista libre (Sin atenuar)"
+                  subtitle="Muestra todo el árbol sin atenuación"
+                  prepend-icon="mdi-eye-outline"
+                  :active="modoExploracion === 'completo'"
+                  @click="cambiarModoExploracion('completo')"
+                />
+              </v-list>
+            </v-menu>
+          </div>
+        </div>
+
+        <div
+          class="flow-container position-relative flex-grow-1"
+        >
+        <!-- Botón Volver Flotante en Pantallas Reducidas -->
         <v-btn
           v-if="isMobile"
           icon
@@ -2051,7 +3108,9 @@ function resetFilters() {
             @click="handleZoomIn"
           >
             <v-icon size="20">mdi-plus</v-icon>
-            <v-tooltip activator="parent" location="left">Acercar (+)</v-tooltip>
+            <v-tooltip activator="parent" location="left"
+              >Acercar (+)</v-tooltip
+            >
           </v-btn>
           <v-btn
             icon
@@ -2077,7 +3136,9 @@ function resetFilters() {
             @click="handleResetZoom"
           >
             <v-icon size="18">mdi-fit-to-screen-outline</v-icon>
-            <v-tooltip activator="parent" location="left">Centrar organigrama</v-tooltip>
+            <v-tooltip activator="parent" location="left"
+              >Centrar organigrama</v-tooltip
+            >
           </v-btn>
         </div>
 
@@ -2085,7 +3146,10 @@ function resetFilters() {
           :nodes="nodes"
           :edges="edges"
           fit-view-on-init
-          :default-edge-options="{ type: 'smoothstep', data: { borderRadius: 0 } }"
+          :default-edge-options="{
+            type: 'smoothstep',
+            data: { borderRadius: 0 },
+          }"
           :min-zoom="0.05"
           :max-zoom="4"
         >
@@ -2119,17 +3183,25 @@ function resetFilters() {
               class="custom-node"
               tabindex="0"
               role="button"
-              :aria-label="`Unidad ${data.codigo}: ${data.nombre}. Presione Enter para ver detalles.`"
-              @keydown.enter.prevent="showDetails(id)"
-              @keydown.space.prevent="showDetails(id)"
+              :aria-label="`Unidad ${data.codigo}: ${data.nombre}. Presione Enter para interactuar.`"
+              @keydown.enter.prevent="manejarClickNodo(id)"
+              @keydown.space.prevent="manejarClickNodo(id)"
               :class="{
                 'staff-node': data.isStaff,
+                'nav-selected-node': data.isNavSelected,
+                'nav-child-node': data.isNavChild,
+                'nav-ancestor-node': data.isNavAncestor,
                 'faded-node':
-                  (hasAnyFilter || mostrarDependencias) && !data.isMatch,
+                  ((hasAnyFilter || mostrarDependencias) && !data.isMatch) ||
+                  data.isNavFaded,
                 'non-oficial-faded': data.isNonOficialInOficialView,
-                'dep-selected-node': data.visualReinforcement?.role === 'dep-selected',
-                'dep-funcional-node': data.visualReinforcement?.role === 'dep-funcional',
-                'filter-match-node': data.visualReinforcement && String(data.visualReinforcement.role).startsWith('filter-'),
+                'dep-selected-node':
+                  data.visualReinforcement?.role === 'dep-selected',
+                'dep-funcional-node':
+                  data.visualReinforcement?.role === 'dep-funcional',
+                'filter-match-node':
+                  data.visualReinforcement &&
+                  String(data.visualReinforcement.role).startsWith('filter-'),
               }"
               :style="{
                 backgroundColor: data.color,
@@ -2159,6 +3231,24 @@ function resetFilters() {
                   mdi-account-tie-outline
                 </v-icon>
                 <span>STAFF - ASESORÍA</span>
+              </div>
+              <div
+                v-else-if="data.isNavSelected"
+                class="nav-badge-top"
+              >
+                <v-icon size="13" class="mr-1" color="white">
+                  mdi-bullseye-arrow
+                </v-icon>
+                <span>NODO SELECCIONADO</span>
+              </div>
+              <div
+                v-else-if="data.isNavChild"
+                class="nav-child-badge-top"
+              >
+                <v-icon size="13" class="mr-1" color="white">
+                  mdi-subdirectory-arrow-right
+                </v-icon>
+                <span>HIJO DIRECTO</span>
               </div>
               <div
                 v-else-if="data.isNonOficialInOficialView"
@@ -2208,84 +3298,122 @@ function resetFilters() {
                 </v-icon>
                 <span>{{ data.visualReinforcement.badgeText }}</span>
               </div>
-              <div class="node-content" @click="showDetails(id)">
-                <div
-                  class="node-line code-line"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
-                  <span
-                    class="code-badge"
-                    :style="{
-                      backgroundColor:
+              <div class="node-content" @click="manejarClickNodo(id)">
+                <!-- Zona Central Hero: Nombre de la Unidad -->
+                <div class="node-center">
+                  <div
+                    :class="['node-line', 'title-line', getTitleClass(data.nombre)]"
+                    :style="{ color: getContrastingTextColor(data.color) }"
+                  >
+                    {{ data.nombre }}
+                  </div>
+                </div>
+
+                <!-- Zona Inferior: Metadatos (Código, Sigla, Nivel, Tipo) -->
+                <div class="node-footer">
+                  <div
+                    class="node-line code-line d-flex align-center flex-wrap"
+                    :style="{ color: getContrastingTextColor(data.color) }"
+                  >
+                    <span
+                      class="code-badge mr-1"
+                      :style="{
+                        backgroundColor:
+                          getContrastingTextColor(data.color) === '#FFFFFF'
+                            ? 'rgba(0, 0, 0, 0.22)'
+                            : 'rgba(255, 255, 255, 0.45)',
+                        color: getContrastingTextColor(data.color),
+                      }"
+                    >
+                      {{ data.codigo }}
+                    </span>
+                    <span
+                      v-if="data.sigla && data.sigla !== '-'"
+                      class="sigla-badge"
+                      :style="{
+                        backgroundColor:
+                          getContrastingTextColor(data.color) === '#FFFFFF'
+                            ? 'rgba(0, 0, 0, 0.16)'
+                            : 'rgba(255, 255, 255, 0.35)',
+                        color: getContrastingTextColor(data.color),
+                      }"
+                    >
+                      {{ data.sigla }}
+                    </span>
+                  </div>
+                  <div
+                    class="node-line detail-line"
+                    :style="{ color: getContrastingTextColor(data.color) }"
+                  >
+                    <v-icon
+                      size="15"
+                      class="mr-1"
+                      :color="
                         getContrastingTextColor(data.color) === '#FFFFFF'
-                          ? 'rgba(0, 0, 0, 0.22)'
-                          : 'rgba(255, 255, 255, 0.45)',
-                      color: getContrastingTextColor(data.color),
-                    }"
+                          ? 'white'
+                          : '#0F172A'
+                      "
+                    >
+                      mdi-layers-outline
+                    </v-icon>
+                    <span>{{ data.nivel }}</span>
+                  </div>
+                  <div
+                    class="node-line detail-line"
+                    :style="{ color: getContrastingTextColor(data.color) }"
                   >
-                    {{ data.codigo }}
-                  </span>
+                    <v-icon
+                      size="15"
+                      class="mr-1"
+                      :color="
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'white'
+                          : '#0F172A'
+                      "
+                    >
+                      mdi-tag-outline
+                    </v-icon>
+                    <span>{{ data.tipo }}</span>
+                  </div>
+
+                  <!-- Indicador de subunidades dependientes directas (MOF-068) -->
+                  <div
+                    v-if="data.childrenCount > 0"
+                    class="node-line detail-line children-badge mt-1"
+                    :style="{ color: getContrastingTextColor(data.color) }"
+                  >
+                    <v-icon
+                      size="13"
+                      class="mr-1"
+                      :color="
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'white'
+                          : '#0F172A'
+                      "
+                    >
+                      mdi-account-tree-outline
+                    </v-icon>
+                    <span class="font-weight-bold">
+                      {{ data.childrenCount }} {{ data.childrenCount === 1 ? 'subunidad' : 'subunidades' }}
+                      <template v-if="data.isNavSelected"> (seleccionado)</template>
+                      <template v-else-if="data.isNavChild"> (hijo directo)</template>
+                    </span>
+                    <v-icon
+                      v-if="!data.isNavSelected && modoExploracion !== 'completo'"
+                      size="14"
+                      class="ml-1"
+                      :color="
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'white'
+                          : '#0F172A'
+                      "
+                    >
+                      mdi-chevron-down
+                    </v-icon>
+                  </div>
                 </div>
-                <div
-                  class="node-line title-line"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
+                <v-tooltip activator="parent" location="top" max-width="360">
                   {{ data.nombre }}
-                </div>
-                <div
-                  class="node-line detail-line"
-                  v-if="data.sigla && data.sigla !== '-'"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
-                  <v-icon
-                    size="16"
-                    class="mr-2"
-                    :color="
-                      getContrastingTextColor(data.color) === '#FFFFFF'
-                        ? 'white'
-                        : '#0F172A'
-                    "
-                  >
-                    mdi-identifier
-                  </v-icon>
-                  <span>SIGLA: {{ data.sigla }}</span>
-                </div>
-                <div
-                  class="node-line detail-line"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
-                  <v-icon
-                    size="16"
-                    class="mr-2"
-                    :color="
-                      getContrastingTextColor(data.color) === '#FFFFFF'
-                        ? 'white'
-                        : '#0F172A'
-                    "
-                  >
-                    mdi-layers-outline
-                  </v-icon>
-                  <span>{{ data.nivel }}</span>
-                </div>
-                <div
-                  class="node-line detail-line"
-                  :style="{ color: getContrastingTextColor(data.color) }"
-                >
-                  <v-icon
-                    size="16"
-                    class="mr-2"
-                    :color="
-                      getContrastingTextColor(data.color) === '#FFFFFF'
-                        ? 'white'
-                        : '#0F172A'
-                    "
-                  >
-                    mdi-tag-outline
-                  </v-icon>
-                  <span>{{ data.tipo }}</span>
-                </div>
-                <v-tooltip activator="parent" location="top">
-                  Ver detalles de {{ data.nombre }}
                 </v-tooltip>
               </div>
               <div class="node-actions pa-1 d-flex justify-end" @click.stop>
@@ -2318,29 +3446,22 @@ function resetFilters() {
                 type="target"
                 position="right"
               />
-              <Handle
-                v-else
-                id="target-top"
-                type="target"
-                position="top"
-              />
-              <Handle
-                id="source-bottom"
-                type="source"
-                position="bottom"
-              />
+              <Handle v-else id="target-top" type="target" position="top" />
+              <Handle id="source-bottom" type="source" position="bottom" />
             </div>
           </template>
           <Background pattern-color="#e0e0e0" :gap="20" /><Controls />
         </VueFlow>
       </div>
-    </v-card>
+    </div>
+  </v-card>
 
     <!-- MODULAR COMPONENTS -->
     <UnidadFormDialog
       v-model="addDialog"
       :form-data="formData"
       :is-edit-mode="isEditMode"
+      :saving="savingUnidad"
       :selected-node="selectedNode"
       v-model:form-valid="formValid"
       @confirm="confirmAddItem"
@@ -2355,6 +3476,7 @@ function resetFilters() {
     />
 
     <UnidadDetailsDrawer
+      v-if="detailsDrawer"
       v-model="detailsDrawer"
       :detail-data="detailData"
       :loading="loadingDetail"
@@ -2366,21 +3488,21 @@ function resetFilters() {
       @edit="
         (id) => {
           openForm(id, true);
-          detailsDrawer = false;
+          detailsDrawer.value = false;
         }
       "
       @reporte="(id) => verReporte(id)"
       @pdf="(id) => verReporte(id)"
       @dependencias="
         (id) => {
-          detailsDrawer = false;
+          detailsDrawer.value = false;
           verDependencias(id);
         }
       "
       @add-child="
         (id) => {
           openForm(id, false);
-          detailsDrawer = false;
+          detailsDrawer.value = false;
         }
       "
       @delete="
@@ -2389,7 +3511,7 @@ function resetFilters() {
             unidadesList.value.find((u) => String(u.id) === String(id)) ||
             detailData.value;
           deleteDialog = true;
-          detailsDrawer = false;
+          detailsDrawer.value = false;
         }
       "
     />
@@ -2410,15 +3532,17 @@ function resetFilters() {
     />
 
     <v-navigation-drawer
+      v-if="hierarchyDrawer"
       v-model="hierarchyDrawer"
       location="right"
       temporary
+      disable-resize-watcher
       :width="isMobile ? '100%' : hierarchyDrawerWidth"
     >
       <HierarchyManagerDrawer
         :width="isMobile ? 360 : hierarchyDrawerWidth"
         @close="hierarchyDrawer = false"
-        @updated="refreshChart"
+        @updated="(targetId) => refreshChart({ force: true, targetNodeId: targetId })"
         @resize="(val) => (hierarchyDrawerWidth = val)"
       />
     </v-navigation-drawer>
@@ -2461,6 +3585,18 @@ function resetFilters() {
 .v-theme--dark .flow-container {
   background: #030712 !important;
 }
+.mobile-organigrama-blocked {
+  width: 100%;
+  min-height: 480px;
+  background: #f8f9fa;
+}
+.v-theme--dark .mobile-organigrama-blocked {
+  background: #030712 !important;
+}
+:deep(.vue-flow) {
+  width: 100%;
+  height: 100%;
+}
 .node-bridge-container {
   width: 320px;
   height: 60px;
@@ -2484,17 +3620,102 @@ function resetFilters() {
 .v-theme--dark .bridge-line.dashed {
   border-left: 3px dashed #e2e8f0;
 }
+.organigrama-nav-toolbar {
+  min-height: 48px;
+  background-color: #ffffff;
+  z-index: 5;
+}
+.v-theme--dark .organigrama-nav-toolbar {
+  background-color: #1e293b;
+  border-color: #334155 !important;
+}
+
+.children-badge {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  opacity: 0.95;
+  display: flex;
+  align-items: center;
+}
+
+.custom-node.nav-selected-node {
+  outline: 3.5px solid #2563eb !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 18px rgba(37, 99, 235, 0.45) !important;
+  z-index: 20 !important;
+}
+.v-theme--dark .custom-node.nav-selected-node {
+  outline: 3.5px solid #60a5fa !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 18px rgba(96, 165, 250, 0.5) !important;
+  z-index: 20 !important;
+}
+
+.custom-node.nav-child-node {
+  outline: 2.5px solid #0284c7 !important;
+  outline-offset: 1.5px;
+  box-shadow: 0 0 12px rgba(2, 132, 199, 0.35) !important;
+  z-index: 15 !important;
+}
+.v-theme--dark .custom-node.nav-child-node {
+  outline: 2.5px solid #38bdf8 !important;
+  outline-offset: 1.5px;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35) !important;
+  z-index: 15 !important;
+}
+
+.custom-node.nav-ancestor-node {
+  outline: 2px dashed #6366f1 !important;
+  outline-offset: 1px;
+  z-index: 10 !important;
+}
+.v-theme--dark .custom-node.nav-ancestor-node {
+  outline: 2px dashed #818cf8 !important;
+  outline-offset: 1px;
+  z-index: 10 !important;
+}
+
+.nav-badge-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2.5px 4px;
+  width: 100%;
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.nav-child-badge-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2.5px 4px;
+  width: 100%;
+  background-color: #0284c7;
+  color: #ffffff;
+}
+
 .custom-node {
   border-radius: 8px;
   box-shadow: none !important;
   width: 320px;
-  height: 210px;
-  max-height: 210px;
+  height: 225px;
+  max-height: 225px;
   position: relative;
   display: flex;
   flex-direction: column;
   border: 2px solid rgba(15, 23, 42, 0.35);
-  transition: outline 0.15s ease, border-color 0.15s ease;
+  transition:
+    outline 0.15s ease,
+    border-color 0.15s ease;
   overflow: hidden;
 }
 .v-theme--dark .custom-node {
@@ -2565,18 +3786,23 @@ function resetFilters() {
   background-color: #1e293b !important;
 }
 .faded-node {
-  opacity: 0.25;
-  filter: grayscale(1);
-  transition: opacity 0.2s ease, filter 0.2s ease;
+  opacity: 0.22;
+  filter: grayscale(0.85);
+  transition:
+    opacity 0.25s ease,
+    filter 0.25s ease;
 }
 .faded-node:hover {
-  opacity: 0.45;
-  filter: grayscale(0.7);
+  opacity: 0.65;
+  filter: grayscale(0.3);
+  cursor: pointer;
 }
 .non-oficial-faded {
   opacity: 0.4;
   filter: grayscale(1);
-  transition: opacity 0.2s ease, filter 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease;
 }
 .non-oficial-faded:hover {
   opacity: 0.65;
@@ -2607,46 +3833,84 @@ function resetFilters() {
   border-radius: 4px;
   font-weight: 850;
   letter-spacing: 0.5px;
-  font-size: 12px;
+  font-size: 11.5px;
+}
+.sigla-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  font-size: 11.5px;
 }
 .node-content {
-  padding: 10px 14px 28px 14px;
+  padding: 18px 14px 10px 14px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: space-between;
   flex-grow: 1;
+  height: 100%;
   cursor: pointer;
-  text-align: left;
   border: none !important;
   overflow: hidden;
 }
+.node-center {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 2px 0;
+  min-height: 0;
+}
 .node-line {
-  line-height: 1.3;
-  margin-bottom: 3px;
+  line-height: 1.25;
+  margin-bottom: 2px;
   border: none !important;
 }
 .code-line {
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  gap: 4px;
 }
 .title-line {
   font-weight: 850;
-  font-size: 14px;
   text-transform: uppercase;
-  margin-bottom: 6px;
-  line-height: 1.25;
+  text-align: center;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
   word-break: break-word;
+  width: 100%;
+}
+.title-line.title-short {
+  font-size: 24px;
+  line-height: 1.18;
+}
+.title-line.title-medium {
+  font-size: 20px;
+  line-height: 1.18;
+}
+.title-line.title-long {
+  font-size: 17.5px;
+  line-height: 1.15;
+}
+.title-line.title-xlong {
+  font-size: 15.5px;
+  line-height: 1.14;
+}
+.node-footer {
+  flex-shrink: 0;
+  padding-right: 36px;
+  margin-top: auto;
 }
 .detail-line {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 650;
   display: flex;
   align-items: center;
-  line-height: 1.25;
+  line-height: 1.2;
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;

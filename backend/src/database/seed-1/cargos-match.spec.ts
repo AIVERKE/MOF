@@ -10,7 +10,9 @@ import {
 describe('cargos-match', () => {
   describe('normalizeCargoName', () => {
     it('strips accents and collapses spaces', () => {
-      expect(normalizeCargoName('  JEFE DE DIVISIÓN  ')).toBe('JEFE DE DIVISION');
+      expect(normalizeCargoName('  JEFE DE DIVISIÓN  ')).toBe(
+        'JEFE DE DIVISION',
+      );
       expect(normalizeCargoName('SECRETARIO/A ACADÉMICO')).toBe(
         'SECRETARIO A ACADEMICO',
       );
@@ -20,9 +22,7 @@ describe('cargos-match', () => {
   describe('buildMatchAliases', () => {
     it('maps Excel names to existing UMSA aliases', () => {
       const aliases = buildMatchAliases('RECTORA');
-      expect(aliases).toEqual(
-        expect.arrayContaining(['RECTORA', 'RECTOR/A']),
-      );
+      expect(aliases).toEqual(expect.arrayContaining(['RECTORA', 'RECTOR/A']));
     });
 
     it('maps JEDE/DIRECTOR DE CARRERA via normalized key', () => {

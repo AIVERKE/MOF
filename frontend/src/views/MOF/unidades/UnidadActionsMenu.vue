@@ -79,28 +79,28 @@ watch(menuOpen, (open) => {
       </template>
       <v-list
         density="comfortable"
-        min-width="220"
-        class="rounded-lg shadow-2xl bg-grey-darken-4 border-sm border-white"
+        min-width="230"
+        class="rounded-lg shadow-lg border-sm py-1"
       >
         <v-list-item
           v-if="showDetails"
           prepend-icon="mdi-eye"
           title="Ver Ficha Técnica"
-          class="text-blue-lighten-2 font-weight-black"
+          class="text-blue-darken-3 font-weight-bold"
           @click="emit('details', unidadId)"
         />
         <v-list-item
           v-if="showPdf"
           prepend-icon="mdi-file-pdf-box"
           title="Generar Reporte PDF"
-          class="text-red-lighten-2 font-weight-black"
+          class="text-red-darken-3 font-weight-bold"
           @click="emit('pdf', unidadId)"
         />
         <v-list-item
           v-if="showDependencias"
           prepend-icon="mdi-file-tree"
           title="Dependencias Funcionales"
-          class="text-green-lighten-2 font-weight-black"
+          class="text-green-darken-3 font-weight-bold"
           @click="emit('dependencias', unidadId)"
         />
         <v-divider
@@ -108,28 +108,27 @@ watch(menuOpen, (open) => {
             (showDetails || showPdf || showDependencias) &&
             (showAddChild || showEdit || showDelete)
           "
-          class="my-1"
-          color="white"
+          class="my-1 border-opacity-25"
         />
         <v-list-item
           v-if="showAddChild"
           prepend-icon="mdi-plus"
           title="Añadir Unidad Dependiente"
-          class="text-blue-lighten-2 font-weight-black"
+          class="text-teal-darken-3 font-weight-bold"
           @click="emit('add-child', unidadId)"
         />
         <v-list-item
           v-if="showEdit"
           prepend-icon="mdi-pencil"
           title="Editar Información"
-          class="text-orange-lighten-2 font-weight-black"
+          class="text-orange-darken-4 font-weight-bold"
           @click="emit('edit', unidadId)"
         />
         <v-list-item
           v-if="showDelete"
           prepend-icon="mdi-delete"
           title="Eliminar Unidad"
-          class="text-red-accent-1 font-weight-black"
+          class="text-red-darken-4 font-weight-bold"
           @click="emit('delete', unidadId)"
         />
       </v-list>

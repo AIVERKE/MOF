@@ -6,7 +6,10 @@ import { CatalogoNivel } from './entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from './entities/catalogo-relacion.entity';
 import { TipoUnidad } from './entities/tipo-unidad.entity';
 import { CatalogoItemDto, ClaseDto } from './dto/catalogo.dto';
-import { notFound, throwBusiness } from '../../common/exceptions/business.exception';
+import {
+  notFound,
+  throwBusiness,
+} from '../../common/exceptions/business.exception';
 import { ErrorCodes } from '../../common/errors';
 
 type CatalogEntity = CatalogoTipo | CatalogoNivel | CatalogoRelacion;
@@ -152,7 +155,9 @@ export class CatalogosService {
 
   // ---- Clases (tipo_unidad) ----
   async listClases() {
-    const rows = await this.claseRepo.find({ order: { peso: 'ASC', id: 'ASC' } });
+    const rows = await this.claseRepo.find({
+      order: { peso: 'ASC', id: 'ASC' },
+    });
     return rows.map((r) => this.mapClase(r));
   }
 
@@ -192,7 +197,9 @@ export class CatalogosService {
   }
 
   async subirClase(id: number) {
-    const rows = await this.claseRepo.find({ order: { peso: 'ASC', id: 'ASC' } });
+    const rows = await this.claseRepo.find({
+      order: { peso: 'ASC', id: 'ASC' },
+    });
     const idx = rows.findIndex((r) => r.id === id);
     if (idx < 0) notFound(id);
     if (idx === 0) {
@@ -208,7 +215,9 @@ export class CatalogosService {
   }
 
   async bajarClase(id: number) {
-    const rows = await this.claseRepo.find({ order: { peso: 'ASC', id: 'ASC' } });
+    const rows = await this.claseRepo.find({
+      order: { peso: 'ASC', id: 'ASC' },
+    });
     const idx = rows.findIndex((r) => r.id === id);
     if (idx < 0) notFound(id);
     if (idx === rows.length - 1) {

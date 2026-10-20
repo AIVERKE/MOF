@@ -6,7 +6,7 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { useAllCargosMofStore } from "@/stores/cargos_mof";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
-import { swatches, getUsedColors, toBoolean } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, toBoolean, getIntenseNodeColor } from "@/utils/mofHelpers";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 const clasesStore = useAllClasesMofStore();
@@ -48,6 +48,10 @@ const form = ref({
 });
 
 const colorMenu = ref(false);
+
+function getItemColor(item) {
+  return item?.color || getIntenseNodeColor(item, clasesStore.clases) || "#1976D2";
+}
 
 const refreshData = async () => {
   loading.value = true;
@@ -403,11 +407,11 @@ const getDependencies = (item) => {
 </script>
 
 <template>
-  <v-card flat class="fill-height d-flex flex-column resizable-container">
+  <v-card flat class="fill-height d-flex flex-column resizable-container rounded-0">
     <div class="resize-handle" @mousedown="startResizing" @touchstart="startResizingTouch"></div>
 
     <v-toolbar color="secondary" dark density="compact">
-      <v-toolbar-title class="text-subtitle-1 font-weight-bold">
+      <v-toolbar-title class="text-subtitle-1 font-weight-bold text-white" style="color: #ffffff !important;">
         Gestión de Catálogos MOF
       </v-toolbar-title>
       <v-spacer></v-spacer>
@@ -423,27 +427,27 @@ const getDependencies = (item) => {
 
     <v-tabs v-model="tab" color="primary" show-arrows>
       <v-tab :value="0">
-        <v-badge color="grey" :content="clasesStore.clases.length" inline>
+        <v-badge color="primary" :content="clasesStore.clases.length" inline>
           <v-icon start>mdi-office-building</v-icon> Instancias
         </v-badge>
       </v-tab>
       <v-tab :value="1">
-        <v-badge color="grey" :content="nivelesStore.niveles.length" inline>
+        <v-badge color="primary" :content="nivelesStore.niveles.length" inline>
           <v-icon start>mdi-format-list-numbered</v-icon> Nivel
         </v-badge>
       </v-tab>
       <v-tab :value="2">
-        <v-badge color="grey" :content="tiposStore.tipos.length" inline>
+        <v-badge color="primary" :content="tiposStore.tipos.length" inline>
           <v-icon start>mdi-tag</v-icon> Tipo
         </v-badge>
       </v-tab>
       <v-tab :value="3">
-        <v-badge color="grey" :content="relacionesStore.relaciones.length" inline>
+        <v-badge color="primary" :content="relacionesStore.relaciones.length" inline>
           <v-icon start>mdi-transit-connection-variant</v-icon> Relación
         </v-badge>
       </v-tab>
       <v-tab :value="4">
-        <v-badge color="grey" :content="cargosStore.cargos.length" inline>
+        <v-badge color="primary" :content="cargosStore.cargos.length" inline>
           <v-icon start>mdi-badge-account-horizontal</v-icon> Cargos
         </v-badge>
       </v-tab>
@@ -457,7 +461,7 @@ const getDependencies = (item) => {
       <v-window-item :value="0">
         <div class="fill-height d-flex flex-column">
           <div class="flex-shrink-0">
-            <v-alert type="info" variant="tonal" density="compact" class="mx-3 my-2 text-caption">
+            <v-alert type="info" variant="tonal" density="compact" class="mx-3 my-2 text-caption font-weight-bold text-slate-800">
               Define la jerarquía visual del organigrama. ({{ clasesStore.clases.length }} ítems)
             </v-alert>
             <div class="px-3 mb-2">
@@ -471,10 +475,18 @@ const getDependencies = (item) => {
             <v-list-item v-for="(item, index) in clasesStore.clases" :key="item.id" 
               class="mb-2 rounded-lg border"
               :class="{ 'inactive-item': !item.activo }"
-              :style="{ borderLeft: `6px solid ${item.color || '#ccc'}` }">
+              :style="{ borderLeft: `6px solid ${getItemColor(item)} !important` }">
               <template v-slot:prepend>
-                <div class="d-flex flex-column align-center mr-2">
-                  <span class="text-caption font-weight-bold text-grey">{{ index + 1 }}</span>
+                <div class="d-flex align-center mr-2">
+                  <span class="text-caption font-weight-bold text-grey mr-2 text-center" style="min-width: 14px;">{{ index + 1 }}</span>
+                  <v-avatar
+                    :color="getItemColor(item)"
+                    size="18"
+                    class="elevation-1 border cursor-pointer"
+                    @click.stop="openDialog(item)"
+                  >
+                    <v-tooltip activator="parent" location="top">Color del nodo: {{ getItemColor(item) }}</v-tooltip>
+                  </v-avatar>
                 </div>
               </template>
               <v-list-item-title class="font-weight-bold text-body-2 d-flex align-center flex-wrap" :class="{ 'text-grey': !item.activo }">

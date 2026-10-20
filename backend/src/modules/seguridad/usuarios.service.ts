@@ -128,8 +128,10 @@ export class UsuariosService {
     await repo.save(rows);
   }
 
-  async listar(): Promise<UsuarioListItem[]> {
+  async listar(enabled?: boolean): Promise<UsuarioListItem[]> {
+    const where = enabled !== undefined ? { enabled } : {};
     const users = await this.usuarioRepo.find({
+      where,
       relations: ['usuarioRoles', 'usuarioRoles.rol', 'persona'],
       order: { id: 'ASC' },
     });

@@ -1,14 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddCargoNivelOrdenAndAmbito1786600000000
-  implements MigrationInterface
-{
+export class AddCargoNivelOrdenAndAmbito1786600000000 implements MigrationInterface {
   name = 'AddCargoNivelOrdenAndAmbito1786600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "cargo" ADD "nivel_orden" smallint`,
-    );
+    await queryRunner.query(`ALTER TABLE "cargo" ADD "nivel_orden" smallint`);
     await queryRunner.query(
       `ALTER TABLE "cargo" ADD "ambito" character varying(8)`,
     );

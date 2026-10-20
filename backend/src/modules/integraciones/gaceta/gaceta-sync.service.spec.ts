@@ -1,9 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { SchedulerRegistry } from '@nestjs/schedule';
 import axios from 'axios';
 import { AuditoriaService } from '../../versiones/auditoria.service';
 import { AuditoriaCambio } from '../../versiones/entities/auditoria-cambio.entity';
-import { GacetaSyncService } from './gaceta-sync.service';
+import {
+  GACETA_BARRIDO,
+  GacetaSyncService,
+  resolveGacetaPollMs,
+} from './gaceta-sync.service';
 
 jest.mock('axios');
 /* eslint-disable @typescript-eslint/unbound-method --
@@ -45,6 +50,7 @@ describe('GacetaSyncService', () => {
     marcarEnviado: jest.Mock;
     marcarFallido: jest.Mock;
   };
+  let scheduler: SchedulerRegistry;
 
   async function crear(config: Record<string, string> = {}) {
     auditoria = {
@@ -55,6 +61,7 @@ describe('GacetaSyncService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GacetaSyncService,
+        SchedulerRegistry,
         { provide: AuditoriaService, useValue: auditoria },
         {
           provide: ConfigService,
@@ -62,6 +69,7 @@ describe('GacetaSyncService', () => {
         },
       ],
     }).compile();
+    scheduler = module.get(SchedulerRegistry);
     return module.get<GacetaSyncService>(GacetaSyncService);
   }
 
@@ -238,5 +246,86 @@ describe('GacetaSyncService', () => {
     auditoria.pendientesDeEnviar.mockRejectedValue(new Error('boom'));
 
     expect(() => service.empujar()).not.toThrow();
+  });
+
+  it('una corrida de vaciar no arranca otra mientras sigue en curso', async () => {
+    const service = await crear({ GACETA_URL: 'http://gaceta:8000' });
+    let soltar: (v: AuditoriaCambio[]) => void = () => undefined;
+    auditoria.pendientesDeEnviar.mockReturnValue(
+      new Promise<AuditoriaCambio[]>((resolve) => (soltar = resolve)),
+    );
+
+    const primera = service.vaciar();
+    await expect(service.vaciar()).resolves.toBe(0);
+    expect(auditoria.pendientesDeEnviar).toHaveBeenCalledTimes(1);
+
+    soltar([]);
+    await primera;
+  });
+
+  describe('barrido periodico', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('sin GACETA_URL no registra intervalo ni envia nada', async () => {
+      const service = await crear();
+
+      service.onModuleInit();
+      await jest.advanceTimersByTimeAsync(10 * 60_000);
+
+      expect(scheduler.getIntervals()).toEqual([]);
+      expect(auditoria.pendientesDeEnviar).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+    });
+
+    it('usa el periodo de GACETA_POLL_MS, no 5 s fijos', async () => {
+      const service = await crear({
+        GACETA_URL: 'http://gaceta:8000',
+        GACETA_POLL_MS: '60000',
+      });
+
+      service.onModuleInit();
+      expect(scheduler.getIntervals()).toEqual([GACETA_BARRIDO]);
+
+      await jest.advanceTimersByTimeAsync(5_000);
+      expect(auditoria.pendientesDeEnviar).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(55_000);
+      expect(auditoria.pendientesDeEnviar).toHaveBeenCalledTimes(1);
+
+      service.onModuleDestroy();
+    });
+
+    it('al destruir el modulo elimina el intervalo', async () => {
+      const service = await crear({ GACETA_URL: 'http://gaceta:8000' });
+
+      service.onModuleInit();
+      service.onModuleDestroy();
+      await jest.advanceTimersByTimeAsync(10 * 60_000);
+
+      expect(scheduler.getIntervals()).toEqual([]);
+      expect(auditoria.pendientesDeEnviar).not.toHaveBeenCalled();
+    });
+
+    it('un barrido fallido no deja un rechazo sin manejar', async () => {
+      const service = await crear({ GACETA_URL: 'http://gaceta:8000' });
+      jest.spyOn(service, 'vaciar').mockRejectedValue(new Error('boom'));
+
+      await expect(service.barrido()).resolves.toBeUndefined();
+    });
+  });
+});
+
+describe('resolveGacetaPollMs', () => {
+  it.each([
+    [undefined, 60_000],
+    ['', 60_000],
+    ['abc', 60_000],
+    ['0', 60_000],
+    ['1000', 5_000],
+    ['60000', 60_000],
+    ['120000', 120_000],
+  ])('%p -> %p', (raw, esperado) => {
+    expect(resolveGacetaPollMs(raw)).toBe(esperado);
   });
 });

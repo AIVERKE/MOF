@@ -90,9 +90,9 @@ export function buildCodigo(
 /**
  * Elige el mejor match entre candidatos: activo primero, luego menor id.
  */
-export function pickBestMatch<T extends { activo: boolean; id: string | number }>(
-  candidates: T[],
-): T | null {
+export function pickBestMatch<
+  T extends { activo: boolean; id: string | number },
+>(candidates: T[]): T | null {
   if (!candidates.length) return null;
   return [...candidates].sort((a, b) => {
     if (a.activo !== b.activo) return a.activo ? -1 : 1;

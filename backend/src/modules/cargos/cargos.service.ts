@@ -6,7 +6,12 @@ import { CargoUnidad } from './entities/cargo-unidad.entity';
 import { AsignacionCargo } from './entities/asignacion-cargo.entity';
 import { CargoJerarquiaHist } from './entities/cargo-jerarquia-hist.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
-import { CargoDto, CargoSetParentDto, SetCargoDto } from './dto/cargo.dto';
+import {
+  CargoDto,
+  CargoSetParentDto,
+  SetCargoDto,
+  UpdateCargoUnidadDto,
+} from './dto/cargo.dto';
 import {
   BusinessException,
   notFound,
@@ -174,6 +179,7 @@ export class CargosService {
         nombre: dto.nombre.trim(),
         descripcion: this.normalizeDescripcion(dto.descripcion),
         activo: dto.activo ?? true,
+        nivelOrden: dto.nivelOrden ?? null,
         unicoEnUnidad: false,
         parentId,
       }),
@@ -201,6 +207,7 @@ export class CargosService {
     c.nombre = dto.nombre.trim();
     c.descripcion = this.normalizeDescripcion(dto.descripcion);
     if (dto.activo !== undefined) c.activo = dto.activo;
+    if (dto.nivelOrden !== undefined) c.nivelOrden = dto.nivelOrden;
     await this.cargoRepo.save(c);
     return id;
   }
@@ -245,16 +252,22 @@ export class CargosService {
       where: { id: String(unidadId) },
     });
     if (!u) notFound(unidadId);
-    const rows = await this.cargoUnidadRepo.find({
-      where: { unidadId: String(unidadId), activo: true },
-      relations: ['cargo'],
-      order: { id: 'ASC' },
-    });
+    const rows = await this.cargoUnidadRepo
+      .createQueryBuilder('cu')
+      .leftJoinAndSelect('cu.cargo', 'cargo')
+      .where('cu.unidadId = :unidadId', { unidadId: String(unidadId) })
+      .andWhere('cu.activo = true')
+      .orderBy('cu.nivelOrden', 'DESC', 'NULLS LAST')
+      .addOrderBy('cargo.nombre', 'ASC')
+      .addOrderBy('cu.id', 'ASC')
+      .getMany();
     return rows.map((r) => ({
       id: Number(r.id),
       nombre: r.cargo?.nombre ?? '',
       descripcion: r.cargo?.descripcion ?? null,
       cargoId: Number(r.cargoId),
+      nivelOrden: r.nivelOrden ?? null,
+      nivelSugerido: r.cargo?.nivelOrden ?? null,
     }));
   }
 
@@ -275,27 +288,52 @@ export class CargosService {
       );
     }
 
-    if (cargo.unicoEnUnidad) {
-      const exists = await this.cargoUnidadRepo.findOne({
-        where: {
-          unidadId: String(unidadId),
-          cargoId: String(dto.cargoId),
-          activo: true,
-        },
-      });
-      if (exists) {
-        throwBusiness(ErrorCodes.CARGO_YA_ASIGNADO_UNICO);
-      }
+    const nivelOrden =
+      dto.nivelOrden !== undefined ? dto.nivelOrden : cargo.nivelOrden;
+
+    const existing = await this.cargoUnidadRepo.findOne({
+      where: { unidadId: String(unidadId), cargoId: String(dto.cargoId) },
+    });
+    if (existing?.activo) {
+      throwBusiness(ErrorCodes.CARGO_YA_ASIGNADO);
     }
 
-    await this.cargoUnidadRepo.save(
-      this.cargoUnidadRepo.create({
-        unidadId: String(unidadId),
-        cargoId: String(dto.cargoId),
-        activo: true,
-      }),
-    );
+    try {
+      if (existing) {
+        existing.activo = true;
+        existing.nivelOrden = nivelOrden;
+        await this.cargoUnidadRepo.save(existing);
+      } else {
+        await this.cargoUnidadRepo.save(
+          this.cargoUnidadRepo.create({
+            unidadId: String(unidadId),
+            cargoId: String(dto.cargoId),
+            nivelOrden,
+            activo: true,
+          }),
+        );
+      }
+    } catch (e) {
+      if ((e as { code?: string })?.code === '23505') {
+        throwBusiness(ErrorCodes.CARGO_YA_ASIGNADO);
+      }
+      throw e;
+    }
     return unidadId;
+  }
+
+  async actualizarAsignacion(
+    unidadId: number,
+    assignmentId: number,
+    dto: UpdateCargoUnidadDto,
+  ) {
+    const row = await this.cargoUnidadRepo.findOne({
+      where: { id: String(assignmentId), unidadId: String(unidadId) },
+    });
+    if (!row) notFound(assignmentId);
+    row.nivelOrden = dto.nivelOrden ?? null;
+    await this.cargoUnidadRepo.save(row);
+    return assignmentId;
   }
 
   async removerAsignacion(unidadId: number, assignmentId: number) {

@@ -1,6 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Interval } from '@nestjs/schedule';
+import { SchedulerRegistry } from '@nestjs/schedule';
 import axios, { AxiosError } from 'axios';
 import { AuditoriaService } from '../../versiones/auditoria.service';
 import { AuditoriaCambio } from '../../versiones/entities/auditoria-cambio.entity';
@@ -33,25 +38,33 @@ import { AuditoriaCambio } from '../../versiones/entities/auditoria-cambio.entit
  * los eventos se acumulan en la tabla, listos para cuando se configure.
  */
 @Injectable()
-export class GacetaSyncService {
+export class GacetaSyncService implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(GacetaSyncService.name);
   private readonly url: string;
   private readonly token: string;
   private readonly timeout: number;
   private readonly maxIntentos: number;
+  private readonly pollMs: number;
   private vaciando = false;
 
   constructor(
     private readonly config: ConfigService,
     private readonly auditoria: AuditoriaService,
+    private readonly scheduler: SchedulerRegistry,
   ) {
     this.url = (this.config.get<string>('GACETA_URL') ?? '').replace(
       /\/+$/,
       '',
     );
     this.token = this.config.get<string>('GACETA_ADMIN_TOKEN') ?? '';
-    this.timeout = Number(this.config.get('GACETA_TIMEOUT_MS') ?? 8000);
+    this.timeout = enteroPositivo(
+      this.config.get<string>('GACETA_TIMEOUT_MS'),
+      8000,
+    );
     this.maxIntentos = Number(this.config.get('GACETA_MAX_INTENTOS') ?? 10);
+    this.pollMs = resolveGacetaPollMs(
+      this.config.get<string>('GACETA_POLL_MS'),
+    );
   }
 
   get activo(): boolean {
@@ -59,17 +72,36 @@ export class GacetaSyncService {
   }
 
   /**
+   * El periodo sale de GACETA_POLL_MS, así que no puede ir en un `@Interval`
+   * (sus argumentos se fijan al compilar). Sin GACETA_URL no se registra nada.
+   */
+  onModuleInit(): void {
+    if (!this.activo) return;
+    const handle = setInterval(() => void this.barrido(), this.pollMs);
+    this.scheduler.addInterval(GACETA_BARRIDO, handle);
+  }
+
+  onModuleDestroy(): void {
+    if (this.scheduler.doesExist('interval', GACETA_BARRIDO)) {
+      this.scheduler.deleteInterval(GACETA_BARRIDO);
+    }
+  }
+
+  /**
    * Barrido periódico: es la RED DE SEGURIDAD, no el camino normal.
    *
    * El camino normal es el empujón del subscriber justo después del commit,
    * que hace que el cambio llegue en menos de un segundo. Este intervalo
-   * recoge lo que ese empujón no pudo entregar (la Gaceta estaba caída, MOF se
-   * reinició a medias) y lo que se guardó fuera de una transacción, donde no
-   * hay commit al que engancharse.
+   * (GACETA_POLL_MS) recoge lo que ese empujón no pudo entregar (la Gaceta
+   * estaba caída, MOF se reinició a medias) y lo que se guardó fuera de una
+   * transacción, donde no hay commit al que engancharse. No lanza nunca.
    */
-  @Interval(5000)
   async barrido(): Promise<void> {
-    await this.vaciar();
+    try {
+      await this.vaciar();
+    } catch (e: unknown) {
+      this.log.warn(`barrido fallido: ${mensaje(e)}`);
+    }
   }
 
   /** Empujón inmediato tras confirmar una transacción. No lanza nunca. */
@@ -105,7 +137,7 @@ export class GacetaSyncService {
   /**
    * Backoff: tras un fallo se espera 2^intentos segundos (hasta 5 min) antes
    * de volver a intentarlo. Sin esto, una Gaceta caída se llevaría un intento
-   * cada 5 segundos por cada evento pendiente.
+   * en cada barrido por cada evento pendiente.
    */
   private toca(evento: AuditoriaCambio): boolean {
     if (evento.intentos >= this.maxIntentos) return false;
@@ -166,6 +198,26 @@ export class GacetaSyncService {
  *  reintentar : no respondio; el resto de la cola tampoco va a pasar ahora.
  */
 type Desenlace = 'entregado' | 'descartado' | 'reintentar';
+
+export const GACETA_BARRIDO = 'gaceta-barrido';
+export const GACETA_POLL_MS_DEFAULT = 60_000;
+export const GACETA_POLL_MS_MIN = 5_000;
+
+/** Por debajo del mínimo se sube a 5 s: un error de configuración no vuelve al flood. */
+export function resolveGacetaPollMs(raw: string | number | undefined): number {
+  const ms = enteroPositivo(raw, GACETA_POLL_MS_DEFAULT);
+  return Math.max(ms, GACETA_POLL_MS_MIN);
+}
+
+function enteroPositivo(
+  raw: string | number | undefined,
+  porDefecto: number,
+): number {
+  const valor = String(raw ?? '').trim();
+  if (!/^\d+$/.test(valor)) return porDefecto;
+  const n = Number(valor);
+  return n > 0 ? n : porDefecto;
+}
 
 function mensaje(e: unknown): string {
   if (e instanceof Error) return e.message;

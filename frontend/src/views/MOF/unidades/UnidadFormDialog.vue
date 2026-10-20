@@ -1,7 +1,8 @@
 <script setup>
-import { ref, watch, computed } from "vue";
-import { rules } from "@/utils/rules";
+import { ref, watch, computed, nextTick } from "vue";
+import { rules, FEC_CREACION_MIN, fecCreacionMax } from "@/utils/rules";
 import { swatches, getUsedColors } from "@/utils/mofHelpers";
+import { toRelId } from "@/utils/mofMappers";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
 
@@ -10,7 +11,7 @@ import SelectAllRelaciones from "../relaciones/SelectAllRelaciones.vue";
 import SelectAllTipos from "../tipos/SelectAllTipos.vue";
 import SelectAllNiveles from "../niveles/SelectAllNiveles.vue";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
-import SelectAllCargos from "../cargos/SelectAllCargos.vue";
+import CargosUnidadTable from "../cargos/CargosUnidadTable.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
@@ -24,6 +25,7 @@ const props = defineProps({
   isEditMode: Boolean,
   selectedNode: Object,
   formValid: Boolean,
+  saving: Boolean,
 });
 
 const emit = defineEmits([
@@ -50,6 +52,296 @@ const usedColors = computed(() =>
   getUsedColors(unidadesStore.unidades, clasesStore.clases),
 );
 
+// Título y texto de apoyo accesible para el encabezado del diálogo
+const dialogTitle = computed(() => {
+  if (props.isEditMode) {
+    const nombre = props.formData?.nombre || props.formData?.denominacion || "";
+    return {
+      prefix: "Editar:",
+      target: nombre,
+      full: nombre ? `Editar: ${nombre}` : "Editar Unidad",
+    };
+  }
+  if (props.selectedNode) {
+    const nombre = props.selectedNode?.nombre || props.selectedNode?.denominacion || "";
+    return {
+      prefix: "Agregar unidad dependiente (Hija de):",
+      target: nombre,
+      full: nombre
+        ? `Agregar unidad dependiente (Hija de): ${nombre}`
+        : "Agregar unidad dependiente",
+    };
+  }
+  return {
+    prefix: "Crear Unidad:",
+    target: "RAÍZ INSTITUCIONAL",
+    full: "Crear Unidad: RAÍZ INSTITUCIONAL",
+  };
+});
+
+// --- BUSCADOR DE SECCIONES (MOF-071) ---
+const searchQuery = ref("");
+
+function normalizeText(text) {
+  if (!text) return "";
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+const sectionsConfig = [
+  {
+    id: "section-datos-generales",
+    name: "Datos Generales",
+    keywords: [
+      "datos generales",
+      "nombre",
+      "nombre de la unidad",
+      "sigla",
+      "codigo",
+      "resolucion",
+      "nro de resolucion",
+      "fecha",
+      "fecha de creacion",
+      "objetivo",
+      "objetivo institucional",
+    ],
+  },
+  {
+    id: "section-funciones",
+    name: "Funciones",
+    keywords: [
+      "funciones",
+      "funciones de la unidad",
+      "funcion",
+      "base legal",
+      "legal",
+      "agregar funcion",
+      "atribuciones",
+    ],
+  },
+  {
+    id: "section-desconcentrada",
+    name: "Unidad Desconcentrada",
+    keywords: [
+      "desconcentrada",
+      "unidad desconcentrada",
+      "es unidad desconcentrada",
+      "dependencias funcionales",
+      "coordinacion transversal",
+      "transversal",
+    ],
+  },
+  {
+    id: "section-clasificacion",
+    name: "Clasificación e Instancia",
+    keywords: [
+      "tipo",
+      "tipo de unidad",
+      "nivel",
+      "nivel jerarquico",
+      "jerarquia",
+      "relacion",
+      "linea de dependencia",
+      "instancia",
+      "clase",
+      "clasificacion",
+    ],
+  },
+  {
+    id: "section-cargos",
+    name: "Cargos",
+    keywords: [
+      "cargos",
+      "cargo",
+      "cargos de la unidad",
+      "tabla de cargos",
+      "asignacion de cargos",
+      "puestos",
+      "items",
+      "nivel",
+      "nivel en la unidad",
+      "nivel de cargo",
+      "nivel del cargo",
+      "nivel de los cargos",
+      "nivel orden",
+      "nivel sugerido",
+      "jerarquia de cargo",
+    ],
+  },
+  {
+    id: "section-organigrama",
+    name: "Disposición en el Organigrama",
+    keywords: [
+      "organigrama",
+      "disposicion en el organigrama",
+      "troncal",
+      "troncal principal",
+      "sub-troncal",
+      "subtroncal",
+      "lado",
+      "ala izquierda",
+      "ala derecha",
+      "centro",
+      "automatico",
+      "estructura",
+    ],
+  },
+  {
+    id: "section-operativa",
+    name: "Información Operativa (POA)",
+    keywords: [
+      "poa",
+      "ejecucion poa",
+      "informacion operativa",
+      "operativa",
+      "recursos",
+      "s-mau",
+      "smau",
+      "presupuesto",
+      "presupuestaria",
+      "ejecucion presupuestaria",
+      "carga horaria",
+      "programada",
+      "ejecutada",
+      "ubicacion",
+      "infraestructura",
+      "tramites",
+      "tramites atendidos",
+    ],
+  },
+  {
+    id: "section-relacionamiento",
+    name: "Relacionamiento y Coordinación",
+    keywords: [
+      "relacionamiento",
+      "coordinacion",
+      "coordinacion interna",
+      "coordinacion externa",
+      "relaciones externas",
+      "coordinacion interinstitucional",
+      "interinstitucional",
+      "entidades",
+    ],
+  },
+  {
+    id: "section-personalizacion",
+    name: "Personalización y Estado Oficial",
+    keywords: [
+      "color",
+      "personalizar color",
+      "colores en uso",
+      "paleta institucional",
+      "paleta",
+      "oficial",
+      "no oficial",
+      "estado oficial",
+    ],
+  },
+];
+
+const STOP_WORDS = new Set([
+  "de",
+  "la",
+  "los",
+  "las",
+  "el",
+  "en",
+  "del",
+  "y",
+  "a",
+  "al",
+  "por",
+  "para",
+  "un",
+  "una",
+  "unos",
+  "unas",
+]);
+
+const matchingSections = computed(() => {
+  const q = normalizeText(searchQuery.value);
+  if (!q) return sectionsConfig;
+
+  const words = q
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
+
+  return sectionsConfig.filter((sec) => {
+    const secNameNorm = normalizeText(sec.name);
+    // 1. Coincidencia directa en el nombre de la sección
+    if (secNameNorm.includes(q)) return true;
+
+    // 2. Coincidencia si alguna keyword contiene el término buscado
+    if (sec.keywords.some((kw) => normalizeText(kw).includes(q))) {
+      return true;
+    }
+
+    // 3. Coincidencia multi-palabra (ej: "nivel de los cargos", "nivel cargo")
+    if (words.length > 1) {
+      const combined =
+        secNameNorm +
+        " " +
+        sec.keywords.map((kw) => normalizeText(kw)).join(" ");
+      if (words.every((w) => combined.includes(w))) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+});
+
+const matchingSectionKeys = computed(() =>
+  new Set(matchingSections.value.map((s) => s.id)),
+);
+
+const isSectionVisible = (sectionId) => {
+  if (!searchQuery.value.trim()) return true;
+  if (matchingSections.value.length === 0) return true;
+  return matchingSectionKeys.value.has(sectionId);
+};
+
+const isSectionHighlighted = (sectionId) => {
+  if (!searchQuery.value.trim()) return false;
+  return matchingSectionKeys.value.has(sectionId);
+};
+
+function scrollToSection(sectionId) {
+  const el = document.getElementById(sectionId);
+  if (el && typeof el.scrollIntoView === "function") {
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+function clearSearch() {
+  searchQuery.value = "";
+}
+
+// Scroll automático a la primera coincidencia
+watch(searchQuery, (newVal) => {
+  const q = normalizeText(newVal);
+  if (!q) return;
+  nextTick(() => {
+    if (matchingSections.value.length > 0) {
+      scrollToSection(matchingSections.value[0].id);
+    }
+  });
+});
+
+// Limpiar búsqueda al abrir el modal
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val) {
+      searchQuery.value = "";
+    }
+  },
+);
+
 // Sincronizar formValid con el padre
 const localFormValid = ref(props.formValid);
 watch(localFormValid, (val) => emit("update:formValid", val));
@@ -74,13 +366,15 @@ watch(
 );
 
 /**
- * Si se selecciona que es Unidad Troncal, OBLIGATORIAMENTE se fija al CENTRO y desactiva sub-troncal.
+ * Si se selecciona que es Unidad Troncal, desactiva sub-troncal.
  */
 watch(
   () => props.formData.es_troncal,
   (val) => {
     if (val) {
-      props.formData.lado = "CENTRO";
+      if (!props.formData.lado) {
+        props.formData.lado = "AUTOMATICO";
+      }
       props.formData.es_sub_troncal = false;
       props.formData.es_subtroncal = false;
     }
@@ -99,26 +393,55 @@ watch(
   },
 );
 
+/**
+ * Si se desmarca "¿Es Unidad Desconcentrada?", limpiar dependencias funcionales
+ */
+watch(
+  () => props.formData?.es_desconcentrada,
+  (val) => {
+    if (!val && props.formData?.dependenciasFuncionales?.length) {
+      props.formData.dependenciasFuncionales = [];
+    }
+  },
+);
+
 const nuevaRelacionExterna = ref("");
 
 const internalRelUnitIds = computed({
-  get: () =>
-    (props.formData.relacionesInternas || []).map((r) =>
-      typeof r === "object" ? r.relacionadaId || r.id : r,
+  get: () => [
+    ...new Set(
+      (props.formData.relacionesInternas || [])
+        .map((r) => toRelId(typeof r === "object" && r !== null ? r.relacionadaId : r))
+        .filter((id) => id != null),
     ),
+  ],
   set: (ids) => {
-    props.formData.relacionesInternas = (ids || []).map((id) => {
-      const rawId = typeof id === "object" && id !== null ? (id.id || id.value) : id;
-      const idNum = Number(rawId);
+    const uniqueIds = [
+      ...new Set(
+        (ids || [])
+          .map((id) => toRelId(typeof id === "object" && id !== null ? (id.id ?? id.value) : id))
+          .filter((id) => id != null),
+      ),
+    ];
+    props.formData.relacionesInternas = uniqueIds.map((idNum) => {
       const encontrada = (unidadesStore.unidades || []).find(
-        (u) => String(u.id) === String(rawId),
+        (u) => Number(u.id) === idNum,
+      );
+      const existing = (props.formData.relacionesInternas || []).find(
+        (r) => toRelId(typeof r === "object" && r !== null ? r.relacionadaId : r) === idNum,
       );
       return {
+        id: existing?.id,
         relacionadaId: idNum,
-        codigo: encontrada?.codigo || "",
-        nombre: encontrada?.nombre || encontrada?.denominacion || `Unidad ${rawId}`,
-        sigla: encontrada?.sigla || "",
-        tipo: null,
+        codigo: encontrada?.codigo || existing?.codigo || "",
+        nombre:
+          encontrada?.nombre ||
+          encontrada?.denominacion ||
+          existing?.nombre ||
+          existing?.denominacion ||
+          `Unidad ${idNum}`,
+        sigla: encontrada?.sigla || existing?.sigla || "",
+        tipo: existing?.tipo || null,
       };
     });
   },
@@ -200,27 +523,107 @@ function moverAbajo(index) {
     persistent
   >
     <v-card>
-      <v-card-title class="d-flex align-center justify-space-between">
-        <span>
-          {{ isEditMode ? "Editar" : "Agregar a" }}:
-          <strong class="text-primary">
-            {{
-              isEditMode
-                ? formData.nombre || formData.denominacion
-                : selectedNode?.nombre || selectedNode?.denominacion || "RAÍZ"
-            }}
-          </strong>
-        </span>
-        <v-btn icon="mdi-close" variant="text" @click="close">
-          <v-icon>mdi-close</v-icon>
-          <v-tooltip activator="parent" location="top"
-            >Cerrar formulario</v-tooltip
+      <v-card-title
+        class="unidad-dialog-header d-flex align-start justify-space-between py-3 px-4 border-b text-wrap"
+      >
+        <div
+          class="unidad-dialog-title-wrapper flex-grow-1 pr-2 min-width-0"
+          tabindex="0"
+          role="heading"
+          aria-level="2"
+          :aria-label="dialogTitle.full"
+        >
+          <span
+            class="text-subtitle-1 font-weight-bold unidad-dialog-title-text"
+            data-test="dialog-header-title"
           >
+            {{ dialogTitle.prefix }}
+            <strong class="text-primary ml-1">{{ dialogTitle.target }}</strong>
+          </span>
+          <v-tooltip
+            activator="parent"
+            location="bottom start"
+            max-width="500"
+            open-delay="200"
+          >
+            <span>{{ dialogTitle.full }}</span>
+          </v-tooltip>
+        </div>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          class="flex-shrink-0 ml-1"
+          @click="close"
+        >
+          <v-icon size="20">mdi-close</v-icon>
+          <v-tooltip activator="parent" location="top">
+            Cerrar formulario
+          </v-tooltip>
         </v-btn>
       </v-card-title>
-      <v-divider />
-      <v-card-text>
+      <v-card-text class="pt-4">
+        <!-- BUSCADOR FIJO DE SECCIONES (MOF-071) -->
+        <div class="unidad-form-search-sticky">
+          <v-text-field
+            v-model="searchQuery"
+            placeholder="Buscar sección o campo (ej. poa, cargos, instancia, coordinación)..."
+            prepend-inner-icon="mdi-magnify"
+            clearable
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="unidad-search-input"
+            autocomplete="off"
+            data-test="unidad-form-search-input"
+            @click:clear="clearSearch"
+          >
+            <template #append-inner v-if="searchQuery.trim()">
+              <span class="text-caption text-grey font-weight-medium">
+                {{ matchingSections.length }} {{ matchingSections.length === 1 ? 'sección' : 'secciones' }}
+              </span>
+            </template>
+          </v-text-field>
+
+          <!-- Aviso informativo cuando no hay coincidencias -->
+          <v-alert
+            v-if="searchQuery.trim() && matchingSections.length === 0"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mt-2 text-caption"
+            icon="mdi-information-outline"
+            data-test="search-no-results-alert"
+          >
+            No se encontraron secciones que coincidan con <strong>"{{ searchQuery }}"</strong>. Se muestra el formulario completo para no afectar tus datos.
+          </v-alert>
+
+          <!-- Accesos rápidos a secciones filtradas si hay más de una coincidencia -->
+          <div
+            v-if="searchQuery.trim() && matchingSections.length > 1"
+            class="d-flex flex-wrap gap-1 mt-2"
+          >
+            <v-chip
+              v-for="sec in matchingSections"
+              :key="sec.id"
+              size="x-small"
+              color="primary"
+              variant="outlined"
+              class="cursor-pointer"
+              @click="scrollToSection(sec.id)"
+            >
+              {{ sec.name }}
+            </v-chip>
+          </div>
+        </div>
+
         <v-form v-model="localFormValid" autocomplete="off">
+          <div
+            id="section-datos-generales"
+            v-show="isSectionVisible('section-datos-generales')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-datos-generales') }"
+            class="mb-2"
+          >
           <v-row>
             <v-col cols="12" md="8">
               <v-text-field
@@ -228,7 +631,7 @@ function moverAbajo(index) {
                 label="Nombre de la Unidad"
                 :hint="hints.unidadForm.nombre"
                 :persistent-hint="false"
-                :rules="[rules.required, rules.minLength(4)]"
+                :rules="[rules.required, rules.minLength(4), rules.nombreUnidad]"
                 variant="underlined"
                 autocomplete="off"
               />
@@ -239,7 +642,7 @@ function moverAbajo(index) {
                 label="Sigla (ej: FCPN)"
                 :hint="hints.unidadForm.sigla"
                 :persistent-hint="false"
-                :rules="[rules.required, rules.siglaNotCodigo(formData.codigo), rules.siglaValida]"
+                :rules="[rules.required, rules.siglaNotCodigo(formData.codigo), rules.siglaValida, rules.siglaFormato]"
                 maxlength="32"
                 variant="underlined"
                 autocomplete="off"
@@ -270,6 +673,9 @@ function moverAbajo(index) {
               <v-date-input
                 v-model="formData.fecCreacion"
                 label="Fecha de Creación"
+                :min="FEC_CREACION_MIN"
+                :max="fecCreacionMax()"
+                :rules="[rules.fechaCreacionRango]"
                 :hint="hints.unidadForm.fecCreacion"
                 :persistent-hint="false"
                 variant="underlined"
@@ -289,7 +695,14 @@ function moverAbajo(index) {
               />
             </v-col>
           </v-row>
+          </div>
 
+          <div
+            id="section-funciones"
+            v-show="isSectionVisible('section-funciones')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-funciones') }"
+            class="mb-2"
+          >
           <v-divider class="my-6" />
           <div class="d-flex justify-space-between align-center mb-4">
             <h3 class="text-h6">Funciones de la Unidad</h3>
@@ -311,14 +724,22 @@ function moverAbajo(index) {
           <v-card
             v-if="formData.funciones?.length"
             variant="outlined"
-            class="rounded-md border-slate-200 overflow-hidden mb-4"
+            class="rounded-md border-slate-200 overflow-hidden mb-8"
           >
-            <v-table density="compact">
+            <v-table density="compact" fixed-header style="max-height: 280px;">
               <thead>
                 <tr class="bg-slate-100 border-b-slate">
-                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">Función</th>
-                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">Base Legal</th>
-                  <th class="text-caption font-weight-bold px-3 text-right" style="width: 20%">Acciones</th>
+                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">
+                    <v-icon size="14" color="primary" class="mr-1">mdi-cog-outline</v-icon>
+                    Función
+                  </th>
+                  <th class="text-caption font-weight-bold px-3 border-r-slate" style="width: 40%">
+                    <v-icon size="14" color="primary" class="mr-1">mdi-scale-balance</v-icon>
+                    Base Legal
+                  </th>
+                  <th class="text-caption font-weight-bold px-3 text-right" style="width: 20%">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -381,67 +802,127 @@ function moverAbajo(index) {
               </tbody>
             </v-table>
           </v-card>
-          <v-alert v-else type="info" variant="tonal" class="mb-4"
+          <v-alert v-else type="info" variant="tonal" class="mb-8"
             >Sin funciones registradas.</v-alert
           >
+          </div>
 
-          <v-row>
-            <v-col cols="12">
-              <SelectAllUnidades
-                v-model="formData.dependenciasFuncionales"
-                type="autocomplete"
-                label="Dependencia"
-                :hint="hints.unidadForm.dependenciasFuncionales"
-                :persistent-hint="false"
-                multiple
-                :exclude-id="formData.id"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <SelectAllTipos
-                v-model="formData.tipo"
-                label="Tipo de Unidad"
-                :hint="hints.unidadForm.tipo"
-                :persistent-hint="false"
-                :rules="[rules.required]"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <SelectAllNiveles
-                v-model="formData.nivel"
-                label="Nivel Jerárquico"
-                :hint="hints.unidadForm.nivel"
-                :persistent-hint="false"
-                :rules="[rules.required]"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <SelectAllRelaciones
-                v-model="formData.relacion"
-                :hint="hints.unidadForm.relacion"
-                :persistent-hint="false"
-                :rules="[rules.required]"
-              />
-            </v-col>
-            <v-col cols="12" md="6">
-              <SelectAllCargos
-                v-model="formData.cargos"
-                :hint="hints.unidadForm.cargos"
-                :persistent-hint="false"
-              />
-            </v-col>
-            <v-col cols="12" md="6">
-              <SelectAllClases
-                v-model="formData.clase"
-                label="Instancia"
-                :hint="hints.unidadForm.clase"
-                :persistent-hint="false"
-                :rules="[rules.required]"
-              />
-            </v-col>
-          </v-row>
+          <div
+            id="section-desconcentrada"
+            v-show="isSectionVisible('section-desconcentrada')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-desconcentrada') }"
+            class="my-3"
+          >
+            <v-card
+              variant="outlined"
+              class="pa-3 rounded-lg border-opacity-25 mb-2"
+              style="border-color: rgba(var(--v-theme-primary), 0.35);"
+            >
+              <div class="d-flex align-center justify-space-between flex-wrap gap-2">
+                <div class="d-flex align-center">
+                  <v-icon color="primary" class="mr-2" size="22">mdi-domain-plus</v-icon>
+                  <div>
+                    <div class="d-flex align-center text-subtitle-2 font-weight-bold text-primary">
+                      ¿Es Unidad Desconcentrada?
+                      <HelpTooltip :text="hints.conceptos.es_desconcentrada" />
+                    </div>
+                    <div class="text-caption text-grey-darken-1">
+                      {{ hints.unidadForm.es_desconcentrada }}
+                    </div>
+                  </div>
+                </div>
+                <v-switch
+                  v-model="formData.es_desconcentrada"
+                  color="primary"
+                  hide-details
+                  inset
+                  density="compact"
+                >
+                  <v-tooltip activator="parent" location="top">
+                    {{ formData.es_desconcentrada ? 'Desactivar condición de unidad desconcentrada' : 'Marcar como unidad desconcentrada' }}
+                  </v-tooltip>
+                </v-switch>
+              </div>
+
+              <v-expand-transition>
+                <div v-if="formData.es_desconcentrada" class="mt-3 pt-2">
+                  <SelectAllUnidades
+                    v-model="formData.dependenciasFuncionales"
+                    type="autocomplete"
+                    label="Dependencias Funcionales (Coordinación transversal)"
+                    :hint="hints.unidadForm.dependenciasFuncionales"
+                    :persistent-hint="false"
+                    multiple
+                    :exclude-id="formData.id"
+                  />
+                </div>
+              </v-expand-transition>
+            </v-card>
+          </div>
+
+          <div
+            id="section-clasificacion"
+            v-show="isSectionVisible('section-clasificacion')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-clasificacion') }"
+            class="my-2"
+          >
+            <v-row class="mt-2">
+              <v-col cols="12" md="4" class="pt-3">
+                <SelectAllTipos
+                  v-model="formData.tipo"
+                  label="Tipo de Unidad"
+                  :hint="hints.unidadForm.tipo"
+                  :persistent-hint="false"
+                  :rules="[rules.required]"
+                />
+              </v-col>
+              <v-col cols="12" md="4" class="pt-3">
+                <SelectAllNiveles
+                  v-model="formData.nivel"
+                  label="Nivel Jerárquico"
+                  :hint="hints.unidadForm.nivel"
+                  :persistent-hint="false"
+                  :rules="[rules.required]"
+                />
+              </v-col>
+              <v-col cols="12" md="4" class="pt-3">
+                <SelectAllRelaciones
+                  v-model="formData.relacion"
+                  :hint="hints.unidadForm.relacion"
+                  :persistent-hint="false"
+                  :rules="[rules.required]"
+                />
+              </v-col>
+              <v-col cols="12" md="6" class="pt-3">
+                <SelectAllClases
+                  v-model="formData.clase"
+                  label="Instancia"
+                  :hint="hints.unidadForm.clase"
+                  :persistent-hint="false"
+                  :rules="[rules.required]"
+                />
+              </v-col>
+            </v-row>
+          </div>
+
+          <div
+            id="section-cargos"
+            v-show="isSectionVisible('section-cargos')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-cargos') }"
+            class="my-3"
+          >
+            <CargosUnidadTable
+              v-model="formData.cargos"
+              :hint="hints.unidadForm.cargos"
+            />
+          </div>
 
           <!-- ESTRUCTURA Y DISPOSICIÓN EN EL ORGANIGRAMA -->
+          <div
+            id="section-organigrama"
+            v-show="isSectionVisible('section-organigrama')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-organigrama') }"
+          >
           <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-primary">
             <div class="text-subtitle-2 font-weight-bold text-primary mb-3 d-flex align-center">
               <v-icon start size="18">mdi-sitemap</v-icon>
@@ -482,11 +963,14 @@ function moverAbajo(index) {
             <v-row dense>
               <v-col cols="12">
                 <div class="text-caption font-weight-bold mb-2 text-grey-darken-2">
-                  {{ formData.es_troncal ? 'Lado: Fijado al CENTRO (por ser Troncal Principal)' : 'Lado de preferencia en el Organigrama:' }}
+                  {{
+                    formData.es_troncal
+                      ? 'Lado de salida de sus dependencias (Troncal Principal):'
+                      : 'Lado de preferencia en el Organigrama:'
+                  }}
                 </div>
                 <v-btn-toggle
                   v-model="formData.lado"
-                  :disabled="formData.es_troncal"
                   mandatory
                   color="primary"
                   density="comfortable"
@@ -495,23 +979,35 @@ function moverAbajo(index) {
                   class="d-flex flex-wrap w-100"
                 >
                   <v-btn value="IZQUIERDA" class="flex-grow-1 text-caption">
-                    <v-icon start size="16">mdi-arrow-left-bold</v-icon> Izquierda
+                    <v-icon start size="16">mdi-arrow-left-bold</v-icon>
+                    {{ formData.es_troncal ? 'Ala Izquierda' : 'Izquierda' }}
                   </v-btn>
                   <v-btn value="CENTRO" class="flex-grow-1 text-caption">
-                    <v-icon start size="16">mdi-format-align-center</v-icon> Centro
+                    <v-icon start size="16">mdi-format-align-center</v-icon>
+                    {{ formData.es_troncal ? 'Ambas Alas' : 'Centro' }}
                   </v-btn>
                   <v-btn value="DERECHA" class="flex-grow-1 text-caption">
-                    <v-icon start size="16">mdi-arrow-right-bold</v-icon> Derecha
+                    <v-icon start size="16">mdi-arrow-right-bold</v-icon>
+                    {{ formData.es_troncal ? 'Ala Derecha' : 'Derecha' }}
                   </v-btn>
                   <v-btn value="AUTOMATICO" class="flex-grow-1 text-caption">
                     <v-icon start size="16">mdi-auto-fix</v-icon> Automático
                   </v-btn>
                 </v-btn-toggle>
+                <div v-if="formData.es_troncal" class="text-caption text-grey mt-1 pl-1">
+                  Define hacia qué ala se desplegarán las dependencias directas de esta unidad troncal.
+                </div>
               </v-col>
             </v-row>
           </v-card>
+          </div>
 
           <!-- INFORMACIÓN OPERATIVA Y RECURSOS (S-MAU) -->
+          <div
+            id="section-operativa"
+            v-show="isSectionVisible('section-operativa')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-operativa') }"
+          >
           <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-teal">
             <div class="text-subtitle-2 font-weight-bold text-teal mb-3 d-flex align-center">
               <v-icon start size="18">mdi-clipboard-text-clock-outline</v-icon>
@@ -524,6 +1020,7 @@ function moverAbajo(index) {
                   label="Ejecución POA"
                   :hint="hints.unidadForm.ejecucionPoa"
                   :persistent-hint="false"
+                  :rules="[rules.sinCaracteresRaros]"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -535,6 +1032,7 @@ function moverAbajo(index) {
                   label="Ejecución Presupuestaria"
                   :hint="hints.unidadForm.ejecucionPresupuestaria"
                   :persistent-hint="false"
+                  :rules="[rules.sinCaracteresRaros]"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -546,6 +1044,7 @@ function moverAbajo(index) {
                   label="Carga Horaria Programada"
                   :hint="hints.unidadForm.cargaHorariaProgramada"
                   :persistent-hint="false"
+                  :rules="[rules.sinCaracteresRaros]"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -557,6 +1056,7 @@ function moverAbajo(index) {
                   label="Carga Horaria Ejecutada"
                   :hint="hints.unidadForm.cargaHorariaEjecutada"
                   :persistent-hint="false"
+                  :rules="[rules.sinCaracteresRaros]"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -568,6 +1068,7 @@ function moverAbajo(index) {
                   label="Ubicación"
                   :hint="hints.unidadForm.ubicacion"
                   :persistent-hint="false"
+                  :rules="[rules.sinCaracteresRaros]"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -579,6 +1080,7 @@ function moverAbajo(index) {
                   label="Infraestructura Física Utilizada"
                   :hint="hints.unidadForm.infraestructura"
                   :persistent-hint="false"
+                  :rules="[rules.sinCaracteresRaros]"
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -590,6 +1092,7 @@ function moverAbajo(index) {
                   label="Trámites Atendidos"
                   :hint="hints.unidadForm.tramitesAtendidos"
                   :persistent-hint="false"
+                  :rules="[rules.sinCaracteresRaros]"
                   variant="underlined"
                   rows="2"
                   density="compact"
@@ -599,8 +1102,14 @@ function moverAbajo(index) {
               </v-col>
             </v-row>
           </v-card>
+          </div>
 
           <!-- RELACIONAMIENTO Y COORDINACIÓN (S-MAU) -->
+          <div
+            id="section-relacionamiento"
+            v-show="isSectionVisible('section-relacionamiento')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-relacionamiento') }"
+          >
           <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-indigo">
             <div class="text-subtitle-2 font-weight-bold text-indigo mb-3 d-flex align-center">
               <v-icon start size="18">mdi-transit-connection-variant</v-icon>
@@ -615,6 +1124,7 @@ function moverAbajo(index) {
                   :hint="hints.unidadForm.coordinacionInterna"
                   :persistent-hint="false"
                   multiple
+                  :enable-batch-groups="true"
                   :exclude-id="formData.id"
                 />
               </v-col>
@@ -663,7 +1173,13 @@ function moverAbajo(index) {
               </v-col>
             </v-row>
           </v-card>
+          </div>
 
+          <div
+            id="section-personalizacion"
+            v-show="isSectionVisible('section-personalizacion')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-personalizacion') }"
+          >
           <v-row justify="end" class="mt-4 px-4 align-center">
             <v-menu v-model="colorMenu" :close-on-content-click="false">
               <template v-slot:activator="{ props }">
@@ -743,12 +1259,13 @@ function moverAbajo(index) {
               >
             </v-switch>
           </v-row>
+          </div>
         </v-form>
       </v-card-text>
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="close">Cancelar</v-btn>
-        <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" :disabled="!localFormValid" @click="confirm">
+        <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" :disabled="!localFormValid || saving" :loading="saving" @click="confirm">
           Guardar Unidad
           <v-tooltip activator="parent" location="top"
             >Persistir cambios en el manual</v-tooltip
@@ -800,3 +1317,50 @@ function moverAbajo(index) {
     </v-dialog>
   </v-dialog>
 </template>
+
+<style scoped>
+.unidad-dialog-header {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.unidad-dialog-title-wrapper {
+  min-width: 0;
+  cursor: default;
+}
+
+.unidad-dialog-title-wrapper:focus-visible {
+  outline: 2px solid var(--v-theme-primary, #007bff);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.unidad-dialog-title-text {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  display: inline;
+}
+
+.unidad-form-search-sticky {
+  position: sticky;
+  top: -16px;
+  margin-top: -16px;
+  padding-top: 16px;
+  padding-bottom: 12px;
+  z-index: 10;
+  background-color: var(--mof-surface, #ffffff);
+  border-bottom: 1px solid var(--mof-border-nav, rgba(0, 0, 0, 0.08));
+  margin-bottom: 16px;
+}
+
+.section-search-match {
+  position: relative;
+  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary, 25, 118, 210), 0.45) !important;
+  border-radius: 8px;
+  transition: box-shadow 0.25s ease-in-out;
+}
+</style>

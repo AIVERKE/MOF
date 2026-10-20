@@ -6,11 +6,17 @@ const normalizeDescription = (descripcion) =>
     ? null
     : String(descripcion).trim();
 
-const buildCreateCargoPayload = (nombre, descripcion = null, activo = true, parentId = null) => {
+const normalizeNivelOrden = (nivelOrden) =>
+  nivelOrden == null || String(nivelOrden).trim() === ""
+    ? null
+    : Number(nivelOrden);
+
+const buildCreateCargoPayload = (nombre, descripcion = null, activo = true, parentId = null, nivelOrden = null) => {
   const body = {
     nombre: String(nombre).trim(),
     descripcion: normalizeDescription(descripcion),
     activo,
+    nivelOrden: normalizeNivelOrden(nivelOrden),
   };
   if (parentId != null) {
     body.parentId = parentId;
@@ -18,11 +24,18 @@ const buildCreateCargoPayload = (nombre, descripcion = null, activo = true, pare
   return body;
 };
 
-const buildUpdateCargoPayload = (nombre, descripcion = null, activo = true) => ({
-  nombre: String(nombre).trim(),
-  descripcion: normalizeDescription(descripcion),
-  activo,
-});
+// nivelOrden undefined = no enviarlo, para no borrar el nivel desde vistas que no lo editan
+const buildUpdateCargoPayload = (nombre, descripcion = null, activo = true, nivelOrden = undefined) => {
+  const body = {
+    nombre: String(nombre).trim(),
+    descripcion: normalizeDescription(descripcion),
+    activo,
+  };
+  if (nivelOrden !== undefined) {
+    body.nivelOrden = normalizeNivelOrden(nivelOrden);
+  }
+  return body;
+};
 
 export const useAllCargosMofStore = createCatalogStore({
   storeId: "cargos_mof",

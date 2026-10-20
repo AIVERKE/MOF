@@ -29,10 +29,9 @@ export async function migrateCargo(
 
   for (const row of src.rows) {
     const nombre = (row.descripcion || `Cargo ${row.cargo_id}`).slice(0, 255);
-    const descripcion = row.descripcion
-      ? row.descripcion.slice(0, 512)
-      : null;
-    const activo = row.estado === null || row.estado === undefined ? true : !!row.estado;
+    const descripcion = row.descripcion ? row.descripcion.slice(0, 512) : null;
+    const activo =
+      row.estado === null || row.estado === undefined ? true : !!row.estado;
 
     if (options.dryRun) {
       stats.inserted += 1;

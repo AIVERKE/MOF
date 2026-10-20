@@ -11,6 +11,8 @@ import { ErrorCodes } from './common/errors';
 import { resolveCorsOrigins } from './common/cors.util';
 import { resolveTrustProxy } from './common/throttle.util';
 import { resolveHttpsOptions } from './common/https.util';
+import { isSwaggerEnabled, resolveHelmetOptions } from './common/security.util';
+import helmet from 'helmet';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 
 function flattenValidationErrors(errors: ValidationError[]): string[] {
@@ -36,6 +38,7 @@ async function bootstrap() {
   if (trustProxyHops > 0) {
     app.set('trust proxy', trustProxyHops);
   }
+  app.use(helmet(resolveHelmetOptions()));
   app.enableCors({
     origin: resolveCorsOrigins(),
     credentials: true,
@@ -59,20 +62,22 @@ async function bootstrap() {
     }),
   );
 
-  const config = new DocumentBuilder()
-    .setTitle('MOF API')
-    .setDescription(
-      'API del Manual de Organización y Funciones. ' +
-        'Envelope: { timestamp, status, message, data, errorCode? }. ' +
-        'En errores, errorCode es un código estable (ver catálogo en src/common/errors.ts y README). ' +
-        'message sigue siendo texto en español; data se mantiene por compatibilidad.',
-    )
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addApiKey({ type: 'apiKey', in: 'header', name: 'X-Api-Key' }, 'api-key')
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  if (isSwaggerEnabled()) {
+    const config = new DocumentBuilder()
+      .setTitle('MOF API')
+      .setDescription(
+        'API del Manual de Organización y Funciones. ' +
+          'Envelope: { timestamp, status, message, data, errorCode? }. ' +
+          'En errores, errorCode es un código estable (ver catálogo en src/common/errors.ts y README). ' +
+          'message sigue siendo texto en español; data se mantiene por compatibilidad.',
+      )
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addApiKey({ type: 'apiKey', in: 'header', name: 'X-Api-Key' }, 'api-key')
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 }

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { ref, computed } from "vue";
 import { rules } from "@/utils/rules";
 import { hints } from "@/config/hints";
 import { useResponsive } from "@/composables/useResponsive";
@@ -23,21 +23,33 @@ const emit = defineEmits([
   "confirm"
 ]);
 
-const unidadesNoRaiz = computed(() =>
-  props.unidades.filter((u) => u.parent !== null)
+const formValid = ref(false);
+
+const unidadesCandidatas = computed(() =>
+  Array.isArray(props.unidades) ? props.unidades : []
 );
 
 const unidadesDestinoFiltradas = computed(() =>
-  props.unidades.filter(
+  (props.unidades || []).filter(
     (u) => String(u.id) !== String(props.unidadACambiar)
   )
 );
+
+const canSubmit = computed(() => {
+  const razonVal = typeof props.razon === "string" ? props.razon.trim() : "";
+  return (
+    Boolean(props.unidadACambiar) &&
+    Boolean(props.unidadDestino) &&
+    razonVal.length >= 6
+  );
+});
 
 function close() {
   emit("update:modelValue", false);
 }
 
 function confirm() {
+  if (!canSubmit.value) return;
   emit("confirm");
 }
 </script>
@@ -53,43 +65,49 @@ function confirm() {
     <v-card>
       <v-card-title class="font-weight-bold">CAMBIO DE DEPENDENCIA DE UNIDAD</v-card-title>
       <v-divider />
-      <v-alert type="warning" title="CUIDADO" text="Afecta automáticamente a los dependientes." />
+      <v-alert
+        type="warning"
+        title="CUIDADO"
+        text="Afecta automáticamente a los dependientes. Permite también reasignar unidades huérfanas o sueltas para vincularlas a la estructura si algo salió mal."
+      />
       <v-card-text>
-        <v-row>
-          <v-col cols="12" md="6">
-            <SelectAllUnidades
-              :model-value="unidadACambiar"
-              @update:model-value="val => emit('update:unidadACambiar', val)"
-              label="Unidad a cambiar"
-              :hint="hints.unidadDependency.unidadACambiar"
-              :persistent-hint="false"
-              :items="unidadesNoRaiz"
-            />
-          </v-col>
-          <v-col cols="12" md="6">
-            <SelectAllUnidades
-              :model-value="unidadDestino"
-              @update:model-value="val => emit('update:unidadDestino', val)"
-              label="Unidad destino"
-              :hint="hints.unidadDependency.unidadDestino"
-              :persistent-hint="false"
-              :disabled="!unidadACambiar"
-              :items="unidadesDestinoFiltradas"
-            />
-          </v-col>
-        </v-row>
-        <v-textarea
-          :model-value="razon"
-          @update:model-value="val => emit('update:razon', val)"
-          label="Razón"
-          variant="underlined"
-          rows="2"
-          class="mt-4"
-          :hint="hints.unidadDependency.razon"
-          :persistent-hint="false"
-          :rules="[rules.required, rules.minLength(6)]"
-          autocomplete="off"
-        />
+        <v-form v-model="formValid" autocomplete="off" @submit.prevent="confirm">
+          <v-row>
+            <v-col cols="12" md="6">
+              <SelectAllUnidades
+                :model-value="unidadACambiar"
+                @update:model-value="val => emit('update:unidadACambiar', val)"
+                label="Unidad a cambiar"
+                :hint="hints.unidadDependency.unidadACambiar"
+                :persistent-hint="false"
+                :items="unidadesCandidatas"
+              />
+            </v-col>
+            <v-col cols="12" md="6">
+              <SelectAllUnidades
+                :model-value="unidadDestino"
+                @update:model-value="val => emit('update:unidadDestino', val)"
+                label="Unidad destino"
+                :hint="hints.unidadDependency.unidadDestino"
+                :persistent-hint="false"
+                :disabled="!unidadACambiar"
+                :items="unidadesDestinoFiltradas"
+              />
+            </v-col>
+          </v-row>
+          <v-textarea
+            :model-value="razon"
+            @update:model-value="val => emit('update:razon', val)"
+            label="Razón"
+            variant="underlined"
+            rows="2"
+            class="mt-4"
+            :hint="hints.unidadDependency.razon"
+            :persistent-hint="false"
+            :rules="[rules.required, rules.minLength(6)]"
+            autocomplete="off"
+          />
+        </v-form>
       </v-card-text>
       <v-card-actions class="pa-4">
         <v-spacer />
@@ -98,7 +116,7 @@ function confirm() {
           color="primary"
           variant="flat"
           class="rounded-lg font-weight-bold px-4"
-          :disabled="!unidadACambiar || !unidadDestino || !razon"
+          :disabled="!canSubmit"
           @click="confirm"
         >
           Cambiar

@@ -18,12 +18,15 @@ import { UnidadRelacionExterna } from './unidad-relacion-externa.entity';
 import { UnidadRelacionInterna } from './unidad-relacion-interna.entity';
 
 @Entity('unidad')
+@Index('IDX_unidad_codigo_activo', ['codigo'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
 export class Unidad extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
 
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 64, unique: true })
+  @Column({ type: 'varchar', length: 64 })
   codigo: string;
 
   @Index()
@@ -89,7 +92,12 @@ export class Unidad extends AuditableEntity {
   @Column({ name: 'base_legal', type: 'text', nullable: true })
   baseLegal: string | null;
 
-  @Column({ name: 'res_creacion', type: 'varchar', length: 512, nullable: true })
+  @Column({
+    name: 'res_creacion',
+    type: 'varchar',
+    length: 512,
+    nullable: true,
+  })
   resCreacion: string | null;
 
   @Column({ name: 'fec_creacion', type: 'date', nullable: true })

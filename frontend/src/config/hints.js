@@ -29,6 +29,8 @@ export const hints = {
       "Tipo de vínculo o enlace formal con la unidad superior (ej: Línea Directa, Asesoría, Coordinación o Funcional).",
     baseLegal:
       "Normativa, resolución, estatuto o documento legal universitario que faculta formalmente la atribución o función.",
+    es_desconcentrada:
+      "Unidad con desconcentración funcional o administrativa que coordina transversalmente con dependencias técnicas.",
   },
 
   /**
@@ -48,7 +50,9 @@ export const hints = {
     objetivo:
       "Propósito estratégico y razón de ser institucional de la unidad",
     dependenciasFuncionales:
-      "Unidades con las que mantiene coordinación operativa o dependencia técnica",
+      "Unidades de coordinación operativa transversal (NO define la jerarquía directa ni la unidad padre en el organigrama)",
+    es_desconcentrada:
+      "Habilita dependencias funcionales para unidades desconcentradas con coordinación transversal técnica",
     tipo:
       "Seleccione la naturaleza sustantiva, de apoyo o asesoramiento",
     nivel:
@@ -90,7 +94,7 @@ export const hints = {
    */
   unidadDependency: {
     unidadACambiar:
-      "Seleccione la unidad subordinada cuya dependencia jerárquica desea reasignar",
+      "Seleccione la unidad subordinada o huérfana cuya dependencia jerárquica desea reasignar",
     unidadDestino:
       "Seleccione la nueva unidad superior que pasará a ser la madre jerárquica",
     razon:
@@ -147,6 +151,10 @@ export const hints = {
       "Nombre del puesto de trabajo o cargo funcional (ej: Director de Carrera)",
     descripcion:
       "Descripción breve de responsabilidades generales asociadas al cargo",
+    nivel:
+      "Nivel jerárquico del cargo (mayor = más alto, ej: Rectorado 26). Vacío = sin nivel",
+    nivelUnidad:
+      "Nivel del cargo en esta unidad (1-99); puede diferir del nivel sugerido del catálogo",
   },
 
   /**

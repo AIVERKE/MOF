@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { existsSync } from 'fs';
+import { createRequire } from 'module';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
@@ -19,9 +20,18 @@ export type UnidadPdfDetail = {
   objetivo?: string | null;
   baseLegal?: string | null;
   base_legal?: string | null;
-  parent?: { id: number; codigo?: string; nombre?: string; sigla?: string } | null;
+  parent?: {
+    id: number;
+    codigo?: string;
+    nombre?: string;
+    sigla?: string;
+  } | null;
   funciones?: { funcion: string; baseLegal?: string | null }[];
-  dependenciasFuncionales?: { nombre?: string | null; sigla?: string | null }[];
+  dependenciasFuncionales?: {
+    id?: number | null;
+    nombre?: string | null;
+    sigla?: string | null;
+  }[];
   hijasLineales?: { nombre?: string | null; sigla?: string | null }[];
   hijasFuncionales?: { nombre?: string | null; sigla?: string | null }[];
   relacionesInternas?: { nombre?: string | null; sigla?: string | null }[];
@@ -43,9 +53,79 @@ const C = {
   text: '#0F172A',
 };
 
+const META_ROW_GAP = 5;
+
+const FONT_FILES = {
+  regular: 'NotoSans-Regular.ttf',
+  bold: 'NotoSans-Bold.ttf',
+};
+
+/** Caracteres representables en WinAnsi (fuentes estándar de PDF como Helvetica). */
+const WIN_ANSI_UNSUPPORTED =
+  /[^\n\x20-\x7E\xA0-\xFF€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]/g;
+
+const ASCII_FALLBACKS: Record<string, string> = {
+  '→': '->',
+  '←': '<-',
+  '⇒': '=>',
+  '≤': '<=',
+  '≥': '>=',
+  '≠': '!=',
+  '✓': '-',
+  '✔': '-',
+  '▪': '•',
+  '▫': '•',
+  '◦': '•',
+  '●': '•',
+  '○': '•',
+  '■': '•',
+  '□': '•',
+  '►': '•',
+  '➢': '•',
+  '\uF0A7': '•',
+  '\uF0B7': '•',
+  '‐': '-',
+  '‑': '-',
+  '‒': '-',
+  '―': '—',
+  '−': '-',
+  '′': "'",
+  '″': '"',
+};
+
+const INVISIBLE_CHARS =
+  // eslint-disable-next-line no-control-regex
+  /[\u0000-\u0008\u000B-\u001F\u007F\u00AD\u200B-\u200D\u2060\uFEFF]/g;
+
+const LIST_MARKER = /^(\d+[.)]|[a-zA-Z][.)]|[-•*])\s+/;
+
 @Injectable()
 export class UnidadPdfService {
-  constructor(private readonly config: ConfigService) {}
+  private readonly fonts: {
+    regular: string;
+    bold: string;
+    regularPath: string | null;
+    boldPath: string | null;
+    unicode: boolean;
+  };
+
+  private readonly hasGlyph: ((codePoint: number) => boolean) | null;
+
+  constructor(private readonly config: ConfigService) {
+    const regularPath = this.resolveFontPath(FONT_FILES.regular);
+    const boldPath = this.resolveFontPath(FONT_FILES.bold);
+    const hasGlyph =
+      regularPath && boldPath ? this.loadGlyphChecker(regularPath) : null;
+    const unicode = Boolean(hasGlyph);
+    this.fonts = {
+      regular: unicode ? 'Body' : 'Helvetica',
+      bold: unicode ? 'Body-Bold' : 'Helvetica-Bold',
+      regularPath,
+      boldPath,
+      unicode,
+    };
+    this.hasGlyph = hasGlyph;
+  }
 
   async buildUnidadPdf(detail: UnidadPdfDetail): Promise<Buffer> {
     const qrPng = await this.buildQrPng(detail.id);
@@ -56,13 +136,16 @@ export class UnidadPdfService {
         size: 'A4',
         margins: { top: 28, bottom: 28, left: 36, right: 36 },
       });
+      if (this.fonts.unicode) {
+        doc.registerFont('Body', this.fonts.regularPath!);
+        doc.registerFont('Body-Bold', this.fonts.boldPath!);
+      }
       const chunks: Buffer[] = [];
       doc.on('data', (c: Buffer) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
       const pageW = doc.page.width;
-      const pageH = doc.page.height;
       const marginL = 36;
       const marginR = 36;
       const contentW = pageW - marginL - marginR;
@@ -72,7 +155,7 @@ export class UnidadPdfService {
       const rightX = marginL + colW + colGap;
 
       const nombre = this.upper(detail.nombre);
-      const codigo = detail.codigo || '';
+      const codigo = this.clean(detail.codigo);
       const resCreacion = this.upper(
         detail.resCreacion || detail.res_creacion || '-',
       );
@@ -82,17 +165,13 @@ export class UnidadPdfService {
       const nivel = this.upper(detail.nivel || '-');
       const tipo = this.upper(detail.tipo || '-');
       const dependencia = this.upper(detail.parent?.nombre || '-');
-      const funcionales = this.joinNames(detail.dependenciasFuncionales);
-      const lineal = this.joinNames(detail.hijasLineales);
-      const funcional = this.joinNames(detail.hijasFuncionales);
-      const objetivo = (detail.objetivo || '-').toString().trim();
-      const funcionesText = this.formatFunciones(detail.funciones);
-      const baseLegal = this.formatBaseLegal(
-        detail.funciones,
-        detail.baseLegal || detail.base_legal,
-      );
-      const relInterno = this.joinNames(detail.relacionesInternas);
-      const relExterno = this.joinDescripciones(detail.relacionesExternas);
+      const funcionales = this.listNames(this.dependenciasSinPadre(detail));
+      const lineal = this.listNames(detail.hijasLineales);
+      const funcional = this.listNames(detail.hijasFuncionales);
+      const objetivo = this.clean(detail.objetivo) || '-';
+      const baseLegalUnidad = this.clean(detail.baseLegal || detail.base_legal);
+      const relInterno = this.listNames(detail.relacionesInternas);
+      const relExterno = this.listDescripciones(detail.relacionesExternas);
 
       // —— Header institucional ——
       doc.rect(0, 0, pageW, 78).fill(C.navy);
@@ -110,7 +189,7 @@ export class UnidadPdfService {
       const headerTextX = marginL + 72;
       const headerTextW = contentW - 72;
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(9)
         .fillColor(C.goldSoft)
         .text('UNIVERSIDAD MAYOR DE SAN ANDRÉS', headerTextX, 16, {
@@ -118,14 +197,19 @@ export class UnidadPdfService {
           align: 'left',
         });
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7.5)
         .fillColor('#94A3B8')
-        .text('Sistema de Manual de Organización y Funciones (MOF)', headerTextX, 30, {
-          width: headerTextW,
-        });
+        .text(
+          'Sistema de Manual de Organización y Funciones (MOF)',
+          headerTextX,
+          30,
+          {
+            width: headerTextW,
+          },
+        );
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(13)
         .fillColor(C.white)
         .text('FICHA DE UNIDAD ORGANIZACIONAL', headerTextX, 48, {
@@ -143,7 +227,7 @@ export class UnidadPdfService {
         .lineWidth(3)
         .stroke();
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(11)
         .fillColor(C.navy)
         .text(nombre, marginL + 10, y + 8, {
@@ -151,7 +235,7 @@ export class UnidadPdfService {
           height: 14,
           ellipsis: true,
         });
-      const rawSigla = (detail.sigla || '').trim();
+      const rawSigla = this.clean(detail.sigla);
       const isBadSigla =
         !rawSigla ||
         rawSigla === '-' ||
@@ -163,7 +247,7 @@ export class UnidadPdfService {
         : `Código: ${codigo}`;
 
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7.5)
         .fillColor(C.muted)
         .text(codeSiglaText, marginL + contentW - 145, y + 9, {
@@ -176,7 +260,17 @@ export class UnidadPdfService {
       // —— Identidad + estructura ——
       const identityTop = y;
       const boxPad = 8;
-      const identityBoxH = 118;
+      const identityRows: [string, string][] = [
+        ['Resolución', resCreacion],
+        ['Fecha creación', fecCreacion],
+        ['Nivel jerárquico', nivel],
+        ['Tipo', tipo],
+        ['Dependencia lineal', dependencia],
+      ];
+      const identityBoxH = Math.max(
+        118,
+        boxPad * 2 + this.measureMetaRows(doc, identityRows, colW - boxPad * 2),
+      );
 
       doc.roundedRect(leftX, identityTop, colW, identityBoxH, 3).fill(C.panel);
       doc
@@ -185,21 +279,18 @@ export class UnidadPdfService {
         .lineWidth(0.8)
         .stroke();
 
-      let iy = identityTop + boxPad;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Resolución', resCreacion, colW - boxPad * 2);
-      iy = doc.y + 5;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Fecha creación', fecCreacion, colW - boxPad * 2);
-      iy = doc.y + 5;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Nivel jerárquico', nivel, colW - boxPad * 2);
-      iy = doc.y + 5;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Tipo', tipo, colW - boxPad * 2);
-      iy = doc.y + 5;
-      this.drawMetaRow(doc, leftX + boxPad, iy, 'Dependencia lineal', dependencia, colW - boxPad * 2);
+      this.drawMetaRows(
+        doc,
+        leftX + boxPad,
+        identityTop + boxPad,
+        identityRows,
+        colW - boxPad * 2,
+      );
 
       // Org card
       doc.roundedRect(rightX, identityTop, colW, identityBoxH, 3).fill(C.navy);
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(8)
         .fillColor(C.gold)
         .text('ESTRUCTURA ORGANIZACIONAL', rightX + 8, identityTop + 10, {
@@ -212,7 +303,7 @@ export class UnidadPdfService {
         .roundedRect(rightX + 16, parentBoxY, colW - 32, 28, 2)
         .fill(C.navyMid);
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7)
         .fillColor('#CBD5E1')
         .text(dependencia, rightX + 20, parentBoxY + 8, {
@@ -232,11 +323,9 @@ export class UnidadPdfService {
         .stroke();
 
       const unitBoxY = parentBoxY + 40;
+      doc.roundedRect(rightX + 16, unitBoxY, colW - 32, 36, 2).fill(C.gold);
       doc
-        .roundedRect(rightX + 16, unitBoxY, colW - 32, 36, 2)
-        .fill(C.gold);
-      doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(8)
         .fillColor(C.navy)
         .text(nombre, rightX + 20, unitBoxY + 10, {
@@ -249,128 +338,70 @@ export class UnidadPdfService {
       y = identityTop + identityBoxH + 12;
 
       // —— Dependencias ——
-      y = this.drawSectionBar(doc, marginL, y, 'DEPENDENCIAS', contentW);
-      y += 6;
-      const depH = 62;
-      doc.roundedRect(marginL, y, contentW, depH, 3).fill(C.panel);
-      doc
-        .roundedRect(marginL, y, contentW, depH, 3)
-        .strokeColor(C.line)
-        .lineWidth(0.6)
-        .stroke();
-      let dy = y + 6;
-      this.drawMetaRow(doc, marginL + 8, dy, 'Funcionales', funcionales, contentW - 16, 1);
-      dy = doc.y + 4;
-      this.drawMetaRow(doc, marginL + 8, dy, 'Dependientes (lineal)', lineal, contentW - 16, 1);
-      dy = doc.y + 4;
-      this.drawMetaRow(
-        doc,
-        marginL + 8,
-        dy,
-        'Dependientes (funcional)',
-        funcional,
-        contentW - 16,
-        1,
-      );
-      y += depH + 10;
+      const depRows: [string, string][] = [];
+      const depsSinPadre = this.dependenciasSinPadre(detail);
+      if (depsSinPadre.length > 0) {
+        depRows.push(['Funcionales', funcionales]);
+      }
+      depRows.push(['Dependientes (lineal)', lineal]);
+      if (detail.hijasFuncionales && detail.hijasFuncionales.length > 0) {
+        depRows.push(['Dependientes (funcional)', funcional]);
+      }
+
+      y = this.drawSectionStart(doc, marginL, y, 'DEPENDENCIAS', contentW);
+      y = this.drawMetaPanel(doc, marginL, y, contentW, depRows);
+      y += 10;
 
       // —— Objetivo ——
-      y = this.drawSectionBar(doc, marginL, y, 'OBJETIVO', contentW);
-      y += 6;
-      const objH = 42;
-      doc.roundedRect(marginL, y, contentW, objH, 3).fill(C.panel);
-      doc
-        .font('Helvetica')
-        .fontSize(7.5)
-        .fillColor(C.text)
-        .text(objetivo, marginL + 8, y + 6, {
-          width: contentW - 16,
-          height: objH - 10,
-          ellipsis: true,
-          align: 'justify',
-        });
-      y += objH + 10;
+      y = this.drawSectionStart(doc, marginL, y, 'OBJETIVO', contentW);
+      y = this.drawTextPanel(doc, marginL, y, contentW, objetivo, {
+        fontSize: 7.5,
+        align: 'justify',
+      });
+      y += 10;
 
       // —— Funciones | Base legal ——
-      y = this.drawSectionBar(doc, marginL, y, 'FUNCIONES Y BASE LEGAL', contentW);
-      y += 6;
-      const bodyH = 118;
-      doc.roundedRect(leftX, y, colW, bodyH, 3).fill(C.panel);
-      doc.roundedRect(rightX, y, colW, bodyH, 3).fill(C.panel);
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(7.5)
-        .fillColor(C.navyMid)
-        .text('Funciones', leftX + 8, y + 6, { width: colW - 16 });
-      doc.text('Base legal', rightX + 8, y + 6, { width: colW - 16 });
-      doc
-        .moveTo(leftX + 8, y + 18)
-        .lineTo(leftX + colW - 8, y + 18)
-        .strokeColor(C.gold)
-        .lineWidth(0.8)
-        .stroke();
-      doc
-        .moveTo(rightX + 8, y + 18)
-        .lineTo(rightX + colW - 8, y + 18)
-        .strokeColor(C.gold)
-        .lineWidth(0.8)
-        .stroke();
-
-      doc
-        .font('Helvetica')
-        .fontSize(7)
-        .fillColor(C.text)
-        .text(funcionesText, leftX + 8, y + 22, {
-          width: colW - 16,
-          height: bodyH - 28,
-          ellipsis: true,
+      y = this.drawSectionStart(
+        doc,
+        marginL,
+        y,
+        'FUNCIONES Y BASE LEGAL',
+        contentW,
+      );
+      if (baseLegalUnidad) {
+        y = this.drawTextPanel(doc, marginL, y, contentW, baseLegalUnidad, {
+          title: 'Base legal de la unidad',
+          fontSize: 7,
         });
-      doc.text(baseLegal, rightX + 8, y + 22, {
-        width: colW - 16,
-        height: bodyH - 28,
-        ellipsis: true,
-      });
-      y += bodyH + 10;
+        y += 6;
+      }
+      y = this.drawFuncionesTable(doc, marginL, y, contentW, detail.funciones);
+      y += 10;
 
       // —— Relacionamiento ——
-      y = this.drawSectionBar(
+      const relCols = [
+        { x: leftX, title: 'Interno', text: relInterno },
+        { x: rightX, title: 'Interinstitucional / externo', text: relExterno },
+      ];
+      const relH = this.measureTwoColumnPanels(doc, relCols, colW);
+      y = this.drawSectionStart(
         doc,
         marginL,
         y,
         'RELACIONAMIENTO Y COORDINACIÓN',
         contentW,
+        relH <= this.pageBodyHeight(doc) - 22 ? relH : 40,
       );
-      y += 6;
-      const relH = 58;
-      doc.roundedRect(leftX, y, colW, relH, 3).fill(C.panel);
-      doc.roundedRect(rightX, y, colW, relH, 3).fill(C.panel);
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(7.5)
-        .fillColor(C.navyMid)
-        .text('Interno', leftX + 8, y + 6, { width: colW - 16 });
-      doc.text('Interinstitucional / externo', rightX + 8, y + 6, {
-        width: colW - 16,
-      });
-      doc
-        .font('Helvetica')
-        .fontSize(7)
-        .fillColor(C.text)
-        .text(relInterno, leftX + 8, y + 18, {
-          width: colW - 16,
-          height: relH - 24,
-          ellipsis: true,
-        });
-      doc.text(relExterno, rightX + 8, y + 18, {
-        width: colW - 16,
-        height: relH - 24,
-        ellipsis: true,
-      });
-      y += relH + 12;
+      y = this.drawTwoColumnPanels(doc, y, relCols, colW, contentW);
+      y += 12;
 
       // —— Footer ——
       const footerH = 78;
-      const footerY = Math.max(y, pageH - footerH - 16);
+      y = this.ensureSpace(doc, y, footerH);
+      const footerY = Math.max(
+        y,
+        doc.page.height - doc.page.margins.bottom - footerH,
+      );
       doc.roundedRect(marginL, footerY, contentW, footerH, 3).fill(C.navy);
 
       const qrSize = 58;
@@ -384,14 +415,14 @@ export class UnidadPdfService {
       }
 
       doc
-        .font('Helvetica-Bold')
+        .font(this.fonts.bold)
         .fontSize(8)
         .fillColor(C.gold)
         .text('Verificación del documento', marginL + 12, footerY + 16, {
           width: contentW - qrSize - 36,
         });
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7)
         .fillColor('#CBD5E1')
         .text(
@@ -401,7 +432,7 @@ export class UnidadPdfService {
           { width: contentW - qrSize - 36 },
         );
       doc
-        .font('Helvetica')
+        .font(this.fonts.regular)
         .fontSize(7)
         .fillColor('#94A3B8')
         .text(
@@ -427,6 +458,38 @@ export class UnidadPdfService {
       if (existsSync(p)) return p;
     }
     return null;
+  }
+
+  private resolveFontPath(file: string): string | null {
+    const candidates = [
+      join(__dirname, '..', '..', '..', 'assets', 'fonts', file),
+      join(__dirname, '..', '..', 'assets', 'fonts', file),
+      join(process.cwd(), 'src', 'assets', 'fonts', file),
+      join(process.cwd(), 'assets', 'fonts', file),
+      join(process.cwd(), 'dist', 'assets', 'fonts', file),
+    ];
+    for (const p of candidates) {
+      if (existsSync(p)) return p;
+    }
+    return null;
+  }
+
+  /** fontkit llega como dependencia de pdfkit; se resuelve desde pdfkit para no depender del hoisting. */
+  private loadGlyphChecker(
+    fontPath: string,
+  ): ((codePoint: number) => boolean) | null {
+    try {
+      const requireFromPdfkit = createRequire(require.resolve('pdfkit'));
+      const fontkit = requireFromPdfkit('fontkit') as {
+        openSync(path: string): {
+          hasGlyphForCodePoint(codePoint: number): boolean;
+        };
+      };
+      const font = fontkit.openSync(fontPath);
+      return (cp) => font.hasGlyphForCodePoint(cp);
+    } catch {
+      return null;
+    }
   }
 
   private async buildQrPng(unidadId: number): Promise<Buffer | null> {
@@ -456,15 +519,86 @@ export class UnidadPdfService {
   ): number {
     const h = 16;
     doc.roundedRect(x, y, width, h, 2).fill(C.navy);
+    doc.rect(x, y, 4, h).fill(C.gold);
     doc
-      .rect(x, y, 4, h)
-      .fill(C.gold);
-    doc
-      .font('Helvetica-Bold')
+      .font(this.fonts.bold)
       .fontSize(8)
       .fillColor(C.white)
       .text(title, x + 10, y + 4, { width: width - 14 });
     return y + h;
+  }
+
+  private bottomLimit(doc: PDFKit.PDFDocument): number {
+    return doc.page.height - doc.page.margins.bottom;
+  }
+
+  private pageBodyHeight(doc: PDFKit.PDFDocument): number {
+    return this.bottomLimit(doc) - doc.page.margins.top;
+  }
+
+  /** Devuelve `y` si caben `needed` puntos; si no, abre una página nueva. */
+  private ensureSpace(
+    doc: PDFKit.PDFDocument,
+    y: number,
+    needed: number,
+  ): number {
+    if (y + needed <= this.bottomLimit(doc)) return y;
+    doc.addPage();
+    return doc.page.margins.top;
+  }
+
+  /** La barra exige espacio para algo de contenido para no quedar huérfana al pie. */
+  private drawSectionStart(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    title: string,
+    width: number,
+    minContent = 40,
+  ): number {
+    y = this.ensureSpace(doc, y, 16 + 6 + minContent);
+    return this.drawSectionBar(doc, x, y, title, width) + 6;
+  }
+
+  private drawPanelBox(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) {
+    doc.roundedRect(x, y, width, height, 3).fill(C.panel);
+    doc
+      .roundedRect(x, y, width, height, 3)
+      .strokeColor(C.line)
+      .lineWidth(0.6)
+      .stroke();
+  }
+
+  private measureMetaRow(
+    doc: PDFKit.PDFDocument,
+    label: string,
+    value: string,
+    width: number,
+  ): number {
+    doc.font(this.fonts.bold).fontSize(6.5);
+    const labelH = doc.heightOfString(label.toUpperCase(), { width });
+    doc.font(this.fonts.regular).fontSize(7.5);
+    const valueH = doc.heightOfString(value || '-', { width });
+    return labelH + 0.5 + valueH;
+  }
+
+  private measureMetaRows(
+    doc: PDFKit.PDFDocument,
+    rows: [string, string][],
+    width: number,
+  ): number {
+    const gaps = META_ROW_GAP * Math.max(rows.length - 1, 0);
+    return rows.reduce(
+      (sum, [label, value]) =>
+        sum + this.measureMetaRow(doc, label, value, width),
+      gaps,
+    );
   }
 
   private drawMetaRow(
@@ -474,26 +608,278 @@ export class UnidadPdfService {
     label: string,
     value: string,
     width: number,
-    maxLines = 2,
-  ) {
+  ): number {
     doc
-      .font('Helvetica-Bold')
+      .font(this.fonts.bold)
       .fontSize(6.5)
       .fillColor(C.muted)
       .text(label.toUpperCase(), x, y, { width });
     doc
-      .font('Helvetica')
+      .font(this.fonts.regular)
       .fontSize(7.5)
       .fillColor(C.text)
-      .text(value || '-', x, doc.y + 0.5, {
-        width,
-        height: maxLines * 9,
-        ellipsis: true,
+      .text(value || '-', x, doc.y + 0.5, { width });
+    return doc.y;
+  }
+
+  private drawMetaRows(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    rows: [string, string][],
+    width: number,
+  ): number {
+    rows.forEach(([label, value], i) => {
+      if (i > 0) y += META_ROW_GAP;
+      y = this.drawMetaRow(doc, x, y, label, value, width);
+    });
+    return y;
+  }
+
+  private drawMetaPanel(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    width: number,
+    rows: [string, string][],
+  ): number {
+    const pad = 8;
+    const inner = width - pad * 2;
+    const h = pad * 2 + this.measureMetaRows(doc, rows, inner);
+    if (h <= this.pageBodyHeight(doc)) {
+      y = this.ensureSpace(doc, y, h);
+      this.drawPanelBox(doc, x, y, width, h);
+      this.drawMetaRows(doc, x + pad, y + pad, rows, inner);
+      return y + h;
+    }
+    rows.forEach(([label, value]) => {
+      y = this.ensureSpace(doc, y, 40);
+      y = this.drawMetaRow(doc, x + pad, y, label, value, inner) + META_ROW_GAP;
+    });
+    return y;
+  }
+
+  private drawTextPanel(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    width: number,
+    text: string,
+    opts: { title?: string; fontSize: number; align?: 'left' | 'justify' },
+  ): number {
+    const pad = 8;
+    const inner = width - pad * 2;
+    const titleH = opts.title
+      ? doc
+          .font(this.fonts.bold)
+          .fontSize(7.5)
+          .heightOfString(opts.title, { width: inner }) + 4
+      : 0;
+    const textH = doc
+      .font(this.fonts.regular)
+      .fontSize(opts.fontSize)
+      .heightOfString(text, { width: inner, align: opts.align });
+    const h = pad * 2 + titleH + textH;
+    const fitsInPage = h <= this.pageBodyHeight(doc);
+
+    y = this.ensureSpace(doc, y, fitsInPage ? h : 40);
+    if (fitsInPage) this.drawPanelBox(doc, x, y, width, h);
+
+    let ty = y + pad;
+    if (opts.title) {
+      doc
+        .font(this.fonts.bold)
+        .fontSize(7.5)
+        .fillColor(C.navyMid)
+        .text(opts.title, x + pad, ty, { width: inner });
+      ty = doc.y + 4;
+    }
+    doc
+      .font(this.fonts.regular)
+      .fontSize(opts.fontSize)
+      .fillColor(C.text)
+      .text(text, x + pad, ty, { width: inner, align: opts.align });
+    return fitsInPage ? y + h : doc.y + pad;
+  }
+
+  private measureTwoColumnPanels(
+    doc: PDFKit.PDFDocument,
+    cols: { title: string; text: string }[],
+    colW: number,
+  ): number {
+    const pad = 8;
+    const inner = colW - pad * 2;
+    return Math.max(
+      ...cols.map((c) => {
+        const titleH = doc
+          .font(this.fonts.bold)
+          .fontSize(7.5)
+          .heightOfString(c.title, { width: inner });
+        const textH = doc
+          .font(this.fonts.regular)
+          .fontSize(7)
+          .heightOfString(c.text, { width: inner });
+        return pad * 2 + titleH + 4 + textH;
+      }),
+    );
+  }
+
+  private drawTwoColumnPanels(
+    doc: PDFKit.PDFDocument,
+    y: number,
+    cols: { x: number; title: string; text: string }[],
+    colW: number,
+    fullWidth: number,
+  ): number {
+    const pad = 8;
+    const inner = colW - pad * 2;
+    const h = this.measureTwoColumnPanels(doc, cols, colW);
+
+    if (h > this.pageBodyHeight(doc)) {
+      cols.forEach((c, i) => {
+        if (i > 0) y += 6;
+        y = this.drawTextPanel(doc, cols[0].x, y, fullWidth, c.text, {
+          title: c.title,
+          fontSize: 7,
+        });
       });
+      return y;
+    }
+
+    y = this.ensureSpace(doc, y, h);
+    cols.forEach((c) => {
+      this.drawPanelBox(doc, c.x, y, colW, h);
+      doc
+        .font(this.fonts.bold)
+        .fontSize(7.5)
+        .fillColor(C.navyMid)
+        .text(c.title, c.x + pad, y + pad, { width: inner });
+      doc
+        .font(this.fonts.regular)
+        .fontSize(7)
+        .fillColor(C.text)
+        .text(c.text, c.x + pad, doc.y + 4, { width: inner });
+    });
+    return y + h;
+  }
+
+  private drawFuncionesTable(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    width: number,
+    funciones?: { funcion: string; baseLegal?: string | null }[],
+  ): number {
+    const widths = [width * 0.06, width * 0.54, width * 0.4];
+    const pad = 4;
+    const headerH = 16;
+    const rows: string[][] = funciones?.length
+      ? funciones.map((f, i) => [
+          String(i + 1),
+          this.clean(f.funcion) || '-',
+          this.clean(f.baseLegal) || '-',
+        ])
+      : [['-', '-', '-']];
+
+    const drawColumnLines = (top: number, h: number, color: string) => {
+      let cx = x;
+      for (let i = 0; i < widths.length - 1; i++) {
+        cx += widths[i];
+        doc
+          .moveTo(cx, top)
+          .lineTo(cx, top + h)
+          .strokeColor(color)
+          .lineWidth(0.5)
+          .stroke();
+      }
+    };
+
+    const drawHeader = (top: number): number => {
+      doc.rect(x, top, width, headerH).fill(C.navy);
+      drawColumnLines(top, headerH, C.navyMid);
+      doc.font(this.fonts.bold).fontSize(7.5).fillColor(C.white);
+      let cx = x;
+      ['N°', 'Función', 'Base legal'].forEach((title, i) => {
+        doc.text(title, cx + pad, top + 5, {
+          width: widths[i] - pad * 2,
+          align: i === 0 ? 'center' : 'left',
+        });
+        cx += widths[i];
+      });
+      return top + headerH;
+    };
+
+    y = this.ensureSpace(doc, y, headerH + 24);
+    y = drawHeader(y);
+
+    rows.forEach((cells, r) => {
+      doc.font(this.fonts.regular).fontSize(7);
+      const rowH =
+        Math.max(
+          ...cells.map((c, i) =>
+            doc.heightOfString(c, { width: widths[i] - pad * 2 }),
+          ),
+        ) +
+        pad * 2;
+
+      if (y + rowH > this.bottomLimit(doc)) {
+        doc.addPage();
+        y = drawHeader(doc.page.margins.top);
+      }
+
+      doc.rect(x, y, width, rowH).fill(r % 2 === 0 ? C.panel : C.white);
+      doc.rect(x, y, width, rowH).strokeColor(C.line).lineWidth(0.5).stroke();
+      drawColumnLines(y, rowH, C.line);
+
+      doc.font(this.fonts.regular).fontSize(7).fillColor(C.text);
+      let cx = x;
+      cells.forEach((c, i) => {
+        doc.text(c, cx + pad, y + pad, {
+          width: widths[i] - pad * 2,
+          align: i === 0 ? 'center' : 'left',
+        });
+        cx += widths[i];
+      });
+      y += rowH;
+    });
+
+    return y;
   }
 
   private upper(value: string): string {
-    return (value || '').toString().trim().toUpperCase();
+    return this.clean(value).toUpperCase();
+  }
+
+  /** Deja el texto en caracteres que la fuente activa puede dibujar; lo que no, se sustituye o se descarta. */
+  private clean(value: string | null | undefined): string {
+    const text = (value ?? '')
+      .toString()
+      .normalize('NFC')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\t/g, ' ')
+      .replace(INVISIBLE_CHARS, '');
+
+    const supported = Array.from(text)
+      .map((ch) => {
+        if (ch === '\n') return ch;
+        const cp = ch.codePointAt(0)!;
+        if (this.hasGlyph) {
+          return this.hasGlyph(cp) ? ch : (ASCII_FALLBACKS[ch] ?? '');
+        }
+        return ASCII_FALLBACKS[ch] ?? ch;
+      })
+      .join('');
+
+    const encodable = this.hasGlyph
+      ? supported
+      : supported.replace(WIN_ANSI_UNSUPPORTED, '');
+
+    return encodable
+      .split('\n')
+      .map((line) => line.replace(/ {2,}/g, ' ').trim())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   private formatDate(value: Date | string | null | undefined): string {
@@ -506,64 +892,52 @@ export class UnidadPdfService {
     return `${dd}/${mm}/${yyyy}`;
   }
 
-  private joinNames(
+  /** La dependencia lineal (padre) ya se muestra aparte; no se repite como funcional. */
+  private dependenciasSinPadre(
+    detail: UnidadPdfDetail,
+  ): NonNullable<UnidadPdfDetail['dependenciasFuncionales']> {
+    const parentId =
+      detail.parent?.id != null ? Number(detail.parent.id) : null;
+    const seen = new Set<number>();
+    return (detail.dependenciasFuncionales || []).filter((d) => {
+      if (d.id == null) return true;
+      const id = Number(d.id);
+      if (id === parentId || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
+
+  private bulletList(items: string[]): string {
+    const blocks = items
+      .map((item) => {
+        const lines = this.upper(item).split('\n').filter(Boolean);
+        const ownMarkers = lines.length > 0 && LIST_MARKER.test(lines[0]);
+        return lines
+          .map((line, i) => {
+            if (i === 0) return ownMarkers ? line : `• ${line}`;
+            return ownMarkers && LIST_MARKER.test(line) ? line : `   ${line}`;
+          })
+          .join('\n');
+      })
+      .filter(Boolean);
+    return blocks.length ? blocks.join('\n') : '-';
+  }
+
+  private listNames(
     items?: { nombre?: string | null; sigla?: string | null }[],
   ): string {
-    if (!items?.length) return '-';
-    return this.upper(
-      items
-        .map((i) => i.nombre || i.sigla || '')
-        .filter(Boolean)
-        .join(', '),
+    return this.bulletList(
+      (items || []).map((i) => {
+        const nombre = (i.nombre || '').trim();
+        const sigla = (i.sigla || '').trim();
+        if (!nombre) return sigla;
+        return sigla && sigla !== nombre ? `${nombre} (${sigla})` : nombre;
+      }),
     );
   }
 
-  private joinDescripciones(
-    items?: { descripcion?: string | null }[],
-  ): string {
-    if (!items?.length) return '-';
-    return this.upper(
-      items
-        .map((i) => i.descripcion || '')
-        .filter(Boolean)
-        .join('; '),
-    );
-  }
-
-  private formatFunciones(
-    funciones?: { funcion: string; baseLegal?: string | null }[],
-  ): string {
-    if (!funciones?.length) return '-';
-    return funciones
-      .map((f, i) => `${i + 1}. ${f.funcion}`)
-      .join('\n');
-  }
-
-  /**
-   * Columna "Base legal": una línea por función (alineada al listado)
-   * y, si existe, la base legal general de la unidad al inicio.
-   */
-  private formatBaseLegal(
-    funciones?: { funcion: string; baseLegal?: string | null }[],
-    unidadBaseLegal?: string | null,
-  ): string {
-    const parts: string[] = [];
-    const general = (unidadBaseLegal || '').toString().trim();
-    if (general) {
-      parts.push(general);
-    }
-    if (funciones?.length) {
-      const perFuncion = funciones
-        .map((f, i) => {
-          const bl = (f.baseLegal || '').toString().trim();
-          return bl ? `${i + 1}. ${bl}` : null;
-        })
-        .filter((line): line is string => Boolean(line));
-      if (perFuncion.length) {
-        if (general) parts.push(''); // separador visual
-        parts.push(...perFuncion);
-      }
-    }
-    return parts.length ? parts.join('\n') : '-';
+  private listDescripciones(items?: { descripcion?: string | null }[]): string {
+    return this.bulletList((items || []).map((i) => i.descripcion || ''));
   }
 }

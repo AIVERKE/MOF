@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAllUnidadesMofStore } from '../../stores/unidades_mof'
 import { useAllTiposMofStore } from "@/stores/tipos_mof";
@@ -14,6 +14,7 @@ import UnidadDeleteDialog from "./unidades/UnidadDeleteDialog.vue";
 import UnidadDetailsDrawer from "./unidades/UnidadDetailsDrawer.vue";
 import UnidadActionsMenu from "./unidades/UnidadActionsMenu.vue";
 import MofReportMenu from "./common/MofReportMenu.vue";
+import MofLoadingOverlay from "./common/MofLoadingOverlay.vue";
 import HighlightedText from "@/components/HighlightedText.vue";
 import { exportListarUnidadesPdf, exportToCsv } from "@/utils/mofReport";
 
@@ -75,6 +76,7 @@ const {
   formData, 
   isEditMode, 
   formValid, 
+  saving: savingUnidad,
   openForm: openUnitForm, 
   saveUnidad,
   addFuncion,
@@ -99,6 +101,9 @@ const search = ref('')
 const addDialog = ref(false)
 const deleteDialog = ref(false)
 const selectedNode = ref(null)
+const isListLoading = ref(true)
+const isExportingList = ref(false)
+const exportListMessage = ref('')
 
 const headers = [
   { 
@@ -107,12 +112,13 @@ const headers = [
     align: 'start', 
     sortable: true,
     sort: (a, b) => compareCodigos(a, b),
+    minWidth: '130px',
   },
-  { title: 'UNIDAD ADMINISTRATIVA', key: 'display_name', align: 'start', sortable: true },
-  { title: 'JERARQUÍA / CLASE', key: 'clase', align: 'start', sortable: true },
-  { title: 'NIVEL', key: 'nivel', align: 'start', sortable: true },
-  { title: 'ESTADO', key: 'oficial', align: 'center', sortable: true },
-  { title: 'ACCIONES', key: 'actions', align: 'center', sortable: false },
+  { title: 'UNIDAD ADMINISTRATIVA', key: 'display_name', align: 'start', sortable: true, minWidth: '300px' },
+  { title: 'JERARQUÍA / CLASE', key: 'clase', align: 'start', sortable: true, minWidth: '160px' },
+  { title: 'NIVEL', key: 'nivel', align: 'start', sortable: true, minWidth: '120px' },
+  { title: 'ESTADO', key: 'oficial', align: 'center', sortable: true, minWidth: '100px' },
+  { title: 'ACCIONES', key: 'actions', align: 'center', sortable: false, minWidth: '110px' },
 ]
 
 const vistaModo = ref('analitico')
@@ -183,9 +189,13 @@ const activeFiltersList = computed(() => {
   return filters;
 });
 
-const handleExportPdf = () => {
+const handleExportPdf = async () => {
+  isExportingList.value = true;
+  exportListMessage.value = "Generando reporte PDF del listado...";
+  loadingReport.value = true;
   try {
-    loadingReport.value = true;
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     exportListarUnidadesPdf({
       title: "Listado de Unidades Administrativas",
       unidades: filteredUnidades.value,
@@ -196,16 +206,21 @@ const handleExportPdf = () => {
       isOficialCheck: checkOficial,
       isColorblind: isColorblind.value,
     });
-  } catch {
-    // Silently handled in UI via loading state
+  } catch (e) {
+    mostrar("Error al exportar PDF: " + (e?.message || e), "error");
   } finally {
+    isExportingList.value = false;
     loadingReport.value = false;
   }
 };
 
-const handleExportCsv = () => {
+const handleExportCsv = async () => {
+  isExportingList.value = true;
+  exportListMessage.value = "Generando archivo CSV del listado...";
+  loadingReport.value = true;
   try {
-    loadingReport.value = true;
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     const columns = [
       { header: "CÓDIGO", key: "codigo" },
       { header: "UNIDAD ADMINISTRATIVA", getter: (u) => u.display_name || u.nombre || u.denominacion || "" },
@@ -224,9 +239,10 @@ const handleExportCsv = () => {
       columns,
       rows: filteredUnidades.value,
     });
-  } catch {
-    // Silently handled in UI via loading state
+  } catch (e) {
+    mostrar("Error al exportar CSV: " + (e?.message || e), "error");
   } finally {
+    isExportingList.value = false;
     loadingReport.value = false;
   }
 };
@@ -234,13 +250,20 @@ const handleExportCsv = () => {
 const route = useRoute();
 
 onMounted(async () => {
-  await Promise.all([
-    unidadesStore.getFetchUnidades({ force: true }),
-    prefetchCatalogs(),
-  ]);
-  const unidadId = route.query.unidad;
-  if (unidadId != null && String(unidadId).trim() !== "") {
-    await showDetails(unidadId);
+  isListLoading.value = true;
+  try {
+    await Promise.all([
+      unidadesStore.getFetchUnidades({ force: true }),
+      prefetchCatalogs(),
+    ]);
+    const unidadId = route.query.unidad;
+    if (unidadId != null && String(unidadId).trim() !== "") {
+      await showDetails(unidadId);
+    }
+  } catch (e) {
+    mostrar("Error al cargar unidades", "error");
+  } finally {
+    isListLoading.value = false;
   }
 });
 
@@ -280,9 +303,15 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
       </div>
     </div>
 
-    <v-progress-linear v-if="unidadesStore.loading" indeterminate color="primary" class="mb-4 rounded-pill" height="6" />
+    <v-progress-linear v-if="unidadesStore.loading || isListLoading" indeterminate color="primary" class="mb-4 rounded-pill" height="6" />
 
-    <v-card class="rounded-xl border-0 shadow-sm" elevation="3">
+    <v-card class="rounded-xl border-0 shadow-sm position-relative overflow-hidden" elevation="3">
+      <MofLoadingOverlay
+        :model-value="isExportingList"
+        :contained="true"
+        :message="exportListMessage"
+        submessage="Procesando listado institucional..."
+      />
       <v-card-title class="pa-5 d-flex align-center flex-wrap gap-4">
         <v-text-field
           v-model="search"
@@ -351,6 +380,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
         />
         
         <v-btn
+          v-if="!unidadesStore.unidades.length"
           color="primary"
           variant="flat"
           density="comfortable"
@@ -358,8 +388,8 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
           class="rounded-lg font-weight-bold px-4"
           @click="openForm(null, false)"
         >
-          Nueva Unidad
-          <v-tooltip activator="parent" location="top">Registrar una nueva unidad administrativa</v-tooltip>
+          Añadir Raíz
+          <v-tooltip activator="parent" location="top">Crear la primera unidad raíz</v-tooltip>
         </v-btn>
       </v-card-title>
 
@@ -367,7 +397,11 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 
       <!-- VISTA DE TARJETAS APILABLES EN MÓVIL / TABLET -->
       <div v-if="isCardView" class="pa-4 bg-slate-50">
-        <v-row v-if="filteredUnidades.length" dense>
+        <div v-if="unidadesStore.loading || isListLoading" class="text-center py-12">
+          <v-progress-circular indeterminate color="primary" size="44" width="4" class="mb-3" />
+          <div class="text-body-2 font-weight-medium text-slate-600">Cargando unidades...</div>
+        </div>
+        <v-row v-else-if="filteredUnidades.length" dense>
           <v-col
             v-for="item in filteredUnidades"
             :key="item.id"
@@ -429,25 +463,28 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
                   </div>
                 </div>
 
-                <div class="text-body-2 font-weight-bold text-slate-900 mb-2">
+                <div class="text-body-2 font-weight-bold text-slate-900 mb-2 d-flex align-center flex-wrap gap-1">
                   <HighlightedText :text="item.display_name" :query="search" />
                   <v-chip
                     v-if="getCleanSigla(item.sigla, item.codigo) !== '-'"
-                    size="x-small"
+                    size="small"
                     label
                     variant="outlined"
                     color="primary"
-                    class="font-weight-black ml-1 text-xxs"
+                    class="font-weight-black chip-sigla"
                   >
                     {{ getCleanSigla(item.sigla, item.codigo) }}
+                    <v-tooltip activator="parent" location="top">
+                      Sigla: {{ getCleanSigla(item.sigla, item.codigo) }}
+                    </v-tooltip>
                   </v-chip>
                 </div>
 
                 <div class="d-flex align-center flex-wrap gap-1 mt-2">
                   <v-chip
-                    size="x-small"
+                    size="small"
                     label
-                    class="font-weight-bold"
+                    class="font-weight-bold chip-clase"
                     :style="{
                       backgroundColor: resolveClaseColor(item.clase),
                       color: getContrastingTextColor(resolveClaseColor(item.clase)),
@@ -460,7 +497,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
                     label
                     variant="tonal"
                     color="indigo-darken-2"
-                    class="font-weight-bold"
+                    class="font-weight-bold chip-nivel"
                   >
                     {{ resolveNivel(item.nivel) }}
                   </v-chip>
@@ -481,6 +518,8 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
         :headers="headers"
         :items="filteredUnidades"
         :search="search"
+        :loading="unidadesStore.loading || isListLoading"
+        loading-text="Cargando unidades administrativas..."
         hover
         :density="tableDensity"
         class="bg-transparent"
@@ -501,10 +540,20 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
             <!-- Custom Slot: Nombre -->
             <td class="text-start">
               <div class="py-2">
-                <div class="text-body-2 font-weight-bold text-slate-800 d-flex align-center gap-1">
+                <div class="text-body-2 font-weight-bold text-slate-800 d-flex align-center flex-wrap gap-1">
                   <HighlightedText :text="item.display_name" :query="search" />
-                  <v-chip v-if="getCleanSigla(item.sigla, item.codigo) !== '-'" size="x-small" label variant="outlined" color="primary" class="font-weight-black ml-1 text-xxs">
+                  <v-chip
+                    v-if="getCleanSigla(item.sigla, item.codigo) !== '-'"
+                    size="small"
+                    label
+                    variant="outlined"
+                    color="primary"
+                    class="font-weight-black ml-1 chip-sigla"
+                  >
                     {{ getCleanSigla(item.sigla, item.codigo) }}
+                    <v-tooltip activator="parent" location="top">
+                      Sigla: {{ getCleanSigla(item.sigla, item.codigo) }}
+                    </v-tooltip>
                   </v-chip>
                 </div>
                 <div class="text-xxs text-grey-darken-1 text-uppercase">{{ item.tipo }}</div>
@@ -514,12 +563,15 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
             <!-- Custom Slot: Clase -->
             <td class="text-start">
               <v-chip 
-                size="x-small" 
+                size="small" 
                 label 
-                class="font-weight-bold" 
+                class="font-weight-bold chip-clase" 
                 :style="{ backgroundColor: resolveClaseColor(item.clase), color: getContrastingTextColor(resolveClaseColor(item.clase)) }"
               >
                 {{ resolveClase(item.clase) }}
+                <v-tooltip activator="parent" location="top">
+                  {{ resolveClase(item.clase) }}
+                </v-tooltip>
               </v-chip>
             </td>
 
@@ -571,7 +623,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
 
     <!-- COMPONENTES MODULARES -->
     <UnidadFormDialog
-      v-model="addDialog" :form-data="formData" :is-edit-mode="isEditMode" :selected-node="selectedNode" v-model:form-valid="formValid"
+      v-model="addDialog" :form-data="formData" :is-edit-mode="isEditMode" :selected-node="selectedNode" v-model:form-valid="formValid" :saving="savingUnidad"
       @confirm="confirmAddItem" @add-funcion="({ funcion, baseLegal }) => addFuncion(funcion, baseLegal)"
       @edit-funcion="({ index, funcion, baseLegal }) => updateFuncion(index, funcion, baseLegal)" @remove-funcion="(index) => removeFuncion(index)"
       @mover-arriba="(index) => moverFuncionArriba(index)" @mover-abajo="(index) => moverFuncionAbajo(index)"
@@ -580,6 +632,7 @@ const { confirmAddItem, confirmDelete } = useUnidadActions({
     <UnidadDeleteDialog v-model="deleteDialog" :nombre-unidad="selectedNode?.nombre || selectedNode?.denominacion" @confirm="confirmDelete" />
 
     <UnidadDetailsDrawer
+      v-if="detailsDrawer"
       v-model="detailsDrawer"
       :detail-data="detailData"
       :loading="loadingDetail"

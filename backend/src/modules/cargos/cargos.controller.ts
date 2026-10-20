@@ -5,13 +5,19 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CargosService } from './cargos.service';
-import { CargoDto, CargoSetParentDto, SetCargoDto } from './dto/cargo.dto';
+import {
+  CargoDto,
+  CargoSetParentDto,
+  SetCargoDto,
+  UpdateCargoUnidadDto,
+} from './dto/cargo.dto';
 import { ResultResponse } from '../../common/dto/result-response';
 import { RestMessages } from '../../common/constants/rest-messages';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -56,10 +62,7 @@ export class CargosController {
   @Put('cargos/:id')
   @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({ summary: 'Actualizar cargo' })
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: CargoDto,
-  ) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: CargoDto) {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
       await this.cargosService.update(id, dto),
@@ -78,7 +81,9 @@ export class CargosController {
 
   @Put('cargos/:id/setparent')
   @Roles('ADMIN', 'OPERADOR')
-  @ApiOperation({ summary: 'Cambiar cargo padre (escribe historial de jerarquía)' })
+  @ApiOperation({
+    summary: 'Cambiar cargo padre (escribe historial de jerarquía)',
+  })
   async setParent(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CargoSetParentDto,
@@ -113,11 +118,27 @@ export class CargosController {
 
   @Delete(':id/personal')
   @Roles('ADMIN', 'OPERADOR')
-  @ApiOperation({ summary: 'Quitar todas las asignaciones de personal de la unidad (batch)' })
+  @ApiOperation({
+    summary: 'Quitar todas las asignaciones de personal de la unidad (batch)',
+  })
   async removerTodo(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
       await this.cargosService.removerTodoPersonal(id),
+    );
+  }
+
+  @Patch(':id/personal/:assignmentId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Actualizar el nivel del cargo en la unidad' })
+  async actualizarAsignacion(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('assignmentId', ParseIntPipe) assignmentId: number,
+    @Body() dto: UpdateCargoUnidadDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.cargosService.actualizarAsignacion(id, assignmentId, dto),
     );
   }
 

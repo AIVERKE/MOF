@@ -58,7 +58,9 @@ describe('UsuariosService', () => {
       save: jest.fn(),
     };
     mofConfigRepo = {
-      findOne: jest.fn().mockResolvedValue({ passwordPolicy: { minLength: 6 } }),
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ passwordPolicy: { minLength: 6 } }),
     };
     auditoria = { registrarCambio: jest.fn() };
 
