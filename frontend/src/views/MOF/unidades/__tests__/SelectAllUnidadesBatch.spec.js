@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { setActivePinia, createPinia } from "pinia";
 import SelectAllUnidades from "../SelectAllUnidades.vue";
@@ -278,6 +278,58 @@ describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
     expect(groupItems.some((g) => g.nombre.includes("Institutos"))).toBe(true);
   });
 
+  describe("grupos por Tipo funcional", () => {
+    beforeEach(() => {
+      const uStore = useAllUnidadesMofStore();
+      uStore.unidades = [
+        ...mockUnidades.map((u) => ({ ...u, tipo: "Sustantivo (Académico)" })),
+        { id: 401, nombre: "DIVISION DE PERSONAL", tipoUnidad: 23, clase: "DIVISIONES", tipo: "Administrativo" },
+        { id: 402, nombre: "DIVISION DE TESORO", tipoUnidad: 23, clase: "DIVISIONES", tipo: "Administrativo" },
+      ];
+    });
+
+    it("muestra el grupo de unidades administrativas en la barra rápida", () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      const toolbar = wrapper.find(".batch-groups-toolbar");
+      expect(toolbar.text()).toContain("Administrativas (0/2)");
+    });
+
+    it("selecciona todas las unidades administrativas y luego las quita", async () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [56], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      const btn = () =>
+        wrapper.findAll(".batch-groups-toolbar .batch-group-btn").find((b) => b.text().includes("Administrativas"));
+
+      await btn().trigger("click");
+      let emitted = wrapper.emitted("update:modelValue");
+      expect(emitted[emitted.length - 1][0]).toEqual([56, 401, 402]);
+
+      await wrapper.setProps({ modelValue: [56, 401, 402] });
+      await btn().trigger("click");
+      emitted = wrapper.emitted("update:modelValue");
+      expect(emitted[emitted.length - 1][0]).toEqual([56]);
+    });
+
+    it("incluye los grupos por tipo en el desplegable", () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      const items = wrapper.findComponent(".v-autocomplete-stub").props("items");
+      const keys = items.filter((i) => i.isGroup).map((i) => i.groupKey);
+      expect(keys).toContain("tipo:Administrativo");
+      expect(keys).toContain("tipo:Sustantivo (Académico)");
+    });
+  });
+
   it("clears all selections when clicking 'Limpiar todas'", async () => {
     const wrapper = mount(SelectAllUnidades, {
       props: {
@@ -295,5 +347,64 @@ describe("SelectAllUnidades - Batch Group Selection (S-MAU)", () => {
 
     const emitted = wrapper.emitted("update:modelValue");
     expect(emitted[emitted.length - 1][0]).toEqual([]);
+  });
+
+  describe("protecciones de UX", () => {
+    const manyIds = Array.from({ length: 12 }, (_, i) => 1000 + i);
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("pide confirmación antes de limpiar muchas unidades y respeta la cancelación", async () => {
+      const confirmSpy = vi.fn(() => false);
+      vi.stubGlobal("confirm", confirmSpy);
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: manyIds, type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      await wrapper.find(".batch-group-clear-btn").trigger("click");
+
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      expect(wrapper.emitted("update:modelValue")).toBeFalsy();
+    });
+
+    it("limpia tras confirmar", async () => {
+      vi.stubGlobal("confirm", vi.fn(() => true));
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: manyIds, type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      await wrapper.find(".batch-group-clear-btn").trigger("click");
+
+      const emitted = wrapper.emitted("update:modelValue");
+      expect(emitted[emitted.length - 1][0]).toEqual([]);
+    });
+
+    it("no ofrece el botón clearable del autocomplete cuando hay grupos", () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [56], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      expect(wrapper.findComponent(".v-autocomplete-stub").attributes("clearable")).toBe("false");
+    });
+
+    it("completar un grupo parcial no duplica las unidades ya elegidas", async () => {
+      const wrapper = mount(SelectAllUnidades, {
+        props: { modelValue: [56, 83], type: "autocomplete", enableBatchGroups: true },
+        global: { stubs },
+      });
+
+      const btn = wrapper
+        .findAll(".batch-groups-toolbar .batch-group-btn")
+        .find((b) => b.text().includes("Facultades"));
+      await btn.trigger("click");
+
+      const emitted = wrapper.emitted("update:modelValue");
+      const last = emitted[emitted.length - 1][0];
+      expect(last).toEqual([56, 83, 70]);
+      expect(new Set(last).size).toBe(last.length);
+    });
   });
 });

@@ -2,6 +2,7 @@
 import { ref, watch, computed } from "vue";
 import { rules, FEC_CREACION_MIN, fecCreacionMax } from "@/utils/rules";
 import { swatches, getUsedColors } from "@/utils/mofHelpers";
+import { toRelId } from "@/utils/mofMappers";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
 
@@ -117,19 +118,27 @@ watch(
 const nuevaRelacionExterna = ref("");
 
 const internalRelUnitIds = computed({
-  get: () =>
-    (props.formData.relacionesInternas || []).map((r) =>
-      typeof r === "object" ? r.relacionadaId || r.id : r,
+  get: () => [
+    ...new Set(
+      (props.formData.relacionesInternas || [])
+        .map((r) => toRelId(typeof r === "object" && r !== null ? r.relacionadaId : r))
+        .filter((id) => id != null),
     ),
+  ],
   set: (ids) => {
-    props.formData.relacionesInternas = (ids || []).map((id) => {
-      const rawId = typeof id === "object" && id !== null ? (id.id || id.value) : id;
-      const idNum = Number(rawId);
+    const uniqueIds = [
+      ...new Set(
+        (ids || [])
+          .map((id) => toRelId(typeof id === "object" && id !== null ? (id.id ?? id.value) : id))
+          .filter((id) => id != null),
+      ),
+    ];
+    props.formData.relacionesInternas = uniqueIds.map((idNum) => {
       const encontrada = (unidadesStore.unidades || []).find(
-        (u) => String(u.id) === String(rawId),
+        (u) => Number(u.id) === idNum,
       );
       const existing = (props.formData.relacionesInternas || []).find(
-        (r) => String(typeof r === "object" ? r.relacionadaId || r.id : r) === String(rawId),
+        (r) => toRelId(typeof r === "object" && r !== null ? r.relacionadaId : r) === idNum,
       );
       return {
         id: existing?.id,
@@ -140,7 +149,7 @@ const internalRelUnitIds = computed({
           encontrada?.denominacion ||
           existing?.nombre ||
           existing?.denominacion ||
-          `Unidad ${rawId}`,
+          `Unidad ${idNum}`,
         sigla: encontrada?.sigla || existing?.sigla || "",
         tipo: existing?.tipo || null,
       };
