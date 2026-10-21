@@ -729,6 +729,42 @@ textarea.v-field__input {
   padding-top: 6px !important;
 }
 
+/* Áreas de texto (v-textarea): ajuste de línea multilínea, sin máscara y crecimiento dinámico (auto-grow) */
+.v-textarea,
+.v-textarea .v-field {
+  --v-field-padding-top: 10px !important;
+  --v-field-padding-bottom: 6px !important;
+}
+
+.v-textarea textarea,
+.v-textarea textarea.v-field__input,
+.v-textarea .v-field__input,
+.v-textarea .v-field--variant-underlined .v-field__input,
+.v-textarea .v-textarea__sizer {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  line-height: 1.5 !important;
+  padding-top: 10px !important;
+  padding-bottom: 6px !important;
+}
+
+.v-textarea--auto-grow textarea {
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+}
+
+.v-textarea .v-field__field {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 /* Etiqueta flotante en variante underlined: escala compacta y separación vertical para no solapar el valor ni el borde */
 .v-field--variant-underlined .v-label.v-field-label--floating,
 .v-field--variant-underlined .v-field-label--floating {
