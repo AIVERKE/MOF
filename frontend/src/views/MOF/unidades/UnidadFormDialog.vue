@@ -692,6 +692,8 @@ function moverAbajo(index) {
                 rows="2"
                 auto-grow
                 autocomplete="off"
+                class="unidad-objetivo-textarea"
+                data-test="unidad-objetivo-textarea"
               />
             </v-col>
           </v-row>
@@ -1362,5 +1364,38 @@ function moverAbajo(index) {
   box-shadow: 0 0 0 2px rgba(var(--v-theme-primary, 25, 118, 210), 0.45) !important;
   border-radius: 8px;
   transition: box-shadow 0.25s ease-in-out;
+}
+
+/* MOF-080: Ajuste de línea, sin máscara superior y auto-grow del objetivo institucional */
+.unidad-objetivo-textarea,
+.unidad-objetivo-textarea :deep(.v-field) {
+  --v-field-padding-top: 10px !important;
+  --v-field-padding-bottom: 6px !important;
+}
+
+.unidad-objetivo-textarea :deep(textarea),
+.unidad-objetivo-textarea :deep(.v-field__input),
+.unidad-objetivo-textarea :deep(.v-field--variant-underlined .v-field__input),
+.unidad-objetivo-textarea :deep(.v-textarea__sizer) {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  line-height: 1.5 !important;
+  padding-top: 10px !important;
+  padding-bottom: 6px !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+}
+
+.unidad-objetivo-textarea :deep(.v-field__field),
+.unidad-objetivo-textarea :deep(.v-field) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 </style>
