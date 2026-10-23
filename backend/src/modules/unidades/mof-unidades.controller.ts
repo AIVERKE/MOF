@@ -60,6 +60,12 @@ function resultSchema(data: Record<string, unknown>) {
 const inventarioSchema = { $ref: getSchemaPath(UnidadInventarioResponseDto) };
 const siaSchema = { $ref: getSchemaPath(UnidadSiaResponseDto) };
 
+const PLANIFICACION_DESCRIPTION =
+  'Bloque Planificación Estratégica: `planificacionEstrategicaAplica` (switch), `planificacionEstrategicaValor` (porcentaje 0–100, hasta 2 decimales) y `planificacionEstrategica` (texto). Con el switch en `true` el porcentaje y el texto son obligatorios (se aceptan los ya guardados si se omiten); con `false` se conservan pero no se exponen en el detalle.';
+
+const UNIDAD_BAD_REQUEST =
+  'Error de validación (`VALIDATION_FAILED`, p. ej. porcentaje fuera de 0–100 o con más de 2 decimales), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA` o `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción)';
+
 const SIA_BAD_REQUEST =
   'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';
 
@@ -166,8 +172,9 @@ export class MofUnidadesController {
   @ApiOperation({
     summary: 'Obtener unidad por ID',
     description:
-      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera.',
+      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado.',
   })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
@@ -177,7 +184,12 @@ export class MofUnidadesController {
 
   @Post('unidades')
   @Roles('ADMIN', 'OPERADOR')
-  @ApiOperation({ summary: 'Registrar unidad' })
+  @ApiOperation({
+    summary: 'Registrar unidad',
+    description: PLANIFICACION_DESCRIPTION,
+  })
+  @ApiBody({ type: UnidadDto })
+  @ApiBadRequestResponse({ description: UNIDAD_BAD_REQUEST })
   async create(@Body() dto: UnidadDto) {
     return ResultResponse.ok(
       RestMessages.PERSIST_SUCCESSFULLY,
@@ -187,7 +199,14 @@ export class MofUnidadesController {
 
   @Put('unidades/:id')
   @Roles('ADMIN', 'OPERADOR')
-  @ApiOperation({ summary: 'Actualizar unidad' })
+  @ApiOperation({
+    summary: 'Actualizar unidad',
+    description: `${PLANIFICACION_DESCRIPTION} Los campos omitidos no se modifican; la validación se hace sobre el estado final de la unidad.`,
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiBody({ type: UnidadDto })
+  @ApiBadRequestResponse({ description: UNIDAD_BAD_REQUEST })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UnidadDto) {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,

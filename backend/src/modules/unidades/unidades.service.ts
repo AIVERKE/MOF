@@ -464,7 +464,38 @@ export class UnidadesService {
       infraestructura: u.infraestructura ?? null,
       infraestructura_fisica: u.infraestructura ?? null,
       ubicacion: u.ubicacion ?? null,
+      // Con el switch apagado los valores se conservan pero no se exponen.
+      planificacionEstrategicaAplica: u.planificacionEstrategicaAplica ?? false,
+      planificacionEstrategicaValor: u.planificacionEstrategicaAplica
+        ? (u.planificacionEstrategicaValor ?? null)
+        : null,
+      planificacionEstrategica: u.planificacionEstrategicaAplica
+        ? (u.planificacionEstrategica ?? null)
+        : null,
     };
+  }
+
+  /**
+   * Fusiona el bloque de Planificación Estratégica del DTO sobre la unidad
+   * (`undefined` conserva, `null`/vacío limpia) y valida el estado final:
+   * si aplica, porcentaje y descripción son obligatorios.
+   */
+  private applyPlanificacionEstrategica(u: Unidad, dto: UnidadDto) {
+    if (dto.planificacionEstrategicaAplica !== undefined) {
+      u.planificacionEstrategicaAplica = dto.planificacionEstrategicaAplica;
+    }
+    if (dto.planificacionEstrategicaValor !== undefined) {
+      u.planificacionEstrategicaValor = dto.planificacionEstrategicaValor;
+    }
+    if (dto.planificacionEstrategica !== undefined) {
+      u.planificacionEstrategica = dto.planificacionEstrategica?.trim() || null;
+    }
+    if (
+      u.planificacionEstrategicaAplica &&
+      (u.planificacionEstrategicaValor == null || !u.planificacionEstrategica)
+    ) {
+      throwBusiness(ErrorCodes.PLANIFICACION_ESTRATEGICA_INCOMPLETA);
+    }
   }
 
   async lista() {
@@ -570,7 +601,11 @@ export class UnidadesService {
       cargaHorariaEjecutada: dto.cargaHorariaEjecutada ?? null,
       infraestructura: dto.infraestructura ?? null,
       ubicacion: dto.ubicacion ?? null,
+      planificacionEstrategicaAplica: false,
+      planificacionEstrategicaValor: null,
+      planificacionEstrategica: null,
     });
+    this.applyPlanificacionEstrategica(entity, dto);
     const saved = await this.unidadRepo.manager.transaction(async (m) => {
       const row = await m.save(entity);
       if (dto.dependenciasFuncionales?.length) {
@@ -669,6 +704,7 @@ export class UnidadesService {
     if (dto.infraestructura !== undefined)
       u.infraestructura = dto.infraestructura;
     if (dto.ubicacion !== undefined) u.ubicacion = dto.ubicacion;
+    this.applyPlanificacionEstrategica(u, dto);
     if (dto.tipo !== undefined) {
       u.tipoId = await this.resolveCatalogId(this.tipoRepo, dto.tipo);
     }

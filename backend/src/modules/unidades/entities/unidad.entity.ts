@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   Entity,
   Index,
@@ -6,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type ValueTransformer,
 } from 'typeorm';
 import { AuditableEntity } from '../../../common/entities/auditable.entity';
 import { CatalogoTipo } from '../../catalogos/entities/catalogo-tipo.entity';
@@ -19,11 +21,21 @@ import { UnidadRelacionInterna } from './unidad-relacion-interna.entity';
 import { UnidadInventario } from './unidad-inventario.entity';
 import { UnidadSia } from './unidad-sia.entity';
 
+/** El driver de pg devuelve `numeric` como string. */
+const numericTransformer: ValueTransformer = {
+  to: (value?: number | null) => value,
+  from: (value?: string | null) => (value == null ? null : Number(value)),
+};
+
 @Entity('unidad')
 @Index('IDX_unidad_codigo_activo', ['codigo'], {
   unique: true,
   where: '"deleted_at" IS NULL',
 })
+@Check(
+  'CHK_unidad_planificacion_estrategica_valor',
+  '"planificacion_estrategica_valor" IS NULL OR ("planificacion_estrategica_valor" >= 0 AND "planificacion_estrategica_valor" <= 100)',
+)
 export class Unidad extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
@@ -125,6 +137,28 @@ export class Unidad extends AuditableEntity {
 
   @Column({ name: 'ubicacion', type: 'text', nullable: true })
   ubicacion: string | null;
+
+  /** Switch del bloque: con `false` el valor y el texto se conservan pero no se exponen. */
+  @Column({
+    name: 'planificacion_estrategica_aplica',
+    type: 'boolean',
+    default: false,
+  })
+  planificacionEstrategicaAplica: boolean;
+
+  /** Porcentaje 0–100 de la planificación estratégica. */
+  @Column({
+    name: 'planificacion_estrategica_valor',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    transformer: numericTransformer,
+  })
+  planificacionEstrategicaValor: number | null;
+
+  @Column({ name: 'planificacion_estrategica', type: 'text', nullable: true })
+  planificacionEstrategica: string | null;
 
   @ManyToOne(() => Usuario, { nullable: true })
   @JoinColumn({ name: 'created_by' })

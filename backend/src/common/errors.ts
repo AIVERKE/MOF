@@ -18,6 +18,7 @@ export const ErrorCodes = {
   SIA_NO_PERTENECE_UNIDAD: 'SIA_NO_PERTENECE_UNIDAD',
   SIA_ID_DUPLICADO: 'SIA_ID_DUPLICADO',
   SIA_FILA_VACIA: 'SIA_FILA_VACIA',
+  PLANIFICACION_ESTRATEGICA_INCOMPLETA: 'PLANIFICACION_ESTRATEGICA_INCOMPLETA',
   USUARIO_CI_DUPLICADO: 'USUARIO_CI_DUPLICADO',
   PRIMER_ACCESO_REQUERIDO: 'PRIMER_ACCESO_REQUERIDO',
   PRIMER_ACCESO_INVALIDO: 'PRIMER_ACCESO_INVALIDO',
@@ -123,6 +124,12 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     code: ErrorCodes.SIA_FILA_VACIA,
     httpStatus: HttpStatus.BAD_REQUEST,
     message: 'La fila SIA debe tener al menos un valor',
+  },
+  PLANIFICACION_ESTRATEGICA_INCOMPLETA: {
+    code: ErrorCodes.PLANIFICACION_ESTRATEGICA_INCOMPLETA,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message:
+      'Si la Planificación Estratégica aplica, el porcentaje y la descripción son obligatorios',
   },
   USUARIO_CI_DUPLICADO: {
     code: ErrorCodes.USUARIO_CI_DUPLICADO,

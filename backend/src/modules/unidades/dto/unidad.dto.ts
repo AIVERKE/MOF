@@ -210,6 +210,61 @@ export class UnidadDto {
 
   @ApiPropertyOptional({
     description:
+      'Switch del bloque Planificación Estratégica. Con `true`, `planificacionEstrategicaValor` y `planificacionEstrategica` son obligatorios (se aceptan los ya guardados si se omiten); con `false` se conservan pero el detalle los devuelve `null`. Si se omite, no se modifica (en alta: `false`).',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  planificacionEstrategicaAplica?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Porcentaje de la Planificación Estratégica (0 a 100, hasta 2 decimales). Obligatorio si `planificacionEstrategicaAplica` es `true`. Si se omite, se conserva el valor guardado; `null` lo limpia.',
+    type: 'number',
+    format: 'float',
+    minimum: 0,
+    maximum: 100,
+    nullable: true,
+    example: 75.5,
+  })
+  @IsOptional()
+  @IsNumber(
+    { maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false },
+    {
+      message:
+        'El porcentaje de Planificación Estratégica debe ser un número con hasta 2 decimales',
+    },
+  )
+  @Min(0, {
+    message:
+      'El porcentaje de Planificación Estratégica debe ser mayor o igual a 0',
+  })
+  @Max(100, {
+    message:
+      'El porcentaje de Planificación Estratégica debe ser menor o igual a 100',
+  })
+  planificacionEstrategicaValor?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Descripción de la Planificación Estratégica. Obligatoria si `planificacionEstrategicaAplica` es `true`. Si se omite, se conserva el valor guardado; `null` o vacío la limpia.',
+    nullable: true,
+    example:
+      'Plan Estratégico Institucional 2026–2030, eje 2: gestión académica',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsOptional()
+  @IsString()
+  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
+    message:
+      'Planificación Estratégica contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
+  })
+  planificacionEstrategica?: string | null;
+
+  @ApiPropertyOptional({
+    description:
       'Relaciones internas: ids de unidad o { relacionadaId, tipo }. Se ignoran repetidos, la propia unidad e ids inexistentes.',
   })
   @IsOptional()
