@@ -121,6 +121,20 @@ Una fila de otra unidad responde 404 (`NOT_FOUND`); en una unidad que no es Carr
 
 Agregar una columna cuando se formalice la lista completa: columna en `UnidadSia` + migración, propiedad en `UnidadSiaDto` y `UnidadSiaResponseDto`, y su nombre en `SIA_CAMPOS` (`dto/unidad.dto.ts`). El servicio recorre `SIA_CAMPOS`, así que la lógica no cambia.
 
+### Sigla
+`sigla` es opcional en `POST`/`PUT /api/v1/mof/unidades/:id`. Su formato se valida con `SIGLA_REGEX` (`dto/unidad.dto.ts`), que el front debe replicar tal cual en `siglaFormato` (`frontend/src/utils/rules.js`):
+```js
+/^[\p{L}0-9.,'-]*$/u
+// "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')"
+```
+- Admite letras (con acentos y ñ), números, guion `-`, punto `.`, coma `,` y apóstrofo ASCII `'`.
+- Es una lista blanca: `@ # $ ^ * ~ { } [ ] | \ < >`, los espacios, `/`, `%`, `&`, `"` y el apóstrofo tipográfico `’` se rechazan.
+- Válidas: `SEC.GRAL`, `S.G.`, `CE-HCU`, `D'ALES`, `ADM,FIN`, `ÑANDÚ`.
+- Inválidas: `SEC@GRAL`, `SEC GRAL`, `SEC#1`, `A<B>`.
+- Una sigla inválida responde 400 con `errorCode: "VALIDATION_FAILED"`. `message` trae el texto anterior, unido con `, ` a otros errores de validación si los hay. No se guarda nada.
+- El servicio ignora sin error una sigla vacía, `-`, igual al código o solo numérica (ej. `1.2.3`). En el alta, la sigla se autogenera a partir del nombre; en la edición, se conserva la actual.
+- Se trunca a 32 caracteres y no es única.
+
 ### Planificación Estratégica
 
 Tres columnas en `unidad`: `planificacion_estrategica_aplica` (boolean, default `false`), `planificacion_estrategica_valor` (`numeric(5,2)`, CHECK 0–100) y `planificacion_estrategica` (text). Se envían en `POST`/`PUT /api/v1/mof/unidades/:id`:

@@ -64,7 +64,7 @@ const PLANIFICACION_DESCRIPTION =
   'Bloque Planificación Estratégica: `planificacionEstrategicaAplica` (switch), `planificacionEstrategicaValor` (porcentaje 0–100, hasta 2 decimales) y `planificacionEstrategica` (texto). Con el switch en `true` el porcentaje y el texto son obligatorios (se aceptan los ya guardados si se omiten); con `false` se conservan pero no se exponen en el detalle.';
 
 const UNIDAD_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`, p. ej. porcentaje fuera de 0–100 o con más de 2 decimales), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA` o `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción)';
+  'Error de validación (`VALIDATION_FAILED`, p. ej. sigla con caracteres no permitidos como `@ # $ ^ * ~ { } [ ] | \\ < >` o espacios, porcentaje fuera de 0–100 o con más de 2 decimales), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA` o `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción)';
 
 const SIA_BAD_REQUEST =
   'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';

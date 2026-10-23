@@ -21,6 +21,15 @@ import { IsFecCreacionInRange } from '../../../common/validators/fec-creacion-ra
 
 const MAX_RELACIONES = 1000;
 
+/**
+ * Sigla: letras (incluye acentos y ñ), números, guion, punto, coma y apóstrofo.
+ * Lista blanca: cualquier otro símbolo o espacio se rechaza. Debe coincidir con
+ * `siglaFormato` del front (`frontend/src/utils/rules.js`).
+ */
+export const SIGLA_REGEX = /^[\p{L}0-9.,'-]*$/u;
+export const SIGLA_FORMATO_MENSAJE =
+  "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')";
+
 export class UnidadDto {
   @ApiProperty()
   @IsString()
@@ -30,12 +39,15 @@ export class UnidadDto {
   })
   codigo: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      "Acrónimo de la unidad: letras, números, guion (-), punto (.), coma (,) y apóstrofo ('); cualquier otro símbolo o espacio responde `VALIDATION_FAILED`. Vacía, `-`, igual al código o solo numérica (ej. `1.2.3`) se ignora: en el alta se autogenera a partir del nombre y en la edición se conserva la actual. Se trunca a 32 caracteres y no es única.",
+    pattern: SIGLA_REGEX.source,
+    example: 'SEC.GRAL',
+  })
   @IsOptional()
   @IsString()
-  @Matches(/^[\p{L}0-9-]*$/u, {
-    message: 'La sigla solo puede contener letras, números y guiones',
-  })
+  @Matches(SIGLA_REGEX, { message: SIGLA_FORMATO_MENSAJE })
   sigla?: string;
 
   @ApiProperty()
