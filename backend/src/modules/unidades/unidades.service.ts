@@ -46,6 +46,10 @@ function toDateOnly(value?: string | null): string | null {
   return value.slice(0, 10);
 }
 
+export type ContadoresUso = { vistasCount: number; descargasCount: number };
+
+type ColumnaContador = 'vistas_count' | 'descargas_count';
+
 type RelItem =
   | number
   | string
@@ -472,6 +476,9 @@ export class UnidadesService {
       planificacionEstrategica: u.planificacionEstrategicaAplica
         ? (u.planificacionEstrategica ?? null)
         : null,
+      // Solo lectura: consultar el detalle no suma vistas (ver registrarVista).
+      vistasCount: Number(u.vistasCount ?? 0),
+      descargasCount: Number(u.descargasCount ?? 0),
     };
   }
 
@@ -1482,6 +1489,45 @@ export class UnidadesService {
     const row = await this.findSiaOrFail(unidadId, siaId);
     await this.siaRepo.softRemove(row);
     return true;
+  }
+
+  /** Suma una apertura de la ficha técnica (panel lateral). */
+  registrarVista(id: number): Promise<ContadoresUso> {
+    return this.incrementarContador(id, 'vistas_count');
+  }
+
+  /** Suma una descarga del PDF de la unidad. */
+  registrarDescarga(id: number): Promise<ContadoresUso> {
+    return this.incrementarContador(id, 'descargas_count');
+  }
+
+  /**
+   * Incremento atómico en una sola sentencia (seguro ante aperturas
+   * simultáneas). Va en SQL crudo a propósito: un `save`/`update` de TypeORM
+   * dispararía `OrganigramaSubscriber` (auditoría + aviso a la Gaceta) y
+   * movería `updated_at` en cada apertura. El CTE hace que `query()` devuelva
+   * las filas; con `UPDATE ... RETURNING` suelto el driver devuelve
+   * `[filas, cantidad]`.
+   */
+  private async incrementarContador(
+    id: number,
+    columna: ColumnaContador,
+  ): Promise<ContadoresUso> {
+    const rows: { vistas_count: number; descargas_count: number }[] =
+      await this.unidadRepo.query(
+        `WITH upd AS (
+           UPDATE "unidad" SET "${columna}" = "${columna}" + 1
+           WHERE "id" = $1 AND "deleted_at" IS NULL
+           RETURNING "vistas_count", "descargas_count"
+         )
+         SELECT * FROM upd`,
+        [id],
+      );
+    if (!rows.length) notFound(id);
+    return {
+      vistasCount: Number(rows[0].vistas_count),
+      descargasCount: Number(rows[0].descargas_count),
+    };
   }
 
   async findEntityForPdf(id: number) {

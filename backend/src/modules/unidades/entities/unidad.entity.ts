@@ -36,6 +36,8 @@ const numericTransformer: ValueTransformer = {
   'CHK_unidad_planificacion_estrategica_valor',
   '"planificacion_estrategica_valor" IS NULL OR ("planificacion_estrategica_valor" >= 0 AND "planificacion_estrategica_valor" <= 100)',
 )
+@Check('CHK_unidad_vistas_count', '"vistas_count" >= 0')
+@Check('CHK_unidad_descargas_count', '"descargas_count" >= 0')
 export class Unidad extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
@@ -159,6 +161,29 @@ export class Unidad extends AuditableEntity {
 
   @Column({ name: 'planificacion_estrategica', type: 'text', nullable: true })
   planificacionEstrategica: string | null;
+
+  /**
+   * Contadores de uso. Solo los modifica el UPDATE atómico de
+   * `UnidadesService.incrementarContador`: con `insert`/`update` en `false`, un
+   * `save()` de la unidad no los escribe ni pisa un incremento concurrente.
+   */
+  @Column({
+    name: 'vistas_count',
+    type: 'int',
+    default: 0,
+    insert: false,
+    update: false,
+  })
+  vistasCount: number;
+
+  @Column({
+    name: 'descargas_count',
+    type: 'int',
+    default: 0,
+    insert: false,
+    update: false,
+  })
+  descargasCount: number;
 
   @ManyToOne(() => Usuario, { nullable: true })
   @JoinColumn({ name: 'created_by' })

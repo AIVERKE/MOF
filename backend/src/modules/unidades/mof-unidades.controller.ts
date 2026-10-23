@@ -4,6 +4,9 @@ import {
   Delete,
   Get,
   Header,
+  HttpCode,
+  HttpStatus,
+  Logger,
   Param,
   ParseIntPipe,
   Post,
@@ -34,6 +37,7 @@ import { UnidadPdfService } from './unidad-pdf.service';
 import {
   DependenciaFuncionalDto,
   SetParentDto,
+  UnidadContadoresResponseDto,
   UnidadDto,
   UnidadFuncionDto,
   UnidadInventarioDto,
@@ -59,6 +63,9 @@ function resultSchema(data: Record<string, unknown>) {
 
 const inventarioSchema = { $ref: getSchemaPath(UnidadInventarioResponseDto) };
 const siaSchema = { $ref: getSchemaPath(UnidadSiaResponseDto) };
+const contadoresSchema = {
+  $ref: getSchemaPath(UnidadContadoresResponseDto),
+};
 
 const PLANIFICACION_DESCRIPTION =
   'Bloque Planificación Estratégica: `planificacionEstrategicaAplica` (switch), `planificacionEstrategicaValor` (porcentaje 0–100, hasta 2 decimales) y `planificacionEstrategica` (texto). Con el switch en `true` el porcentaje y el texto son obligatorios (se aceptan los ya guardados si se omiten); con `false` se conservan pero no se exponen en el detalle.';
@@ -74,11 +81,14 @@ const SIA_BAD_REQUEST =
   ResultResponse,
   UnidadInventarioResponseDto,
   UnidadSiaResponseDto,
+  UnidadContadoresResponseDto,
 )
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/v1/mof')
 export class MofUnidadesController {
+  private readonly log = new Logger(MofUnidadesController.name);
+
   constructor(
     private readonly unidadesService: UnidadesService,
     private readonly pdfService: UnidadPdfService,
@@ -140,8 +150,14 @@ export class MofUnidadesController {
 
   // PDF must be registered before :id to avoid conflict
   @Get('unidades/pdf/:id')
-  @ApiOperation({ summary: 'PDF de unidad' })
+  @ApiOperation({
+    summary: 'PDF de unidad',
+    description:
+      'Cada PDF generado con éxito suma 1 a `descargasCount` de la unidad (no suma vistas). Si la generación falla no se cuenta; si falla el conteo, el PDF se entrega igual.',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
   @ApiProduces('application/pdf')
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
   @Header('Content-Type', 'application/pdf')
   async pdf(
     @Param('id', ParseIntPipe) id: number,
@@ -149,12 +165,37 @@ export class MofUnidadesController {
   ) {
     const detail = await this.unidadesService.findEntityForPdf(id);
     const buffer = await this.pdfService.buildUnidadPdf(detail);
+    // Una métrica no puede impedir la descarga: si falla, se registra y sigue.
+    await this.unidadesService.registrarDescarga(id).catch((e: unknown) => {
+      this.log.error(
+        `no se pudo contar la descarga del PDF de la unidad ${id}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    });
     const safeCodigo = String(detail.codigo || id).replace(/[^\w.-]+/g, '_');
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="unidad-${safeCodigo}.pdf"`,
     });
     return new StreamableFile(buffer);
+  }
+
+  @Post('unidades/:id/vistas')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Registrar apertura de la ficha técnica',
+    description:
+      'Suma 1 a `vistasCount` de la unidad y devuelve ambos totales ya actualizados. Llamarlo solo al abrir el panel lateral de detalle: `GET /unidades/:id` no cuenta vistas porque también lo usan el formulario de edición y el organigrama. Disponible para cualquier usuario autenticado.',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiOkResponse({ schema: resultSchema(contadoresSchema) })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada o dada de baja' })
+  async registrarVista(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.registrarVista(id),
+    );
   }
 
   @Get('unidades/:id/descendientes-stats')
@@ -172,7 +213,7 @@ export class MofUnidadesController {
   @ApiOperation({
     summary: 'Obtener unidad por ID',
     description:
-      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado.',
+      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado. Incluye `vistasCount` y `descargasCount` (métricas de uso); consultar este endpoint no los incrementa.',
   })
   @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
   async findOne(@Param('id', ParseIntPipe) id: number) {

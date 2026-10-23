@@ -406,6 +406,24 @@ export class UnidadInventarioResponseDto {
   cantidad: number;
 }
 
+export class UnidadContadoresResponseDto {
+  @ApiProperty({
+    description: 'Aperturas de la ficha técnica (panel lateral)',
+    example: 12,
+    minimum: 0,
+    type: 'integer',
+  })
+  vistasCount: number;
+
+  @ApiProperty({
+    description: 'Descargas del reporte PDF de la unidad',
+    example: 3,
+    minimum: 0,
+    type: 'integer',
+  })
+  descargasCount: number;
+}
+
 /**
  * Columnas de la tabla SIA. Para agregar una: columna en `UnidadSia` (+ migración),
  * propiedad en `UnidadSiaDto`/`UnidadSiaResponseDto` y su nombre aquí.

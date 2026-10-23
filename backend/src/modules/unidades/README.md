@@ -135,6 +135,23 @@ Agregar una columna cuando se formalice la lista completa: columna en `UnidadSia
 - El servicio ignora sin error una sigla vacía, `-`, igual al código o solo numérica (ej. `1.2.3`). En el alta, la sigla se autogenera a partir del nombre; en la edición, se conserva la actual.
 - Se trunca a 32 caracteres y no es única.
 
+### Métricas de uso (vistas y descargas)
+Dos contadores por unidad en `unidad`: `vistas_count` (aperturas de la ficha técnica) y `descargas_count` (descargas del PDF). Son `integer NOT NULL DEFAULT 0` con CHECK `>= 0`, así que persisten en base de datos. Cada unidad tiene los suyos.
+
+- `GET /api/v1/mof/unidades/:id` devuelve `vistasCount` y `descargasCount`. **No incrementa nada**: lo usan también el formulario de edición y el organigrama.
+- `POST /api/v1/mof/unidades/:id/vistas` (sin body, cualquier usuario autenticado) suma 1 a las vistas y devuelve los dos totales ya actualizados:
+  ```json
+  { "status": true, "message": "Registrado exitosamente", "data": { "vistasCount": 13, "descargasCount": 3 } }
+  ```
+  Si la unidad no existe o fue dada de baja, responde 404 `NOT_FOUND`.
+- `GET /api/v1/mof/unidades/pdf/:id` suma 1 a las descargas cada vez que el PDF se genera con éxito. No suma vistas y si la generación falla no cuenta. Si falla el conteo, el PDF se entrega igual y el error queda en el log.
+- El incremento es un `UPDATE` atómico en SQL. Aperturas simultáneas no se pierden y el incremento no cambia `updated_at`. Tampoco genera auditoría ni avisos a la Gaceta (`OrganigramaSubscriber`). Las columnas tienen `insert`/`update: false`, así que guardar la unidad nunca las modifica.
+
+Integración en el front:
+- En `loadUnidadDetails` (`useUnidadDetails.js`), llamar a `POST …/vistas` junto con el `GET` del detalle y mostrar los totales que devuelve el POST, que ya incluyen la vista actual.
+- No llamarlo desde el formulario ni desde el organigrama.
+- Tras un `verReporte` exitoso, sumar 1 localmente a `descargasCount` del drawer o volver a pedir el detalle. El PDF no devuelve los totales.
+
 ### Planificación Estratégica
 
 Tres columnas en `unidad`: `planificacion_estrategica_aplica` (boolean, default `false`), `planificacion_estrategica_valor` (`numeric(5,2)`, CHECK 0–100) y `planificacion_estrategica` (text). Se envían en `POST`/`PUT /api/v1/mof/unidades/:id`:
