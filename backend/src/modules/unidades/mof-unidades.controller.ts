@@ -40,6 +40,8 @@ import {
   UnidadInventarioResponseDto,
   UnidadRelacionExternaDto,
   UnidadRelacionInternaDto,
+  UnidadSiaDto,
+  UnidadSiaResponseDto,
 } from './dto/unidad.dto';
 import { UpdateMofConfigDto } from './dto/mof-config.dto';
 import { ResultResponse } from '../../common/dto/result-response';
@@ -56,9 +58,17 @@ function resultSchema(data: Record<string, unknown>) {
 }
 
 const inventarioSchema = { $ref: getSchemaPath(UnidadInventarioResponseDto) };
+const siaSchema = { $ref: getSchemaPath(UnidadSiaResponseDto) };
+
+const SIA_BAD_REQUEST =
+  'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';
 
 @ApiTags('MOF - Unidades')
-@ApiExtraModels(ResultResponse, UnidadInventarioResponseDto)
+@ApiExtraModels(
+  ResultResponse,
+  UnidadInventarioResponseDto,
+  UnidadSiaResponseDto,
+)
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/v1/mof')
@@ -153,7 +163,11 @@ export class MofUnidadesController {
   }
 
   @Get('unidades/:id')
-  @ApiOperation({ summary: 'Obtener unidad por ID' })
+  @ApiOperation({
+    summary: 'Obtener unidad por ID',
+    description:
+      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera.',
+  })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
@@ -495,6 +509,110 @@ export class MofUnidadesController {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
       await this.unidadesService.removeInventario(id, inventarioId),
+    );
+  }
+
+  // --- SIA (solo Carreras) ---
+  @Get('unidades/:id/sia')
+  @ApiOperation({
+    summary: 'Listar filas SIA de la unidad',
+    description: 'Devuelve `[]` si la unidad no es de tipo Carrera.',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiOkResponse({ schema: resultSchema({ type: 'array', items: siaSchema }) })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
+  async listSia(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.listSia(id),
+    );
+  }
+
+  @Get('unidades/:id/sia/:siaId')
+  @ApiOperation({ summary: 'Obtener fila SIA de la unidad' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'siaId', description: 'ID de la fila SIA' })
+  @ApiOkResponse({ schema: resultSchema(siaSchema) })
+  @ApiNotFoundResponse({
+    description:
+      'Unidad no encontrada, la unidad no es Carrera o la fila no pertenece a la unidad',
+  })
+  async getSia(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('siaId', ParseIntPipe) siaId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.getSia(id, siaId),
+    );
+  }
+
+  @Post('unidades/:id/sia')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Agregar fila SIA a una Carrera' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiBody({ type: UnidadSiaDto })
+  @ApiCreatedResponse({ schema: resultSchema(siaSchema) })
+  @ApiBadRequestResponse({ description: SIA_BAD_REQUEST })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
+  async addSia(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UnidadSiaDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.addSia(id, dto),
+    );
+  }
+
+  @Put('unidades/:id/sia/:siaId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({
+    summary: 'Actualizar fila SIA de una Carrera',
+    description:
+      'Reemplaza la fila completa: las columnas omitidas quedan en `null`.',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'siaId', description: 'ID de la fila SIA' })
+  @ApiBody({ type: UnidadSiaDto })
+  @ApiOkResponse({ schema: resultSchema(siaSchema) })
+  @ApiBadRequestResponse({ description: SIA_BAD_REQUEST })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o la fila no pertenece a la unidad',
+  })
+  async updateSia(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('siaId', ParseIntPipe) siaId: number,
+    @Body() dto: UnidadSiaDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.updateSia(id, siaId, dto),
+    );
+  }
+
+  @Delete('unidades/:id/sia/:siaId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Eliminar fila SIA (borrado lógico)' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'siaId', description: 'ID de la fila SIA' })
+  @ApiOkResponse({ schema: resultSchema({ type: 'boolean', example: true }) })
+  @ApiBadRequestResponse({
+    description: '`SIA_SOLO_CARRERA`: la unidad no es de tipo Carrera',
+  })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o la fila no pertenece a la unidad',
+  })
+  async removeSia(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('siaId', ParseIntPipe) siaId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.removeSia(id, siaId),
     );
   }
 }

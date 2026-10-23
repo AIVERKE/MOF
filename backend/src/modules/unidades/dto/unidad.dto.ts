@@ -233,6 +233,18 @@ export class UnidadDto {
   @ValidateNested({ each: true })
   @Type(() => UnidadInventarioItemDto)
   inventarios?: UnidadInventarioItemDto[];
+
+  @ApiPropertyOptional({
+    type: () => [UnidadSiaItemDto],
+    description:
+      'Filas SIA de la unidad (solo unidades de tipo Carrera). Misma convención que `inventarios`: filas con `id` se actualizan, filas sin `id` se crean y las vigentes que no se envían se dan de baja. Si se omite el campo, no se modifica. Enviar filas en una unidad que no es Carrera responde `SIA_SOLO_CARRERA`; `[]` se ignora.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
+  @ValidateNested({ each: true })
+  @Type(() => UnidadSiaItemDto)
+  sia?: UnidadSiaItemDto[];
 }
 
 export class SetParentDto {
@@ -325,4 +337,77 @@ export class UnidadInventarioResponseDto {
 
   @ApiProperty({ example: 3 })
   cantidad: number;
+}
+
+/**
+ * Columnas de la tabla SIA. Para agregar una: columna en `UnidadSia` (+ migración),
+ * propiedad en `UnidadSiaDto`/`UnidadSiaResponseDto` y su nombre aquí.
+ */
+export const SIA_CAMPOS = ['aprobados', 'reprobados', 'matriculados'] as const;
+export type SiaCampo = (typeof SIA_CAMPOS)[number];
+
+export class UnidadSiaDto {
+  @ApiPropertyOptional({
+    description: 'Cantidad de estudiantes aprobados',
+    example: 120,
+    minimum: 0,
+    nullable: true,
+    type: 'integer',
+  })
+  @IsOptional()
+  @IsInt({ message: 'Aprobados debe ser un número entero' })
+  @Min(0, { message: 'Aprobados debe ser mayor o igual a 0' })
+  @Max(MAX_CANTIDAD)
+  aprobados?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Cantidad de estudiantes reprobados',
+    example: 30,
+    minimum: 0,
+    nullable: true,
+    type: 'integer',
+  })
+  @IsOptional()
+  @IsInt({ message: 'Reprobados debe ser un número entero' })
+  @Min(0, { message: 'Reprobados debe ser mayor o igual a 0' })
+  @Max(MAX_CANTIDAD)
+  reprobados?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Cantidad de estudiantes matriculados',
+    example: 150,
+    minimum: 0,
+    nullable: true,
+    type: 'integer',
+  })
+  @IsOptional()
+  @IsInt({ message: 'Matriculados debe ser un número entero' })
+  @Min(0, { message: 'Matriculados debe ser mayor o igual a 0' })
+  @Max(MAX_CANTIDAD)
+  matriculados?: number | null;
+}
+
+export class UnidadSiaItemDto extends UnidadSiaDto {
+  @ApiPropertyOptional({
+    description: 'ID de la fila SIA existente; omitir para crear una nueva',
+    example: 7,
+  })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  id?: number;
+}
+
+export class UnidadSiaResponseDto {
+  @ApiProperty({ example: 7 })
+  id: number;
+
+  @ApiProperty({ example: 120, nullable: true, type: 'integer' })
+  aprobados: number | null;
+
+  @ApiProperty({ example: 30, nullable: true, type: 'integer' })
+  reprobados: number | null;
+
+  @ApiProperty({ example: 150, nullable: true, type: 'integer' })
+  matriculados: number | null;
 }

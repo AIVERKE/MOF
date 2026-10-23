@@ -110,6 +110,7 @@ function buildService(
     unused,
     unused,
     db.inventarioRepo as unknown as Repository<UnidadInventario>,
+    unused,
   );
 }
 

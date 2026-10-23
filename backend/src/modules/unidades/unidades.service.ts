@@ -6,16 +6,19 @@ import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
 import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity';
 import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity';
 import { UnidadInventario } from './entities/unidad-inventario.entity';
+import { UnidadSia } from './entities/unidad-sia.entity';
 import { CatalogoTipo } from '../catalogos/entities/catalogo-tipo.entity';
 import { CatalogoNivel } from '../catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../catalogos/entities/catalogo-relacion.entity';
 import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
+import { esClaseCarrera } from '../catalogos/clase-carrera';
 import {
   MofConfig,
   type MofConfigDefaults,
 } from './entities/mof-config.entity';
 import {
   DependenciaFuncionalDto,
+  SIA_CAMPOS,
   SetParentDto,
   UnidadDto,
   UnidadFuncionDto,
@@ -23,6 +26,8 @@ import {
   UnidadInventarioItemDto,
   UnidadRelacionExternaDto,
   UnidadRelacionInternaDto,
+  UnidadSiaDto,
+  UnidadSiaItemDto,
 } from './dto/unidad.dto';
 import { UpdateMofConfigDto } from './dto/mof-config.dto';
 import {
@@ -132,6 +137,8 @@ export class UnidadesService {
     private readonly mofConfigRepo: Repository<MofConfig>,
     @InjectRepository(UnidadInventario)
     private readonly inventarioRepo: Repository<UnidadInventario>,
+    @InjectRepository(UnidadSia)
+    private readonly siaRepo: Repository<UnidadSia>,
   ) {}
 
   private async resolveCatalogId(
@@ -365,6 +372,10 @@ export class UnidadesService {
     });
     const inventarios = inventariosRaw.map((r) => this.mapInventario(r));
 
+    // Las filas SIA de una unidad reclasificada se conservan pero no se exponen.
+    const esCarrera = esClaseCarrera(u.tipoUnidad?.descripcion);
+    const sia = esCarrera ? await this.findSiaRows(u.id) : [];
+
     return {
       id: Number(u.id),
       codigo: u.codigo,
@@ -437,6 +448,8 @@ export class UnidadesService {
       relacionesInternas,
       relacionesExternas,
       inventarios,
+      esCarrera,
+      sia,
       // 7 campos S-MAU
       tramitesAtendidos: u.tramitesAtendidos ?? null,
       tramites_atendidos: u.tramitesAtendidos ?? null,
@@ -509,6 +522,9 @@ export class UnidadesService {
       where: { id: tipoUnidadId },
     });
     if (!clase) notFound(tipoUnidadId);
+    if (dto.sia?.length && !esClaseCarrera(clase.descripcion)) {
+      throwBusiness(ErrorCodes.SIA_SOLO_CARRERA);
+    }
 
     let sigla = (dto.sigla || '').trim();
     if (
@@ -568,6 +584,9 @@ export class UnidadesService {
       }
       if (dto.inventarios?.length) {
         await this.syncInventarios(m, row.id, dto.inventarios);
+      }
+      if (dto.sia?.length) {
+        await this.syncSia(m, row.id, dto.sia);
       }
       return row;
     });
@@ -662,12 +681,24 @@ export class UnidadesService {
         dto.relacion,
       );
     }
+    let clase: TipoUnidad | null = null;
     if (dto.tipoUnidad !== undefined) {
-      const clase = await this.claseRepo.findOne({
+      clase = await this.claseRepo.findOne({
         where: { id: dto.tipoUnidad },
       });
       if (!clase) notFound(dto.tipoUnidad);
       u.tipoUnidadId = dto.tipoUnidad;
+    }
+    // Se evalúa con la clase final: puede cambiar en este mismo PUT.
+    let sincronizarSia = false;
+    if (dto.sia !== undefined) {
+      clase ??= await this.claseRepo.findOne({
+        where: { id: u.tipoUnidadId },
+      });
+      sincronizarSia = esClaseCarrera(clase?.descripcion);
+      if (dto.sia.length && !sincronizarSia) {
+        throwBusiness(ErrorCodes.SIA_SOLO_CARRERA);
+      }
     }
     if (dto.parentId !== undefined) {
       await this.assertNoCycle(id, dto.parentId);
@@ -687,6 +718,9 @@ export class UnidadesService {
       }
       if (dto.inventarios !== undefined) {
         await this.syncInventarios(m, id, dto.inventarios);
+      }
+      if (sincronizarSia) {
+        await this.syncSia(m, id, dto.sia!);
       }
     });
 
@@ -805,6 +839,43 @@ export class UnidadesService {
           : m.create(UnidadInventario, { unidadId: String(unidadId) });
       row.descripcion = item.descripcion.trim();
       row.cantidad = item.cantidad;
+      return row;
+    });
+    if (filas.length) await m.save(filas);
+  }
+
+  /** Igual que `syncInventarios`, para las filas SIA de una Carrera. */
+  private async syncSia(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly UnidadSiaItemDto[],
+  ) {
+    items.forEach((item) => this.assertSiaConValor(item));
+    const actuales = await m.find(UnidadSia, {
+      where: { unidadId: String(unidadId) },
+    });
+    const porId = new Map(actuales.map((r) => [Number(r.id), r]));
+    const enviados = new Set<number>();
+    for (const item of items) {
+      if (item.id == null) continue;
+      if (enviados.has(item.id)) {
+        throwBusiness(ErrorCodes.SIA_ID_DUPLICADO, item.id);
+      }
+      if (!porId.has(item.id)) {
+        throwBusiness(ErrorCodes.SIA_NO_PERTENECE_UNIDAD, item.id);
+      }
+      enviados.add(item.id);
+    }
+
+    const bajas = actuales.filter((r) => !enviados.has(Number(r.id)));
+    if (bajas.length) await m.softRemove(bajas);
+
+    const filas = items.map((item) => {
+      const row =
+        item.id != null
+          ? porId.get(item.id)!
+          : m.create(UnidadSia, { unidadId: String(unidadId) });
+      this.assignSia(row, item);
       return row;
     });
     if (filas.length) await m.save(filas);
@@ -1288,6 +1359,92 @@ export class UnidadesService {
   async removeInventario(unidadId: number, inventarioId: number) {
     const row = await this.findInventarioOrFail(unidadId, inventarioId);
     await this.inventarioRepo.softRemove(row);
+    return true;
+  }
+
+  // --- SIA (solo Carreras) ---
+  private mapSia(r: UnidadSia) {
+    const valores = Object.fromEntries(
+      SIA_CAMPOS.map((campo) => [campo, r[campo] ?? null]),
+    ) as Pick<UnidadSia, (typeof SIA_CAMPOS)[number]>;
+    return { id: Number(r.id), ...valores };
+  }
+
+  /** Copia todas las columnas SIA del DTO; las omitidas quedan en null. */
+  private assignSia(row: UnidadSia, dto: UnidadSiaDto) {
+    for (const campo of SIA_CAMPOS) row[campo] = dto[campo] ?? null;
+  }
+
+  private assertSiaConValor(dto: UnidadSiaDto) {
+    if (SIA_CAMPOS.every((campo) => dto[campo] == null)) {
+      throwBusiness(ErrorCodes.SIA_FILA_VACIA);
+    }
+  }
+
+  private async findSiaRows(unidadId: number | string) {
+    const rows = await this.siaRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { id: 'ASC' },
+    });
+    return rows.map((r) => this.mapSia(r));
+  }
+
+  /** 404 si la unidad no existe; indica si su clase es Carrera. */
+  private async unidadEsCarrera(unidadId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+      relations: ['tipoUnidad'],
+    });
+    if (!u) notFound(unidadId);
+    return esClaseCarrera(u.tipoUnidad?.descripcion);
+  }
+
+  private async assertUnidadCarrera(unidadId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) {
+      throwBusiness(ErrorCodes.SIA_SOLO_CARRERA, unidadId);
+    }
+  }
+
+  /** Busca por (id, unidad): una fila de otra unidad responde 404. */
+  private async findSiaOrFail(unidadId: number, siaId: number) {
+    const row = await this.siaRepo.findOne({
+      where: { id: String(siaId), unidadId: String(unidadId) },
+    });
+    if (!row) notFound(siaId);
+    return row;
+  }
+
+  /** En una unidad que no es Carrera devuelve `[]` (filas ocultas). */
+  async listSia(unidadId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) return [];
+    return this.findSiaRows(unidadId);
+  }
+
+  async getSia(unidadId: number, siaId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) notFound(siaId);
+    return this.mapSia(await this.findSiaOrFail(unidadId, siaId));
+  }
+
+  async addSia(unidadId: number, dto: UnidadSiaDto) {
+    await this.assertUnidadCarrera(unidadId);
+    this.assertSiaConValor(dto);
+    const row = this.siaRepo.create({ unidadId: String(unidadId) });
+    this.assignSia(row, dto);
+    return this.mapSia(await this.siaRepo.save(row));
+  }
+
+  async updateSia(unidadId: number, siaId: number, dto: UnidadSiaDto) {
+    await this.assertUnidadCarrera(unidadId);
+    this.assertSiaConValor(dto);
+    const row = await this.findSiaOrFail(unidadId, siaId);
+    this.assignSia(row, dto);
+    return this.mapSia(await this.siaRepo.save(row));
+  }
+
+  async removeSia(unidadId: number, siaId: number) {
+    await this.assertUnidadCarrera(unidadId);
+    const row = await this.findSiaOrFail(unidadId, siaId);
+    await this.siaRepo.softRemove(row);
     return true;
   }
 

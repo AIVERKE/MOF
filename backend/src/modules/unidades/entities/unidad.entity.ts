@@ -17,6 +17,7 @@ import { UnidadFuncion } from './unidad-funcion.entity';
 import { UnidadRelacionExterna } from './unidad-relacion-externa.entity';
 import { UnidadRelacionInterna } from './unidad-relacion-interna.entity';
 import { UnidadInventario } from './unidad-inventario.entity';
+import { UnidadSia } from './unidad-sia.entity';
 
 @Entity('unidad')
 @Index('IDX_unidad_codigo_activo', ['codigo'], {
@@ -150,4 +151,7 @@ export class Unidad extends AuditableEntity {
 
   @OneToMany(() => UnidadInventario, (inv) => inv.unidad)
   inventarios: UnidadInventario[];
+
+  @OneToMany(() => UnidadSia, (sia) => sia.unidad)
+  sia: UnidadSia[];
 }
