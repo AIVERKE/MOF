@@ -16,6 +16,7 @@ import { Usuario } from '../../auth/entities/usuario.entity';
 import { UnidadFuncion } from './unidad-funcion.entity';
 import { UnidadRelacionExterna } from './unidad-relacion-externa.entity';
 import { UnidadRelacionInterna } from './unidad-relacion-interna.entity';
+import { UnidadInventario } from './unidad-inventario.entity';
 
 @Entity('unidad')
 @Index('IDX_unidad_codigo_activo', ['codigo'], {
@@ -146,4 +147,7 @@ export class Unidad extends AuditableEntity {
 
   @OneToMany(() => UnidadRelacionInterna, (rel) => rel.unidad)
   relacionesInternas: UnidadRelacionInterna[];
+
+  @OneToMany(() => UnidadInventario, (inv) => inv.unidad)
+  inventarios: UnidadInventario[];
 }

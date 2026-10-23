@@ -14,10 +14,19 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiCreatedResponse,
+  ApiExtraModels,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiProduces,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { UnidadesService } from './unidades.service';
@@ -27,6 +36,8 @@ import {
   SetParentDto,
   UnidadDto,
   UnidadFuncionDto,
+  UnidadInventarioDto,
+  UnidadInventarioResponseDto,
   UnidadRelacionExternaDto,
   UnidadRelacionInternaDto,
 } from './dto/unidad.dto';
@@ -37,7 +48,17 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+/** Esquema Swagger de `ResultResponse` con `data` tipado. */
+function resultSchema(data: Record<string, unknown>) {
+  return {
+    allOf: [{ $ref: getSchemaPath(ResultResponse) }, { properties: { data } }],
+  };
+}
+
+const inventarioSchema = { $ref: getSchemaPath(UnidadInventarioResponseDto) };
+
 @ApiTags('MOF - Unidades')
+@ApiExtraModels(ResultResponse, UnidadInventarioResponseDto)
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/v1/mof')
@@ -379,6 +400,101 @@ export class MofUnidadesController {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
       await this.unidadesService.removeRelacionExterna(id, relacionId),
+    );
+  }
+
+  // --- INVENTARIOS ---
+  @Get('unidades/:id/inventarios')
+  @ApiOperation({ summary: 'Listar inventario de la unidad' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiOkResponse({
+    schema: resultSchema({ type: 'array', items: inventarioSchema }),
+  })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
+  async listInventarios(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.listInventarios(id),
+    );
+  }
+
+  @Get('unidades/:id/inventarios/:inventarioId')
+  @ApiOperation({ summary: 'Obtener ítem de inventario de la unidad' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'inventarioId', description: 'ID del ítem de inventario' })
+  @ApiOkResponse({ schema: resultSchema(inventarioSchema) })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o el ítem no pertenece a la unidad',
+  })
+  async getInventario(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('inventarioId', ParseIntPipe) inventarioId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.getInventario(id, inventarioId),
+    );
+  }
+
+  @Post('unidades/:id/inventarios')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Agregar ítem de inventario a la unidad' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiBody({ type: UnidadInventarioDto })
+  @ApiCreatedResponse({ schema: resultSchema(inventarioSchema) })
+  @ApiBadRequestResponse({ description: 'Error de validación' })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
+  async addInventario(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UnidadInventarioDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.addInventario(id, dto),
+    );
+  }
+
+  @Put('unidades/:id/inventarios/:inventarioId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Actualizar ítem de inventario de la unidad' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'inventarioId', description: 'ID del ítem de inventario' })
+  @ApiBody({ type: UnidadInventarioDto })
+  @ApiOkResponse({ schema: resultSchema(inventarioSchema) })
+  @ApiBadRequestResponse({ description: 'Error de validación' })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o el ítem no pertenece a la unidad',
+  })
+  async updateInventario(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('inventarioId', ParseIntPipe) inventarioId: number,
+    @Body() dto: UnidadInventarioDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.updateInventario(id, inventarioId, dto),
+    );
+  }
+
+  @Delete('unidades/:id/inventarios/:inventarioId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Eliminar ítem de inventario (borrado lógico)' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'inventarioId', description: 'ID del ítem de inventario' })
+  @ApiOkResponse({ schema: resultSchema({ type: 'boolean', example: true }) })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o el ítem no pertenece a la unidad',
+  })
+  async removeInventario(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('inventarioId', ParseIntPipe) inventarioId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.removeInventario(id, inventarioId),
     );
   }
 }

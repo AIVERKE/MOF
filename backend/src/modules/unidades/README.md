@@ -2,7 +2,7 @@
 
 Módulo encargado de la gestión integral de las unidades organizacionales según el modelo documental **S-MAU** (Detalle de la Unidad Organizacional).
 
-## Campos del Detalle S-MAU (26 Campos)
+## Campos del Detalle S-MAU (26 Campos + Inventarios)
 
 1. **NOMBRE DE LA UNIDAD ORGANIZACIONAL** (`nombre`)
 2. **SIGLA** (`sigla`)
@@ -30,6 +30,7 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 24. **CARGA HORARIA EJECUTADA** (`cargaHorariaEjecutada` / `carga_horaria_ejecutada`)
 25. **INFRAESTRUCTURA FÍSICA ULITIZADA** (`infraestructura` / `infraestructura_fisica`)
 26. **UBICACIÓN** (`ubicacion`)
+27. **INVENTARIOS** (`inventarios` / `unidad_inventario`) — filas de descripción y cantidad, propias de cada unidad
 
 ## Endpoints Principales
 
@@ -52,3 +53,26 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 - `POST /api/v1/mof/unidades/:id/relaciones-externas`: Registrar coordinación externa `{ descripcion: string }`.
 - `PUT /api/v1/mof/unidades/:id/relaciones-externas/:relacionId`: Actualizar coordinación externa.
 - `DELETE /api/v1/mof/unidades/:id/relaciones-externas/:relacionId`: Eliminar coordinación externa.
+
+### Inventarios
+`GET /api/v1/mof/unidades/:id` incluye `inventarios: [{ id, descripcion, cantidad }]` (orden de alta).
+
+Sincronización desde el formulario (`POST`/`PUT /api/v1/mof/unidades/:id`), campo opcional `inventarios`:
+```json
+"inventarios": [
+  { "id": 12, "descripcion": "Computadora de escritorio", "cantidad": 3 },
+  { "descripcion": "Silla giratoria", "cantidad": 10 }
+]
+```
+- Fila con `id` → se actualiza; fila sin `id` → se crea; fila vigente que no se envía → baja lógica. `[]` vacía el inventario; omitir el campo no lo modifica.
+- `descripcion`: texto obligatorio (máx. 1024, se recorta). `cantidad`: entero ≥ 1. No se admiten otros campos.
+- Errores: `INVENTARIO_NO_PERTENECE_UNIDAD` (400, `id` de otra unidad o inexistente), `INVENTARIO_ID_DUPLICADO` (400), `VALIDATION_FAILED` (400). Ante un error no se guarda nada.
+
+Endpoints por ítem (escritura: ADMIN, OPERADOR):
+- `GET /api/v1/mof/unidades/:id/inventarios`: Listar inventario de la unidad.
+- `GET /api/v1/mof/unidades/:id/inventarios/:inventarioId`: Obtener ítem.
+- `POST /api/v1/mof/unidades/:id/inventarios`: Agregar ítem `{ descripcion: string, cantidad: number }`.
+- `PUT /api/v1/mof/unidades/:id/inventarios/:inventarioId`: Actualizar ítem `{ descripcion, cantidad }`.
+- `DELETE /api/v1/mof/unidades/:id/inventarios/:inventarioId`: Eliminar ítem (baja lógica).
+
+Un ítem de otra unidad responde 404 (`NOT_FOUND`).

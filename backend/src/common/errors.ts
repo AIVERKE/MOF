@@ -12,6 +12,8 @@ export const ErrorCodes = {
   CLASE_YA_PRIMERA: 'CLASE_YA_PRIMERA',
   CLASE_YA_ULTIMA: 'CLASE_YA_ULTIMA',
   CARGO_YA_ASIGNADO: 'CARGO_YA_ASIGNADO',
+  INVENTARIO_NO_PERTENECE_UNIDAD: 'INVENTARIO_NO_PERTENECE_UNIDAD',
+  INVENTARIO_ID_DUPLICADO: 'INVENTARIO_ID_DUPLICADO',
   USUARIO_CI_DUPLICADO: 'USUARIO_CI_DUPLICADO',
   PRIMER_ACCESO_REQUERIDO: 'PRIMER_ACCESO_REQUERIDO',
   PRIMER_ACCESO_INVALIDO: 'PRIMER_ACCESO_INVALIDO',
@@ -87,6 +89,16 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     code: ErrorCodes.CARGO_YA_ASIGNADO,
     httpStatus: HttpStatus.BAD_REQUEST,
     message: 'Ese cargo ya está asignado en la unidad',
+  },
+  INVENTARIO_NO_PERTENECE_UNIDAD: {
+    code: ErrorCodes.INVENTARIO_NO_PERTENECE_UNIDAD,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'El ítem de inventario no pertenece a la unidad',
+  },
+  INVENTARIO_ID_DUPLICADO: {
+    code: ErrorCodes.INVENTARIO_ID_DUPLICADO,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'El ítem de inventario está repetido en la solicitud',
   },
   USUARIO_CI_DUPLICADO: {
     code: ErrorCodes.USUARIO_CI_DUPLICADO,

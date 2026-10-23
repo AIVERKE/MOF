@@ -6,6 +6,7 @@ import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity
 import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity';
 import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcional.entity';
 import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
+import { UnidadInventario } from './entities/unidad-inventario.entity';
 import { CatalogosModule } from '../catalogos/catalogos.module';
 import { AuthModule } from '../auth/auth.module';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -29,6 +30,7 @@ import { MofConfig } from './entities/mof-config.entity';
       UnidadRelacionInterna,
       UnidadDependenciaFuncional,
       UnidadJerarquiaHist,
+      UnidadInventario,
       CatalogoTipo,
       CatalogoNivel,
       CatalogoRelacion,

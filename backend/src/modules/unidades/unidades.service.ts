@@ -5,6 +5,7 @@ import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcio
 import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
 import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity';
 import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity';
+import { UnidadInventario } from './entities/unidad-inventario.entity';
 import { CatalogoTipo } from '../catalogos/entities/catalogo-tipo.entity';
 import { CatalogoNivel } from '../catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../catalogos/entities/catalogo-relacion.entity';
@@ -18,6 +19,8 @@ import {
   SetParentDto,
   UnidadDto,
   UnidadFuncionDto,
+  UnidadInventarioDto,
+  UnidadInventarioItemDto,
   UnidadRelacionExternaDto,
   UnidadRelacionInternaDto,
 } from './dto/unidad.dto';
@@ -127,6 +130,8 @@ export class UnidadesService {
     private readonly claseRepo: Repository<TipoUnidad>,
     @InjectRepository(MofConfig)
     private readonly mofConfigRepo: Repository<MofConfig>,
+    @InjectRepository(UnidadInventario)
+    private readonly inventarioRepo: Repository<UnidadInventario>,
   ) {}
 
   private async resolveCatalogId(
@@ -354,6 +359,12 @@ export class UnidadesService {
       descripcion: r.descripcion,
     }));
 
+    const inventariosRaw = await this.inventarioRepo.find({
+      where: { unidadId: String(u.id) },
+      order: { id: 'ASC' },
+    });
+    const inventarios = inventariosRaw.map((r) => this.mapInventario(r));
+
     return {
       id: Number(u.id),
       codigo: u.codigo,
@@ -425,6 +436,7 @@ export class UnidadesService {
       unidadesDependientesFuncionales: hijasFuncionales,
       relacionesInternas,
       relacionesExternas,
+      inventarios,
       // 7 campos S-MAU
       tramitesAtendidos: u.tramitesAtendidos ?? null,
       tramites_atendidos: u.tramitesAtendidos ?? null,
@@ -554,6 +566,9 @@ export class UnidadesService {
       if (dto.relacionesExternas?.length) {
         await this.replaceRelacionesExternas(m, row.id, dto.relacionesExternas);
       }
+      if (dto.inventarios?.length) {
+        await this.syncInventarios(m, row.id, dto.inventarios);
+      }
       return row;
     });
 
@@ -670,6 +685,9 @@ export class UnidadesService {
       if (dto.relacionesExternas !== undefined) {
         await this.replaceRelacionesExternas(m, id, dto.relacionesExternas);
       }
+      if (dto.inventarios !== undefined) {
+        await this.syncInventarios(m, id, dto.inventarios);
+      }
     });
 
     return id;
@@ -749,6 +767,47 @@ export class UnidadesService {
         descripcion,
       })),
     );
+  }
+
+  /**
+   * Deja el inventario vigente de la unidad igual a `items`: actualiza las filas
+   * con `id`, crea las que no lo traen y da de baja las que no se enviaron.
+   * Un `id` de otra unidad aborta la transacción.
+   */
+  private async syncInventarios(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly UnidadInventarioItemDto[],
+  ) {
+    const actuales = await m.find(UnidadInventario, {
+      where: { unidadId: String(unidadId) },
+    });
+    const porId = new Map(actuales.map((r) => [Number(r.id), r]));
+    const enviados = new Set<number>();
+    for (const item of items) {
+      if (item.id == null) continue;
+      if (enviados.has(item.id)) {
+        throwBusiness(ErrorCodes.INVENTARIO_ID_DUPLICADO, item.id);
+      }
+      if (!porId.has(item.id)) {
+        throwBusiness(ErrorCodes.INVENTARIO_NO_PERTENECE_UNIDAD, item.id);
+      }
+      enviados.add(item.id);
+    }
+
+    const bajas = actuales.filter((r) => !enviados.has(Number(r.id)));
+    if (bajas.length) await m.softRemove(bajas);
+
+    const filas = items.map((item) => {
+      const row =
+        item.id != null
+          ? porId.get(item.id)!
+          : m.create(UnidadInventario, { unidadId: String(unidadId) });
+      row.descripcion = item.descripcion.trim();
+      row.cantidad = item.cantidad;
+      return row;
+    });
+    if (filas.length) await m.save(filas);
   }
 
   async remove(id: number) {
@@ -1159,6 +1218,76 @@ export class UnidadesService {
     });
     if (!rel) notFound(relacionId);
     await this.relExtRepo.remove(rel);
+    return true;
+  }
+
+  // --- INVENTARIOS ---
+  private mapInventario(r: UnidadInventario) {
+    return {
+      id: Number(r.id),
+      descripcion: r.descripcion,
+      cantidad: r.cantidad,
+    };
+  }
+
+  private async assertUnidadExists(unidadId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
+    if (!u) notFound(unidadId);
+  }
+
+  /** Busca por (id, unidad): un ítem de otra unidad responde 404. */
+  private async findInventarioOrFail(unidadId: number, inventarioId: number) {
+    await this.assertUnidadExists(unidadId);
+    const row = await this.inventarioRepo.findOne({
+      where: { id: String(inventarioId), unidadId: String(unidadId) },
+    });
+    if (!row) notFound(inventarioId);
+    return row;
+  }
+
+  async listInventarios(unidadId: number) {
+    await this.assertUnidadExists(unidadId);
+    const rows = await this.inventarioRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { id: 'ASC' },
+    });
+    return rows.map((r) => this.mapInventario(r));
+  }
+
+  async getInventario(unidadId: number, inventarioId: number) {
+    return this.mapInventario(
+      await this.findInventarioOrFail(unidadId, inventarioId),
+    );
+  }
+
+  async addInventario(unidadId: number, dto: UnidadInventarioDto) {
+    await this.assertUnidadExists(unidadId);
+    const saved = await this.inventarioRepo.save(
+      this.inventarioRepo.create({
+        unidadId: String(unidadId),
+        descripcion: dto.descripcion.trim(),
+        cantidad: dto.cantidad,
+      }),
+    );
+    return this.mapInventario(saved);
+  }
+
+  async updateInventario(
+    unidadId: number,
+    inventarioId: number,
+    dto: UnidadInventarioDto,
+  ) {
+    const row = await this.findInventarioOrFail(unidadId, inventarioId);
+    row.descripcion = dto.descripcion.trim();
+    row.cantidad = dto.cantidad;
+    return this.mapInventario(await this.inventarioRepo.save(row));
+  }
+
+  async removeInventario(unidadId: number, inventarioId: number) {
+    const row = await this.findInventarioOrFail(unidadId, inventarioId);
+    await this.inventarioRepo.softRemove(row);
     return true;
   }
 

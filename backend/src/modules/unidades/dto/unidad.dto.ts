@@ -4,13 +4,19 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   Matches,
+  Max,
+  MaxLength,
+  Min,
+  ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsFecCreacionInRange } from '../../../common/validators/fec-creacion-range.validator';
 
 const MAX_RELACIONES = 1000;
@@ -215,6 +221,18 @@ export class UnidadDto {
   @IsOptional()
   @IsArray()
   relacionesExternas?: (string | UnidadRelacionExternaDto)[];
+
+  @ApiPropertyOptional({
+    type: () => [UnidadInventarioItemDto],
+    description:
+      'Inventario completo de la unidad. Filas con `id` se actualizan, filas sin `id` se crean y las vigentes que no se envían se dan de baja. Si se omite el campo, el inventario no se modifica.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
+  @ValidateNested({ each: true })
+  @Type(() => UnidadInventarioItemDto)
+  inventarios?: UnidadInventarioItemDto[];
 }
 
 export class SetParentDto {
@@ -262,4 +280,49 @@ export class UnidadRelacionExternaDto {
   @IsString()
   @IsNotEmpty()
   descripcion: string;
+}
+
+const MAX_CANTIDAD = 2147483647;
+
+export class UnidadInventarioDto {
+  @ApiProperty({
+    description: 'Descripción del ítem de inventario',
+    example: 'Computadora de escritorio',
+    maxLength: 1024,
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @IsNotEmpty({ message: 'La descripción del inventario es obligatoria' })
+  @MaxLength(1024)
+  descripcion: string;
+
+  @ApiProperty({ description: 'Cantidad de unidades', example: 3, minimum: 1 })
+  @IsInt({ message: 'La cantidad debe ser un número entero' })
+  @Min(1, { message: 'La cantidad debe ser mayor o igual a 1' })
+  @Max(MAX_CANTIDAD)
+  cantidad: number;
+}
+
+export class UnidadInventarioItemDto extends UnidadInventarioDto {
+  @ApiPropertyOptional({
+    description: 'ID del ítem existente; omitir para crear uno nuevo',
+    example: 12,
+  })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  id?: number;
+}
+
+export class UnidadInventarioResponseDto {
+  @ApiProperty({ example: 12 })
+  id: number;
+
+  @ApiProperty({ example: 'Computadora de escritorio' })
+  descripcion: string;
+
+  @ApiProperty({ example: 3 })
+  cantidad: number;
 }
