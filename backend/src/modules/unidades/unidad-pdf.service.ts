@@ -40,10 +40,10 @@ export type UnidadPdfDetail = {
 
 /** Paleta institucional UMSA / MOF */
 const C = {
-  navy: '#0B1F3A',
-  navyMid: '#14365F',
-  gold: '#C9A227',
-  goldSoft: '#F5E9C4',
+  petroleo: '#1A4756',
+  petroleoMid: '#245E70',
+  turquesa: '#028191',
+  turquesaSoft: '#B8E3E8',
   slate: '#334155',
   muted: '#64748B',
   line: '#CBD5E1',
@@ -174,8 +174,8 @@ export class UnidadPdfService {
       const relExterno = this.listDescripciones(detail.relacionesExternas);
 
       // —— Header institucional ——
-      doc.rect(0, 0, pageW, 78).fill(C.navy);
-      doc.rect(0, 78, pageW, 4).fill(C.gold);
+      doc.rect(0, 0, pageW, 78).fill(C.petroleo);
+      doc.rect(0, 78, pageW, 4).fill(C.turquesa);
 
       const logoH = 58;
       if (logoPath) {
@@ -191,7 +191,7 @@ export class UnidadPdfService {
       doc
         .font(this.fonts.bold)
         .fontSize(9)
-        .fillColor(C.goldSoft)
+        .fillColor(C.turquesaSoft)
         .text('UNIVERSIDAD MAYOR DE SAN ANDRÉS', headerTextX, 16, {
           width: headerTextW,
           align: 'left',
@@ -223,13 +223,13 @@ export class UnidadPdfService {
       doc
         .moveTo(marginL, y)
         .lineTo(marginL, y + 28)
-        .strokeColor(C.gold)
+        .strokeColor(C.turquesa)
         .lineWidth(3)
         .stroke();
       doc
         .font(this.fonts.bold)
         .fontSize(11)
-        .fillColor(C.navy)
+        .fillColor(C.petroleo)
         .text(nombre, marginL + 10, y + 8, {
           width: contentW - 130,
           height: 14,
@@ -265,7 +265,6 @@ export class UnidadPdfService {
         ['Fecha creación', fecCreacion],
         ['Nivel jerárquico', nivel],
         ['Tipo', tipo],
-        ['Dependencia lineal', dependencia],
       ];
       const identityBoxH = Math.max(
         118,
@@ -288,11 +287,13 @@ export class UnidadPdfService {
       );
 
       // Org card
-      doc.roundedRect(rightX, identityTop, colW, identityBoxH, 3).fill(C.navy);
+      doc
+        .roundedRect(rightX, identityTop, colW, identityBoxH, 3)
+        .fill(C.petroleo);
       doc
         .font(this.fonts.bold)
         .fontSize(8)
-        .fillColor(C.gold)
+        .fillColor(C.turquesaSoft)
         .text('ESTRUCTURA ORGANIZACIONAL', rightX + 8, identityTop + 10, {
           width: colW - 16,
           align: 'center',
@@ -301,7 +302,7 @@ export class UnidadPdfService {
       const parentBoxY = identityTop + 28;
       doc
         .roundedRect(rightX + 16, parentBoxY, colW - 32, 28, 2)
-        .fill(C.navyMid);
+        .fill(C.petroleoMid);
       doc
         .font(this.fonts.regular)
         .fontSize(7)
@@ -318,16 +319,16 @@ export class UnidadPdfService {
       doc
         .moveTo(cx, parentBoxY + 28)
         .lineTo(cx, parentBoxY + 40)
-        .strokeColor(C.gold)
+        .strokeColor(C.turquesa)
         .lineWidth(1.2)
         .stroke();
 
       const unitBoxY = parentBoxY + 40;
-      doc.roundedRect(rightX + 16, unitBoxY, colW - 32, 36, 2).fill(C.gold);
+      doc.roundedRect(rightX + 16, unitBoxY, colW - 32, 36, 2).fill(C.turquesa);
       doc
         .font(this.fonts.bold)
         .fontSize(8)
-        .fillColor(C.navy)
+        .fillColor(C.white)
         .text(nombre, rightX + 20, unitBoxY + 10, {
           width: colW - 40,
           align: 'center',
@@ -338,7 +339,7 @@ export class UnidadPdfService {
       y = identityTop + identityBoxH + 12;
 
       // —— Dependencias ——
-      const depRows: [string, string][] = [];
+      const depRows: [string, string][] = [['Lineal', dependencia]];
       const depsSinPadre = this.dependenciasSinPadre(detail);
       if (depsSinPadre.length > 0) {
         depRows.push(['Funcionales', funcionales]);
@@ -402,7 +403,7 @@ export class UnidadPdfService {
         y,
         doc.page.height - doc.page.margins.bottom - footerH,
       );
-      doc.roundedRect(marginL, footerY, contentW, footerH, 3).fill(C.navy);
+      doc.roundedRect(marginL, footerY, contentW, footerH, 3).fill(C.petroleo);
 
       const qrSize = 58;
       const qrX = pageW - marginR - 12 - qrSize;
@@ -417,8 +418,8 @@ export class UnidadPdfService {
       doc
         .font(this.fonts.bold)
         .fontSize(8)
-        .fillColor(C.gold)
-        .text('Verificación del documento', marginL + 12, footerY + 16, {
+        .fillColor(C.turquesaSoft)
+        .text('Ficha técnica en línea', marginL + 12, footerY + 16, {
           width: contentW - qrSize - 36,
         });
       doc
@@ -426,7 +427,7 @@ export class UnidadPdfService {
         .fontSize(7)
         .fillColor('#CBD5E1')
         .text(
-          'Escanee el código QR para verificar que este documento no ha sido alterado.',
+          'Escanee el código QR para abrir la ficha técnica de esta unidad en la plataforma MOF.',
           marginL + 12,
           footerY + 30,
           { width: contentW - qrSize - 36 },
@@ -503,7 +504,7 @@ export class UnidadPdfService {
         width: 160,
         margin: 1,
         errorCorrectionLevel: 'M',
-        color: { dark: '#0B1F3A', light: '#FFFFFF' },
+        color: { dark: C.petroleo, light: '#FFFFFF' },
       });
     } catch {
       return null;
@@ -518,8 +519,8 @@ export class UnidadPdfService {
     width: number,
   ): number {
     const h = 16;
-    doc.roundedRect(x, y, width, h, 2).fill(C.navy);
-    doc.rect(x, y, 4, h).fill(C.gold);
+    doc.roundedRect(x, y, width, h, 2).fill(C.petroleo);
+    doc.rect(x, y, 4, h).fill(C.turquesa);
     doc
       .font(this.fonts.bold)
       .fontSize(8)
@@ -690,7 +691,7 @@ export class UnidadPdfService {
       doc
         .font(this.fonts.bold)
         .fontSize(7.5)
-        .fillColor(C.navyMid)
+        .fillColor(C.petroleoMid)
         .text(opts.title, x + pad, ty, { width: inner });
       ty = doc.y + 4;
     }
@@ -752,7 +753,7 @@ export class UnidadPdfService {
       doc
         .font(this.fonts.bold)
         .fontSize(7.5)
-        .fillColor(C.navyMid)
+        .fillColor(C.petroleoMid)
         .text(c.title, c.x + pad, y + pad, { width: inner });
       doc
         .font(this.fonts.regular)
@@ -795,8 +796,8 @@ export class UnidadPdfService {
     };
 
     const drawHeader = (top: number): number => {
-      doc.rect(x, top, width, headerH).fill(C.navy);
-      drawColumnLines(top, headerH, C.navyMid);
+      doc.rect(x, top, width, headerH).fill(C.petroleo);
+      drawColumnLines(top, headerH, C.petroleoMid);
       doc.font(this.fonts.bold).fontSize(7.5).fillColor(C.white);
       let cx = x;
       ['N°', 'Función', 'Base legal'].forEach((title, i) => {
@@ -892,7 +893,7 @@ export class UnidadPdfService {
     return `${dd}/${mm}/${yyyy}`;
   }
 
-  /** La dependencia lineal (padre) ya se muestra aparte; no se repite como funcional. */
+  /** La dependencia lineal (padre) ya tiene su propia fila en DEPENDENCIAS; no se repite como funcional. */
   private dependenciasSinPadre(
     detail: UnidadPdfDetail,
   ): NonNullable<UnidadPdfDetail['dependenciasFuncionales']> {
