@@ -12,6 +12,13 @@ export const ErrorCodes = {
   CLASE_YA_PRIMERA: 'CLASE_YA_PRIMERA',
   CLASE_YA_ULTIMA: 'CLASE_YA_ULTIMA',
   CARGO_YA_ASIGNADO: 'CARGO_YA_ASIGNADO',
+  INVENTARIO_NO_PERTENECE_UNIDAD: 'INVENTARIO_NO_PERTENECE_UNIDAD',
+  INVENTARIO_ID_DUPLICADO: 'INVENTARIO_ID_DUPLICADO',
+  SIA_SOLO_CARRERA: 'SIA_SOLO_CARRERA',
+  SIA_NO_PERTENECE_UNIDAD: 'SIA_NO_PERTENECE_UNIDAD',
+  SIA_ID_DUPLICADO: 'SIA_ID_DUPLICADO',
+  SIA_FILA_VACIA: 'SIA_FILA_VACIA',
+  PLANIFICACION_ESTRATEGICA_INCOMPLETA: 'PLANIFICACION_ESTRATEGICA_INCOMPLETA',
   USUARIO_CI_DUPLICADO: 'USUARIO_CI_DUPLICADO',
   PRIMER_ACCESO_REQUERIDO: 'PRIMER_ACCESO_REQUERIDO',
   PRIMER_ACCESO_INVALIDO: 'PRIMER_ACCESO_INVALIDO',
@@ -87,6 +94,42 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     code: ErrorCodes.CARGO_YA_ASIGNADO,
     httpStatus: HttpStatus.BAD_REQUEST,
     message: 'Ese cargo ya está asignado en la unidad',
+  },
+  INVENTARIO_NO_PERTENECE_UNIDAD: {
+    code: ErrorCodes.INVENTARIO_NO_PERTENECE_UNIDAD,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'El ítem de inventario no pertenece a la unidad',
+  },
+  INVENTARIO_ID_DUPLICADO: {
+    code: ErrorCodes.INVENTARIO_ID_DUPLICADO,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'El ítem de inventario está repetido en la solicitud',
+  },
+  SIA_SOLO_CARRERA: {
+    code: ErrorCodes.SIA_SOLO_CARRERA,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'El bloque SIA solo aplica a unidades de tipo Carrera',
+  },
+  SIA_NO_PERTENECE_UNIDAD: {
+    code: ErrorCodes.SIA_NO_PERTENECE_UNIDAD,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'La fila SIA no pertenece a la unidad',
+  },
+  SIA_ID_DUPLICADO: {
+    code: ErrorCodes.SIA_ID_DUPLICADO,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'La fila SIA está repetida en la solicitud',
+  },
+  SIA_FILA_VACIA: {
+    code: ErrorCodes.SIA_FILA_VACIA,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'La fila SIA debe tener al menos un valor',
+  },
+  PLANIFICACION_ESTRATEGICA_INCOMPLETA: {
+    code: ErrorCodes.PLANIFICACION_ESTRATEGICA_INCOMPLETA,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message:
+      'Si la Planificación Estratégica aplica, el porcentaje y la descripción son obligatorios',
   },
   USUARIO_CI_DUPLICADO: {
     code: ErrorCodes.USUARIO_CI_DUPLICADO,

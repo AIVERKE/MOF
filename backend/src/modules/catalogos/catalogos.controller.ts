@@ -156,7 +156,11 @@ export class CatalogosController {
 
   // ---- Clases ----
   @Get('clases')
-  @ApiOperation({ summary: 'Listar clases (tipo_unidad)' })
+  @ApiOperation({
+    summary: 'Listar clases (tipo_unidad)',
+    description:
+      'Cada clase incluye `esCarrera`: indica si sus unidades llevan el bloque SIA.',
+  })
   async listClases() {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,

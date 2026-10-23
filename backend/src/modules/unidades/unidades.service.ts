@@ -5,21 +5,29 @@ import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcio
 import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
 import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity';
 import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity';
+import { UnidadInventario } from './entities/unidad-inventario.entity';
+import { UnidadSia } from './entities/unidad-sia.entity';
 import { CatalogoTipo } from '../catalogos/entities/catalogo-tipo.entity';
 import { CatalogoNivel } from '../catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../catalogos/entities/catalogo-relacion.entity';
 import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
+import { esClaseCarrera } from '../catalogos/clase-carrera';
 import {
   MofConfig,
   type MofConfigDefaults,
 } from './entities/mof-config.entity';
 import {
   DependenciaFuncionalDto,
+  SIA_CAMPOS,
   SetParentDto,
   UnidadDto,
   UnidadFuncionDto,
+  UnidadInventarioDto,
+  UnidadInventarioItemDto,
   UnidadRelacionExternaDto,
   UnidadRelacionInternaDto,
+  UnidadSiaDto,
+  UnidadSiaItemDto,
 } from './dto/unidad.dto';
 import { UpdateMofConfigDto } from './dto/mof-config.dto';
 import {
@@ -37,6 +45,10 @@ function toDateOnly(value?: string | null): string | null {
   if (!value) return null;
   return value.slice(0, 10);
 }
+
+export type ContadoresUso = { vistasCount: number; descargasCount: number };
+
+type ColumnaContador = 'vistas_count' | 'descargas_count';
 
 type RelItem =
   | number
@@ -127,6 +139,10 @@ export class UnidadesService {
     private readonly claseRepo: Repository<TipoUnidad>,
     @InjectRepository(MofConfig)
     private readonly mofConfigRepo: Repository<MofConfig>,
+    @InjectRepository(UnidadInventario)
+    private readonly inventarioRepo: Repository<UnidadInventario>,
+    @InjectRepository(UnidadSia)
+    private readonly siaRepo: Repository<UnidadSia>,
   ) {}
 
   private async resolveCatalogId(
@@ -354,6 +370,16 @@ export class UnidadesService {
       descripcion: r.descripcion,
     }));
 
+    const inventariosRaw = await this.inventarioRepo.find({
+      where: { unidadId: String(u.id) },
+      order: { id: 'ASC' },
+    });
+    const inventarios = inventariosRaw.map((r) => this.mapInventario(r));
+
+    // Las filas SIA de una unidad reclasificada se conservan pero no se exponen.
+    const esCarrera = esClaseCarrera(u.tipoUnidad?.descripcion);
+    const sia = esCarrera ? await this.findSiaRows(u.id) : [];
+
     return {
       id: Number(u.id),
       codigo: u.codigo,
@@ -425,6 +451,9 @@ export class UnidadesService {
       unidadesDependientesFuncionales: hijasFuncionales,
       relacionesInternas,
       relacionesExternas,
+      inventarios,
+      esCarrera,
+      sia,
       // 7 campos S-MAU
       tramitesAtendidos: u.tramitesAtendidos ?? null,
       tramites_atendidos: u.tramitesAtendidos ?? null,
@@ -439,7 +468,41 @@ export class UnidadesService {
       infraestructura: u.infraestructura ?? null,
       infraestructura_fisica: u.infraestructura ?? null,
       ubicacion: u.ubicacion ?? null,
+      // Con el switch apagado los valores se conservan pero no se exponen.
+      planificacionEstrategicaAplica: u.planificacionEstrategicaAplica ?? false,
+      planificacionEstrategicaValor: u.planificacionEstrategicaAplica
+        ? (u.planificacionEstrategicaValor ?? null)
+        : null,
+      planificacionEstrategica: u.planificacionEstrategicaAplica
+        ? (u.planificacionEstrategica ?? null)
+        : null,
+      // Solo lectura: consultar el detalle no suma vistas (ver registrarVista).
+      vistasCount: Number(u.vistasCount ?? 0),
+      descargasCount: Number(u.descargasCount ?? 0),
     };
+  }
+
+  /**
+   * Fusiona el bloque de Planificación Estratégica del DTO sobre la unidad
+   * (`undefined` conserva, `null`/vacío limpia) y valida el estado final:
+   * si aplica, porcentaje y descripción son obligatorios.
+   */
+  private applyPlanificacionEstrategica(u: Unidad, dto: UnidadDto) {
+    if (dto.planificacionEstrategicaAplica !== undefined) {
+      u.planificacionEstrategicaAplica = dto.planificacionEstrategicaAplica;
+    }
+    if (dto.planificacionEstrategicaValor !== undefined) {
+      u.planificacionEstrategicaValor = dto.planificacionEstrategicaValor;
+    }
+    if (dto.planificacionEstrategica !== undefined) {
+      u.planificacionEstrategica = dto.planificacionEstrategica?.trim() || null;
+    }
+    if (
+      u.planificacionEstrategicaAplica &&
+      (u.planificacionEstrategicaValor == null || !u.planificacionEstrategica)
+    ) {
+      throwBusiness(ErrorCodes.PLANIFICACION_ESTRATEGICA_INCOMPLETA);
+    }
   }
 
   async lista() {
@@ -497,6 +560,9 @@ export class UnidadesService {
       where: { id: tipoUnidadId },
     });
     if (!clase) notFound(tipoUnidadId);
+    if (dto.sia?.length && !esClaseCarrera(clase.descripcion)) {
+      throwBusiness(ErrorCodes.SIA_SOLO_CARRERA);
+    }
 
     let sigla = (dto.sigla || '').trim();
     if (
@@ -542,7 +608,11 @@ export class UnidadesService {
       cargaHorariaEjecutada: dto.cargaHorariaEjecutada ?? null,
       infraestructura: dto.infraestructura ?? null,
       ubicacion: dto.ubicacion ?? null,
+      planificacionEstrategicaAplica: false,
+      planificacionEstrategicaValor: null,
+      planificacionEstrategica: null,
     });
+    this.applyPlanificacionEstrategica(entity, dto);
     const saved = await this.unidadRepo.manager.transaction(async (m) => {
       const row = await m.save(entity);
       if (dto.dependenciasFuncionales?.length) {
@@ -553,6 +623,12 @@ export class UnidadesService {
       }
       if (dto.relacionesExternas?.length) {
         await this.replaceRelacionesExternas(m, row.id, dto.relacionesExternas);
+      }
+      if (dto.inventarios?.length) {
+        await this.syncInventarios(m, row.id, dto.inventarios);
+      }
+      if (dto.sia?.length) {
+        await this.syncSia(m, row.id, dto.sia);
       }
       return row;
     });
@@ -635,6 +711,7 @@ export class UnidadesService {
     if (dto.infraestructura !== undefined)
       u.infraestructura = dto.infraestructura;
     if (dto.ubicacion !== undefined) u.ubicacion = dto.ubicacion;
+    this.applyPlanificacionEstrategica(u, dto);
     if (dto.tipo !== undefined) {
       u.tipoId = await this.resolveCatalogId(this.tipoRepo, dto.tipo);
     }
@@ -647,12 +724,24 @@ export class UnidadesService {
         dto.relacion,
       );
     }
+    let clase: TipoUnidad | null = null;
     if (dto.tipoUnidad !== undefined) {
-      const clase = await this.claseRepo.findOne({
+      clase = await this.claseRepo.findOne({
         where: { id: dto.tipoUnidad },
       });
       if (!clase) notFound(dto.tipoUnidad);
       u.tipoUnidadId = dto.tipoUnidad;
+    }
+    // Se evalúa con la clase final: puede cambiar en este mismo PUT.
+    let sincronizarSia = false;
+    if (dto.sia !== undefined) {
+      clase ??= await this.claseRepo.findOne({
+        where: { id: u.tipoUnidadId },
+      });
+      sincronizarSia = esClaseCarrera(clase?.descripcion);
+      if (dto.sia.length && !sincronizarSia) {
+        throwBusiness(ErrorCodes.SIA_SOLO_CARRERA);
+      }
     }
     if (dto.parentId !== undefined) {
       await this.assertNoCycle(id, dto.parentId);
@@ -669,6 +758,12 @@ export class UnidadesService {
       }
       if (dto.relacionesExternas !== undefined) {
         await this.replaceRelacionesExternas(m, id, dto.relacionesExternas);
+      }
+      if (dto.inventarios !== undefined) {
+        await this.syncInventarios(m, id, dto.inventarios);
+      }
+      if (sincronizarSia) {
+        await this.syncSia(m, id, dto.sia!);
       }
     });
 
@@ -749,6 +844,84 @@ export class UnidadesService {
         descripcion,
       })),
     );
+  }
+
+  /**
+   * Deja el inventario vigente de la unidad igual a `items`: actualiza las filas
+   * con `id`, crea las que no lo traen y da de baja las que no se enviaron.
+   * Un `id` de otra unidad aborta la transacción.
+   */
+  private async syncInventarios(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly UnidadInventarioItemDto[],
+  ) {
+    const actuales = await m.find(UnidadInventario, {
+      where: { unidadId: String(unidadId) },
+    });
+    const porId = new Map(actuales.map((r) => [Number(r.id), r]));
+    const enviados = new Set<number>();
+    for (const item of items) {
+      if (item.id == null) continue;
+      if (enviados.has(item.id)) {
+        throwBusiness(ErrorCodes.INVENTARIO_ID_DUPLICADO, item.id);
+      }
+      if (!porId.has(item.id)) {
+        throwBusiness(ErrorCodes.INVENTARIO_NO_PERTENECE_UNIDAD, item.id);
+      }
+      enviados.add(item.id);
+    }
+
+    const bajas = actuales.filter((r) => !enviados.has(Number(r.id)));
+    if (bajas.length) await m.softRemove(bajas);
+
+    const filas = items.map((item) => {
+      const row =
+        item.id != null
+          ? porId.get(item.id)!
+          : m.create(UnidadInventario, { unidadId: String(unidadId) });
+      row.descripcion = item.descripcion.trim();
+      row.cantidad = item.cantidad;
+      return row;
+    });
+    if (filas.length) await m.save(filas);
+  }
+
+  /** Igual que `syncInventarios`, para las filas SIA de una Carrera. */
+  private async syncSia(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly UnidadSiaItemDto[],
+  ) {
+    items.forEach((item) => this.assertSiaConValor(item));
+    const actuales = await m.find(UnidadSia, {
+      where: { unidadId: String(unidadId) },
+    });
+    const porId = new Map(actuales.map((r) => [Number(r.id), r]));
+    const enviados = new Set<number>();
+    for (const item of items) {
+      if (item.id == null) continue;
+      if (enviados.has(item.id)) {
+        throwBusiness(ErrorCodes.SIA_ID_DUPLICADO, item.id);
+      }
+      if (!porId.has(item.id)) {
+        throwBusiness(ErrorCodes.SIA_NO_PERTENECE_UNIDAD, item.id);
+      }
+      enviados.add(item.id);
+    }
+
+    const bajas = actuales.filter((r) => !enviados.has(Number(r.id)));
+    if (bajas.length) await m.softRemove(bajas);
+
+    const filas = items.map((item) => {
+      const row =
+        item.id != null
+          ? porId.get(item.id)!
+          : m.create(UnidadSia, { unidadId: String(unidadId) });
+      this.assignSia(row, item);
+      return row;
+    });
+    if (filas.length) await m.save(filas);
   }
 
   async remove(id: number) {
@@ -1160,6 +1333,201 @@ export class UnidadesService {
     if (!rel) notFound(relacionId);
     await this.relExtRepo.remove(rel);
     return true;
+  }
+
+  // --- INVENTARIOS ---
+  private mapInventario(r: UnidadInventario) {
+    return {
+      id: Number(r.id),
+      descripcion: r.descripcion,
+      cantidad: r.cantidad,
+    };
+  }
+
+  private async assertUnidadExists(unidadId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
+    if (!u) notFound(unidadId);
+  }
+
+  /** Busca por (id, unidad): un ítem de otra unidad responde 404. */
+  private async findInventarioOrFail(unidadId: number, inventarioId: number) {
+    await this.assertUnidadExists(unidadId);
+    const row = await this.inventarioRepo.findOne({
+      where: { id: String(inventarioId), unidadId: String(unidadId) },
+    });
+    if (!row) notFound(inventarioId);
+    return row;
+  }
+
+  async listInventarios(unidadId: number) {
+    await this.assertUnidadExists(unidadId);
+    const rows = await this.inventarioRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { id: 'ASC' },
+    });
+    return rows.map((r) => this.mapInventario(r));
+  }
+
+  async getInventario(unidadId: number, inventarioId: number) {
+    return this.mapInventario(
+      await this.findInventarioOrFail(unidadId, inventarioId),
+    );
+  }
+
+  async addInventario(unidadId: number, dto: UnidadInventarioDto) {
+    await this.assertUnidadExists(unidadId);
+    const saved = await this.inventarioRepo.save(
+      this.inventarioRepo.create({
+        unidadId: String(unidadId),
+        descripcion: dto.descripcion.trim(),
+        cantidad: dto.cantidad,
+      }),
+    );
+    return this.mapInventario(saved);
+  }
+
+  async updateInventario(
+    unidadId: number,
+    inventarioId: number,
+    dto: UnidadInventarioDto,
+  ) {
+    const row = await this.findInventarioOrFail(unidadId, inventarioId);
+    row.descripcion = dto.descripcion.trim();
+    row.cantidad = dto.cantidad;
+    return this.mapInventario(await this.inventarioRepo.save(row));
+  }
+
+  async removeInventario(unidadId: number, inventarioId: number) {
+    const row = await this.findInventarioOrFail(unidadId, inventarioId);
+    await this.inventarioRepo.softRemove(row);
+    return true;
+  }
+
+  // --- SIA (solo Carreras) ---
+  private mapSia(r: UnidadSia) {
+    const valores = Object.fromEntries(
+      SIA_CAMPOS.map((campo) => [campo, r[campo] ?? null]),
+    ) as Pick<UnidadSia, (typeof SIA_CAMPOS)[number]>;
+    return { id: Number(r.id), ...valores };
+  }
+
+  /** Copia todas las columnas SIA del DTO; las omitidas quedan en null. */
+  private assignSia(row: UnidadSia, dto: UnidadSiaDto) {
+    for (const campo of SIA_CAMPOS) row[campo] = dto[campo] ?? null;
+  }
+
+  private assertSiaConValor(dto: UnidadSiaDto) {
+    if (SIA_CAMPOS.every((campo) => dto[campo] == null)) {
+      throwBusiness(ErrorCodes.SIA_FILA_VACIA);
+    }
+  }
+
+  private async findSiaRows(unidadId: number | string) {
+    const rows = await this.siaRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { id: 'ASC' },
+    });
+    return rows.map((r) => this.mapSia(r));
+  }
+
+  /** 404 si la unidad no existe; indica si su clase es Carrera. */
+  private async unidadEsCarrera(unidadId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+      relations: ['tipoUnidad'],
+    });
+    if (!u) notFound(unidadId);
+    return esClaseCarrera(u.tipoUnidad?.descripcion);
+  }
+
+  private async assertUnidadCarrera(unidadId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) {
+      throwBusiness(ErrorCodes.SIA_SOLO_CARRERA, unidadId);
+    }
+  }
+
+  /** Busca por (id, unidad): una fila de otra unidad responde 404. */
+  private async findSiaOrFail(unidadId: number, siaId: number) {
+    const row = await this.siaRepo.findOne({
+      where: { id: String(siaId), unidadId: String(unidadId) },
+    });
+    if (!row) notFound(siaId);
+    return row;
+  }
+
+  /** En una unidad que no es Carrera devuelve `[]` (filas ocultas). */
+  async listSia(unidadId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) return [];
+    return this.findSiaRows(unidadId);
+  }
+
+  async getSia(unidadId: number, siaId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) notFound(siaId);
+    return this.mapSia(await this.findSiaOrFail(unidadId, siaId));
+  }
+
+  async addSia(unidadId: number, dto: UnidadSiaDto) {
+    await this.assertUnidadCarrera(unidadId);
+    this.assertSiaConValor(dto);
+    const row = this.siaRepo.create({ unidadId: String(unidadId) });
+    this.assignSia(row, dto);
+    return this.mapSia(await this.siaRepo.save(row));
+  }
+
+  async updateSia(unidadId: number, siaId: number, dto: UnidadSiaDto) {
+    await this.assertUnidadCarrera(unidadId);
+    this.assertSiaConValor(dto);
+    const row = await this.findSiaOrFail(unidadId, siaId);
+    this.assignSia(row, dto);
+    return this.mapSia(await this.siaRepo.save(row));
+  }
+
+  async removeSia(unidadId: number, siaId: number) {
+    await this.assertUnidadCarrera(unidadId);
+    const row = await this.findSiaOrFail(unidadId, siaId);
+    await this.siaRepo.softRemove(row);
+    return true;
+  }
+
+  /** Suma una apertura de la ficha técnica (panel lateral). */
+  registrarVista(id: number): Promise<ContadoresUso> {
+    return this.incrementarContador(id, 'vistas_count');
+  }
+
+  /** Suma una descarga del PDF de la unidad. */
+  registrarDescarga(id: number): Promise<ContadoresUso> {
+    return this.incrementarContador(id, 'descargas_count');
+  }
+
+  /**
+   * Incremento atómico en una sola sentencia (seguro ante aperturas
+   * simultáneas). Va en SQL crudo a propósito: un `save`/`update` de TypeORM
+   * dispararía `OrganigramaSubscriber` (auditoría + aviso a la Gaceta) y
+   * movería `updated_at` en cada apertura. El CTE hace que `query()` devuelva
+   * las filas; con `UPDATE ... RETURNING` suelto el driver devuelve
+   * `[filas, cantidad]`.
+   */
+  private async incrementarContador(
+    id: number,
+    columna: ColumnaContador,
+  ): Promise<ContadoresUso> {
+    const rows: { vistas_count: number; descargas_count: number }[] =
+      await this.unidadRepo.query(
+        `WITH upd AS (
+           UPDATE "unidad" SET "${columna}" = "${columna}" + 1
+           WHERE "id" = $1 AND "deleted_at" IS NULL
+           RETURNING "vistas_count", "descargas_count"
+         )
+         SELECT * FROM upd`,
+        [id],
+      );
+    if (!rows.length) notFound(id);
+    return {
+      vistasCount: Number(rows[0].vistas_count),
+      descargasCount: Number(rows[0].descargas_count),
+    };
   }
 
   async findEntityForPdf(id: number) {
