@@ -1161,7 +1161,6 @@ function moverAbajo(index) {
                       min="0"
                       max="100"
                       label="Valor numérico decimal (%)"
-                      placeholder="ej. 75.50"
                       :hint="hints.unidadForm.planificacionEstrategicaValor"
                       :persistent-hint="false"
                       :rules="[
@@ -1178,7 +1177,6 @@ function moverAbajo(index) {
                     <v-textarea
                       v-model="formData.planificacionEstrategica"
                       label="Descripción de Planificación Estratégica"
-                      placeholder="Ingrese los objetivos, metas o eje estratégico..."
                       :hint="hints.unidadForm.planificacionEstrategica"
                       :persistent-hint="false"
                       :rules="[rules.required, rules.sinCaracteresRaros]"
