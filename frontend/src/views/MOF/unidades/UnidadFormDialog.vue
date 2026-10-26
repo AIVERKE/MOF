@@ -1173,7 +1173,7 @@ function moverAbajo(index) {
                       data-test="input-planificacion-estrategica-valor"
                     />
                   </v-col>
-                  <v-col cols="12" md="8">
+                  <v-col cols="12">
                     <v-textarea
                       v-model="formData.planificacionEstrategica"
                       label="Descripción de Planificación Estratégica"
