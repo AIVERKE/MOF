@@ -191,6 +191,23 @@ const sectionsConfig = [
     ],
   },
   {
+    id: "section-planificacion-estrategica",
+    name: "Planificación Estratégica",
+    keywords: [
+      "planificacion",
+      "planificacion estrategica",
+      "estrategica",
+      "meta",
+      "pei",
+      "porcentaje",
+      "decimal",
+      "float",
+      "switch",
+      "corresponde",
+      "aplica",
+    ],
+  },
+  {
     id: "section-operativa",
     name: "Información Operativa (POA)",
     keywords: [
@@ -673,6 +690,7 @@ function moverAbajo(index) {
               <v-date-input
                 v-model="formData.fecCreacion"
                 label="Fecha de Creación"
+                persistent-placeholder
                 :min="FEC_CREACION_MIN"
                 :max="fecCreacionMax()"
                 :rules="[rules.fechaCreacionRango]"
@@ -1104,6 +1122,80 @@ function moverAbajo(index) {
               </v-col>
             </v-row>
           </v-card>
+          </div>
+
+          <!-- PLANIFICACIÓN ESTRATÉGICA (MOF-073) -->
+          <div
+            id="section-planificacion-estrategica"
+            v-show="isSectionVisible('section-planificacion-estrategica')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-planificacion-estrategica') }"
+          >
+            <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-indigo">
+              <div class="d-flex align-center justify-space-between mb-3">
+                <div class="text-subtitle-2 font-weight-bold text-indigo d-flex align-center">
+                  <v-icon start size="18">mdi-chart-timeline-variant</v-icon>
+                  Planificación Estratégica
+                </div>
+                <div class="d-flex align-center">
+                  <span class="text-caption font-weight-bold mr-2 text-slate-700">
+                    ¿Corresponde a esta unidad?
+                  </span>
+                  <v-switch
+                    v-model="formData.planificacionEstrategicaAplica"
+                    color="indigo"
+                    density="compact"
+                    hide-details
+                    inset
+                    data-test="switch-planificacion-estrategica"
+                  />
+                </div>
+              </div>
+
+              <div v-if="formData.planificacionEstrategicaAplica">
+                <v-row dense>
+                  <v-col cols="12" md="4">
+                    <v-text-field
+                      v-model="formData.planificacionEstrategicaValor"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      label="Valor numérico decimal (%)"
+                      placeholder="ej. 75.50"
+                      :hint="hints.unidadForm.planificacionEstrategicaValor"
+                      :persistent-hint="false"
+                      :rules="[
+                        rules.required,
+                        rules.porcentajePlanificacion,
+                      ]"
+                      variant="underlined"
+                      density="compact"
+                      autocomplete="off"
+                      data-test="input-planificacion-estrategica-valor"
+                    />
+                  </v-col>
+                  <v-col cols="12" md="8">
+                    <v-textarea
+                      v-model="formData.planificacionEstrategica"
+                      label="Descripción de Planificación Estratégica"
+                      placeholder="Ingrese los objetivos, metas o eje estratégico..."
+                      :hint="hints.unidadForm.planificacionEstrategica"
+                      :persistent-hint="false"
+                      :rules="[rules.required, rules.sinCaracteresRaros]"
+                      variant="underlined"
+                      rows="2"
+                      auto-grow
+                      density="compact"
+                      autocomplete="off"
+                      data-test="textarea-planificacion-estrategica"
+                    />
+                  </v-col>
+                </v-row>
+              </div>
+              <div v-else class="text-caption text-slate-500 font-italic py-1">
+                La sección de Planificación Estratégica está deshabilitada para esta unidad. Active el switch si corresponde ingresar indicadores.
+              </div>
+            </v-card>
           </div>
 
           <!-- RELACIONAMIENTO Y COORDINACIÓN (S-MAU) -->
