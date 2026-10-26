@@ -38,3 +38,43 @@ describe("rules.fechaCreacionRango", () => {
     expect(rules.fechaCreacionRango("no es fecha")).toBe(MENSAJE);
   });
 });
+
+describe("rules.siglaFormato", () => {
+  const SIGLA_ERROR = "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')";
+
+  it.each([
+    "SEC.GRAL",
+    "S.G.",
+    "FCPN",
+    "CE-HCU",
+    "D'ALES",
+    "ADM,FIN",
+    "ÑANDÚ",
+    "dtic",
+    "U2",
+    "",
+    null,
+    undefined,
+  ])("acepta %p", (sigla) => {
+    expect(rules.siglaFormato(sigla)).toBe(true);
+  });
+
+  it.each([
+    "SEC@GRAL",
+    "SEC#1",
+    "SEC$",
+    "SEC^",
+    "SEC*",
+    "SEC~",
+    "SEC{1}",
+    "SEC[1]",
+    "SEC|GRAL",
+    "SEC\\GRAL",
+    "SEC<GRAL>",
+    "SEC GRAL",
+    "SEC/GRAL",
+    "SEC%1",
+  ])("rechaza %p", (sigla) => {
+    expect(rules.siglaFormato(sigla)).toBe(SIGLA_ERROR);
+  });
+});

@@ -72,8 +72,8 @@ export const rules = {
   siglaFormato: (value) => {
     if (!value || !String(value).trim()) return true;
     return (
-      /^[\p{L}0-9-]+$/u.test(String(value).trim()) ||
-      'La sigla solo puede contener letras, números y guiones'
+      /^[\p{L}0-9.,'-]+$/u.test(String(value).trim()) ||
+      "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')"
     );
   },
 

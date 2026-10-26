@@ -52,6 +52,14 @@ export const ERROR_CODE_MESSAGES = {
   CLASE_YA_PRIMERA: "La clase ya está en la primera posición",
   CLASE_YA_ULTIMA: "La clase ya está en la última posición",
   CARGO_YA_ASIGNADO: "Ese cargo ya está asignado en la unidad",
+  INVENTARIO_NO_PERTENECE_UNIDAD: "El ítem de inventario no pertenece a la unidad",
+  INVENTARIO_ID_DUPLICADO: "El ítem de inventario está repetido en la solicitud",
+  SIA_SOLO_CARRERA: "El bloque SIA solo aplica a unidades de tipo Carrera",
+  SIA_NO_PERTENECE_UNIDAD: "La fila SIA no pertenece a la unidad",
+  SIA_ID_DUPLICADO: "La fila SIA está repetida en la solicitud",
+  SIA_FILA_VACIA: "La fila SIA debe tener al menos un valor",
+  PLANIFICACION_ESTRATEGICA_INCOMPLETA:
+    "Si la Planificación Estratégica aplica, el porcentaje y la descripción son obligatorios",
   USUARIO_CI_DUPLICADO: "Ya existe una persona registrada con ese C.I.",
   PRIMER_ACCESO_REQUERIDO:
     "Debe completar el primer acceso con su correo y C.I. para definir su contraseña",
