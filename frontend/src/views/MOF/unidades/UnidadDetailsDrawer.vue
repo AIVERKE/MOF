@@ -145,6 +145,8 @@ const panels = computed(() => {
   if (!data) return [];
 
   const cargosCount = data.cargos_detalle?.length ?? 0;
+  const inventariosRows = Array.isArray(data.inventarios) ? data.inventarios : [];
+  const inventariosCount = inventariosRows.length;
   const depFuncCount =
     (data.dependencias_nombres?.length ||
       data.dependenciasFuncionales?.length) ??
@@ -322,6 +324,15 @@ const panels = computed(() => {
       avatarColor: "deep-orange",
       badge: cargosCount > 0 ? cargosCount : null,
       type: "cargos",
+    },
+    {
+      key: "inventarios",
+      title: "INVENTARIOS",
+      icon: "mdi-package-variant-closed",
+      avatarColor: "teal-darken-2",
+      badge: inventariosCount > 0 ? inventariosCount : null,
+      type: "inventarios",
+      rows: inventariosRows,
     },
     {
       key: "tramites_atendidos",
@@ -838,6 +849,46 @@ const panels = computed(() => {
               <div v-else class="d-flex align-center text-caption text-grey py-1">
                 <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
                 <span class="font-italic">Sin relacionamiento interinstitucional registrado.</span>
+              </div>
+            </template>
+
+            <!-- Panel Inventarios (MOF-074) -->
+            <template v-else-if="panel.type === 'inventarios'">
+              <div v-if="panel.rows?.length" class="overflow-x-auto">
+                <v-table density="compact" class="border rounded text-caption">
+                  <thead>
+                    <tr class="bg-slate-50">
+                      <th class="text-caption font-weight-bold text-slate-600 text-center" style="width: 44px">
+                        #
+                      </th>
+                      <th class="text-left text-caption font-weight-bold text-slate-600">
+                        Descripción
+                      </th>
+                      <th class="text-center text-caption font-weight-bold text-slate-600" style="width: 100px">
+                        Cantidad
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item, idx) in panel.rows" :key="item.id || idx">
+                      <td class="text-caption font-weight-bold text-slate-500 text-center">
+                        {{ idx + 1 }}
+                      </td>
+                      <td class="text-left text-slate-800" data-test="inventario-detail-descripcion">
+                        {{ item.descripcion }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="inventario-detail-cantidad">
+                        <v-chip size="x-small" color="teal-darken-2" variant="flat" class="font-weight-bold">
+                          {{ item.cantidad }}
+                        </v-chip>
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin registros de inventario.</span>
               </div>
             </template>
 

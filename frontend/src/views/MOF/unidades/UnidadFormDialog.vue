@@ -12,6 +12,7 @@ import SelectAllTipos from "../tipos/SelectAllTipos.vue";
 import SelectAllNiveles from "../niveles/SelectAllNiveles.vue";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
 import CargosUnidadTable from "../cargos/CargosUnidadTable.vue";
+import UnidadInventarioTable from "./UnidadInventarioTable.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
@@ -170,6 +171,20 @@ const sectionsConfig = [
       "nivel orden",
       "nivel sugerido",
       "jerarquia de cargo",
+    ],
+  },
+  {
+    id: "section-inventarios",
+    name: "Inventarios",
+    keywords: [
+      "inventario",
+      "inventarios",
+      "bienes",
+      "activos",
+      "equipos",
+      "materiales",
+      "cantidad",
+      "descripcion",
     ],
   },
   {
@@ -673,6 +688,7 @@ function moverAbajo(index) {
               <v-date-input
                 v-model="formData.fecCreacion"
                 label="Fecha de Creación"
+                persistent-placeholder
                 :min="FEC_CREACION_MIN"
                 :max="fecCreacionMax()"
                 :rules="[rules.fechaCreacionRango]"
@@ -916,6 +932,18 @@ function moverAbajo(index) {
             <CargosUnidadTable
               v-model="formData.cargos"
               :hint="hints.unidadForm.cargos"
+            />
+          </div>
+
+          <!-- INVENTARIOS DE LA UNIDAD (MOF-074) -->
+          <div
+            id="section-inventarios"
+            v-show="isSectionVisible('section-inventarios')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-inventarios') }"
+            class="my-3"
+          >
+            <UnidadInventarioTable
+              v-model="formData.inventarios"
             />
           </div>
 

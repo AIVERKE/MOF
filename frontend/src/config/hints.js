@@ -61,6 +61,8 @@ export const hints = {
       "Seleccione el tipo de dependencia o enlace jerárquico",
     cargos:
       "Cargos y puestos de trabajo asignados a esta unidad administrativa",
+    inventarios:
+      "Bienes, equipos y materiales inventariados pertenecientes a esta unidad",
     clase:
       "Seleccione la jerarquía o nivel de instancia universitaria",
     funcion:
@@ -198,6 +200,12 @@ export const hints = {
   /**
    * Notas informativas contextuales para Dashboards
    */
+  inventario: {
+    table: "Tabla dinámica de bienes, equipos y materiales inventariados de la unidad",
+    descripcion: "Descripción del ítem de inventario (ej. Computadora de escritorio)",
+    cantidad: "Cantidad de unidades físicas (número entero mayor o igual a 1)",
+  },
+
   dashboards: {
     ejecutivo: {
       title: "Guía del Reporte Ejecutivo",
