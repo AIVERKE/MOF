@@ -379,6 +379,16 @@ const panels = computed(() => {
       type: "text_multiline",
       value: data.ubicacion,
     },
+    {
+      key: "metricas_uso",
+      title: "MÉTRICAS DE USO",
+      icon: "mdi-chart-line",
+      avatarColor: "info",
+      type: "metricas_uso",
+      badge: String((data.vistasCount ?? data.vistas_count ?? 0) + (data.descargasCount ?? data.descargas_count ?? 0)),
+      vistas: data.vistasCount ?? data.vistas_count ?? 0,
+      descargas: data.descargasCount ?? data.descargas_count ?? 0,
+    },
   ];
 });
 </script>
@@ -487,6 +497,37 @@ const panels = computed(() => {
             </v-tooltip>
           </v-chip>
         </div>
+
+        <!-- Métricas de uso de la ficha (MOF-077) -->
+        <div class="d-flex align-center flex-wrap gap-2 mt-2">
+          <v-chip
+            size="small"
+            variant="tonal"
+            color="info"
+            class="font-weight-bold"
+            data-test="metric-vistas-chip"
+          >
+            <v-icon start size="15">mdi-eye-outline</v-icon>
+            {{ detailData.vistasCount ?? detailData.vistas_count ?? 0 }} vistas
+            <v-tooltip activator="parent" location="top">
+              Aperturas de la ficha técnica en el panel lateral
+            </v-tooltip>
+          </v-chip>
+
+          <v-chip
+            size="small"
+            variant="tonal"
+            color="teal"
+            class="font-weight-bold"
+            data-test="metric-descargas-chip"
+          >
+            <v-icon start size="15">mdi-download-outline</v-icon>
+            {{ detailData.descargasCount ?? detailData.descargas_count ?? 0 }} descargas PDF
+            <v-tooltip activator="parent" location="top">
+              Descargas del reporte PDF de la unidad
+            </v-tooltip>
+          </v-chip>
+        </div>
       </div>
 
       <v-divider class="mb-3" />
@@ -528,8 +569,43 @@ const panels = computed(() => {
           </v-expansion-panel-title>
 
           <v-expansion-panel-text class="px-3 py-2 text-slate-800">
+            <!-- Panel Métricas de Uso (MOF-077) -->
+            <template v-if="panel.type === 'metricas_uso'">
+              <div class="d-flex flex-column gap-2 py-1">
+                <div class="d-flex align-center justify-space-between pa-2 rounded bg-slate-100 border-b-thin">
+                  <div class="d-flex align-center">
+                    <v-avatar size="28" color="info" variant="tonal" class="mr-2">
+                      <v-icon size="16">mdi-eye-outline</v-icon>
+                    </v-avatar>
+                    <div>
+                      <div class="text-caption font-weight-bold text-slate-800">Aperturas de la Ficha Técnica</div>
+                      <div class="text-xxs text-grey">Visualizaciones del panel lateral</div>
+                    </div>
+                  </div>
+                  <v-chip size="small" color="info" variant="flat" class="font-weight-black">
+                    {{ panel.vistas }}
+                  </v-chip>
+                </div>
+
+                <div class="d-flex align-center justify-space-between pa-2 rounded bg-slate-100 border-b-thin">
+                  <div class="d-flex align-center">
+                    <v-avatar size="28" color="teal" variant="tonal" class="mr-2">
+                      <v-icon size="16">mdi-download-outline</v-icon>
+                    </v-avatar>
+                    <div>
+                      <div class="text-caption font-weight-bold text-slate-800">Descargas del Reporte PDF</div>
+                      <div class="text-xxs text-grey">Reportes PDF generados de la unidad</div>
+                    </div>
+                  </div>
+                  <v-chip size="small" color="teal" variant="flat" class="font-weight-black">
+                    {{ panel.descargas }}
+                  </v-chip>
+                </div>
+              </div>
+            </template>
+
             <!-- Panel tipo texto simple con icono y presentación viva -->
-            <template v-if="panel.type === 'text'">
+            <template v-else-if="panel.type === 'text'">
               <div class="d-flex align-center py-1">
                 <v-avatar
                   size="26"

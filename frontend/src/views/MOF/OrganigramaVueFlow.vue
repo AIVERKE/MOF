@@ -477,7 +477,7 @@ async function manejarClickNodo(nodeId) {
   if (!nodeId) return;
   const strId = String(nodeId);
   const now = Date.now();
-  if (lastClickedNodeId === strId && now - lastClickedTime < 150) {
+  if (lastClickedNodeId === strId && now - lastClickedTime < 500) {
     return;
   }
   lastClickedNodeId = strId;
@@ -3015,7 +3015,7 @@ function resetFilters() {
                   @click="navegarANodo(item.id)"
                 >
                   <span class="text-truncate" style="max-width: 170px">{{ item.sigla || item.nombre }}</span>
-                  <v-tooltip activator="parent" location="bottom">{{ item.nombre }}</v-tooltip>
+                  <v-tooltip activator="parent" location="bottom"><span class="text-uppercase">{{ (item.nombre || '').toUpperCase() }}</span></v-tooltip>
                 </v-chip>
               </template>
             </div>
@@ -3298,7 +3298,7 @@ function resetFilters() {
                 </v-icon>
                 <span>{{ data.visualReinforcement.badgeText }}</span>
               </div>
-              <div class="node-content" @click="manejarClickNodo(id)">
+              <div class="node-content" @click.stop="manejarClickNodo(id)">
                 <!-- Zona Central Hero: Nombre de la Unidad -->
                 <div class="node-center">
                   <div
@@ -3413,7 +3413,7 @@ function resetFilters() {
                   </div>
                 </div>
                 <v-tooltip activator="parent" location="top" max-width="360">
-                  {{ data.nombre }}
+                  <span class="text-uppercase">{{ (data.nombre || '').toUpperCase() }}</span>
                 </v-tooltip>
               </div>
               <div class="node-actions pa-1 d-flex justify-end" @click.stop>
