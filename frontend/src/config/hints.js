@@ -73,6 +73,12 @@ export const hints = {
       "Norma, resolución o artículo que faculta esta función específica",
     es_troncal:
       "Define si la unidad desciende directamente por la línea central de gobierno",
+    planificacionEstrategicaAplica:
+      "Determina si el bloque de Planificación Estratégica corresponde y aplica a esta unidad",
+    planificacionEstrategicaValor:
+      "Porcentaje o valor numérico decimal de cumplimiento de 0 a 100 con hasta 2 decimales",
+    planificacionEstrategica:
+      "Descripción de las metas, objetivos y alineación con la planificación estratégica institucional",
     ejecucionPoa:
       "Porcentaje o estado del plan operativo anual asignado a la unidad",
     ejecucionPresupuestaria:

@@ -87,6 +87,18 @@ export function useUnidadDetails({ unidadesStore }) {
           infraestructura: data.infraestructura || data.infraestructura_fisica || null,
           ubicacion: data.ubicacion || null,
           fec_creacion: data.fecCreacion || data.fec_creacion || null,
+          planificacionEstrategicaAplica: Boolean(
+            data.planificacionEstrategicaAplica ||
+            data.planificacion_estrategica_aplica
+          ),
+          planificacionEstrategicaValor:
+            data.planificacionEstrategicaValor ??
+            data.planificacion_estrategica_valor ??
+            null,
+          planificacionEstrategica:
+            data.planificacionEstrategica ||
+            data.planificacion_estrategica ||
+            null,
         };
       }
     } catch (e) {

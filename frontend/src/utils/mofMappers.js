@@ -105,6 +105,9 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     es_sub_troncal: d.es_sub_troncal === true || d.es_subtroncal === true,
     es_subtroncal: d.es_sub_troncal === true || d.es_subtroncal === true,
     lado: d.lado || "AUTOMATICO",
+    planificacionEstrategicaAplica: d.planificacionEstrategicaAplica === true || d.planificacion_estrategica_aplica === true,
+    planificacionEstrategicaValor: d.planificacionEstrategicaValor ?? d.planificacion_estrategica_valor ?? null,
+    planificacionEstrategica: d.planificacionEstrategica || d.planificacion_estrategica || "",
     tramitesAtendidos: "",
     ejecucionPoa: "",
     ejecucionPresupuestaria: "",
@@ -313,6 +316,18 @@ export function mapBackendToForm(raw, options = {}) {
     ubicacion: raw.ubicacion || "",
     relacionesInternas,
     relacionesExternas,
+    planificacionEstrategicaAplica: Boolean(
+      raw.planificacionEstrategicaAplica ??
+      raw.planificacion_estrategica_aplica
+    ),
+    planificacionEstrategicaValor:
+      raw.planificacionEstrategicaValor ??
+      raw.planificacion_estrategica_valor ??
+      null,
+    planificacionEstrategica:
+      raw.planificacionEstrategica ||
+      raw.planificacion_estrategica ||
+      "",
     inventarios: Array.isArray(raw.inventarios)
       ? raw.inventarios.map((i) => ({
           id: i.id != null ? Number(i.id) : null,
@@ -415,6 +430,20 @@ export function mapFormToBackend(formData, options = {}) {
     cargaHorariaEjecutada: (formData.cargaHorariaEjecutada ?? formData.carga_horaria_ejecutada)?.trim() || null,
     infraestructura: (formData.infraestructura ?? formData.infraestructura_fisica)?.trim() || null,
     ubicacion: formData.ubicacion?.trim() || null,
+    planificacionEstrategicaAplica: Boolean(formData.planificacionEstrategicaAplica),
+    ...(formData.planificacionEstrategicaAplica
+      ? {
+          planificacionEstrategicaValor:
+            formData.planificacionEstrategicaValor !== "" &&
+            formData.planificacionEstrategicaValor != null
+              ? Number(formData.planificacionEstrategicaValor)
+              : null,
+          planificacionEstrategica:
+            typeof formData.planificacionEstrategica === "string"
+              ? formData.planificacionEstrategica.trim() || null
+              : null,
+        }
+      : {}),
     relacionesInternas: uniqueByRelacionadaId(
       (formData.relacionesInternas || []).map((r) => ({
         relacionadaId: toRelId(typeof r === "object" && r !== null ? r.relacionadaId : r),
