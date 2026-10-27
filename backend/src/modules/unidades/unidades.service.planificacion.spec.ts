@@ -59,6 +59,8 @@ function buildService(db: ReturnType<typeof createFakeDb>) {
     unused,
     vacio as never,
     vacio as never,
+    vacio as never,
+    vacio as never,
   );
 }
 

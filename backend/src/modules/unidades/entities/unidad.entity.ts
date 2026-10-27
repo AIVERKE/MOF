@@ -20,6 +20,7 @@ import { UnidadRelacionExterna } from './unidad-relacion-externa.entity';
 import { UnidadRelacionInterna } from './unidad-relacion-interna.entity';
 import { UnidadInventario } from './unidad-inventario.entity';
 import { UnidadSia } from './unidad-sia.entity';
+import { ProyectoUnidad } from './proyecto-unidad.entity';
 
 /** El driver de pg devuelve `numeric` como string. */
 const numericTransformer: ValueTransformer = {
@@ -38,6 +39,7 @@ const numericTransformer: ValueTransformer = {
 )
 @Check('CHK_unidad_vistas_count', '"vistas_count" >= 0')
 @Check('CHK_unidad_descargas_count', '"descargas_count" >= 0')
+@Check('CHK_unidad_color', `"color" IS NULL OR "color" ~ '^#[0-9A-F]{6}$'`)
 export class Unidad extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
@@ -101,6 +103,10 @@ export class Unidad extends AuditableEntity {
 
   @Column({ name: 'lado', type: 'varchar', length: 20, default: 'AUTOMATICO' })
   lado: string;
+
+  /** Color propio en el organigrama (`#RRGGBB`). `null` hereda el de la Clase. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  color: string | null;
 
   @Column({ type: 'text', nullable: true })
   objetivo: string | null;
@@ -213,4 +219,7 @@ export class Unidad extends AuditableEntity {
 
   @OneToMany(() => UnidadSia, (sia) => sia.unidad)
   sia: UnidadSia[];
+
+  @OneToMany(() => ProyectoUnidad, (pu) => pu.unidad)
+  proyectos: ProyectoUnidad[];
 }

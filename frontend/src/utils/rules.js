@@ -85,6 +85,15 @@ export const rules = {
     );
   },
 
+  porcentajePlanificacion: (value) => {
+    if (value == null || value === "") return true;
+    const num = Number(value);
+    if (isNaN(num)) return "Debe ser un número válido";
+    if (num < 0 || num > 100) return "El valor debe estar entre 0 y 100";
+    if (!/^\d+(\.\d{1,2})?$/.test(String(value).trim())) return "Máximo 2 decimales";
+    return true;
+  },
+
   sinCaracteresRaros: (value) => {
     if (!value || !String(value).trim()) return true;
     const invalidPattern = /[@#$^*~{}[\]|\\<>`]/;

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed, nextTick } from "vue";
 import { rules, FEC_CREACION_MIN, fecCreacionMax } from "@/utils/rules";
-import { swatches, getUsedColors } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, isClaseCarrera } from "@/utils/mofHelpers";
 import { toRelId } from "@/utils/mofMappers";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
@@ -12,6 +12,8 @@ import SelectAllTipos from "../tipos/SelectAllTipos.vue";
 import SelectAllNiveles from "../niveles/SelectAllNiveles.vue";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
 import CargosUnidadTable from "../cargos/CargosUnidadTable.vue";
+import UnidadInventarioTable from "./UnidadInventarioTable.vue";
+import UnidadSiaTable from "./UnidadSiaTable.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
@@ -20,6 +22,7 @@ import { useSnackbar } from "@/composables/useSnackbar";
 
 const { smAndDown } = useResponsive();
 const { mostrar } = useSnackbar();
+const inventarioTableRef = ref(null);
 
 const props = defineProps({
   modelValue: Boolean,
@@ -175,6 +178,20 @@ const sectionsConfig = [
     ],
   },
   {
+    id: "section-inventarios",
+    name: "Inventarios",
+    keywords: [
+      "inventario",
+      "inventarios",
+      "bienes",
+      "activos",
+      "equipos",
+      "materiales",
+      "cantidad",
+      "descripcion",
+    ],
+  },
+  {
     id: "section-organigrama",
     name: "Disposición en el Organigrama",
     keywords: [
@@ -190,6 +207,23 @@ const sectionsConfig = [
       "centro",
       "automatico",
       "estructura",
+    ],
+  },
+  {
+    id: "section-planificacion-estrategica",
+    name: "Planificación Estratégica",
+    keywords: [
+      "planificacion",
+      "planificacion estrategica",
+      "estrategica",
+      "meta",
+      "pei",
+      "porcentaje",
+      "decimal",
+      "float",
+      "switch",
+      "corresponde",
+      "aplica",
     ],
   },
   {
@@ -264,15 +298,58 @@ const STOP_WORDS = new Set([
   "unas",
 ]);
 
+const isCarrera = computed(() => {
+  const claseId = props.formData?.clase;
+  if (!claseId) return false;
+  const found = clasesStore.clases.find(
+    (c) => String(c.id) === String(claseId),
+  );
+  if (found) {
+    if (found.esCarrera !== undefined && found.esCarrera !== null) {
+      return Boolean(found.esCarrera);
+    }
+    return isClaseCarrera(found.descripcion || found.nombre);
+  }
+  return isClaseCarrera(claseId);
+});
+
+const activeSectionsConfig = computed(() => {
+  const base = [...sectionsConfig];
+  if (isCarrera.value) {
+    const cargosIdx = base.findIndex((s) => s.id === "section-cargos");
+    const siaSection = {
+      id: "section-sia",
+      name: "Métricas Académicas (SIA)",
+      keywords: [
+        "sia",
+        "tabla sia",
+        "academicas",
+        "academicos",
+        "aprobados",
+        "reprobados",
+        "matriculados",
+        "estudiantes",
+        "carrera",
+      ],
+    };
+    if (cargosIdx !== -1) {
+      base.splice(cargosIdx + 1, 0, siaSection);
+    } else {
+      base.push(siaSection);
+    }
+  }
+  return base;
+});
+
 const matchingSections = computed(() => {
   const q = normalizeText(searchQuery.value);
-  if (!q) return sectionsConfig;
+  if (!q) return activeSectionsConfig.value;
 
   const words = q
     .split(/\s+/)
     .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
 
-  return sectionsConfig.filter((sec) => {
+  return activeSectionsConfig.value.filter((sec) => {
     const secNameNorm = normalizeText(sec.name);
     // 1. Coincidencia directa en el nombre de la sección
     if (secNameNorm.includes(q)) return true;
@@ -473,6 +550,15 @@ function close() {
 
 async function confirm() {
   if (props.saving) return;
+
+  if (inventarioTableRef.value && !inventarioTableRef.value.validate()) {
+    mostrar("En inventarios, la cantidad debe ser un número entero mayor o igual a 1", "warning");
+    const inventarioEl = document.getElementById("section-inventarios");
+    if (inventarioEl) {
+      inventarioEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    return;
+  }
 
   if (formRef.value) {
     const result = await formRef.value.validate();
@@ -717,6 +803,7 @@ function moverAbajo(index) {
               <v-date-input
                 v-model="formData.fecCreacion"
                 label="Fecha de Creación"
+                persistent-placeholder
                 :min="FEC_CREACION_MIN"
                 :max="fecCreacionMax()"
                 :rules="[rules.fechaCreacionRango]"
@@ -963,6 +1050,32 @@ function moverAbajo(index) {
             />
           </div>
 
+          <!-- INVENTARIOS DE LA UNIDAD (MOF-074) -->
+          <div
+            id="section-inventarios"
+            v-show="isSectionVisible('section-inventarios')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-inventarios') }"
+            class="my-3"
+          >
+            <UnidadInventarioTable
+              ref="inventarioTableRef"
+              v-model="formData.inventarios"
+            />
+          </div>
+
+          <!-- MÉTRICAS ACADÉMICAS (SIA) - SOLO EN CARRERAS (MOF-075) -->
+          <div
+            v-if="isCarrera"
+            id="section-sia"
+            v-show="isSectionVisible('section-sia')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-sia') }"
+            class="my-3"
+          >
+            <UnidadSiaTable
+              v-model="formData.sia"
+            />
+          </div>
+
           <!-- ESTRUCTURA Y DISPOSICIÓN EN EL ORGANIGRAMA -->
           <div
             id="section-organigrama"
@@ -1148,6 +1261,78 @@ function moverAbajo(index) {
               </v-col>
             </v-row>
           </v-card>
+          </div>
+
+          <!-- PLANIFICACIÓN ESTRATÉGICA (MOF-073) -->
+          <div
+            id="section-planificacion-estrategica"
+            v-show="isSectionVisible('section-planificacion-estrategica')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-planificacion-estrategica') }"
+          >
+            <v-card variant="outlined" class="pa-4 my-4 rounded-lg border-indigo">
+              <div class="d-flex align-center justify-space-between mb-3">
+                <div class="text-subtitle-2 font-weight-bold text-indigo d-flex align-center">
+                  <v-icon start size="18">mdi-chart-timeline-variant</v-icon>
+                  Planificación Estratégica
+                </div>
+                <div class="d-flex align-center">
+                  <span class="text-caption font-weight-bold mr-2 text-slate-700">
+                    ¿Corresponde a esta unidad?
+                  </span>
+                  <v-switch
+                    v-model="formData.planificacionEstrategicaAplica"
+                    color="indigo"
+                    density="compact"
+                    hide-details
+                    inset
+                    data-test="switch-planificacion-estrategica"
+                  />
+                </div>
+              </div>
+
+              <div v-if="formData.planificacionEstrategicaAplica">
+                <v-row dense>
+                  <v-col cols="12" md="4">
+                    <v-text-field
+                      v-model="formData.planificacionEstrategicaValor"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      label="Valor numérico decimal (%)"
+                      :hint="hints.unidadForm.planificacionEstrategicaValor"
+                      :persistent-hint="false"
+                      :rules="[
+                        rules.required,
+                        rules.porcentajePlanificacion,
+                      ]"
+                      variant="underlined"
+                      density="compact"
+                      autocomplete="off"
+                      data-test="input-planificacion-estrategica-valor"
+                    />
+                  </v-col>
+                  <v-col cols="12">
+                    <v-textarea
+                      v-model="formData.planificacionEstrategica"
+                      label="Descripción de Planificación Estratégica"
+                      :hint="hints.unidadForm.planificacionEstrategica"
+                      :persistent-hint="false"
+                      :rules="[rules.required, rules.sinCaracteresRaros]"
+                      variant="underlined"
+                      rows="2"
+                      auto-grow
+                      density="compact"
+                      autocomplete="off"
+                      data-test="textarea-planificacion-estrategica"
+                    />
+                  </v-col>
+                </v-row>
+              </div>
+              <div v-else class="text-caption text-slate-500 font-italic py-1">
+                La sección de Planificación Estratégica está deshabilitada para esta unidad. Active el switch si corresponde ingresar indicadores.
+              </div>
+            </v-card>
           </div>
 
           <!-- RELACIONAMIENTO Y COORDINACIÓN (S-MAU) -->

@@ -23,6 +23,7 @@ export const ENDPOINTS = {
     DASHBOARD_STATS: `${API_BASE_URL}/api/v1/mof/dashboard/stats`,
     DESCENDIENTES_STATS: (id) => `${API_BASE_URL}/api/v1/mof/unidades/${id}/descendientes-stats`,
     PDF_UNIDAD: (id) => `${API_BASE_URL}/api/v1/mof/unidades/pdf/${id}`,
+    VISTAS_UNIDAD: (id) => `${API_BASE_URL}/api/v1/mof/unidades/${id}/vistas`,
     CONFIG: `${API_BASE_URL}/api/v1/mof/config`,
   },
   UNIDADES: {

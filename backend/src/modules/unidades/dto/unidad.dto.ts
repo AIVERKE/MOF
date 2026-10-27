@@ -30,6 +30,9 @@ export const SIGLA_REGEX = /^[\p{L}0-9.,'-]*$/u;
 export const SIGLA_FORMATO_MENSAJE =
   "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')";
 
+/** Color hexadecimal de 6 dígitos (`#RRGGBB`), sin alfa ni forma corta. */
+export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+
 export class UnidadDto {
   @ApiProperty()
   @IsString()
@@ -141,10 +144,20 @@ export class UnidadDto {
   @IsString()
   baseLegal?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Color propio del nodo en el organigrama (`#RRGGBB`). `null` o vacío vuelve a heredar el color de la Clase; si se omite, se conserva el guardado. Un color igual al de la Clase se guarda como `null`.',
+    nullable: true,
+    example: '#00897B',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && value.trim() === '' ? null : value,
+  )
   @IsOptional()
-  @IsString()
-  color?: string;
+  @Matches(HEX_COLOR_REGEX, {
+    message: 'El color debe tener el formato hexadecimal #RRGGBB',
+  })
+  color?: string | null;
 
   @ApiProperty()
   @IsNumber()
@@ -312,6 +325,18 @@ export class UnidadDto {
   @ValidateNested({ each: true })
   @Type(() => UnidadSiaItemDto)
   sia?: UnidadSiaItemDto[];
+
+  @ApiPropertyOptional({
+    type: () => [ProyectoItemDto],
+    description:
+      'Proyectos de la unidad (solo Decanatos y unidades que dependen de uno). Misma convención que `inventarios`: filas con `id` se actualizan, filas sin `id` se crean y los proyectos vigentes que no se envían se desvinculan de la unidad (si quedan sin unidades, se dan de baja). Si se omite el campo, no se modifica. Enviar filas en una unidad que no aplica responde `PROYECTOS_NO_APLICA`; `[]` se ignora.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
+  @ValidateNested({ each: true })
+  @Type(() => ProyectoItemDto)
+  proyectos?: ProyectoItemDto[];
 }
 
 export class SetParentDto {
@@ -495,4 +520,125 @@ export class UnidadSiaResponseDto {
 
   @ApiProperty({ example: 150, nullable: true, type: 'integer' })
   matriculados: number | null;
+}
+
+/** Recorta y colapsa espacios: "  Interacción   social " → "Interacción social". */
+const normalizarTexto = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value;
+
+export class ProyectoDto {
+  @ApiProperty({
+    description:
+      'Tipo de proyecto en texto libre (no hay lista cerrada). Proyectos con el mismo tipo, sin distinguir mayúsculas ni acentos, se agrupan juntos.',
+    example: 'Interacción social',
+    maxLength: 120,
+  })
+  @Transform(normalizarTexto)
+  @IsString()
+  @IsNotEmpty({ message: 'El tipo de proyecto es obligatorio' })
+  @MaxLength(120, {
+    message: 'El tipo de proyecto no puede superar 120 caracteres',
+  })
+  tipo: string;
+
+  @ApiProperty({
+    description: 'Detalle descriptivo del proyecto',
+    example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
+    maxLength: 4000,
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @IsNotEmpty({ message: 'El detalle del proyecto es obligatorio' })
+  @MaxLength(4000, {
+    message: 'El detalle del proyecto no puede superar 4000 caracteres',
+  })
+  detalle: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Otras unidades que participan en el proyecto (proyecto conjunto). La unidad de la ruta siempre participa: no hace falta incluirla y se ignoran repetidos. Si se envía, reemplaza la lista de participantes; si se omite al actualizar, se conserva. Cada unidad debe ser un Decanato o depender de uno (`PROYECTO_UNIDAD_NO_APLICA`).',
+    example: [42],
+    type: [Number],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
+  @IsInt({
+    each: true,
+    message: 'Cada unidad participante debe ser un id entero',
+  })
+  @IsPositive({ each: true })
+  unidadIds?: number[];
+}
+
+export class ProyectoItemDto extends ProyectoDto {
+  @ApiPropertyOptional({
+    description: 'ID del proyecto existente; omitir para crear uno nuevo',
+    example: 5,
+  })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  id?: number;
+}
+
+export class ProyectoUnidadRefDto {
+  @ApiProperty({ example: 42 })
+  id: number;
+
+  @ApiProperty({ example: '1.1.0.0.0.0.0.25.1.8.11.0.0.0' })
+  codigo: string;
+
+  @ApiProperty({ example: 'FCS-DEC' })
+  sigla: string;
+
+  @ApiProperty({ example: 'FACULTAD DE CIENCIAS SOCIALES - DECANATO' })
+  nombre: string;
+}
+
+export class ProyectoResponseDto {
+  @ApiProperty({ example: 5 })
+  id: number;
+
+  @ApiProperty({ example: 'Interacción social' })
+  tipo: string;
+
+  @ApiProperty({
+    example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
+  })
+  detalle: string;
+
+  @ApiProperty({
+    type: () => [ProyectoUnidadRefDto],
+    description:
+      'Todas las unidades vigentes que participan, incluida la consultada. Más de una indica un proyecto conjunto.',
+  })
+  unidades: ProyectoUnidadRefDto[];
+}
+
+export class ProyectoGrupoResponseDto {
+  @ApiProperty({
+    example: 'Interacción social',
+    description: 'Tipo tal como se registró por primera vez',
+  })
+  tipo: string;
+
+  @ApiProperty({ example: 2, description: 'Proyectos del grupo' })
+  cantidad: number;
+
+  @ApiProperty({ type: () => [ProyectoResponseDto] })
+  proyectos: ProyectoResponseDto[];
+}
+
+export class ProyectoTipoResponseDto {
+  @ApiProperty({ example: 'Interacción social' })
+  tipo: string;
+
+  @ApiProperty({
+    example: 7,
+    description: 'Proyectos vigentes registrados con ese tipo',
+  })
+  cantidad: number;
 }
