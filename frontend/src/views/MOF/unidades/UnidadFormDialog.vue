@@ -421,6 +421,8 @@ watch(
   },
 );
 
+const formRef = ref(null);
+
 // Sincronizar formValid con el padre
 const localFormValid = ref(props.formValid);
 watch(localFormValid, (val) => emit("update:formValid", val));
@@ -546,7 +548,9 @@ function close() {
   emit("update:modelValue", false);
 }
 
-function confirm() {
+async function confirm() {
+  if (props.saving) return;
+
   if (inventarioTableRef.value && !inventarioTableRef.value.validate()) {
     mostrar("En inventarios, la cantidad debe ser un número entero mayor o igual a 1", "warning");
     const inventarioEl = document.getElementById("section-inventarios");
@@ -555,6 +559,45 @@ function confirm() {
     }
     return;
   }
+
+  if (formRef.value) {
+    const result = await formRef.value.validate();
+    const isValid = typeof result === "object" && result !== null ? !!result.valid : !!localFormValid.value;
+
+    if (!isValid) {
+      mostrar("Por favor corrige los campos marcados en rojo antes de guardar", "warning");
+
+      // Si hay un filtro de búsqueda activo en el modal, limpiarlo para garantizar que la sección del error sea visible
+      if (searchQuery.value) {
+        searchQuery.value = "";
+      }
+      await nextTick();
+
+      setTimeout(() => {
+        const formEl = formRef.value?.$el || (typeof formRef.value?.querySelector === "function" ? formRef.value : document);
+        const errorEl =
+          (result?.errors?.[0]?.id && document.getElementById(result.errors[0].id)) ||
+          formEl?.querySelector?.(".v-input--error, .v-field--error");
+
+        if (errorEl) {
+          errorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          const focusable = errorEl.matches?.("input, textarea, select")
+            ? errorEl
+            : errorEl.querySelector?.(
+                "input:not([type='hidden']):not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex='0']"
+              );
+          if (focusable && typeof focusable.focus === "function") {
+            focusable.focus();
+          }
+        }
+      }, 50);
+      return;
+    }
+  } else if (!localFormValid.value) {
+    mostrar("Por favor completa los campos requeridos antes de guardar", "warning");
+    return;
+  }
+
   emit("confirm");
 }
 
@@ -704,7 +747,7 @@ function moverAbajo(index) {
           </div>
         </div>
 
-        <v-form v-model="localFormValid" autocomplete="off">
+        <v-form ref="formRef" v-model="localFormValid" autocomplete="off">
           <div
             id="section-datos-generales"
             v-show="isSectionVisible('section-datos-generales')"
@@ -1453,7 +1496,7 @@ function moverAbajo(index) {
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="close">Cancelar</v-btn>
-        <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" :disabled="!localFormValid || saving" :loading="saving" @click="confirm">
+        <v-btn color="primary" variant="flat" class="rounded-lg font-weight-bold px-4" :disabled="saving" :loading="saving" @click="confirm">
           Guardar Unidad
           <v-tooltip activator="parent" location="top"
             >Persistir cambios en el manual</v-tooltip
