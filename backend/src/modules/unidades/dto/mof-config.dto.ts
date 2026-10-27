@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -10,10 +11,14 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   ValidateNested,
 } from 'class-validator';
+import { HEX_COLOR_REGEX } from './unidad.dto';
+
+export const PALETA_NODOS_MAX = 24;
 
 class MofDefaultsDto {
   @ApiPropertyOptional({ example: 1 })
@@ -118,6 +123,21 @@ export class UpdateMofConfigDto {
   @ArrayMinSize(1)
   @IsArray({ each: true })
   paleta?: string[][];
+
+  @ApiPropertyOptional({
+    description:
+      'Colores de nodo del organigrama (`#RRGGBB`), asignados por posición de la Clase cuando ni la unidad ni su Clase tienen color. Reemplaza la lista completa.',
+    example: ['#1D4ED8', '#B91C1C', '#047857'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(PALETA_NODOS_MAX)
+  @Matches(HEX_COLOR_REGEX, {
+    each: true,
+    message: 'Cada color de paletaNodos debe tener el formato #RRGGBB',
+  })
+  paletaNodos?: string[];
 
   @ApiPropertyOptional({ type: MofPasswordPolicyDto })
   @IsOptional()

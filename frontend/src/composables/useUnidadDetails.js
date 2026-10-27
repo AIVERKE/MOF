@@ -118,6 +118,9 @@ export function useUnidadDetails({ unidadesStore }) {
 
           detailData.value = {
             ...data,
+            esCarrera: Boolean(data.esCarrera),
+            sia: Array.isArray(data.sia) ? data.sia : [],
+            inventarios: Array.isArray(data.inventarios) ? data.inventarios : [],
             vistasCount: vistasTotal,
             descargasCount: descargasTotal,
             vistas_count: vistasTotal,
