@@ -156,6 +156,26 @@ export function useUnidadForm(stores) {
       }
     }
 
+    // Validación de inventarios: si una fila tiene descripción, su cantidad debe ser un entero >= 1
+    if (Array.isArray(formData.value?.inventarios)) {
+      const invalidInventario = formData.value.inventarios.find(
+        (i) =>
+          i &&
+          typeof i.descripcion === "string" &&
+          i.descripcion.trim().length > 0 &&
+          (i.cantidad === "" ||
+            i.cantidad == null ||
+            Number(i.cantidad) < 1 ||
+            !Number.isInteger(Number(i.cantidad)))
+      );
+      if (invalidInventario) {
+        return {
+          success: false,
+          error: `El ítem de inventario "${invalidInventario.descripcion}" debe tener una cantidad mayor o igual a 1.`,
+        };
+      }
+    }
+
     const dataToSend = mapFormToBackend(formData.value, {
       isCarrera: isCarrera.value,
       clasesCatalog: clasesStore?.clases,

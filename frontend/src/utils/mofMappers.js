@@ -91,6 +91,7 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     fecCreacion: null,
     relacion: d.relacion !== undefined ? d.relacion : null,
     cargos: [],
+    inventarios: [],
     funciones: [],
     dependenciasFuncionales: [],
     es_desconcentrada: d.es_desconcentrada === true || d.esDesconcentrada === true,
@@ -312,6 +313,13 @@ export function mapBackendToForm(raw, options = {}) {
     ubicacion: raw.ubicacion || "",
     relacionesInternas,
     relacionesExternas,
+    inventarios: Array.isArray(raw.inventarios)
+      ? raw.inventarios.map((i) => ({
+          id: i.id != null ? Number(i.id) : null,
+          descripcion: i.descripcion || "",
+          cantidad: Math.max(1, parseInt(i.cantidad, 10) || 1),
+        }))
+      : [],
   };
 }
 
@@ -416,6 +424,20 @@ export function mapFormToBackend(formData, options = {}) {
     relacionesExternas: (formData.relacionesExternas || [])
       .map((r) => (typeof r === "object" ? r.descripcion?.trim() : String(r).trim()))
       .filter(Boolean),
+    inventarios: Array.isArray(formData.inventarios)
+      ? formData.inventarios
+          .filter((i) => i && typeof i.descripcion === "string" && i.descripcion.trim().length > 0)
+          .map((i) => {
+            const item = {
+              descripcion: i.descripcion.trim(),
+              cantidad: Math.max(1, parseInt(i.cantidad, 10) || 1),
+            };
+            if (i.id != null && Number.isInteger(Number(i.id)) && Number(i.id) > 0) {
+              item.id = Number(i.id);
+            }
+            return item;
+          })
+      : undefined,
   };
 
   if (isCarrera) {

@@ -12,13 +12,17 @@ import SelectAllTipos from "../tipos/SelectAllTipos.vue";
 import SelectAllNiveles from "../niveles/SelectAllNiveles.vue";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
 import CargosUnidadTable from "../cargos/CargosUnidadTable.vue";
+import UnidadInventarioTable from "./UnidadInventarioTable.vue";
 import UnidadSiaTable from "./UnidadSiaTable.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
 import { useResponsive } from "@/composables/useResponsive";
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const { smAndDown } = useResponsive();
+const { mostrar } = useSnackbar();
+const inventarioTableRef = ref(null);
 
 const props = defineProps({
   modelValue: Boolean,
@@ -171,6 +175,20 @@ const sectionsConfig = [
       "nivel orden",
       "nivel sugerido",
       "jerarquia de cargo",
+    ],
+  },
+  {
+    id: "section-inventarios",
+    name: "Inventarios",
+    keywords: [
+      "inventario",
+      "inventarios",
+      "bienes",
+      "activos",
+      "equipos",
+      "materiales",
+      "cantidad",
+      "descripcion",
     ],
   },
   {
@@ -512,6 +530,14 @@ function close() {
 }
 
 function confirm() {
+  if (inventarioTableRef.value && !inventarioTableRef.value.validate()) {
+    mostrar("En inventarios, la cantidad debe ser un número entero mayor o igual a 1", "warning");
+    const inventarioEl = document.getElementById("section-inventarios");
+    if (inventarioEl) {
+      inventarioEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    return;
+  }
   emit("confirm");
 }
 
@@ -961,6 +987,19 @@ function moverAbajo(index) {
             <CargosUnidadTable
               v-model="formData.cargos"
               :hint="hints.unidadForm.cargos"
+            />
+          </div>
+
+          <!-- INVENTARIOS DE LA UNIDAD (MOF-074) -->
+          <div
+            id="section-inventarios"
+            v-show="isSectionVisible('section-inventarios')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-inventarios') }"
+            class="my-3"
+          >
+            <UnidadInventarioTable
+              ref="inventarioTableRef"
+              v-model="formData.inventarios"
             />
           </div>
 
