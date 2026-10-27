@@ -159,7 +159,7 @@ export class CatalogosController {
   @ApiOperation({
     summary: 'Listar clases (tipo_unidad)',
     description:
-      'Cada clase incluye `esCarrera`: indica si sus unidades llevan el bloque SIA.',
+      'Cada clase incluye `esCarrera` (sus unidades llevan el bloque SIA) y `esDecanato` (sus unidades y las que dependen de ellas llevan el bloque de Proyectos).',
   })
   async listClases() {
     return ResultResponse.ok(

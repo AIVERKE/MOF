@@ -87,6 +87,8 @@ describe('UnidadesService sigla (PUT /unidades/:id)', () => {
       unused,
       unused,
       unused,
+      unused,
+      unused,
     );
 
     await service.update(10, { sigla: 'SEC.GRAL' } as UnidadDto);

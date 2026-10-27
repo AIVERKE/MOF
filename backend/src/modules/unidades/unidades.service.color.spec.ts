@@ -94,6 +94,8 @@ function buildService(db: ReturnType<typeof createFakeDb>) {
     db.mofConfigRepo as unknown as Repository<MofConfig>,
     vacio as never,
     vacio as never,
+    vacio as never,
+    vacio as never,
   );
 }
 

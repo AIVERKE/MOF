@@ -2,7 +2,7 @@
 
 Módulo encargado de la gestión integral de las unidades organizacionales según el modelo documental **S-MAU** (Detalle de la Unidad Organizacional).
 
-## Campos del Detalle S-MAU (26 Campos + Inventarios + SIA + Planificación Estratégica)
+## Campos del Detalle S-MAU (26 Campos + Inventarios + SIA + Planificación Estratégica + Proyectos)
 
 1. **NOMBRE DE LA UNIDAD ORGANIZACIONAL** (`nombre`)
 2. **SIGLA** (`sigla`)
@@ -33,6 +33,7 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 27. **INVENTARIOS** (`inventarios` / `unidad_inventario`) — filas de descripción y cantidad, propias de cada unidad
 28. **SIA** (`sia` / `unidad_sia`) — filas de aprobados, reprobados y matriculados; solo en unidades de tipo Carrera
 29. **PLANIFICACIÓN ESTRATÉGICA** (`planificacionEstrategicaAplica`, `planificacionEstrategicaValor`, `planificacionEstrategica`) — switch, porcentaje 0–100 y descripción
+30. **PROYECTOS** (`proyectos` / `proyecto` + `proyecto_unidad`) — tipo en texto libre y detalle; solo en Decanatos y unidades que dependen de uno; un proyecto puede ser conjunto entre varias unidades
 
 ## Endpoints Principales
 
@@ -120,6 +121,97 @@ Endpoints por fila (escritura: ADMIN, OPERADOR):
 Una fila de otra unidad responde 404 (`NOT_FOUND`); en una unidad que no es Carrera, `GET` de una fila responde 404 y las escrituras `SIA_SOLO_CARRERA`.
 
 Agregar una columna cuando se formalice la lista completa: columna en `UnidadSia` + migración, propiedad en `UnidadSiaDto` y `UnidadSiaResponseDto`, y su nombre en `SIA_CAMPOS` (`dto/unidad.dto.ts`). El servicio recorre `SIA_CAMPOS`, así que la lógica no cambia.
+
+### Proyectos (Decanato hacia abajo)
+
+#### Qué unidades aplican
+Una unidad lleva Proyectos si su clase es Decanato **o** si algún ancestro por `parent_id` lo es. Una clase es Decanato cuando su descripción contiene "DECANATO" (`DECANATOS`, `VICEDECANATOS`), sin distinguir mayúsculas ni acentos. La regla vive en `catalogos/clase-decanato.ts`.
+
+- Aplican: decanatos, vicedecanatos, carreras, institutos, laboratorios, posgrados y demás dependencias de una facultad.
+- No aplican: Rectorado, Vicerrectorado, Secretarías, Direcciones y demás unidades del nivel central.
+- Si una unidad deja de aplicar (cambia de clase o de padre), sus proyectos se conservan pero no se exponen ni cuentan. Reaparecen si vuelve a aplicar.
+- No tiene relación con el texto de funciones que mencione investigación o interacción: son entidades aparte.
+
+#### Modelo
+- `proyecto`: `id`, `tipo` (`varchar(120)`, **texto libre**, sin catálogo ni enum), `detalle` (`text`), auditoría y baja lógica.
+- `proyecto_unidad`: (`proyecto_id`, `unidad_id`). Un proyecto conjunto (ej. Informática + Química) tiene una fila por unidad y **suma 1 en el contador de cada una**.
+- `tipo` se guarda recortado y con los espacios colapsados. Al agrupar, tipos que solo difieren en mayúsculas o acentos (`Investigación`, `investigacion`) van juntos, con la grafía del primero que se registró.
+
+#### Lectura
+`GET /api/v1/mof/clases`: cada clase trae `esDecanato`.
+
+`GET /api/v1/mof/unidades`: cada unidad trae `aplicaProyectos` y `proyectosCount` (proyectos en los que participa, incluidos los conjuntos; `0` si no aplica). Solo cuenta los de la propia unidad, no los de sus subunidades.
+
+`GET /api/v1/mof/unidades/:id`:
+
+```json
+{
+  "aplicaProyectos": true,
+  "proyectosCount": 3,
+  "proyectos": [
+    { "id": 5, "tipo": "Interacción social", "detalle": "Brigadas de salud comunitaria",
+      "unidades": [{ "id": 10, "codigo": "…", "sigla": "FCS-DEC", "nombre": "FACULTAD DE CIENCIAS SOCIALES - DECANATO" }] },
+    { "id": 6, "tipo": "Investigación", "detalle": "Química computacional",
+      "unidades": [
+        { "id": 21, "codigo": "…", "sigla": "INF", "nombre": "CARRERA DE INFORMÁTICA" },
+        { "id": 22, "codigo": "…", "sigla": "QMC", "nombre": "CARRERA DE QUÍMICA" }
+      ] },
+    { "id": 9, "tipo": "investigacion", "detalle": "Observatorio social", "unidades": [ … ] }
+  ],
+  "proyectosPorTipo": [
+    { "tipo": "Interacción social", "cantidad": 1, "proyectos": [ { "id": 5, … } ] },
+    { "tipo": "Investigación", "cantidad": 2, "proyectos": [ { "id": 6, … }, { "id": 9, … } ] }
+  ]
+}
+```
+
+- `proyectos`: orden de alta. `unidades`: todas las participantes vigentes, incluida la consultada (orden por nombre). Más de una significa proyecto conjunto.
+- `proyectosPorTipo`: grupos en orden alfabético. Es lo que muestra el panel lateral.
+- Si la unidad no aplica: `aplicaProyectos: false`, `proyectosCount: 0` y ambas listas `[]`.
+
+`GET /api/v1/mof/proyectos/tipos`: tipos ya usados, de más a menos frecuentes: `[{ "tipo": "Investigación", "cantidad": 7 }, …]`. Sirve solo para sugerir en el autocompletado: no restringe.
+
+#### Escritura desde el formulario
+`POST /api/v1/mof/unidades` y `PUT /api/v1/mof/unidades/:id` aceptan `proyectos`, con la misma convención que `inventarios`:
+
+```json
+"proyectos": [
+  { "id": 5, "tipo": "Interacción social", "detalle": "Brigadas de salud comunitaria" },
+  { "id": 6, "tipo": "Investigación", "detalle": "Química computacional", "unidadIds": [22] },
+  { "tipo": "Feria de emprendimiento", "detalle": "Primera edición", "unidadIds": [] }
+]
+```
+
+- Con `id` → se actualiza; sin `id` → se crea; un proyecto vigente de la unidad que no se envía → **la unidad se desvincula** (las demás participantes lo conservan; si no queda ninguna, el proyecto se da de baja). `[]` desvincula todos; omitir el campo no modifica nada.
+- `tipo`: texto obligatorio, máx. 120. `detalle`: texto obligatorio, máx. 4000. No se admiten otros campos.
+- `unidadIds`: **otras** unidades participantes. La unidad del formulario siempre participa (no hace falta incluirla; se ignoran repetidos). Si se envía, reemplaza la lista; si se omite en un proyecto existente, sus participantes no cambian. En uno nuevo, omitirlo equivale a `[]`.
+- Se valida con la clase y el padre **finales**: en el mismo `PUT` se puede mover la unidad bajo un Decanato y enviar `proyectos`. En el `POST`, con `tipoUnidad` y `parentId` del cuerpo.
+- En una unidad que no aplica, enviar filas responde `PROYECTOS_NO_APLICA`; `proyectos: []` se ignora.
+- Errores (400): `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica; `data` trae el id), `PROYECTO_NO_PERTENECE_UNIDAD` (`id` de un proyecto en el que la unidad no participa), `PROYECTO_ID_DUPLICADO`, `VALIDATION_FAILED`. Ante un error no se guarda nada.
+
+#### Endpoints por proyecto (escritura: ADMIN, OPERADOR)
+- `GET /api/v1/mof/unidades/:id/proyectos`: proyectos de la unidad (`[]` si no aplica).
+- `GET /api/v1/mof/unidades/:id/proyectos/:proyectoId`: un proyecto.
+- `POST /api/v1/mof/unidades/:id/proyectos`: `{ tipo, detalle, unidadIds? }`. Devuelve el proyecto con sus `unidades`.
+- `PUT /api/v1/mof/unidades/:id/proyectos/:proyectoId`: reemplaza `tipo` y `detalle`; `unidadIds` como arriba.
+- `DELETE /api/v1/mof/unidades/:id/proyectos/:proyectoId`: desvincula la unidad (baja lógica si era la última).
+
+Un proyecto en el que la unidad no participa responde 404 (`NOT_FOUND`); en una unidad que no aplica, `GET` de un proyecto responde 404 y las escrituras `PROYECTOS_NO_APLICA`.
+
+#### Integración en el front
+1. **Formulario** (`frontend/src/views/MOF/unidades/UnidadFormDialog.vue`, mappers en `frontend/src/utils/mofMappers.js`):
+   - Mostrar la sección cuando la clase elegida tiene `esDecanato` (de `GET /mof/clases`) **o** el padre elegido tiene `aplicaProyectos` (de `GET /mof/unidades`). Recalcular al cambiar clase o padre. Al abrir una unidad existente, el detalle ya trae `aplicaProyectos`.
+   - Filas `{ id?, tipo, detalle, unidadIds }`. Inicializar desde `detalle.proyectos`, con `unidadIds` = `p.unidades.map(u => u.id)` sin la unidad actual.
+   - `tipo`: `v-combobox` (acepta texto libre) con sugerencias de `GET /mof/proyectos/tipos`. `detalle`: `v-textarea`.
+   - Unidades participantes: autocompletar múltiple sobre `GET /mof/unidades` filtrado por `aplicaProyectos` y sin la unidad actual.
+   - Enviar `proyectos` en el `POST`/`PUT` solo si la sección está visible. Si no lo está, no enviar el campo.
+2. **Organigrama** (`frontend/src/views/MOF/OrganigramaVueFlow.vue`):
+   - Al armar `data` del nodo (donde se asigna `childrenCount`), agregar `proyectosCount: u.proyectosCount ?? 0`.
+   - Debajo del badge de subunidades, una línea `v-if="data.proyectosCount > 0"` con `1 proyecto` / `N proyectos`, con el mismo estilo de `children-badge`. No cambiar el resto de la tarjeta. Las unidades que no aplican siempre traen `0`, así que no muestran la línea.
+3. **Panel lateral** (`frontend/src/views/MOF/unidades/UnidadDetailsDrawer.vue`):
+   - Bloque "Proyectos" solo si `aplicaProyectos` y `proyectosCount > 0`.
+   - Recorrer `proyectosPorTipo`: encabezado con `tipo` y `cantidad`, y por cada proyecto su `detalle`. Si `p.unidades.length > 1`, mostrar chips con las otras unidades (proyecto conjunto).
+   - Fuera de alcance: reporte PDF.
 
 ### Sigla
 `sigla` es opcional en `POST`/`PUT /api/v1/mof/unidades/:id`. Su formato se valida con `SIGLA_REGEX` (`dto/unidad.dto.ts`), que el front debe replicar tal cual en `siglaFormato` (`frontend/src/utils/rules.js`):
