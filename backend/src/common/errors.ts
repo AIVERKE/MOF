@@ -19,6 +19,10 @@ export const ErrorCodes = {
   SIA_ID_DUPLICADO: 'SIA_ID_DUPLICADO',
   SIA_FILA_VACIA: 'SIA_FILA_VACIA',
   PLANIFICACION_ESTRATEGICA_INCOMPLETA: 'PLANIFICACION_ESTRATEGICA_INCOMPLETA',
+  PROYECTOS_NO_APLICA: 'PROYECTOS_NO_APLICA',
+  PROYECTO_UNIDAD_NO_APLICA: 'PROYECTO_UNIDAD_NO_APLICA',
+  PROYECTO_NO_PERTENECE_UNIDAD: 'PROYECTO_NO_PERTENECE_UNIDAD',
+  PROYECTO_ID_DUPLICADO: 'PROYECTO_ID_DUPLICADO',
   USUARIO_CI_DUPLICADO: 'USUARIO_CI_DUPLICADO',
   PRIMER_ACCESO_REQUERIDO: 'PRIMER_ACCESO_REQUERIDO',
   PRIMER_ACCESO_INVALIDO: 'PRIMER_ACCESO_INVALIDO',
@@ -130,6 +134,28 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     httpStatus: HttpStatus.BAD_REQUEST,
     message:
       'Si la Planificación Estratégica aplica, el porcentaje y la descripción son obligatorios',
+  },
+  PROYECTOS_NO_APLICA: {
+    code: ErrorCodes.PROYECTOS_NO_APLICA,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message:
+      'Los proyectos solo aplican a Decanatos y a las unidades que dependen de uno',
+  },
+  PROYECTO_UNIDAD_NO_APLICA: {
+    code: ErrorCodes.PROYECTO_UNIDAD_NO_APLICA,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message:
+      'Una unidad participante no existe o no es un Decanato ni depende de uno',
+  },
+  PROYECTO_NO_PERTENECE_UNIDAD: {
+    code: ErrorCodes.PROYECTO_NO_PERTENECE_UNIDAD,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'El proyecto no pertenece a la unidad',
+  },
+  PROYECTO_ID_DUPLICADO: {
+    code: ErrorCodes.PROYECTO_ID_DUPLICADO,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'El proyecto está repetido en la solicitud',
   },
   USUARIO_CI_DUPLICADO: {
     code: ErrorCodes.USUARIO_CI_DUPLICADO,

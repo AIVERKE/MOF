@@ -354,6 +354,18 @@ caption {
   font-size: 12px !important;
 }
 
+/* Mensajes de Error en Formularios (Alerta roja visible y mayor tamaño ~14px) */
+.v-input--error .v-messages__message,
+.v-input--error .v-input__details,
+.v-field--error ~ .v-input__details .v-messages__message,
+.v-messages__message.text-error,
+.text-error .v-messages__message {
+  color: var(--mof-danger) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+}
+
 /* Enlaces / Links de Texto */
 a,
 .link-texto {
