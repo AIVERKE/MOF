@@ -38,6 +38,7 @@ const numericTransformer: ValueTransformer = {
 )
 @Check('CHK_unidad_vistas_count', '"vistas_count" >= 0')
 @Check('CHK_unidad_descargas_count', '"descargas_count" >= 0')
+@Check('CHK_unidad_color', `"color" IS NULL OR "color" ~ '^#[0-9A-F]{6}$'`)
 export class Unidad extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
@@ -101,6 +102,10 @@ export class Unidad extends AuditableEntity {
 
   @Column({ name: 'lado', type: 'varchar', length: 20, default: 'AUTOMATICO' })
   lado: string;
+
+  /** Color propio en el organigrama (`#RRGGBB`). `null` hereda el de la Clase. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  color: string | null;
 
   @Column({ type: 'text', nullable: true })
   objetivo: string | null;

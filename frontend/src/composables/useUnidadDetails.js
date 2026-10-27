@@ -61,6 +61,8 @@ export function useUnidadDetails({ unidadesStore }) {
 
         detailData.value = {
           ...data,
+          esCarrera: Boolean(data.esCarrera),
+          sia: Array.isArray(data.sia) ? data.sia : [],
           es_desconcentrada: Boolean(
             data.es_desconcentrada ||
             data.esDesconcentrada ||
@@ -71,6 +73,7 @@ export function useUnidadDetails({ unidadesStore }) {
           objetivo_display: data.objetivo_puesto || data.objetivo,
           dependencias_nombres: dependenciasDetalle,
           cargos_detalle: Array.isArray(personal) ? personal : [],
+          inventarios: Array.isArray(data.inventarios) ? data.inventarios : [],
           dependencia_lineal_nombre: data.parent?.nombre || data.dependencia || null,
           hijas_lineales: Array.isArray(data.hijasLineales) ? data.hijasLineales : [],
           hijas_funcionales: Array.isArray(data.hijasFuncionales) ? data.hijasFuncionales : [],

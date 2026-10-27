@@ -61,6 +61,10 @@ export const hints = {
       "Seleccione el tipo de dependencia o enlace jerárquico",
     cargos:
       "Cargos y puestos de trabajo asignados a esta unidad administrativa",
+    inventarios:
+      "Bienes, equipos y materiales inventariados pertenecientes a esta unidad",
+    sia:
+      "Registro de métricas académicas SIA (aprobados, reprobados y matriculados) exclusivo para Carreras",
     clase:
       "Seleccione la jerarquía o nivel de instancia universitaria",
     funcion:
@@ -204,6 +208,19 @@ export const hints = {
   /**
    * Notas informativas contextuales para Dashboards
    */
+  inventario: {
+    table: "Tabla dinámica de bienes, equipos y materiales inventariados de la unidad",
+    descripcion: "Descripción del ítem de inventario (ej. Computadora de escritorio)",
+    cantidad: "Cantidad de unidades físicas (número entero mayor o igual a 1)",
+  },
+
+  sia: {
+    table: "Tabla dinámica de métricas estudiantiles del Sistema de Información Académica (SIA)",
+    aprobados: "Número de estudiantes aprobados",
+    reprobados: "Número de estudiantes reprobados",
+    matriculados: "Total de estudiantes matriculados",
+  },
+
   dashboards: {
     ejecutivo: {
       title: "Guía del Reporte Ejecutivo",

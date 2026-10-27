@@ -2,7 +2,7 @@
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useDisplay } from "vuetify";
 import UnidadActionsMenu from "./UnidadActionsMenu.vue";
-import { getCleanSigla } from "@/utils/mofHelpers";
+import { getCleanSigla, isClaseCarrera } from "@/utils/mofHelpers";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -145,6 +145,8 @@ const panels = computed(() => {
   if (!data) return [];
 
   const cargosCount = data.cargos_detalle?.length ?? 0;
+  const inventariosRows = Array.isArray(data.inventarios) ? data.inventarios : [];
+  const inventariosCount = inventariosRows.length;
   const depFuncCount =
     (data.dependencias_nombres?.length ||
       data.dependenciasFuncionales?.length) ??
@@ -154,6 +156,13 @@ const panels = computed(() => {
   const relIntCount = data.relaciones_internas?.length ?? 0;
   const relExtCount = data.relaciones_externas?.length ?? 0;
   const funcCount = data.funciones?.length ?? 0;
+  const esCarrera = Boolean(
+    data.esCarrera ||
+    data.es_carrera ||
+    (props.getClaseNombre ? isClaseCarrera(props.getClaseNombre(data.clase ?? data.tipoUnidad)) : false) ||
+    isClaseCarrera(data.clase ?? data.tipoUnidad)
+  );
+  const siaRows = Array.isArray(data.sia) ? data.sia : [];
   const esDesconcentrada = Boolean(
     data.es_desconcentrada ||
     data.esDesconcentrada ||
@@ -322,6 +331,28 @@ const panels = computed(() => {
       avatarColor: "deep-orange",
       badge: cargosCount > 0 ? cargosCount : null,
       type: "cargos",
+    },
+    ...(esCarrera
+      ? [
+          {
+            key: "sia",
+            title: "INFORMACIÓN ACADÉMICA (SIA)",
+            icon: "mdi-school",
+            avatarColor: "indigo-darken-2",
+            type: "sia",
+            badge: siaRows.length > 0 ? siaRows.length : null,
+            rows: siaRows,
+          },
+        ]
+      : []),
+    {
+      key: "inventarios",
+      title: "INVENTARIOS",
+      icon: "mdi-package-variant-closed",
+      avatarColor: "teal-darken-2",
+      badge: inventariosCount > 0 ? inventariosCount : null,
+      type: "inventarios",
+      rows: inventariosRows,
     },
     {
       key: "tramites_atendidos",
@@ -885,6 +916,46 @@ const panels = computed(() => {
               </div>
             </template>
 
+            <!-- Panel Inventarios (MOF-074) -->
+            <template v-else-if="panel.type === 'inventarios'">
+              <div v-if="panel.rows?.length" class="overflow-x-auto">
+                <v-table density="compact" class="border rounded text-caption">
+                  <thead>
+                    <tr class="bg-slate-50">
+                      <th class="text-caption font-weight-bold text-slate-600 text-center" style="width: 44px">
+                        #
+                      </th>
+                      <th class="text-left text-caption font-weight-bold text-slate-600">
+                        Descripción
+                      </th>
+                      <th class="text-center text-caption font-weight-bold text-slate-600" style="width: 100px">
+                        Cantidad
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item, idx) in panel.rows" :key="item.id || idx">
+                      <td class="text-caption font-weight-bold text-slate-500 text-center">
+                        {{ idx + 1 }}
+                      </td>
+                      <td class="text-left text-slate-800" data-test="inventario-detail-descripcion">
+                        {{ item.descripcion }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="inventario-detail-cantidad">
+                        <v-chip size="x-small" color="teal-darken-2" variant="flat" class="font-weight-bold">
+                          {{ item.cantidad }}
+                        </v-chip>
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin registros de inventario.</span>
+              </div>
+            </template>
+
             <!-- Panel Cargos con viñetas estilizadas e icono -->
             <template v-else-if="panel.type === 'cargos'">
               <div v-if="detailData.cargos_detalle?.length" class="d-flex flex-column gap-1">
@@ -924,6 +995,51 @@ const panels = computed(() => {
               <div v-else class="d-flex align-center text-caption text-grey py-1">
                 <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
                 <span class="font-italic">Sin cargos registrados.</span>
+              </div>
+            </template>
+
+            <!-- Panel Información Académica SIA (solo Carreras - MOF-075) -->
+            <template v-else-if="panel.type === 'sia'">
+              <div v-if="panel.rows?.length" class="border rounded overflow-hidden">
+                <v-table density="compact" class="sia-details-table">
+                  <thead>
+                    <tr class="bg-slate-100">
+                      <th class="text-caption font-weight-bold text-center" style="width: 44px">#</th>
+                      <th class="text-center text-caption font-weight-bold text-success">
+                        <v-icon size="14" color="success" class="mr-1">mdi-check-circle-outline</v-icon>
+                        Aprobados
+                      </th>
+                      <th class="text-center text-caption font-weight-bold text-error">
+                        <v-icon size="14" color="error" class="mr-1">mdi-close-circle-outline</v-icon>
+                        Reprobados
+                      </th>
+                      <th class="text-center text-caption font-weight-bold text-primary">
+                        <v-icon size="14" color="primary" class="mr-1">mdi-account-school-outline</v-icon>
+                        Matriculados
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, idx) in panel.rows" :key="row.id || idx">
+                      <td class="text-caption font-weight-bold text-slate-500 text-center">
+                        {{ idx + 1 }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="sia-detail-aprobados">
+                        {{ row.aprobados != null ? row.aprobados : '-' }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="sia-detail-reprobados">
+                        {{ row.reprobados != null ? row.reprobados : '-' }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="sia-detail-matriculados">
+                        {{ row.matriculados != null ? row.matriculados : '-' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin registros académicos SIA.</span>
               </div>
             </template>
           </v-expansion-panel-text>
