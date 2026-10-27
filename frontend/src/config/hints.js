@@ -61,6 +61,8 @@ export const hints = {
       "Seleccione el tipo de dependencia o enlace jerárquico",
     cargos:
       "Cargos y puestos de trabajo asignados a esta unidad administrativa",
+    sia:
+      "Registro de métricas académicas SIA (aprobados, reprobados y matriculados) exclusivo para Carreras",
     clase:
       "Seleccione la jerarquía o nivel de instancia universitaria",
     funcion:
@@ -198,6 +200,13 @@ export const hints = {
   /**
    * Notas informativas contextuales para Dashboards
    */
+  sia: {
+    table: "Tabla dinámica de métricas estudiantiles del Sistema de Información Académica (SIA)",
+    aprobados: "Número de estudiantes aprobados",
+    reprobados: "Número de estudiantes reprobados",
+    matriculados: "Total de estudiantes matriculados",
+  },
+
   dashboards: {
     ejecutivo: {
       title: "Guía del Reporte Ejecutivo",

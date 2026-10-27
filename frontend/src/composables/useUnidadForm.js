@@ -1,8 +1,9 @@
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { getActivePinia } from "pinia";
 import { 
   getSafeId, 
   getPesoReal,
+  isClaseCarrera,
 } from "@/utils/mofHelpers";
 import {
   getEmptyFormData,
@@ -38,6 +39,7 @@ export function useUnidadForm(stores) {
   const formValid = ref(false);
   const loading = ref(false);
   const saving = ref(false);
+  const isCarrera = computed(() => isClaseCarrera(formData.value?.clase, clasesStore?.clases));
   const selectedNode = ref(null);
 
   // Estados para deltas
@@ -154,7 +156,10 @@ export function useUnidadForm(stores) {
       }
     }
 
-    const dataToSend = mapFormToBackend(formData.value);
+    const dataToSend = mapFormToBackend(formData.value, {
+      isCarrera: isCarrera.value,
+      clasesCatalog: clasesStore?.clases,
+    });
 
     let success = false;
     let unidadId = formData.value.id;
@@ -357,6 +362,7 @@ export function useUnidadForm(stores) {
     formValid,
     loading,
     saving,
+    isCarrera,
     selectedNode,
     openForm,
     saveUnidad,

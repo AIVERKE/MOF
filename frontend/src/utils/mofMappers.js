@@ -53,6 +53,7 @@ import {
   formatDateToString,
   resolveCatalogItem,
   getCleanSigla,
+  isClaseCarrera,
 } from "@/utils/mofHelpers";
 
 /** Id de unidad relacionada como entero positivo, o null si no es válido. */
@@ -112,6 +113,7 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     ubicacion: "",
     relacionesInternas: [],
     relacionesExternas: [],
+    sia: [],
   };
 }
 
@@ -254,8 +256,20 @@ export function mapBackendToForm(raw, options = {}) {
     descripcion: r.descripcion || (typeof r === "string" ? r : ""),
   }));
 
+  // 7. Resolver Filas SIA (solo para unidades Carrera)
+  const sia = Array.isArray(raw.sia)
+    ? raw.sia.map((s) => ({
+        id: s.id ?? null,
+        aprobados: s.aprobados ?? null,
+        reprobados: s.reprobados ?? null,
+        matriculados: s.matriculados ?? null,
+      }))
+    : [];
+
   return {
     id: raw.id ?? null,
+    esCarrera: Boolean(raw.esCarrera),
+    sia,
     nombre: raw.nombre || raw.denominacion || "",
     codigo: raw.codigo || "",
     sigla:
@@ -315,7 +329,7 @@ export function mapBackendToForm(raw, options = {}) {
  * @param {Object} formData - Estado del formulario
  * @returns {Object} Payload listo para enviar por HTTP
  */
-export function mapFormToBackend(formData) {
+export function mapFormToBackend(formData, options = {}) {
   if (!formData) return {};
 
   const isTroncal = formData.es_troncal === true || formData.esTroncal === true;
@@ -334,7 +348,36 @@ export function mapFormToBackend(formData) {
         .filter((id) => id !== null)
     : [];
 
-  return {
+  const isCarrera =
+    options.isCarrera !== undefined
+      ? Boolean(options.isCarrera)
+      : isClaseCarrera(formData.clase ?? formData.tipoUnidad, options.clasesCatalog);
+
+  const cleanSia = (formData.sia || [])
+    .map((item) => {
+      const toIntOrNull = (val) => {
+        if (val === "" || val == null) return null;
+        const num = Number(val);
+        return Number.isInteger(num) && num >= 0 ? num : null;
+      };
+      const row = {
+        aprobados: toIntOrNull(item.aprobados),
+        reprobados: toIntOrNull(item.reprobados),
+        matriculados: toIntOrNull(item.matriculados),
+      };
+      if (item.id != null) {
+        row.id = Number(item.id);
+      }
+      return row;
+    })
+    .filter(
+      (row) =>
+        row.aprobados != null ||
+        row.reprobados != null ||
+        row.matriculados != null,
+    );
+
+  const payload = {
     codigo: formData.codigo?.trim() || "",
     sigla: formData.sigla?.trim() || "",
     nombre: formData.nombre?.trim() || "",
@@ -374,4 +417,10 @@ export function mapFormToBackend(formData) {
       .map((r) => (typeof r === "object" ? r.descripcion?.trim() : String(r).trim()))
       .filter(Boolean),
   };
+
+  if (isCarrera) {
+    payload.sia = cleanSia;
+  }
+
+  return payload;
 }

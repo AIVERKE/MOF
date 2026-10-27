@@ -855,3 +855,53 @@ export const getCleanSigla = (sigla, codigo) => {
   return s;
 };
 
+
+/**
+ * Determina si una clase o unidad corresponde al tipo Carrera (MOF-075).
+ * Homologado con el grupo Carreras y la regla backend de descripción con "CARRERA".
+ *
+ * @param {string|number|object|null|undefined} clase
+ * @param {Array} [clasesCatalog=[]]
+ * @returns {boolean}
+ */
+export const isClaseCarrera = (clase, clasesCatalog = []) => {
+  if (clase == null || clase === "") return false;
+  if (typeof clase === "boolean") return clase;
+
+  // Si es un objeto unidad o clase con flag explícito esCarrera
+  if (typeof clase === "object") {
+    if (clase.esCarrera !== undefined && clase.esCarrera !== null) {
+      return Boolean(clase.esCarrera);
+    }
+    const text = clase.descripcion || clase.nombre || clase.denominacion || "";
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .includes("CARRERA");
+  }
+
+  // Si es un ID o texto, buscar en el catálogo de clases
+  const strVal = String(clase).trim();
+  const found = (clasesCatalog || []).find(
+    (c) => String(c.id) === strVal || String(c.value) === strVal,
+  );
+  if (found) {
+    if (found.esCarrera !== undefined && found.esCarrera !== null) {
+      return Boolean(found.esCarrera);
+    }
+    const text = found.descripcion || found.nombre || "";
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .includes("CARRERA");
+  }
+
+  // Fallback si se pasa directamente el nombre de la clase
+  return strVal
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .includes("CARRERA");
+};

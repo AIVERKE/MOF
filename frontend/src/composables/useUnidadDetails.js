@@ -61,6 +61,8 @@ export function useUnidadDetails({ unidadesStore }) {
 
         detailData.value = {
           ...data,
+          esCarrera: Boolean(data.esCarrera),
+          sia: Array.isArray(data.sia) ? data.sia : [],
           es_desconcentrada: Boolean(
             data.es_desconcentrada ||
             data.esDesconcentrada ||
