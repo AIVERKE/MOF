@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed, nextTick } from "vue";
 import { rules, FEC_CREACION_MIN, fecCreacionMax } from "@/utils/rules";
-import { swatches, getUsedColors } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, isClaseCarrera } from "@/utils/mofHelpers";
 import { toRelId } from "@/utils/mofMappers";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
@@ -13,12 +13,16 @@ import SelectAllNiveles from "../niveles/SelectAllNiveles.vue";
 import SelectAllUnidades from "./SelectAllUnidades.vue";
 import CargosUnidadTable from "../cargos/CargosUnidadTable.vue";
 import UnidadInventarioTable from "./UnidadInventarioTable.vue";
+import UnidadSiaTable from "./UnidadSiaTable.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
 import { useResponsive } from "@/composables/useResponsive";
+import { useSnackbar } from "@/composables/useSnackbar";
 
 const { smAndDown } = useResponsive();
+const { mostrar } = useSnackbar();
+const inventarioTableRef = ref(null);
 
 const props = defineProps({
   modelValue: Boolean,
@@ -277,15 +281,58 @@ const STOP_WORDS = new Set([
   "unas",
 ]);
 
+const isCarrera = computed(() => {
+  const claseId = props.formData?.clase;
+  if (!claseId) return false;
+  const found = clasesStore.clases.find(
+    (c) => String(c.id) === String(claseId),
+  );
+  if (found) {
+    if (found.esCarrera !== undefined && found.esCarrera !== null) {
+      return Boolean(found.esCarrera);
+    }
+    return isClaseCarrera(found.descripcion || found.nombre);
+  }
+  return isClaseCarrera(claseId);
+});
+
+const activeSectionsConfig = computed(() => {
+  const base = [...sectionsConfig];
+  if (isCarrera.value) {
+    const cargosIdx = base.findIndex((s) => s.id === "section-cargos");
+    const siaSection = {
+      id: "section-sia",
+      name: "Métricas Académicas (SIA)",
+      keywords: [
+        "sia",
+        "tabla sia",
+        "academicas",
+        "academicos",
+        "aprobados",
+        "reprobados",
+        "matriculados",
+        "estudiantes",
+        "carrera",
+      ],
+    };
+    if (cargosIdx !== -1) {
+      base.splice(cargosIdx + 1, 0, siaSection);
+    } else {
+      base.push(siaSection);
+    }
+  }
+  return base;
+});
+
 const matchingSections = computed(() => {
   const q = normalizeText(searchQuery.value);
-  if (!q) return sectionsConfig;
+  if (!q) return activeSectionsConfig.value;
 
   const words = q
     .split(/\s+/)
     .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
 
-  return sectionsConfig.filter((sec) => {
+  return activeSectionsConfig.value.filter((sec) => {
     const secNameNorm = normalizeText(sec.name);
     // 1. Coincidencia directa en el nombre de la sección
     if (secNameNorm.includes(q)) return true;
@@ -483,6 +530,14 @@ function close() {
 }
 
 function confirm() {
+  if (inventarioTableRef.value && !inventarioTableRef.value.validate()) {
+    mostrar("En inventarios, la cantidad debe ser un número entero mayor o igual a 1", "warning");
+    const inventarioEl = document.getElementById("section-inventarios");
+    if (inventarioEl) {
+      inventarioEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    return;
+  }
   emit("confirm");
 }
 
@@ -943,7 +998,21 @@ function moverAbajo(index) {
             class="my-3"
           >
             <UnidadInventarioTable
+              ref="inventarioTableRef"
               v-model="formData.inventarios"
+            />
+          </div>
+
+          <!-- MÉTRICAS ACADÉMICAS (SIA) - SOLO EN CARRERAS (MOF-075) -->
+          <div
+            v-if="isCarrera"
+            id="section-sia"
+            v-show="isSectionVisible('section-sia')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-sia') }"
+            class="my-3"
+          >
+            <UnidadSiaTable
+              v-model="formData.sia"
             />
           </div>
 
