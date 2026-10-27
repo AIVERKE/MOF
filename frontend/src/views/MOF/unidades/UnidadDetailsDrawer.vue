@@ -362,6 +362,23 @@ const panels = computed(() => {
       type: "text_multiline",
       value: data.tramites_atendidos || data.tramitesAtendidos,
     },
+    ...((data.planificacionEstrategicaAplica || data.planificacion_estrategica_aplica)
+      ? [
+          {
+            key: "planificacion_estrategica",
+            title: "PLANIFICACIÓN ESTRATÉGICA",
+            icon: "mdi-chart-timeline-variant",
+            avatarColor: "indigo-darken-1",
+            type: "planificacion_estrategica",
+            valor:
+              data.planificacionEstrategicaValor ??
+              data.planificacion_estrategica_valor,
+            descripcion:
+              data.planificacionEstrategica ||
+              data.planificacion_estrategica,
+          },
+        ]
+      : []),
     {
       key: "ejecucion_poa",
       title: "EJECUCIÓN POA",
@@ -945,6 +962,33 @@ const panels = computed(() => {
               <div v-else class="d-flex align-center text-caption text-grey py-1">
                 <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
                 <span class="font-italic">Sin relacionamiento interinstitucional registrado.</span>
+              </div>
+            </template>
+
+            <!-- Panel Planificación Estratégica (MOF-073) -->
+            <template v-else-if="panel.type === 'planificacion_estrategica'">
+              <div class="d-flex flex-column gap-2">
+                <div v-if="panel.valor != null" class="d-flex align-center">
+                  <span class="text-caption font-weight-bold text-slate-700 mr-2">
+                    Avance / Indicador:
+                  </span>
+                  <v-chip
+                    size="small"
+                    color="indigo-darken-1"
+                    variant="flat"
+                    class="font-weight-black"
+                    data-test="planificacion-detail-valor"
+                  >
+                    {{ panel.valor }}%
+                  </v-chip>
+                </div>
+                <div
+                  v-if="panel.descripcion"
+                  class="text-caption text-slate-800 bg-slate-50 pa-2 rounded border-thin line-height-1-4"
+                  data-test="planificacion-detail-descripcion"
+                >
+                  {{ panel.descripcion }}
+                </div>
               </div>
             </template>
 
