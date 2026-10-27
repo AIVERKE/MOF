@@ -18,6 +18,7 @@ import {
 } from './entities/mof-config.entity';
 import {
   DependenciaFuncionalDto,
+  HEX_COLOR_REGEX,
   SIA_CAMPOS,
   SetParentDto,
   UnidadDto,
@@ -78,6 +79,27 @@ export function normalizeRelIds(
   return out;
 }
 
+/**
+ * Color propio a persistir: `null`/vacío hereda de la Clase, el hex se guarda
+ * en mayúsculas y uno igual al de la Clase también se guarda como `null`, así
+ * la unidad sigue a su Clase si esta cambia de color.
+ */
+export function colorPropioFinal(
+  color: string | null | undefined,
+  claseColor: string | null | undefined,
+): string | null {
+  const propio = color?.trim().toUpperCase() || null;
+  if (!propio) return null;
+  return propio === claseColor?.trim().toUpperCase() ? null : propio;
+}
+
+/** `color` es el efectivo (propio o de la Clase); los otros dos, sus fuentes. */
+function coloresUnidad(u: Unidad) {
+  const colorClase = u.tipoUnidad?.color ?? null;
+  const colorPropio = u.color ?? null;
+  return { color: colorPropio ?? colorClase, colorPropio, colorClase };
+}
+
 /** Valores históricos usados cuando aún no hay fila en mof_config. */
 export const MOF_CONFIG_FALLBACK = {
   defaults: {
@@ -111,6 +133,16 @@ export const MOF_CONFIG_FALLBACK = {
     ['#212121', '#424242', '#616161', '#757575', '#9E9E9E'],
     ['#BF360C', '#D84315', '#E64A19', '#F4511E', '#FF5722'],
   ] as string[][],
+  paletaNodos: [
+    '#1D4ED8',
+    '#B91C1C',
+    '#047857',
+    '#B45309',
+    '#6D28D9',
+    '#BE185D',
+    '#0369A1',
+    '#C2410C',
+  ] as string[],
   passwordPolicy: { minLength: 6 },
 };
 
@@ -282,7 +314,7 @@ export class UnidadesService {
       es_subtroncal: u.esSubTroncal ?? false,
       esSubtroncal: u.esSubTroncal ?? false,
       lado: u.lado ?? 'AUTOMATICO',
-      color: u.tipoUnidad?.color ?? null,
+      ...coloresUnidad(u),
       clase: u.tipoUnidad?.descripcion ?? null,
       tipo_unidad: u.tipoUnidad?.descripcion ?? null,
       tipoUnidad: u.tipoUnidadId,
@@ -437,7 +469,7 @@ export class UnidadesService {
         (u.relacion?.descripcion ?? '').toLowerCase().includes('asesor'),
       peso_real: u.tipoUnidad?.peso != null ? Number(u.tipoUnidad.peso) : 10,
       pesoReal: u.tipoUnidad?.peso != null ? Number(u.tipoUnidad.peso) : 10,
-      color: u.tipoUnidad?.color ?? null,
+      ...coloresUnidad(u),
       funciones,
       dependenciasFuncionales: deps.map((d) => ({
         id: Number(d.dependenciaId),
@@ -597,6 +629,7 @@ export class UnidadesService {
       esTroncal,
       esSubTroncal,
       lado,
+      color: colorPropioFinal(dto.color, clase.color),
       objetivo: dto.objetivo ?? null,
       baseLegal: dto.baseLegal ?? null,
       resCreacion: dto.resCreacion ?? null,
@@ -742,6 +775,15 @@ export class UnidadesService {
       if (dto.sia.length && !sincronizarSia) {
         throwBusiness(ErrorCodes.SIA_SOLO_CARRERA);
       }
+    }
+    if (dto.color !== undefined || (dto.tipoUnidad !== undefined && u.color)) {
+      clase ??= await this.claseRepo.findOne({
+        where: { id: u.tipoUnidadId },
+      });
+      u.color = colorPropioFinal(
+        dto.color !== undefined ? dto.color : u.color,
+        clase?.color,
+      );
     }
     if (dto.parentId !== undefined) {
       await this.assertNoCycle(id, dto.parentId);
@@ -1804,6 +1846,10 @@ export class UnidadesService {
         Array.isArray(row.paleta) && row.paleta.length > 0
           ? row.paleta
           : MOF_CONFIG_FALLBACK.paleta,
+      paletaNodos:
+        Array.isArray(row.paletaNodos) && row.paletaNodos.length > 0
+          ? row.paletaNodos
+          : MOF_CONFIG_FALLBACK.paletaNodos,
       passwordPolicy: {
         ...MOF_CONFIG_FALLBACK.passwordPolicy,
         ...(row.passwordPolicy || {}),
@@ -1834,7 +1880,10 @@ export class UnidadesService {
     }
     if (dto.paleta) {
       for (const fila of dto.paleta) {
-        if (!Array.isArray(fila) || fila.some((c) => typeof c !== 'string')) {
+        if (
+          !Array.isArray(fila) ||
+          fila.some((c) => typeof c !== 'string' || !HEX_COLOR_REGEX.test(c))
+        ) {
           throw new BusinessException(
             'La paleta debe ser una grilla de colores hexadecimales',
             HttpStatus.BAD_REQUEST,
@@ -1842,6 +1891,9 @@ export class UnidadesService {
         }
       }
       row.paleta = dto.paleta;
+    }
+    if (dto.paletaNodos) {
+      row.paletaNodos = dto.paletaNodos.map((c) => c.toUpperCase());
     }
     if (dto.passwordPolicy) {
       row.passwordPolicy = {
