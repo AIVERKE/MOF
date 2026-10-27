@@ -30,6 +30,9 @@ export const SIGLA_REGEX = /^[\p{L}0-9.,'-]*$/u;
 export const SIGLA_FORMATO_MENSAJE =
   "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')";
 
+/** Color hexadecimal de 6 dígitos (`#RRGGBB`), sin alfa ni forma corta. */
+export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+
 export class UnidadDto {
   @ApiProperty()
   @IsString()
@@ -141,10 +144,20 @@ export class UnidadDto {
   @IsString()
   baseLegal?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Color propio del nodo en el organigrama (`#RRGGBB`). `null` o vacío vuelve a heredar el color de la Clase; si se omite, se conserva el guardado. Un color igual al de la Clase se guarda como `null`.',
+    nullable: true,
+    example: '#00897B',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && value.trim() === '' ? null : value,
+  )
   @IsOptional()
-  @IsString()
-  color?: string;
+  @Matches(HEX_COLOR_REGEX, {
+    message: 'El color debe tener el formato hexadecimal #RRGGBB',
+  })
+  color?: string | null;
 
   @ApiProperty()
   @IsNumber()

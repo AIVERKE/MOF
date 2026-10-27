@@ -70,8 +70,11 @@ const contadoresSchema = {
 const PLANIFICACION_DESCRIPTION =
   'Bloque Planificación Estratégica: `planificacionEstrategicaAplica` (switch), `planificacionEstrategicaValor` (porcentaje 0–100, hasta 2 decimales) y `planificacionEstrategica` (texto). Con el switch en `true` el porcentaje y el texto son obligatorios (se aceptan los ya guardados si se omiten); con `false` se conservan pero no se exponen en el detalle.';
 
+const COLOR_DESCRIPTION =
+  'Color del nodo: `color` (`#RRGGBB`) es el color propio de la unidad; `null` o vacío vuelve a heredar el de la Clase y, si se omite, se conserva. Un color igual al de la Clase se guarda como `null`. Las lecturas devuelven `colorPropio` (guardado en la unidad), `colorClase` (`tipo_unidad.color`) y `color` (el efectivo: propio o, si no hay, el de la Clase).';
+
 const UNIDAD_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`, p. ej. sigla con caracteres no permitidos como `@ # $ ^ * ~ { } [ ] | \\ < >` o espacios, porcentaje fuera de 0–100 o con más de 2 decimales), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA` o `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción)';
+  'Error de validación (`VALIDATION_FAILED`, p. ej. sigla con caracteres no permitidos como `@ # $ ^ * ~ { } [ ] | \\ < >` o espacios, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA` o `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción)';
 
 const SIA_BAD_REQUEST =
   'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';
@@ -95,7 +98,7 @@ export class MofUnidadesController {
   ) {}
 
   @Get('unidades')
-  @ApiOperation({ summary: 'Listar unidades' })
+  @ApiOperation({ summary: 'Listar unidades', description: COLOR_DESCRIPTION })
   async list() {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
@@ -106,6 +109,8 @@ export class MofUnidadesController {
   @Get('config')
   @ApiOperation({
     summary: 'Configuración global y reglas de negocio dinámicas del MOF',
+    description:
+      '`paleta` es la grilla de swatches de los selectores de color. `paletaNodos` son los colores de nodo del organigrama, asignados por posición de la Clase cuando ni la unidad ni su Clase tienen color.',
   })
   async config() {
     return ResultResponse.ok(
@@ -118,7 +123,13 @@ export class MofUnidadesController {
   @Roles('ADMIN')
   @ApiOperation({
     summary:
-      'Actualizar configuración MOF (defaults, reglas, paleta, política de contraseña)',
+      'Actualizar configuración MOF (defaults, reglas, paleta, paleta de nodos, política de contraseña)',
+    description:
+      '`defaults` y `reglas` se fusionan; `paleta` y `paletaNodos` se reemplazan completas. Todos los colores deben ser `#RRGGBB`; `paletaNodos` admite de 1 a 24 y se guarda en mayúsculas. Solo ADMIN.',
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Error de validación (`VALIDATION_FAILED`, p. ej. un color de `paletaNodos` que no es `#RRGGBB`) o swatch de `paleta` no hexadecimal',
   })
   async updateConfig(@Body() dto: UpdateMofConfigDto) {
     return ResultResponse.ok(
@@ -213,7 +224,7 @@ export class MofUnidadesController {
   @ApiOperation({
     summary: 'Obtener unidad por ID',
     description:
-      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado. Incluye `vistasCount` y `descargasCount` (métricas de uso); consultar este endpoint no los incrementa.',
+      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado. Incluye `vistasCount` y `descargasCount` (métricas de uso); consultar este endpoint no los incrementa. Incluye `color`, `colorPropio` y `colorClase` (ver `GET /unidades`).',
   })
   @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
@@ -227,7 +238,7 @@ export class MofUnidadesController {
   @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({
     summary: 'Registrar unidad',
-    description: PLANIFICACION_DESCRIPTION,
+    description: `${PLANIFICACION_DESCRIPTION} ${COLOR_DESCRIPTION}`,
   })
   @ApiBody({ type: UnidadDto })
   @ApiBadRequestResponse({ description: UNIDAD_BAD_REQUEST })
@@ -242,7 +253,7 @@ export class MofUnidadesController {
   @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({
     summary: 'Actualizar unidad',
-    description: `${PLANIFICACION_DESCRIPTION} Los campos omitidos no se modifican; la validación se hace sobre el estado final de la unidad.`,
+    description: `${PLANIFICACION_DESCRIPTION} ${COLOR_DESCRIPTION} Los campos omitidos no se modifican; la validación se hace sobre el estado final de la unidad.`,
   })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
   @ApiBody({ type: UnidadDto })
