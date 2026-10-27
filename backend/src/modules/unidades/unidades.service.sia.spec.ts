@@ -145,6 +145,8 @@ function buildService(
     unused,
     unused,
     db.siaRepo as unknown as Repository<UnidadSia>,
+    unused,
+    unused,
   );
 }
 

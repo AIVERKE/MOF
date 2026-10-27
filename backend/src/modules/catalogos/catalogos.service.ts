@@ -12,6 +12,7 @@ import {
 } from '../../common/exceptions/business.exception';
 import { ErrorCodes } from '../../common/errors';
 import { esClaseCarrera } from './clase-carrera';
+import { esClaseDecanato } from './clase-decanato';
 
 type CatalogEntity = CatalogoTipo | CatalogoNivel | CatalogoRelacion;
 
@@ -49,6 +50,7 @@ export class CatalogosService {
       activo: row.activo,
       oficial: row.activo,
       esCarrera: esClaseCarrera(row.descripcion),
+      esDecanato: esClaseDecanato(row.descripcion),
     };
   }
 

@@ -36,6 +36,11 @@ import { UnidadesService } from './unidades.service';
 import { UnidadPdfService } from './unidad-pdf.service';
 import {
   DependenciaFuncionalDto,
+  ProyectoDto,
+  ProyectoGrupoResponseDto,
+  ProyectoResponseDto,
+  ProyectoTipoResponseDto,
+  ProyectoUnidadRefDto,
   SetParentDto,
   UnidadContadoresResponseDto,
   UnidadDto,
@@ -63,6 +68,8 @@ function resultSchema(data: Record<string, unknown>) {
 
 const inventarioSchema = { $ref: getSchemaPath(UnidadInventarioResponseDto) };
 const siaSchema = { $ref: getSchemaPath(UnidadSiaResponseDto) };
+const proyectoSchema = { $ref: getSchemaPath(ProyectoResponseDto) };
+const proyectoTipoSchema = { $ref: getSchemaPath(ProyectoTipoResponseDto) };
 const contadoresSchema = {
   $ref: getSchemaPath(UnidadContadoresResponseDto),
 };
@@ -74,7 +81,10 @@ const COLOR_DESCRIPTION =
   'Color del nodo: `color` (`#RRGGBB`) es el color propio de la unidad; `null` o vacío vuelve a heredar el de la Clase y, si se omite, se conserva. Un color igual al de la Clase se guarda como `null`. Las lecturas devuelven `colorPropio` (guardado en la unidad), `colorClase` (`tipo_unidad.color`) y `color` (el efectivo: propio o, si no hay, el de la Clase).';
 
 const UNIDAD_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`, p. ej. sigla con caracteres no permitidos como `@ # $ ^ * ~ { } [ ] | \\ < >` o espacios, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA` o `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción)';
+  'Error de validación (`VALIDATION_FAILED`, p. ej. sigla con caracteres no permitidos como `@ # $ ^ * ~ { } [ ] | \\ < >` o espacios, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA`, `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción) o, en `proyectos`, `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA`, `PROYECTO_NO_PERTENECE_UNIDAD` y `PROYECTO_ID_DUPLICADO`';
+
+const PROYECTO_BAD_REQUEST =
+  'Error de validación (`VALIDATION_FAILED`: `tipo` o `detalle` vacíos o demasiado largos, `unidadIds` con valores no enteros), `PROYECTOS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica)';
 
 const SIA_BAD_REQUEST =
   'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';
@@ -85,6 +95,10 @@ const SIA_BAD_REQUEST =
   UnidadInventarioResponseDto,
   UnidadSiaResponseDto,
   UnidadContadoresResponseDto,
+  ProyectoUnidadRefDto,
+  ProyectoResponseDto,
+  ProyectoGrupoResponseDto,
+  ProyectoTipoResponseDto,
 )
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -98,7 +112,10 @@ export class MofUnidadesController {
   ) {}
 
   @Get('unidades')
-  @ApiOperation({ summary: 'Listar unidades', description: COLOR_DESCRIPTION })
+  @ApiOperation({
+    summary: 'Listar unidades',
+    description: `${COLOR_DESCRIPTION} Cada unidad trae \`aplicaProyectos\` (es un Decanato o depende de uno) y \`proyectosCount\` (proyectos en los que participa, incluidos los conjuntos; \`0\` si no aplica).`,
+  })
   async list() {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
@@ -224,7 +241,7 @@ export class MofUnidadesController {
   @ApiOperation({
     summary: 'Obtener unidad por ID',
     description:
-      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado. Incluye `vistasCount` y `descargasCount` (métricas de uso); consultar este endpoint no los incrementa. Incluye `color`, `colorPropio` y `colorClase` (ver `GET /unidades`).',
+      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado. Incluye `vistasCount` y `descargasCount` (métricas de uso); consultar este endpoint no los incrementa. Incluye `color`, `colorPropio` y `colorClase` (ver `GET /unidades`). Incluye `aplicaProyectos`, `proyectosCount`, `proyectos: [{ id, tipo, detalle, unidades }]` (orden de alta; `unidades` son todas las participantes) y `proyectosPorTipo: [{ tipo, cantidad, proyectos }]` (agrupados sin distinguir mayúsculas ni acentos, orden alfabético); ambos `[]` si la unidad no aplica.',
   })
   @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
@@ -684,6 +701,138 @@ export class MofUnidadesController {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
       await this.unidadesService.removeSia(id, siaId),
+    );
+  }
+
+  // --- PROYECTOS (Decanato hacia abajo) ---
+  @Get('proyectos/tipos')
+  @ApiOperation({
+    summary: 'Tipos de proyecto ya usados',
+    description:
+      'Sugerencias para el autocompletado del campo `tipo`, de más a menos usados. No restringe: el tipo es texto libre. Tipos que solo difieren en mayúsculas o acentos se cuentan juntos.',
+  })
+  @ApiOkResponse({
+    schema: resultSchema({ type: 'array', items: proyectoTipoSchema }),
+  })
+  async tiposProyecto() {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.tiposProyecto(),
+    );
+  }
+
+  @Get('unidades/:id/proyectos')
+  @ApiOperation({
+    summary: 'Listar proyectos de la unidad',
+    description:
+      'Incluye los proyectos conjuntos en los que participa. Devuelve `[]` si la unidad no es un Decanato ni depende de uno.',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiOkResponse({
+    schema: resultSchema({ type: 'array', items: proyectoSchema }),
+  })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
+  async listProyectos(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.listProyectos(id),
+    );
+  }
+
+  @Get('unidades/:id/proyectos/:proyectoId')
+  @ApiOperation({ summary: 'Obtener proyecto de la unidad' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'proyectoId', description: 'ID del proyecto' })
+  @ApiOkResponse({ schema: resultSchema(proyectoSchema) })
+  @ApiNotFoundResponse({
+    description:
+      'Unidad no encontrada, la unidad no aplica o no participa en el proyecto',
+  })
+  async getProyecto(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('proyectoId', ParseIntPipe) proyectoId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.getProyecto(id, proyectoId),
+    );
+  }
+
+  @Post('unidades/:id/proyectos')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({
+    summary: 'Registrar proyecto en la unidad',
+    description:
+      'La unidad de la ruta participa siempre. `unidadIds` agrega otras unidades (proyecto conjunto): cada una suma el proyecto en su contador.',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiBody({ type: ProyectoDto })
+  @ApiCreatedResponse({ schema: resultSchema(proyectoSchema) })
+  @ApiBadRequestResponse({ description: PROYECTO_BAD_REQUEST })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
+  async addProyecto(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ProyectoDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.addProyecto(id, dto),
+    );
+  }
+
+  @Put('unidades/:id/proyectos/:proyectoId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({
+    summary: 'Actualizar proyecto de la unidad',
+    description:
+      'Reemplaza `tipo` y `detalle`. Si se envía `unidadIds`, reemplaza las otras unidades participantes (la de la ruta se conserva); si se omite, no cambian.',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'proyectoId', description: 'ID del proyecto' })
+  @ApiBody({ type: ProyectoDto })
+  @ApiOkResponse({ schema: resultSchema(proyectoSchema) })
+  @ApiBadRequestResponse({ description: PROYECTO_BAD_REQUEST })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o no participa en el proyecto',
+  })
+  async updateProyecto(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('proyectoId', ParseIntPipe) proyectoId: number,
+    @Body() dto: ProyectoDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.updateProyecto(id, proyectoId, dto),
+    );
+  }
+
+  @Delete('unidades/:id/proyectos/:proyectoId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({
+    summary: 'Quitar proyecto de la unidad',
+    description:
+      'Desvincula la unidad del proyecto. Las demás unidades participantes lo conservan; si no queda ninguna, el proyecto se da de baja (borrado lógico).',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'proyectoId', description: 'ID del proyecto' })
+  @ApiOkResponse({ schema: resultSchema({ type: 'boolean', example: true }) })
+  @ApiBadRequestResponse({
+    description:
+      '`PROYECTOS_NO_APLICA`: la unidad no es un Decanato ni depende de uno',
+  })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o no participa en el proyecto',
+  })
+  async removeProyecto(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('proyectoId', ParseIntPipe) proyectoId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.removeProyecto(id, proyectoId),
     );
   }
 }

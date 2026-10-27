@@ -20,6 +20,7 @@ import { UnidadRelacionExterna } from './unidad-relacion-externa.entity';
 import { UnidadRelacionInterna } from './unidad-relacion-interna.entity';
 import { UnidadInventario } from './unidad-inventario.entity';
 import { UnidadSia } from './unidad-sia.entity';
+import { ProyectoUnidad } from './proyecto-unidad.entity';
 
 /** El driver de pg devuelve `numeric` como string. */
 const numericTransformer: ValueTransformer = {
@@ -218,4 +219,7 @@ export class Unidad extends AuditableEntity {
 
   @OneToMany(() => UnidadSia, (sia) => sia.unidad)
   sia: UnidadSia[];
+
+  @OneToMany(() => ProyectoUnidad, (pu) => pu.unidad)
+  proyectos: ProyectoUnidad[];
 }
