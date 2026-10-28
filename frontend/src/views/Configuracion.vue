@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useTheme } from "vuetify";
 import { useAuthStore } from "@/stores/auth";
 import { useAccessibilityStore } from "@/stores/accessibility";
-import { useConfigMofStore } from "@/stores/config_mof";
+import { useConfigMofStore, DEFAULT_CONFIG } from "@/stores/config_mof";
 import { useSnackbar } from "@/composables/useSnackbar";
 
 const APP_VERSION = "MOF v1.0.0";
@@ -71,6 +71,7 @@ const formReglas = reactive({
 });
 
 const formPaleta = ref([]);
+const formPaletaNodos = ref([]);
 const formPasswordMinLength = ref(6);
 
 function syncFormsFromStore() {
@@ -84,6 +85,7 @@ function syncFormsFromStore() {
       : String(configStore.reglas.staffRelacionCodigos || ""),
   });
   formPaleta.value = JSON.parse(JSON.stringify(configStore.paleta || []));
+  formPaletaNodos.value = JSON.parse(JSON.stringify(configStore.paletaNodos || []));
   formPasswordMinLength.value = configStore.passwordMinLength;
 }
 
@@ -170,6 +172,39 @@ function updatePaletteColor(rowIdx, colIdx, value) {
   const next = formPaleta.value.map((row) => [...row]);
   next[rowIdx][colIdx] = value;
   formPaleta.value = next;
+}
+
+function updatePaletaNodosColor(idx, value) {
+  formPaletaNodos.value[idx] = value;
+}
+
+function addPaletaNodosColor() {
+  if (formPaletaNodos.value.length < 24) {
+    formPaletaNodos.value.push("#1976D2");
+  }
+}
+
+function removePaletaNodosColor(idx) {
+  if (formPaletaNodos.value.length > 1) {
+    formPaletaNodos.value.splice(idx, 1);
+  }
+}
+
+function resetPaletaNodos() {
+  formPaletaNodos.value = [...DEFAULT_CONFIG.paletaNodos];
+}
+
+function savePaletaNodos() {
+  const cleanPalette = formPaletaNodos.value
+    .map((c) => String(c || "").trim().toUpperCase())
+    .filter(Boolean);
+  if (cleanPalette.length < 1 || cleanPalette.length > 24) {
+    mostrar("La paleta de nodos debe tener entre 1 y 24 colores", "warning");
+    return;
+  }
+  return saveSection("paletaNodos", {
+    paletaNodos: cleanPalette,
+  });
 }
 
 onMounted(async () => {
@@ -515,6 +550,82 @@ onMounted(async () => {
                   @click="savePaleta"
                 >
                   Guardar paleta
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12">
+            <v-card class="rounded-xl border-0 shadow-sm" elevation="3">
+              <v-card-title class="text-subtitle-1 font-weight-black pa-4 d-flex align-center justify-space-between">
+                <span>Colores de nodos del organigrama</span>
+                <span class="text-caption text-medium-emphasis">
+                  {{ formPaletaNodos.length }} / 24 colores
+                </span>
+              </v-card-title>
+              <v-divider></v-divider>
+              <v-card-text class="pa-4">
+                <p class="text-caption text-medium-emphasis mb-3">
+                  Secuencia de colores asignada cíclicamente a las clases de unidades en el organigrama cuando no tienen color propio ni color de clase específico.
+                </p>
+                <div class="d-flex flex-wrap align-center ga-3">
+                  <div
+                    v-for="(color, idx) in formPaletaNodos"
+                    :key="idx"
+                    class="d-flex flex-column align-center ga-1"
+                  >
+                    <div class="position-relative">
+                      <input
+                        class="palette-input"
+                        type="color"
+                        :value="color"
+                        :disabled="!isAdmin"
+                        :title="`Color ${idx + 1}: ${color}`"
+                        @input="updatePaletaNodosColor(idx, $event.target.value)"
+                      />
+                      <v-btn
+                        v-if="isAdmin && formPaletaNodos.length > 1"
+                        icon="mdi-close-circle"
+                        size="x-small"
+                        variant="text"
+                        color="error"
+                        class="position-absolute"
+                        style="top: -10px; right: -10px"
+                        title="Quitar color"
+                        @click="removePaletaNodosColor(idx)"
+                      />
+                    </div>
+                    <span class="text-xxs text-medium-emphasis font-mono">{{ color }}</span>
+                  </div>
+                  <v-btn
+                    v-if="isAdmin && formPaletaNodos.length < 24"
+                    icon="mdi-plus"
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    class="rounded-lg"
+                    title="Agregar color"
+                    @click="addPaletaNodosColor"
+                  />
+                </div>
+              </v-card-text>
+              <v-card-actions v-if="isAdmin" class="px-4 pb-4">
+                <v-btn
+                  variant="text"
+                  size="small"
+                  color="secondary"
+                  @click="resetPaletaNodos"
+                >
+                  Restaurar por defecto
+                </v-btn>
+                <v-spacer />
+                <v-btn
+                  color="primary"
+                  variant="tonal"
+                  :loading="savingSection === 'paletaNodos'"
+                  @click="savePaletaNodos"
+                >
+                  Guardar paleta de nodos
                 </v-btn>
               </v-card-actions>
             </v-card>

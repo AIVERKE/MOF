@@ -23,6 +23,7 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { useAllCargosMofStore } from "@/stores/cargos_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAccessibilityStore } from "@/stores/accessibility";
+import { useConfigMofStore } from "@/stores/config_mof";
 
 // --- PLUGINS & UTILS ---
 import {
@@ -181,6 +182,7 @@ const nivelesStore = useAllNivelesMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 const cargosStore = useAllCargosMofStore();
 const clasesStore = useAllClasesMofStore();
+const configStore = useConfigMofStore();
 
 const { prefetchCatalogs } = usePrefetchCatalogs({
   clasesStore,
@@ -198,6 +200,7 @@ const unitForm = useUnidadForm({
   nivelesStore,
   tiposStore,
   relacionesStore,
+  configStore,
 });
 
 const {
@@ -1712,22 +1715,41 @@ function computeNodeVisuals({
 
   const colors = isColorblindMode ? FILTER_COLORS_COLORBLIND : FILTER_COLORS;
 
+  const DULL_COLORS = [
+    "#757575",
+    "#9E9E9E",
+    "#CCCCCC",
+    "#CBD5E1",
+    "#E2E8F0",
+    "#FFFFFF",
+    "#F8FAFC",
+  ];
+
+  let baseColor = null;
+  if (isColorblindMode) {
+    baseColor = null;
+  } else if (u.colorPropio) {
+    // Un colorPropio elegido por el usuario se respeta (incluso si es gris)
+    baseColor = u.colorPropio;
+  } else {
+    const claseColor =
+      u.colorClase || (u.colorPropio === undefined ? u.color : null);
+    if (
+      claseColor &&
+      !DULL_COLORS.includes(String(claseColor).trim().toUpperCase())
+    ) {
+      baseColor = claseColor;
+    }
+  }
+
   let finalColor =
-    (isColorblindMode
-      ? null
-      : u.color &&
-          ![
-            "#757575",
-            "#9E9E9E",
-            "#CCCCCC",
-            "#CBD5E1",
-            "#E2E8F0",
-            "#FFFFFF",
-            "#F8FAFC",
-          ].includes(String(u.color).trim().toUpperCase())
-        ? u.color
-        : null) ||
-    getIntenseNodeColor(u.clase, clasesStore.clases, isColorblindMode) ||
+    baseColor ||
+    getIntenseNodeColor(
+      u.clase,
+      clasesStore.clases,
+      isColorblindMode,
+      configStore.paletaNodos,
+    ) ||
     (isStaff ? colors.staffDefault : colors.claseDefault);
 
   let visualReinforcement = null;
@@ -2227,6 +2249,14 @@ watch(isDark, () => {
   updateGraph();
 });
 
+watch(
+  () => configStore.paletaNodos,
+  () => {
+    updateGraph();
+  },
+  { deep: true },
+);
+
 watch(isMobilePortrait, (isBlocked) => {
   if (!isBlocked) {
     nextTick(() => {
@@ -2320,7 +2350,11 @@ onMounted(async () => {
   graphLoadingMessage.value = "Cargando organigrama...";
   graphLoadingSubmessage.value = "Obteniendo unidades y catálogos institucionales...";
   try {
-    const promises = [unidadesStore.getFetchUnidades(), prefetchCatalogs()];
+    const promises = [
+      unidadesStore.getFetchUnidades(),
+      prefetchCatalogs(),
+      configStore.fetchConfig(),
+    ];
     if (!unidadesStore.dashboardStats) {
       promises.push(unidadesStore.getDashboardStats());
     }
@@ -2686,11 +2720,20 @@ function resetFilters() {
                 <div class="d-flex align-center fill-height">
                   <div
                     :style="{
-                      backgroundColor: getIntenseNodeColor(
-                        u.clase,
-                        clasesStore.clases,
-                        isColorblind,
-                      ),
+                      backgroundColor:
+                        u.colorPropio ||
+                        (u.colorClase &&
+                        !['#757575', '#9E9E9E', '#CCCCCC', '#CBD5E1', '#E2E8F0', '#FFFFFF', '#F8FAFC'].includes(
+                          String(u.colorClase).toUpperCase()
+                        )
+                          ? u.colorClase
+                          : null) ||
+                        getIntenseNodeColor(
+                          u.clase,
+                          clasesStore.clases,
+                          isColorblind,
+                          configStore.paletaNodos,
+                        ),
                       height: '32px',
                       width: '4px',
                     }"
@@ -2707,7 +2750,7 @@ function resetFilters() {
                     :query="searchTerm"
                   />
                 </div>
-                <div v-if="u.color" class="text-xxs text-grey-darken-1">
+                <div v-if="u.colorPropio" class="text-xxs text-grey-darken-1">
                   <v-icon size="10">mdi-palette</v-icon> Personalizado
                 </div>
               </td>
