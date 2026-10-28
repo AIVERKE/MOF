@@ -114,78 +114,82 @@ defineExpose({
 
 <template>
   <div class="unidad-proyecto-table">
+    <!-- Encabezado de la sección uniforme con inventarios/SIA -->
     <div class="d-flex align-center justify-space-between mb-2">
-      <div class="d-flex align-center ga-2">
-        <v-icon color="primary" size="20">mdi-folder-outline</v-icon>
-        <span class="text-caption font-weight-bold text-uppercase">
+      <div>
+        <div class="text-subtitle-2 font-weight-bold text-slate-800 d-flex align-center">
+          <v-icon size="18" color="primary" class="mr-1">mdi-folder-multiple-outline</v-icon>
           Proyectos de la Unidad
-        </span>
-        <v-chip
-          v-if="rows.length > 0"
-          size="x-small"
-          color="primary"
-          variant="flat"
-          class="font-weight-bold"
-        >
-          {{ rows.length }}
-        </v-chip>
+          <v-chip
+            v-if="rows.length > 0"
+            size="x-small"
+            color="primary"
+            variant="flat"
+            class="ml-2 font-weight-black"
+          >
+            {{ rows.length }}
+          </v-chip>
+        </div>
+        <div class="text-caption text-slate-500">
+          {{ hint }}
+        </div>
       </div>
 
       <v-btn
         v-if="!readonly"
-        size="small"
-        variant="tonal"
         color="primary"
+        variant="tonal"
+        size="small"
         prepend-icon="mdi-plus"
-        class="text-none font-weight-bold"
+        class="font-weight-bold"
+        data-test="btn-add-proyecto-row"
         @click="addRow"
       >
         Añadir proyecto
       </v-btn>
     </div>
 
-    <p class="text-caption text-medium-emphasis mb-3">
-      {{ hint }}
-    </p>
-
     <!-- Lista vacía -->
     <div
       v-if="rows.length === 0"
-      class="pa-4 text-center rounded border border-dashed bg-slate-50 text-caption text-medium-emphasis"
+      class="pa-4 text-center rounded-lg border border-dashed bg-slate-50 text-caption text-medium-emphasis my-2"
     >
-      <v-icon size="28" color="grey" class="mb-1 d-block mx-auto">mdi-folder-plus-outline</v-icon>
-      No hay proyectos registrados para esta unidad.
-      <span v-if="!readonly">
+      <v-icon size="28" color="grey-lighten-1" class="mb-1 d-block mx-auto">mdi-folder-plus-outline</v-icon>
+      <span>No hay proyectos registrados para esta unidad.</span>
+      <span v-if="!readonly" class="d-block text-slate-500 mt-1">
         Presione <strong>«Añadir proyecto»</strong> para registrar uno con tipo libre.
       </span>
     </div>
 
-    <!-- Lista de filas de proyectos -->
-    <div v-else class="d-flex flex-column gap-3">
+    <!-- Lista de tarjetas de proyectos -->
+    <div v-else class="d-flex flex-column gap-3 mt-2">
       <v-card
         v-for="(row, idx) in rows"
         :key="row.id || idx"
         variant="outlined"
-        class="pa-3 rounded-lg position-relative bg-white"
+        class="proyecto-card pa-3 pa-sm-4 rounded-lg bg-white"
         :class="{ 'border-error': isTipoInvalid(row) || isDetalleInvalid(row) }"
       >
-        <div class="d-flex align-center justify-space-between mb-2">
+        <!-- Encabezado de tarjeta -->
+        <div class="d-flex align-center justify-space-between mb-3 pb-2 border-b">
           <div class="d-flex align-center ga-2">
-            <v-chip size="x-small" color="primary" variant="tonal" class="font-weight-bold">
+            <v-chip size="x-small" color="primary" variant="flat" class="font-weight-bold">
               #{{ idx + 1 }}
             </v-chip>
             <span class="text-caption font-weight-bold text-slate-700">
-              {{ row.tipo ? row.tipo.toUpperCase() : 'NUEVO PROYECTO' }}
+              {{ row.tipo && row.tipo.trim() ? row.tipo.trim() : 'NUEVO PROYECTO' }}
             </span>
           </div>
 
           <v-btn
             v-if="!readonly"
             icon="mdi-delete-outline"
-            size="x-small"
+            size="small"
             variant="text"
             color="error"
+            density="compact"
             title="Quitar proyecto"
+            :data-test="`btn-remove-proyecto-${idx}`"
             @click="removeRow(idx)"
           />
         </div>
@@ -197,7 +201,6 @@ defineExpose({
               :model-value="row.tipo"
               :items="tiposSugeridos"
               label="Tipo de proyecto *"
-              placeholder="Ej. Interacción social, Investigación, Académico..."
               density="compact"
               variant="outlined"
               hide-details="auto"
@@ -220,7 +223,6 @@ defineExpose({
               item-title="nombre"
               item-value="id"
               label="Unidades conjuntas (opcional)"
-              placeholder="Otras unidades que participan"
               density="compact"
               variant="outlined"
               multiple
@@ -230,12 +232,15 @@ defineExpose({
               :readonly="readonly"
               @update:model-value="updateUnidadIds(idx, $event)"
             >
+              <template #prepend-inner>
+                <v-icon size="16" color="primary">mdi-domain</v-icon>
+              </template>
               <template #chip="{ props: chipProps, item }">
                 <v-chip
                   v-bind="chipProps"
                   size="x-small"
                   variant="tonal"
-                  color="info"
+                  color="primary"
                   class="font-weight-medium"
                 >
                   {{ item.raw.sigla && item.raw.sigla !== '-' ? item.raw.sigla : item.raw.nombre }}
@@ -245,11 +250,10 @@ defineExpose({
           </v-col>
 
           <!-- Detalle del proyecto -->
-          <v-col cols="12">
+          <v-col cols="12" class="mt-2">
             <v-textarea
               :model-value="row.detalle"
               label="Detalle / Descripción del proyecto *"
-              placeholder="Describa el alcance, actividades u objetivos del proyecto..."
               rows="2"
               auto-grow
               density="compact"
@@ -273,5 +277,12 @@ defineExpose({
 }
 .gap-3 {
   gap: 12px;
+}
+.proyecto-card {
+  border-color: #e2e8f0;
+  transition: border-color 0.15s ease-in-out;
+}
+.proyecto-card:hover {
+  border-color: #cbd5e1;
 }
 </style>
