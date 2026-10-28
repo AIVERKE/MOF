@@ -89,3 +89,49 @@ describe("relaciones internas", () => {
     expect(form.relacionesInternas.map((r) => r.relacionadaId)).toEqual([20]);
   });
 });
+
+describe("mapeo de color propio y herencia de clase", () => {
+  it("mapBackendToForm mapea colorPropio si existe, o null si hereda", () => {
+    const withCustomColor = mapBackendToForm({
+      id: 1,
+      nombre: "Unidad Personalizada",
+      colorPropio: "#00897B",
+      colorClase: "#C62828",
+      color: "#00897B",
+    });
+    expect(withCustomColor.color).toBe("#00897B");
+    expect(withCustomColor.colorPropio).toBe("#00897B");
+    expect(withCustomColor.colorClase).toBe("#C62828");
+
+    const inheriting = mapBackendToForm({
+      id: 2,
+      nombre: "Unidad Heredada",
+      colorPropio: null,
+      colorClase: "#C62828",
+      color: "#C62828",
+    });
+    expect(inheriting.color).toBeNull();
+    expect(inheriting.colorPropio).toBeNull();
+    expect(inheriting.colorClase).toBe("#C62828");
+  });
+
+  it("mapFormToBackend normaliza a mayúsculas o envía null si no hay color personalizado", () => {
+    const custom = mapFormToBackend({
+      nombre: "Test",
+      color: "#00897b",
+    });
+    expect(custom.color).toBe("#00897B");
+
+    const inheriting = mapFormToBackend({
+      nombre: "Test",
+      color: null,
+    });
+    expect(inheriting.color).toBeNull();
+
+    const empty = mapFormToBackend({
+      nombre: "Test",
+      color: "",
+    });
+    expect(empty.color).toBeNull();
+  });
+});
