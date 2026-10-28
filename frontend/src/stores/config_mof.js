@@ -38,6 +38,16 @@ export const DEFAULT_CONFIG = {
     ["#212121", "#424242", "#616161", "#757575", "#9E9E9E"],
     ["#BF360C", "#D84315", "#E64A19", "#F4511E", "#FF5722"],
   ],
+  paletaNodos: [
+    "#1D4ED8",
+    "#B91C1C",
+    "#047857",
+    "#B45309",
+    "#6D28D9",
+    "#BE185D",
+    "#0369A1",
+    "#C2410C",
+  ],
   passwordPolicy: {
     minLength: 6,
   },
@@ -51,6 +61,10 @@ function applyPayload(data) {
       Array.isArray(data.paleta) && data.paleta.length > 0
         ? data.paleta
         : DEFAULT_CONFIG.paleta,
+    paletaNodos:
+      Array.isArray(data.paletaNodos) && data.paletaNodos.length > 0
+        ? data.paletaNodos
+        : DEFAULT_CONFIG.paletaNodos,
     passwordPolicy: {
       ...DEFAULT_CONFIG.passwordPolicy,
       ...(data.passwordPolicy || {}),
@@ -71,6 +85,9 @@ export const useConfigMofStore = defineStore("config_mof", () => {
   const defaults = computed(() => config.value.defaults || DEFAULT_CONFIG.defaults);
   const reglas = computed(() => config.value.reglas || DEFAULT_CONFIG.reglas);
   const paleta = computed(() => config.value.paleta || DEFAULT_CONFIG.paleta);
+  const paletaNodos = computed(
+    () => config.value.paletaNodos || DEFAULT_CONFIG.paletaNodos,
+  );
   const passwordPolicy = computed(
     () => config.value.passwordPolicy || DEFAULT_CONFIG.passwordPolicy,
   );
@@ -120,7 +137,7 @@ export const useConfigMofStore = defineStore("config_mof", () => {
   }
 
   /**
-   * Persiste un patch parcial (defaults / reglas / paleta / passwordPolicy).
+   * Persiste un patch parcial (defaults / reglas / paleta / paletaNodos / passwordPolicy).
    * Solo ADMIN; el backend valida y fusiona.
    */
   async function saveConfig(partial) {
@@ -158,6 +175,7 @@ export const useConfigMofStore = defineStore("config_mof", () => {
     defaults,
     reglas,
     paleta,
+    paletaNodos,
     passwordPolicy,
     passwordMinLength,
     swatches,

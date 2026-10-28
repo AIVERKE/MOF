@@ -346,7 +346,12 @@ export const getClaseNombre = (val, clases = []) => {
     : val;
 };
 
-export const getClaseColor = (val, clases = [], isColorblind = false) => {
+export const getClaseColor = (
+  val,
+  clases = [],
+  isColorblind = false,
+  paleta = INTENSE_NODE_PALETTE,
+) => {
   if (val === null || val === undefined || val === "") return DEFAULT_CLASE_COLOR;
 
   if (isColorblind) {
@@ -399,7 +404,9 @@ export const getClaseColor = (val, clases = [], isColorblind = false) => {
         (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
     );
     if (idx !== -1) {
-      return INTENSE_NODE_PALETTE[idx % INTENSE_NODE_PALETTE.length];
+      const effectivePalette =
+        Array.isArray(paleta) && paleta.length > 0 ? paleta : INTENSE_NODE_PALETTE;
+      return effectivePalette[idx % effectivePalette.length];
     }
   }
 
@@ -410,10 +417,17 @@ export const getClaseColor = (val, clases = [], isColorblind = false) => {
  * Asigna un color intenso de alto contraste para nodos según su clase / instancia
  * utilizando la paleta institucional INTENSE_NODE_PALETTE (o paletas daltónicas en modo accesible).
  */
-export const getIntenseNodeColor = (val, clases = [], isColorblind = false) => {
+export const getIntenseNodeColor = (
+  val,
+  clases = [],
+  isColorblind = false,
+  paleta = INTENSE_NODE_PALETTE,
+) => {
   if (isColorblind) {
-    return getClaseColor(val, clases, isColorblind);
+    return getClaseColor(val, clases, isColorblind, paleta);
   }
+  const effectivePalette =
+    Array.isArray(paleta) && paleta.length > 0 ? paleta : INTENSE_NODE_PALETTE;
   const target = getCampoClase(val) ?? val;
   const item = resolveCatalogItem(target, clases);
   if (item && Array.isArray(clases) && clases.length > 0) {
@@ -425,10 +439,10 @@ export const getIntenseNodeColor = (val, clases = [], isColorblind = false) => {
         (item.descripcion && c.descripcion && c.descripcion === item.descripcion),
     );
     if (idx !== -1) {
-      return INTENSE_NODE_PALETTE[idx % INTENSE_NODE_PALETTE.length];
+      return effectivePalette[idx % effectivePalette.length];
     }
   }
-  return INTENSE_NODE_PALETTE[0];
+  return effectivePalette[0];
 };
 
 function sRGBtoLinear(c) {

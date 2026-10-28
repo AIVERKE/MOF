@@ -480,24 +480,18 @@ const formRef = ref(null);
 const localFormValid = ref(props.formValid);
 watch(localFormValid, (val) => emit("update:formValid", val));
 
-/**
- * Watcher para prioridad de color:
- * Cuando cambia la Clase (Instancia), el color de la unidad
- * toma automáticamente el color institucional de esa clase.
- */
-watch(
-  () => props.formData.clase,
-  (newClaseId) => {
-    if (newClaseId) {
-      const claseObj = clasesStore.clases.find(
-        (c) => String(c.id) === String(newClaseId),
-      );
-      if (claseObj && claseObj.color) {
-        props.formData.color = claseObj.color;
-      }
-    }
-  },
-);
+const selectedClaseObj = computed(() => {
+  if (!props.formData?.clase) return null;
+  return clasesStore.clases.find(
+    (c) => String(c.id) === String(props.formData.clase),
+  );
+});
+
+const claseColor = computed(() => selectedClaseObj.value?.color || null);
+
+const effectiveFormColor = computed(() => {
+  return props.formData?.color || claseColor.value || "#1976D2";
+});
 
 /**
  * Si se selecciona que es Unidad Troncal, desactiva sub-troncal.
@@ -1496,18 +1490,46 @@ function moverAbajo(index) {
                   class="d-flex align-center mr-4"
                   style="cursor: pointer"
                 >
-                  <v-icon :color="formData.color" size="large" class="mr-2"
+                  <v-icon :color="effectiveFormColor" size="large" class="mr-2"
                     >mdi-palette</v-icon
                   >
                   <span class="text-caption font-weight-bold"
                     >PERSONALIZAR COLOR</span
                   >
+                  <span
+                    v-if="!formData.color"
+                    class="text-xxs text-medium-emphasis ml-1"
+                  >
+                    (Hereda de clase)
+                  </span>
                   <v-tooltip activator="parent" location="top"
                     >Personalizar el color de este nodo</v-tooltip
                   >
                 </div>
               </template>
               <v-card min-width="300" class="pa-3">
+                <div
+                  v-if="formData.color"
+                  class="mb-3 d-flex justify-space-between align-center"
+                >
+                  <span class="text-caption text-medium-emphasis"
+                    >Color propio activo</span
+                  >
+                  <v-btn
+                    size="x-small"
+                    variant="text"
+                    color="primary"
+                    @click="formData.color = null"
+                  >
+                    Usar color de la Clase
+                  </v-btn>
+                </div>
+                <div v-else class="mb-3">
+                  <span class="text-caption text-medium-emphasis">
+                    Usando color de la Clase
+                    <strong v-if="claseColor">({{ claseColor }})</strong>
+                  </span>
+                </div>
                 <div v-if="usedColors.length > 0" class="mb-4">
                   <div
                     class="text-caption font-weight-bold mb-2 text-uppercase grey--text"
@@ -1542,12 +1564,13 @@ function moverAbajo(index) {
                   Paleta Institucional
                 </div>
                 <v-color-picker
-                  v-model="formData.color"
+                  :model-value="formData.color || effectiveFormColor"
                   mode="hex"
                   :swatches="swatches"
                   show-swatches
                   hide-inputs
                   flat
+                  @update:model-value="(val) => (formData.color = val)"
                 />
               </v-card>
             </v-menu>

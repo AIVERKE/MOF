@@ -400,6 +400,18 @@ describe("mofHelpers - getIntenseNodeColor con INTENSE_NODE_PALETTE", () => {
     expect(getIntenseNodeColor(1, clases, true)).toBe(OKABE_ITO_PALETTE[0]);
     expect(getIntenseNodeColor(2, clases, true)).toBe(OKABE_ITO_PALETTE[1]);
   });
+
+  it("asigna colores de una paleta personalizada cuando se provee", () => {
+    const customPalette = ["#112233", "#445566"];
+    expect(getIntenseNodeColor(1, clases, false, customPalette)).toBe("#112233");
+    expect(getIntenseNodeColor(2, clases, false, customPalette)).toBe("#445566");
+    expect(getIntenseNodeColor(3, clases, false, customPalette)).toBe("#112233");
+  });
+
+  it("hace fallback a INTENSE_NODE_PALETTE si la paleta está vacía o es nula", () => {
+    expect(getIntenseNodeColor(1, clases, false, [])).toBe(INTENSE_NODE_PALETTE[0]);
+    expect(getIntenseNodeColor(1, clases, false, null)).toBe(INTENSE_NODE_PALETTE[0]);
+  });
 });
 
 describe("mofHelpers - getContrastingTextColor y cumplimiento WCAG AA", () => {
