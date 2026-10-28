@@ -118,6 +118,8 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     relacionesInternas: [],
     relacionesExternas: [],
     sia: [],
+    proyectos: [],
+    aplicaProyectos: false,
   };
 }
 
@@ -335,6 +337,20 @@ export function mapBackendToForm(raw, options = {}) {
           cantidad: Math.max(1, parseInt(i.cantidad, 10) || 1),
         }))
       : [],
+    aplicaProyectos: Boolean(raw.aplicaProyectos || raw.aplica_proyectos),
+    proyectosCount: raw.proyectosCount ?? raw.proyectos_count ?? 0,
+    proyectos: Array.isArray(raw.proyectos)
+      ? raw.proyectos.map((p) => ({
+          id: p.id != null ? Number(p.id) : null,
+          tipo: p.tipo || "",
+          detalle: p.detalle || "",
+          unidadIds: Array.isArray(p.unidades)
+            ? p.unidades
+                .map((u) => (typeof u === "object" ? u.id : u))
+                .filter((id) => String(id) !== String(raw.id))
+            : (Array.isArray(p.unidadIds) ? p.unidadIds : []),
+        }))
+      : [],
   };
 }
 
@@ -471,6 +487,31 @@ export function mapFormToBackend(formData, options = {}) {
 
   if (isCarrera) {
     payload.sia = cleanSia;
+  }
+
+  const isAplicaProy =
+    options?.aplicaProyectos === true ||
+    formData.aplicaProyectos === true ||
+    formData.aplica_proyectos === true;
+
+  if (isAplicaProy && Array.isArray(formData.proyectos)) {
+    payload.proyectos = formData.proyectos
+      .filter((p) => p && (String(p.tipo || "").trim() || String(p.detalle || "").trim()))
+      .map((p) => {
+      const item = {
+        tipo: String(p.tipo || "").trim(),
+        detalle: String(p.detalle || "").trim(),
+      };
+      if (p.id != null && Number(p.id) > 0) {
+        item.id = Number(p.id);
+      }
+      if (Array.isArray(p.unidadIds)) {
+        item.unidadIds = p.unidadIds
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id) && id > 0);
+      }
+      return item;
+    });
   }
 
   return payload;

@@ -2,7 +2,7 @@
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useDisplay } from "vuetify";
 import UnidadActionsMenu from "./UnidadActionsMenu.vue";
-import { getCleanSigla, isClaseCarrera } from "@/utils/mofHelpers";
+import { getCleanSigla, isClaseCarrera, agruparProyectosPorTipo } from "@/utils/mofHelpers";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -376,6 +376,24 @@ const panels = computed(() => {
             descripcion:
               data.planificacionEstrategica ||
               data.planificacion_estrategica,
+          },
+        ]
+      : []),
+    ...((data.aplicaProyectos || data.aplica_proyectos) &&
+    ((data.proyectosCount ?? (data.proyectos?.length || 0)) > 0)
+      ? [
+          {
+            key: "proyectos",
+            title: "PROYECTOS",
+            icon: "mdi-folder-outline",
+            avatarColor: "blue-darken-2",
+            badge: data.proyectosCount ?? (data.proyectos?.length || 0),
+            type: "proyectos",
+            proyectosPorTipo:
+              Array.isArray(data.proyectosPorTipo) && data.proyectosPorTipo.length > 0
+                ? data.proyectosPorTipo
+                : agruparProyectosPorTipo(data.proyectos),
+            proyectosCount: data.proyectosCount ?? (data.proyectos?.length || 0),
           },
         ]
       : []),
@@ -1029,6 +1047,54 @@ const panels = computed(() => {
               <div v-else class="d-flex align-center text-caption text-grey py-1">
                 <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
                 <span class="font-italic">Sin registros de inventario.</span>
+              </div>
+            </template>
+
+            <!-- Panel Proyectos (MOF-085) -->
+            <template v-else-if="panel.type === 'proyectos'">
+              <div class="d-flex flex-column gap-3">
+                <div
+                  v-for="grupo in panel.proyectosPorTipo"
+                  :key="grupo.tipo"
+                  class="border rounded-lg pa-3 bg-slate-50"
+                >
+                  <div class="d-flex align-center justify-space-between mb-2">
+                    <span class="text-caption font-weight-bold text-slate-800 text-uppercase">
+                      {{ grupo.tipo }}
+                    </span>
+                    <v-chip size="x-small" color="primary" variant="flat" class="font-weight-bold">
+                      {{ grupo.cantidad || grupo.proyectos?.length || 0 }}
+                    </v-chip>
+                  </div>
+                  <v-divider class="mb-2"></v-divider>
+                  <div class="d-flex flex-column gap-2">
+                    <div
+                      v-for="proy in grupo.proyectos"
+                      :key="proy.id || proy.detalle"
+                      class="bg-white pa-2 rounded border-thin"
+                    >
+                      <div class="text-caption text-slate-800 line-height-1-4">
+                        {{ proy.detalle }}
+                      </div>
+                      <div
+                        v-if="proy.unidades && proy.unidades.length > 1"
+                        class="d-flex flex-wrap align-center ga-1 mt-1"
+                      >
+                        <span class="text-xxs text-medium-emphasis">Proyecto conjunto con:</span>
+                        <v-chip
+                          v-for="u in proy.unidades.filter(un => String(un.id) !== String(detailData.id))"
+                          :key="u.id"
+                          size="x-small"
+                          variant="tonal"
+                          color="info"
+                          class="font-weight-medium text-xxs"
+                        >
+                          {{ u.sigla && u.sigla !== '-' ? u.sigla : u.nombre }}
+                        </v-chip>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </template>
 

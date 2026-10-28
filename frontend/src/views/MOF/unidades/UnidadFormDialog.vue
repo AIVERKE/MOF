@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed, nextTick } from "vue";
 import { rules, FEC_CREACION_MIN, fecCreacionMax } from "@/utils/rules";
-import { swatches, getUsedColors, isClaseCarrera } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, isClaseCarrera, checkUnidadAplicaProyectos } from "@/utils/mofHelpers";
 import { toRelId } from "@/utils/mofMappers";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
@@ -14,6 +14,7 @@ import SelectAllUnidades from "./SelectAllUnidades.vue";
 import CargosUnidadTable from "../cargos/CargosUnidadTable.vue";
 import UnidadInventarioTable from "./UnidadInventarioTable.vue";
 import UnidadSiaTable from "./UnidadSiaTable.vue";
+import UnidadProyectoTable from "./UnidadProyectoTable.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
@@ -23,6 +24,7 @@ import { useSnackbar } from "@/composables/useSnackbar";
 const { smAndDown } = useResponsive();
 const { mostrar } = useSnackbar();
 const inventarioTableRef = ref(null);
+const proyectoTableRef = ref(null);
 
 const props = defineProps({
   modelValue: Boolean,
@@ -313,6 +315,33 @@ const isCarrera = computed(() => {
   return isClaseCarrera(claseId);
 });
 
+const isAplicaProyectos = computed(() => {
+  return checkUnidadAplicaProyectos({
+    clase: props.formData?.clase,
+    parentId: props.formData?.parentId,
+    unidad: props.selectedNode,
+    unidades: unidadesStore.unidades,
+    clases: clasesStore.clases,
+  });
+});
+
+const unidadesParaProyectos = computed(() => {
+  const currentId = props.selectedNode?.id || props.formData?.id;
+  return (unidadesStore.unidades || []).filter(
+    (u) =>
+      String(u.id) !== String(currentId) &&
+      (u.aplicaProyectos === true ||
+        u.aplica_proyectos === true ||
+        checkUnidadAplicaProyectos({
+          clase: u.clase || u.tipoUnidad,
+          parentId: u.parentId || u.parent,
+          unidad: u,
+          unidades: unidadesStore.unidades,
+          clases: clasesStore.clases,
+        })),
+  );
+});
+
 const activeSectionsConfig = computed(() => {
   const base = [...sectionsConfig];
   if (isCarrera.value) {
@@ -336,6 +365,30 @@ const activeSectionsConfig = computed(() => {
       base.splice(cargosIdx + 1, 0, siaSection);
     } else {
       base.push(siaSection);
+    }
+  }
+
+  if (isAplicaProyectos.value) {
+    const insertIdx = base.findIndex((s) => s.id === "section-sia" || s.id === "section-inventarios");
+    const proyectosSection = {
+      id: "section-proyectos",
+      name: "Proyectos de Unidad",
+      keywords: [
+        "proyectos",
+        "proyecto",
+        "investigacion",
+        "investigación",
+        "interaccion",
+        "interacción social",
+        "academico",
+        "académico",
+        "tipo libre",
+      ],
+    };
+    if (insertIdx !== -1) {
+      base.splice(insertIdx + 1, 0, proyectosSection);
+    } else {
+      base.push(proyectosSection);
     }
   }
   return base;
@@ -556,6 +609,15 @@ async function confirm() {
     const inventarioEl = document.getElementById("section-inventarios");
     if (inventarioEl) {
       inventarioEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    return;
+  }
+
+  if (isAplicaProyectos.value && proyectoTableRef.value && !proyectoTableRef.value.validate()) {
+    mostrar("Por favor completa los campos de los proyectos registrados", "warning");
+    const proyEl = document.getElementById("section-proyectos");
+    if (proyEl) {
+      proyEl.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     return;
   }
@@ -1073,6 +1135,21 @@ function moverAbajo(index) {
           >
             <UnidadSiaTable
               v-model="formData.sia"
+            />
+          </div>
+
+          <!-- PROYECTOS DE LA UNIDAD (DECANATO HACIA ABAJO) (MOF-085) -->
+          <div
+            v-if="isAplicaProyectos"
+            id="section-proyectos"
+            v-show="isSectionVisible('section-proyectos')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-proyectos') }"
+            class="my-3"
+          >
+            <UnidadProyectoTable
+              ref="proyectoTableRef"
+              v-model="formData.proyectos"
+              :unidades-disponibles="unidadesParaProyectos"
             />
           </div>
 

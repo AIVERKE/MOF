@@ -89,3 +89,62 @@ describe("relaciones internas", () => {
     expect(form.relacionesInternas.map((r) => r.relacionadaId)).toEqual([20]);
   });
 });
+
+describe("proyectos en mappers", () => {
+  it("mapBackendToForm mapea proyectos y aplicaProyectos", () => {
+    const raw = {
+      id: 10,
+      nombre: "Carrera de Agronomía",
+      aplicaProyectos: true,
+      proyectosCount: 2,
+      proyectos: [
+        { id: 1, tipo: "Investigación", detalle: "P1", unidades: [{ id: 11, nombre: "U2" }] },
+        { id: 2, tipo: "Social", detalle: "P2", unidadIds: [12] },
+      ],
+    };
+
+    const form = mapBackendToForm(raw);
+    expect(form.aplicaProyectos).toBe(true);
+    expect(form.proyectosCount).toBe(2);
+    expect(form.proyectos).toHaveLength(2);
+    expect(form.proyectos[0]).toEqual({
+      id: 1,
+      tipo: "Investigación",
+      detalle: "P1",
+      unidadIds: [11],
+    });
+    expect(form.proyectos[1]).toEqual({
+      id: 2,
+      tipo: "Social",
+      detalle: "P2",
+      unidadIds: [12],
+    });
+  });
+
+  it("mapFormToBackend omite el campo proyectos si aplicaProyectos es false", () => {
+    const payload = mapFormToBackend({
+      nombre: "Rectorado",
+      aplicaProyectos: false,
+      proyectos: [{ tipo: "Inv", detalle: "Detalle" }],
+    });
+
+    expect(payload.proyectos).toBeUndefined();
+  });
+
+  it("mapFormToBackend limpia y mapea proyectos cuando aplicaProyectos es true", () => {
+    const payload = mapFormToBackend({
+      nombre: "Decanato",
+      aplicaProyectos: true,
+      proyectos: [
+        { id: "5", tipo: "  Investigación  ", detalle: "  Detalle P5  ", unidadIds: [10, "12", 0] },
+        { tipo: "", detalle: "" },
+        { tipo: "Interacción", detalle: "Comunitaria" },
+      ],
+    });
+
+    expect(payload.proyectos).toEqual([
+      { id: 5, tipo: "Investigación", detalle: "Detalle P5", unidadIds: [10, 12] },
+      { tipo: "Interacción", detalle: "Comunitaria" },
+    ]);
+  });
+});

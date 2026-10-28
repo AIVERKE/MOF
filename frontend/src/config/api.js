@@ -25,6 +25,8 @@ export const ENDPOINTS = {
     PDF_UNIDAD: (id) => `${API_BASE_URL}/api/v1/mof/unidades/pdf/${id}`,
     VISTAS_UNIDAD: (id) => `${API_BASE_URL}/api/v1/mof/unidades/${id}/vistas`,
     CONFIG: `${API_BASE_URL}/api/v1/mof/config`,
+    PROYECTOS_TIPOS: `${API_BASE_URL}/api/v1/mof/proyectos/tipos`,
+    UNIDAD_PROYECTOS: (id) => `${API_BASE_URL}/api/v1/mof/unidades/${id}/proyectos`,
   },
   UNIDADES: {
     CARGOS: `${API_BASE_URL}/api/v1/unidades/cargos`,
@@ -58,6 +60,10 @@ export const ERROR_CODE_MESSAGES = {
   SIA_SOLO_CARRERA: "El bloque SIA solo aplica a unidades de tipo Carrera",
   SIA_NO_PERTENECE_UNIDAD: "La fila SIA no pertenece a la unidad",
   SIA_ID_DUPLICADO: "La fila SIA está repetida en la solicitud",
+  PROYECTOS_NO_APLICA: "Los proyectos solo aplican a Decanatos y a las unidades que dependen de uno",
+  PROYECTO_UNIDAD_NO_APLICA: "Una de las unidades vinculadas al proyecto no aplica para proyectos",
+  PROYECTO_NO_PERTENECE_UNIDAD: "El proyecto no pertenece a la unidad",
+  PROYECTO_ID_DUPLICADO: "El proyecto está repetido en la solicitud",
   SIA_FILA_VACIA: "La fila SIA debe tener al menos un valor",
   PLANIFICACION_ESTRATEGICA_INCOMPLETA:
     "Si la Planificación Estratégica aplica, el porcentaje y la descripción son obligatorios",

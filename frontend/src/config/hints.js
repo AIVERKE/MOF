@@ -65,6 +65,12 @@ export const hints = {
       "Bienes, equipos y materiales inventariados pertenecientes a esta unidad",
     sia:
       "Registro de métricas académicas SIA (aprobados, reprobados y matriculados) exclusivo para Carreras",
+    proyectos:
+      "Proyectos de interacción social, investigación, académicos u otros gestionados por esta unidad facultativa",
+    proyectoTipo:
+      "Tipo o clasificación libre del proyecto (ej: Interacción social, Investigación, Académico u otro)",
+    proyectoDetalle:
+      "Descripción y alcance del proyecto",
     clase:
       "Seleccione la jerarquía o nivel de instancia universitaria",
     funcion:
