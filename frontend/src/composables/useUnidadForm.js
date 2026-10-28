@@ -4,6 +4,7 @@ import {
   getSafeId, 
   getPesoReal,
   isClaseCarrera,
+  checkUnidadAplicaProyectos,
 } from "@/utils/mofHelpers";
 import {
   getEmptyFormData,
@@ -40,6 +41,15 @@ export function useUnidadForm(stores) {
   const loading = ref(false);
   const saving = ref(false);
   const isCarrera = computed(() => isClaseCarrera(formData.value?.clase, clasesStore?.clases));
+  const isAplicaProyectos = computed(() =>
+    checkUnidadAplicaProyectos({
+      clase: formData.value?.clase,
+      parentId: formData.value?.parentId,
+      unidad: selectedNode.value,
+      unidades: unidadesStore?.unidades,
+      clases: clasesStore?.clases,
+    }),
+  );
   const selectedNode = ref(null);
 
   // Estados para deltas
@@ -176,8 +186,17 @@ export function useUnidadForm(stores) {
       }
     }
 
+    const isAplicaProy = checkUnidadAplicaProyectos({
+      clase: formData.value.clase,
+      parentId: formData.value.parentId,
+      unidad: selectedNode.value,
+      unidades: unidadesStore.unidades,
+      clases: clasesStore?.clases,
+    });
+
     const dataToSend = mapFormToBackend(formData.value, {
       isCarrera: isCarrera.value,
+      aplicaProyectos: isAplicaProy,
       clasesCatalog: clasesStore?.clases,
     });
 
@@ -383,6 +402,7 @@ export function useUnidadForm(stores) {
     loading,
     saving,
     isCarrera,
+    isAplicaProyectos,
     selectedNode,
     openForm,
     saveUnidad,

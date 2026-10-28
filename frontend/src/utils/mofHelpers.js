@@ -919,3 +919,115 @@ export const isClaseCarrera = (clase, clasesCatalog = []) => {
     .toUpperCase()
     .includes("CARRERA");
 };
+
+/**
+ * Determina si una clase (tipo_unidad) corresponde a un Decanato
+ * (ej: "DECANATOS", "VICEDECANATOS").
+ */
+export function esClaseDecanato(claseVal, clasesCatalog = []) {
+  if (!claseVal) return false;
+  if (typeof claseVal === "object") {
+    if (claseVal.esDecanato !== undefined && claseVal.esDecanato !== null) {
+      return Boolean(claseVal.esDecanato);
+    }
+    const text = claseVal.descripcion || claseVal.nombre || "";
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .includes("DECANATO");
+  }
+
+  const strVal = String(claseVal).trim();
+  const found = (clasesCatalog || []).find(
+    (c) => String(c.id) === strVal || String(c.value) === strVal,
+  );
+  if (found) {
+    if (found.esDecanato !== undefined && found.esDecanato !== null) {
+      return Boolean(found.esDecanato);
+    }
+    const text = found.descripcion || found.nombre || "";
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .includes("DECANATO");
+  }
+
+  return strVal
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .includes("DECANATO");
+}
+
+/**
+ * Valida si una unidad aplica a gestión de proyectos (es Decanato o desciende de uno).
+ */
+export function checkUnidadAplicaProyectos({
+  clase,
+  parentId,
+  unidad,
+  unidades = [],
+  clases = [],
+} = {}) {
+  // 1. Si la clase asignada es Decanato
+  const cVal = clase ?? unidad?.clase ?? unidad?.tipoUnidad;
+  if (esClaseDecanato(cVal, clases)) return true;
+
+  // 2. Si tiene parentId, rastrear ancestros
+  let currentParentId = parentId ?? unidad?.parentId ?? unidad?.parent;
+  const visited = new Set();
+  while (currentParentId && !visited.has(String(currentParentId))) {
+    visited.add(String(currentParentId));
+    const parent = (unidades || []).find(
+      (u) => String(u.id) === String(currentParentId),
+    );
+    if (!parent) break;
+    if (parent.aplicaProyectos === true || parent.aplica_proyectos === true) {
+      return true;
+    }
+    if (
+      esClaseDecanato(
+        parent.clase ?? parent.tipoUnidad ?? parent.tipo_unidad,
+        clases,
+      )
+    ) {
+      return true;
+    }
+    currentParentId = parent.parentId ?? parent.parent;
+  }
+
+  // 3. Fallback: propiedad en el objeto unidad si ya viene calculada del backend
+  if (
+    unidad &&
+    (unidad.aplicaProyectos === true || unidad.aplica_proyectos === true)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Agrupa una lista de proyectos por su tipo textual (case-insensitive para agrupación,
+ * preservando la grafía original).
+ */
+export function agruparProyectosPorTipo(proyectos = []) {
+  if (!Array.isArray(proyectos)) return [];
+  const map = new Map();
+  for (const p of proyectos) {
+    const rawTipo = String(p.tipo || "General").trim();
+    const key = rawTipo
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, { tipo: rawTipo, cantidad: 0, proyectos: [] });
+    }
+    const group = map.get(key);
+    group.cantidad++;
+    group.proyectos.push(p);
+  }
+  return Array.from(map.values()).sort((a, b) => a.tipo.localeCompare(b.tipo));
+}

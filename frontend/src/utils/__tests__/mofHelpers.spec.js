@@ -19,6 +19,9 @@ import {
   DEFAULT_CLASE_COLOR,
   OKABE_ITO_PALETTE,
   INTENSE_NODE_PALETTE,
+  esClaseDecanato,
+  checkUnidadAplicaProyectos,
+  agruparProyectosPorTipo,
   PROTANOPIA_PALETTE,
   DEUTERANOPIA_PALETTE,
   TRITANOPIA_PALETTE,
@@ -448,3 +451,65 @@ describe("mofHelpers - getContrastingTextColor y cumplimiento WCAG AA", () => {
   });
 });
 
+
+describe("mofHelpers - Proyectos de unidad (Decanatos hacia abajo)", () => {
+  const clasesCatalog = [
+    { id: 1, descripcion: "RECTORADO", esDecanato: false },
+    { id: 2, descripcion: "DECANATOS", esDecanato: true },
+    { id: 3, descripcion: "VICEDECANATOS", esDecanato: true },
+    { id: 4, descripcion: "CARRERAS", esDecanato: false },
+    { id: 5, descripcion: "INSTITUTOS", esDecanato: false },
+  ];
+
+  it("esClaseDecanato detecta Decanatos y Vicedecanatos por id, objeto o texto", () => {
+    expect(esClaseDecanato(2, clasesCatalog)).toBe(true);
+    expect(esClaseDecanato(3, clasesCatalog)).toBe(true);
+    expect(esClaseDecanato(1, clasesCatalog)).toBe(false);
+    expect(esClaseDecanato({ descripcion: "Decanato de Ciencias" })).toBe(true);
+    expect(esClaseDecanato("VICEDECANATO")).toBe(true);
+    expect(esClaseDecanato("DIRECCIÓN ADMINISTRATIVA")).toBe(false);
+  });
+
+  it("checkUnidadAplicaProyectos valida jerarquía de decanato hacia abajo", () => {
+    const unidades = [
+      { id: 10, nombre: "RECTORADO", clase: 1, parentId: null, aplicaProyectos: false },
+      { id: 20, nombre: "FACULTAD DE CIENCIAS - DECANATO", clase: 2, parentId: 10, aplicaProyectos: true },
+      { id: 30, nombre: "CARRERA DE INFORMÁTICA", clase: 4, parentId: 20, aplicaProyectos: true },
+      { id: 40, nombre: "INSTITUTO DE INVESTIGACIONES", clase: 5, parentId: 30, aplicaProyectos: true },
+      { id: 50, nombre: "SECRETARÍA GENERAL", clase: 1, parentId: 10, aplicaProyectos: false },
+    ];
+
+    // Decanato aplica
+    expect(checkUnidadAplicaProyectos({ clase: 2, parentId: 10, unidades, clases: clasesCatalog })).toBe(true);
+
+    // Carrera hija de Decanato aplica
+    expect(checkUnidadAplicaProyectos({ clase: 4, parentId: 20, unidades, clases: clasesCatalog })).toBe(true);
+
+    // Instituto hijo de Carrera (que desciende de Decanato) aplica
+    expect(checkUnidadAplicaProyectos({ clase: 5, parentId: 30, unidades, clases: clasesCatalog })).toBe(true);
+
+    // Rectorado o Secretaría Central NO aplican
+    expect(checkUnidadAplicaProyectos({ clase: 1, parentId: 10, unidades, clases: clasesCatalog })).toBe(false);
+  });
+
+  it("agruparProyectosPorTipo agrupa dinámicamente preservando grafía y contando", () => {
+    const proyectos = [
+      { id: 1, tipo: "Investigación", detalle: "P1" },
+      { id: 2, tipo: "Interacción social", detalle: "P2" },
+      { id: 3, tipo: "investigacion", detalle: "P3" },
+      { id: 4, tipo: "Académico abierto", detalle: "P4" },
+    ];
+
+    const agrupados = agruparProyectosPorTipo(proyectos);
+    expect(agrupados).toHaveLength(3);
+
+    const inv = agrupados.find((g) => g.tipo.toLowerCase().includes("investiga"));
+    expect(inv).toBeDefined();
+    expect(inv.cantidad).toBe(2);
+    expect(inv.proyectos).toHaveLength(2);
+
+    const inter = agrupados.find((g) => g.tipo.toLowerCase().includes("interac"));
+    expect(inter).toBeDefined();
+    expect(inter.cantidad).toBe(1);
+  });
+});
