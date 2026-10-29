@@ -12,7 +12,6 @@ import {
   IsString,
   Matches,
   Max,
-  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -21,15 +20,6 @@ import { IsFecCreacionInRange } from '../../../common/validators/fec-creacion-ra
 
 const MAX_RELACIONES = 1000;
 
-/**
- * Sigla: letras (incluye acentos y ñ), números, guion, punto, coma y apóstrofo.
- * Lista blanca: cualquier otro símbolo o espacio se rechaza. Debe coincidir con
- * `siglaFormato` del front (`frontend/src/utils/rules.js`).
- */
-export const SIGLA_REGEX = /^[\p{L}0-9.,'-]*$/u;
-export const SIGLA_FORMATO_MENSAJE =
-  "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')";
-
 /** Color hexadecimal de 6 dígitos (`#RRGGBB`), sin alfa ni forma corta. */
 export const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
@@ -37,28 +27,20 @@ export class UnidadDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[A-Za-z0-9.-]+$/, {
-    message: 'El código solo puede contener letras, números, puntos y guiones',
-  })
   codigo: string;
 
   @ApiPropertyOptional({
     description:
-      "Acrónimo de la unidad: letras, números, guion (-), punto (.), coma (,) y apóstrofo ('); cualquier otro símbolo o espacio responde `VALIDATION_FAILED`. Vacía, `-`, igual al código o solo numérica (ej. `1.2.3`) se ignora: en el alta se autogenera a partir del nombre y en la edición se conserva la actual. Se trunca a 32 caracteres y no es única.",
-    pattern: SIGLA_REGEX.source,
-    example: 'SEC.GRAL',
+      'Acrónimo de la unidad en texto libre: admite espacios y cualquier signo, sin límite de longitud. Se guarda recortada (`trim`) y no es única. Vacía, `-`, igual al código o solo numérica (ej. `1.2.3`) se ignora: en el alta se autogenera a partir del nombre y en la edición se conserva la actual.',
+    example: 'SEC. GRAL',
   })
   @IsOptional()
   @IsString()
-  @Matches(SIGLA_REGEX, { message: SIGLA_FORMATO_MENSAJE })
   sigla?: string;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[\p{L}0-9\s.,\-/()°º"']+$/u, {
-    message: 'El nombre contiene caracteres especiales no permitidos',
-  })
   nombre: string;
 
   @ApiPropertyOptional()
@@ -173,64 +155,36 @@ export class UnidadDto {
   @ApiPropertyOptional({ description: 'Trámites atendidos por la unidad' })
   @IsOptional()
   @IsString()
-  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message:
-      'Trámites atendidos contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
-  })
   tramitesAtendidos?: string;
 
   @ApiPropertyOptional({ description: 'Ejecución del POA de la unidad' })
   @IsOptional()
   @IsString()
-  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message:
-      'Ejecución POA contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
-  })
   ejecucionPoa?: string;
 
   @ApiPropertyOptional({ description: 'Ejecución presupuestaria de la unidad' })
   @IsOptional()
   @IsString()
-  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message:
-      'Ejecución presupuestaria contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
-  })
   ejecucionPresupuestaria?: string;
 
   @ApiPropertyOptional({ description: 'Carga horaria programada' })
   @IsOptional()
   @IsString()
-  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message:
-      'Carga horaria programada contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
-  })
   cargaHorariaProgramada?: string;
 
   @ApiPropertyOptional({ description: 'Carga horaria ejecutada' })
   @IsOptional()
   @IsString()
-  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message:
-      'Carga horaria ejecutada contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
-  })
   cargaHorariaEjecutada?: string;
 
   @ApiPropertyOptional({ description: 'Infraestructura física utilizada' })
   @IsOptional()
   @IsString()
-  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message:
-      'Infraestructura física contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
-  })
   infraestructura?: string;
 
   @ApiPropertyOptional({ description: 'Ubicación física de la unidad' })
   @IsOptional()
   @IsString()
-  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message:
-      'Ubicación física contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
-  })
   ubicacion?: string;
 
   @ApiPropertyOptional({
@@ -282,10 +236,6 @@ export class UnidadDto {
   )
   @IsOptional()
   @IsString()
-  @Matches(/^[^@#$^*~{}[\]|\\<>`]*$/, {
-    message:
-      'Planificación Estratégica contiene caracteres no permitidos (@, #, $, ^, *, ~, {, }, [, ], |, \\, <, >)',
-  })
   planificacionEstrategica?: string | null;
 
   @ApiPropertyOptional({
@@ -392,14 +342,12 @@ export class UnidadInventarioDto {
   @ApiProperty({
     description: 'Descripción del ítem de inventario',
     example: 'Computadora de escritorio',
-    maxLength: 1024,
   })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
   @IsNotEmpty({ message: 'La descripción del inventario es obligatoria' })
-  @MaxLength(1024)
   descripcion: string;
 
   @ApiProperty({ description: 'Cantidad de unidades', example: 3, minimum: 1 })
@@ -531,29 +479,21 @@ export class ProyectoDto {
     description:
       'Tipo de proyecto en texto libre (no hay lista cerrada). Proyectos con el mismo tipo, sin distinguir mayúsculas ni acentos, se agrupan juntos.',
     example: 'Interacción social',
-    maxLength: 120,
   })
   @Transform(normalizarTexto)
   @IsString()
   @IsNotEmpty({ message: 'El tipo de proyecto es obligatorio' })
-  @MaxLength(120, {
-    message: 'El tipo de proyecto no puede superar 120 caracteres',
-  })
   tipo: string;
 
   @ApiProperty({
     description: 'Detalle descriptivo del proyecto',
     example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
-    maxLength: 4000,
   })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
   @IsNotEmpty({ message: 'El detalle del proyecto es obligatorio' })
-  @MaxLength(4000, {
-    message: 'El detalle del proyecto no puede superar 4000 caracteres',
-  })
   detalle: string;
 
   @ApiPropertyOptional({

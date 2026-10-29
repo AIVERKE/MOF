@@ -81,10 +81,10 @@ const COLOR_DESCRIPTION =
   'Color del nodo: `color` (`#RRGGBB`) es el color propio de la unidad; `null` o vacío vuelve a heredar el de la Clase y, si se omite, se conserva. Un color igual al de la Clase se guarda como `null`. Las lecturas devuelven `colorPropio` (guardado en la unidad), `colorClase` (`tipo_unidad.color`) y `color` (el efectivo: propio o, si no hay, el de la Clase).';
 
 const UNIDAD_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`, p. ej. sigla con caracteres no permitidos como `@ # $ ^ * ~ { } [ ] | \\ < >` o espacios, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA`, `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción) o, en `proyectos`, `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA`, `PROYECTO_NO_PERTENECE_UNIDAD` y `PROYECTO_ID_DUPLICADO`';
+  'Error de validación (`VALIDATION_FAILED`, p. ej. nombre o código vacíos, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA`, `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción) o, en `proyectos`, `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA`, `PROYECTO_NO_PERTENECE_UNIDAD` y `PROYECTO_ID_DUPLICADO`';
 
 const PROYECTO_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`: `tipo` o `detalle` vacíos o demasiado largos, `unidadIds` con valores no enteros), `PROYECTOS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica)';
+  'Error de validación (`VALIDATION_FAILED`: `tipo` o `detalle` vacíos, `unidadIds` con valores no enteros), `PROYECTOS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica)';
 
 const SIA_BAD_REQUEST =
   'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';

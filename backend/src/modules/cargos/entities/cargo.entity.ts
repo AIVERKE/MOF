@@ -15,13 +15,13 @@ export class Cargo extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
 
-  @Column({ type: 'varchar', length: 64, unique: true, nullable: true })
+  @Column({ type: 'text', unique: true, nullable: true })
   codigo: string | null;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'text' })
   nombre: string;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
+  @Column({ type: 'text', nullable: true })
   descripcion: string | null;
 
   @ManyToOne(() => Cargo, (cargo) => cargo.hijos, { nullable: true })

@@ -74,7 +74,7 @@ Sincronización desde el formulario (`POST`/`PUT /api/v1/mof/unidades/:id`), cam
 ```
 
 - Fila con `id` → se actualiza; fila sin `id` → se crea; fila vigente que no se envía → baja lógica. `[]` vacía el inventario; omitir el campo no lo modifica.
-- `descripcion`: texto obligatorio (máx. 1024, se recorta). `cantidad`: entero ≥ 1. No se admiten otros campos.
+- `descripcion`: texto obligatorio, sin límite de longitud (se recorta). `cantidad`: entero ≥ 1. No se admiten otros campos.
 - Errores: `INVENTARIO_NO_PERTENECE_UNIDAD` (400, `id` de otra unidad o inexistente), `INVENTARIO_ID_DUPLICADO` (400), `VALIDATION_FAILED` (400). Ante un error no se guarda nada.
 
 Endpoints por ítem (escritura: ADMIN, OPERADOR):
@@ -133,7 +133,7 @@ Una unidad lleva Proyectos si su clase es Decanato **o** si algún ancestro por 
 - No tiene relación con el texto de funciones que mencione investigación o interacción: son entidades aparte.
 
 #### Modelo
-- `proyecto`: `id`, `tipo` (`varchar(120)`, **texto libre**, sin catálogo ni enum), `detalle` (`text`), auditoría y baja lógica.
+- `proyecto`: `id`, `tipo` (`text`, **texto libre**, sin catálogo ni enum), `detalle` (`text`), auditoría y baja lógica.
 - `proyecto_unidad`: (`proyecto_id`, `unidad_id`). Un proyecto conjunto (ej. Informática + Química) tiene una fila por unidad y **suma 1 en el contador de cada una**.
 - `tipo` se guarda recortado y con los espacios colapsados. Al agrupar, tipos que solo difieren en mayúsculas o acentos (`Investigación`, `investigacion`) van juntos, con la grafía del primero que se registró.
 
@@ -183,7 +183,7 @@ Una unidad lleva Proyectos si su clase es Decanato **o** si algún ancestro por 
 ```
 
 - Con `id` → se actualiza; sin `id` → se crea; un proyecto vigente de la unidad que no se envía → **la unidad se desvincula** (las demás participantes lo conservan; si no queda ninguna, el proyecto se da de baja). `[]` desvincula todos; omitir el campo no modifica nada.
-- `tipo`: texto obligatorio, máx. 120. `detalle`: texto obligatorio, máx. 4000. No se admiten otros campos.
+- `tipo` y `detalle`: texto obligatorio, sin límite de longitud. No se admiten otros campos.
 - `unidadIds`: **otras** unidades participantes. La unidad del formulario siempre participa (no hace falta incluirla; se ignoran repetidos). Si se envía, reemplaza la lista; si se omite en un proyecto existente, sus participantes no cambian. En uno nuevo, omitirlo equivale a `[]`.
 - Se valida con la clase y el padre **finales**: en el mismo `PUT` se puede mover la unidad bajo un Decanato y enviar `proyectos`. En el `POST`, con `tipoUnidad` y `parentId` del cuerpo.
 - En una unidad que no aplica, enviar filas responde `PROYECTOS_NO_APLICA`; `proyectos: []` se ignora.
@@ -214,18 +214,52 @@ Un proyecto en el que la unidad no participa responde 404 (`NOT_FOUND`); en una 
    - Fuera de alcance: reporte PDF.
 
 ### Sigla
-`sigla` es opcional en `POST`/`PUT /api/v1/mof/unidades/:id`. Su formato se valida con `SIGLA_REGEX` (`dto/unidad.dto.ts`), que el front debe replicar tal cual en `siglaFormato` (`frontend/src/utils/rules.js`):
-```js
-/^[\p{L}0-9.,'-]*$/u
-// "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')"
-```
-- Admite letras (con acentos y ñ), números, guion `-`, punto `.`, coma `,` y apóstrofo ASCII `'`.
-- Es una lista blanca: `@ # $ ^ * ~ { } [ ] | \ < >`, los espacios, `/`, `%`, `&`, `"` y el apóstrofo tipográfico `’` se rechazan.
-- Válidas: `SEC.GRAL`, `S.G.`, `CE-HCU`, `D'ALES`, `ADM,FIN`, `ÑANDÚ`.
-- Inválidas: `SEC@GRAL`, `SEC GRAL`, `SEC#1`, `A<B>`.
-- Una sigla inválida responde 400 con `errorCode: "VALIDATION_FAILED"`. `message` trae el texto anterior, unido con `, ` a otros errores de validación si los hay. No se guarda nada.
+`sigla` es opcional en `POST`/`PUT /api/v1/mof/unidades/:id` y es **texto libre**: admite espacios y cualquier signo (`SEC GRAL`, `SEC@GRAL #1`, `D’ALES`), sin límite de longitud. Se guarda recortada (`trim`) y no es única.
+
 - El servicio ignora sin error una sigla vacía, `-`, igual al código o solo numérica (ej. `1.2.3`). En el alta, la sigla se autogenera a partir del nombre; en la edición, se conserva la actual.
-- Se trunca a 32 caracteres y no es única.
+- Ya no se trunca: una sigla de cualquier largo se guarda completa (antes se cortaba a 32).
+- El front sigue exigiéndola y rechazando que sea igual al código o solo numérica (`siglaNotCodigo`, `siglaValida` en `frontend/src/utils/rules.js`).
+
+### Textos libres sin límite de longitud
+
+Los campos de texto de la ficha técnica, inventarios, proyectos, funciones, cargos y clases no tienen listas de caracteres permitidos/prohibidos ni topes de longitud. Se quitaron los `@Matches` y `@MaxLength` de los DTOs, y la migración `1793300000000-TextosSinLimiteDeLongitud` pasó sus columnas de `varchar(n)` a `text`:
+
+| Tabla | Columnas (largo anterior) |
+| --- | --- |
+| `unidad` | `codigo` (64), `sigla` (32), `nombre` (255), `res_creacion` (512) |
+| `unidad_funcion` | `funcion` (1024), `base_legal` (1024) |
+| `unidad_inventario` | `descripcion` (1024) |
+| `unidad_relacion_externa` | `descripcion` (1024) |
+| `unidad_relacion_interna` | `tipo` (32) |
+| `unidad_jerarquia_hist` | `razon` (512) |
+| `proyecto` | `tipo` (120) |
+| `cargo` | `codigo` (64), `nombre` (255), `descripcion` (512) |
+| `cargo_nivel` | `nombre` (128), `descripcion` (512) |
+| `cargo_jerarquia_hist`, `asignacion_cargo_hist` | `razon` (512) |
+| `tipo_unidad` (clases) | `codigo` (32), `descripcion` (255) |
+
+- `codigo` admite espacios y cualquier signo; sigue siendo obligatorio y único entre las unidades vigentes (`UNIDAD_CODIGO_DUPLICADO`).
+- `nombre` sigue siendo obligatorio. Los campos operativos (`tramitesAtendidos`, `ejecucionPoa`, `ejecucionPresupuestaria`, `cargaHorariaProgramada`, `cargaHorariaEjecutada`, `infraestructura`, `ubicacion`), `objetivo`, `baseLegal` y `planificacionEstrategica` ya no rechazan `@ # $ ^ * ~ { } [ ] | \ < >`.
+- Se mantienen las validaciones numéricas: `planificacionEstrategicaValor` de 0 a 100 con hasta 2 decimales; `cantidad` de inventario entera ≥ 1; columnas SIA enteras ≥ 0.
+- Siguen con formato fijo (no son texto libre): `color` (`#RRGGBB`), `lado`, `cargo.ambito` y `cargo_nivel.letra`.
+- Fuera de alcance: usuarios (`usuario`, `persona`).
+- `varchar` → `text` no reescribe la tabla y conserva los índices. El `down` vuelve a `varchar(n)` y **falla** si ya hay textos más largos, en lugar de recortarlos.
+
+Integración en el front (solo quitar restricciones, sin lógica nueva):
+1. **`frontend/src/utils/rules.js`**:
+   - `codigo`: dejar solo la obligatoriedad (`'El código es requerido'`), sin el regex `^[A-Z0-9.-]+$`.
+   - Eliminar `siglaFormato`, `nombreUnidad` y `sinCaracteresRaros`.
+   - Mantener `required`, `minLength`, `siglaNotCodigo`, `siglaValida` y `porcentajePlanificacion`.
+   - Actualizar `utils/__tests__/rules.spec.js`: quitar el bloque `rules.siglaFormato` y agregar casos de `rules.codigo` con espacios y símbolos (`'1.2 A/B'` → `true`).
+2. **`frontend/src/views/MOF/unidades/UnidadFormDialog.vue`**:
+   - Nombre (~línea 820): `:rules="[rules.required, rules.minLength(4)]"`.
+   - Sigla (~líneas 831–832): quitar `rules.siglaFormato` y el atributo `maxlength="32"`; quedan `required`, `siglaNotCodigo(formData.codigo)` y `siglaValida`.
+   - Código (~línea 843): sin cambios en el template; la regla `rules.codigo` ya queda permisiva.
+   - Ejecución POA, Ejecución Presupuestaria, Carga Horaria Programada/Ejecutada, Ubicación, Infraestructura y Trámites (~líneas 1253–1325): quitar `:rules="[rules.sinCaracteresRaros]"`.
+   - Planificación Estratégica (~línea 1392): `:rules="[rules.required]"`. El porcentaje conserva `porcentajePlanificacion`.
+3. **`frontend/src/views/MOF/unidades/UnidadInventarioTable.vue`** (~línea 177): quitar `maxlength="1024"` de la descripción. La cantidad conserva su validación de entero ≥ 1.
+4. **Cargos y clases**: quitar `maxlength`/`counter` de Nombre (255) y Descripción (512) en `frontend/src/views/MOF/cargos/CargoCatalogDialog.vue` (~líneas 78–91) y `frontend/src/views/MOF/clases/HierarchyManagerDrawer.vue` (~líneas 797–809).
+5. Si el formulario de Proyectos o de Funciones agrega `maxlength`, no ponerlo: el backend no tiene tope.
 
 ### Métricas de uso (vistas y descargas)
 Dos contadores por unidad en `unidad`: `vistas_count` (aperturas de la ficha técnica) y `descargas_count` (descargas del PDF). Son `integer NOT NULL DEFAULT 0` con CHECK `>= 0`, así que persisten en base de datos. Cada unidad tiene los suyos.

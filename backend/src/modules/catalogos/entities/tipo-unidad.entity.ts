@@ -6,10 +6,10 @@ export class TipoUnidad extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'smallint' })
   id: number;
 
-  @Column({ type: 'varchar', length: 32, unique: true })
+  @Column({ type: 'text', unique: true })
   codigo: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'text' })
   descripcion: string;
 
   @Column({ type: 'int', default: 0 })

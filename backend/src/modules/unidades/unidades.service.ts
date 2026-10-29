@@ -343,7 +343,7 @@ export class UnidadesService {
         return candidate;
       }
       counter++;
-      candidate = `${base}-${counter}`.slice(0, 32);
+      candidate = `${base}-${counter}`;
     }
   }
 
@@ -700,8 +700,6 @@ export class UnidadesService {
       /^[0-9]+(\.[0-9]+)*\.?$/.test(sigla)
     ) {
       sigla = await this.generateUniqueSigla(dto.nombre);
-    } else {
-      sigla = sigla.slice(0, 32);
     }
     const esTroncal = dto.esTroncal ?? false;
     const incomingSubTroncal =
@@ -795,7 +793,7 @@ export class UnidadesService {
         s !== currentCode &&
         !/^[0-9]+(\.[0-9]+)*\.?$/.test(s)
       ) {
-        u.sigla = s.slice(0, 32);
+        u.sigla = s;
       }
     }
     if (dto.nombre) u.nombre = dto.nombre;

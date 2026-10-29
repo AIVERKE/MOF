@@ -18,10 +18,10 @@ export class CargoNivel extends AuditableEntity {
   @Column({ type: 'varchar', length: 8, unique: true })
   letra: string;
 
-  @Column({ type: 'varchar', length: 128 })
+  @Column({ type: 'text' })
   nombre: string;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
+  @Column({ type: 'text', nullable: true })
   descripcion: string | null;
 
   @Index()

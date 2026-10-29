@@ -15,7 +15,7 @@ export class Proyecto extends AuditableEntity {
   })
   id: string;
 
-  @Column({ type: 'varchar', length: 120 })
+  @Column({ type: 'text' })
   tipo: string;
 
   @Column({ type: 'text' })
