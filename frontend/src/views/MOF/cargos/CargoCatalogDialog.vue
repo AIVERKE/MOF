@@ -75,8 +75,8 @@ async function saveCargo() {
           label="Nombre"
           variant="outlined"
           autofocus
-          maxlength="255"
-          counter="255"
+
+
           :hint="hints.cargos.nombre"
           :persistent-hint="false"
           :rules="[v => !!String(v || '').trim() || 'El nombre es obligatorio']"
@@ -87,8 +87,8 @@ async function saveCargo() {
           label="Descripción"
           variant="outlined"
           rows="2"
-          maxlength="512"
-          counter="512"
+
+
           :hint="hints.cargos.descripcion"
           :persistent-hint="false"
           hide-details="auto"

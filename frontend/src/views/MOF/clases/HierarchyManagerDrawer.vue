@@ -794,8 +794,8 @@ const getDependencies = (item) => {
               label="Nombre"
               variant="outlined"
               class="mb-4"
-              maxlength="255"
-              counter="255"
+
+
               autofocus
               :rules="[v => !!String(v || '').trim() || 'El nombre es obligatorio']"
             />
@@ -805,8 +805,8 @@ const getDependencies = (item) => {
               variant="outlined"
               class="mb-4"
               rows="2"
-              maxlength="512"
-              counter="512"
+
+
               hide-details="auto"
             />
           </template>

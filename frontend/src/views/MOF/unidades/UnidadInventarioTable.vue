@@ -174,7 +174,7 @@ defineExpose({
               density="compact"
               variant="underlined"
               hide-details="auto"
-              maxlength="1024"
+
               class="inventario-desc-input"
               placeholder="ej. Computadora de escritorio, Escritorio de madera, etc."
               :disabled="readonly"
