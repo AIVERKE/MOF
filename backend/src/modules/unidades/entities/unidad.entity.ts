@@ -44,14 +44,14 @@ export class Unidad extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
 
-  @Column({ type: 'varchar', length: 64 })
+  @Column({ type: 'text' })
   codigo: string;
 
   @Index()
-  @Column({ type: 'varchar', length: 32 })
+  @Column({ type: 'text' })
   sigla: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'text' })
   nombre: string;
 
   @ManyToOne(() => Unidad, (unidad) => unidad.hijos, { nullable: true })
@@ -114,12 +114,7 @@ export class Unidad extends AuditableEntity {
   @Column({ name: 'base_legal', type: 'text', nullable: true })
   baseLegal: string | null;
 
-  @Column({
-    name: 'res_creacion',
-    type: 'varchar',
-    length: 512,
-    nullable: true,
-  })
+  @Column({ name: 'res_creacion', type: 'text', nullable: true })
   resCreacion: string | null;
 
   @Column({ name: 'fec_creacion', type: 'date', nullable: true })

@@ -23,9 +23,9 @@ export class UnidadFuncion extends AuditableEntity {
   @Column({ type: 'int', default: 1 })
   orden: number;
 
-  @Column({ type: 'varchar', length: 1024 })
+  @Column({ type: 'text' })
   funcion: string;
 
-  @Column({ name: 'base_legal', type: 'varchar', length: 1024, nullable: true })
+  @Column({ name: 'base_legal', type: 'text', nullable: true })
   baseLegal: string | null;
 }

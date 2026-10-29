@@ -26,7 +26,7 @@ export class UnidadInventario extends AuditableEntity {
   @Column({ name: 'unidad_id', type: 'bigint' })
   unidadId: string;
 
-  @Column({ type: 'varchar', length: 1024 })
+  @Column({ type: 'text' })
   descripcion: string;
 
   @Column({ type: 'int', default: 1 })

@@ -22,6 +22,6 @@ export class UnidadRelacionExterna extends AuditableEntity {
   @Column({ name: 'unidad_id', type: 'bigint' })
   unidadId: string;
 
-  @Column({ type: 'varchar', length: 1024 })
+  @Column({ type: 'text' })
   descripcion: string;
 }

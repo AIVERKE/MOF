@@ -263,6 +263,7 @@ describe('UnidadDto Planificación Estratégica (ValidationPipe)', () => {
     [{ planificacionEstrategicaValor: 12.34 }],
     [{ planificacionEstrategicaValor: null, planificacionEstrategica: null }],
     [{ planificacionEstrategicaAplica: true }],
+    [{ planificacionEstrategica: 'Plan <b> @ # $ ^ * ~ {} [] | \\' }],
   ])('acepta %j', async (body) => {
     expect(await erroresDe(body)).toEqual([]);
   });
@@ -275,7 +276,6 @@ describe('UnidadDto Planificación Estratégica (ValidationPipe)', () => {
     ],
     [{ planificacionEstrategicaValor: 1.234 }, 'planificacionEstrategicaValor'],
     [{ planificacionEstrategicaValor: 'abc' }, 'planificacionEstrategicaValor'],
-    [{ planificacionEstrategica: 'Plan <b>' }, 'planificacionEstrategica'],
   ])('rechaza %j', async (body, campo) => {
     expect(await erroresDe(body)).toEqual([campo]);
   });

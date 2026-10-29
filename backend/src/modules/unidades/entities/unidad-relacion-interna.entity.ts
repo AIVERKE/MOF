@@ -31,6 +31,6 @@ export class UnidadRelacionInterna extends AuditableEntity {
   @Column({ name: 'relacionada_id', type: 'bigint' })
   relacionadaId: string;
 
-  @Column({ type: 'varchar', length: 32, nullable: true })
+  @Column({ type: 'text', nullable: true })
   tipo: string | null;
 }
