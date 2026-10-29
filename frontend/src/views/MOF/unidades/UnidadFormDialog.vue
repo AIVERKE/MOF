@@ -817,7 +817,7 @@ function moverAbajo(index) {
                 label="Nombre de la Unidad"
                 :hint="hints.unidadForm.nombre"
                 :persistent-hint="false"
-                :rules="[rules.required, rules.minLength(4), rules.nombreUnidad]"
+                :rules="[rules.required, rules.minLength(4)]"
                 variant="underlined"
                 autocomplete="off"
               />
@@ -828,8 +828,8 @@ function moverAbajo(index) {
                 label="Sigla (ej: FCPN)"
                 :hint="hints.unidadForm.sigla"
                 :persistent-hint="false"
-                :rules="[rules.required, rules.siglaNotCodigo(formData.codigo), rules.siglaValida, rules.siglaFormato]"
-                maxlength="32"
+                :rules="[rules.required, rules.siglaNotCodigo(formData.codigo), rules.siglaValida]"
+
                 variant="underlined"
                 autocomplete="off"
               />
@@ -1250,7 +1250,7 @@ function moverAbajo(index) {
                   label="Ejecución POA"
                   :hint="hints.unidadForm.ejecucionPoa"
                   :persistent-hint="false"
-                  :rules="[rules.sinCaracteresRaros]"
+
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -1262,7 +1262,7 @@ function moverAbajo(index) {
                   label="Ejecución Presupuestaria"
                   :hint="hints.unidadForm.ejecucionPresupuestaria"
                   :persistent-hint="false"
-                  :rules="[rules.sinCaracteresRaros]"
+
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -1274,7 +1274,7 @@ function moverAbajo(index) {
                   label="Carga Horaria Programada"
                   :hint="hints.unidadForm.cargaHorariaProgramada"
                   :persistent-hint="false"
-                  :rules="[rules.sinCaracteresRaros]"
+
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -1286,7 +1286,7 @@ function moverAbajo(index) {
                   label="Carga Horaria Ejecutada"
                   :hint="hints.unidadForm.cargaHorariaEjecutada"
                   :persistent-hint="false"
-                  :rules="[rules.sinCaracteresRaros]"
+
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -1298,7 +1298,7 @@ function moverAbajo(index) {
                   label="Ubicación"
                   :hint="hints.unidadForm.ubicacion"
                   :persistent-hint="false"
-                  :rules="[rules.sinCaracteresRaros]"
+
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -1310,7 +1310,7 @@ function moverAbajo(index) {
                   label="Infraestructura Física Utilizada"
                   :hint="hints.unidadForm.infraestructura"
                   :persistent-hint="false"
-                  :rules="[rules.sinCaracteresRaros]"
+
                   variant="underlined"
                   density="compact"
                   autocomplete="off"
@@ -1322,7 +1322,7 @@ function moverAbajo(index) {
                   label="Trámites Atendidos"
                   :hint="hints.unidadForm.tramitesAtendidos"
                   :persistent-hint="false"
-                  :rules="[rules.sinCaracteresRaros]"
+
                   variant="underlined"
                   rows="2"
                   density="compact"
@@ -1389,7 +1389,7 @@ function moverAbajo(index) {
                       label="Descripción de Planificación Estratégica"
                       :hint="hints.unidadForm.planificacionEstrategica"
                       :persistent-hint="false"
-                      :rules="[rules.required, rules.sinCaracteresRaros]"
+                      :rules="[rules.required]"
                       variant="underlined"
                       rows="2"
                       auto-grow
