@@ -23,6 +23,7 @@ import { useAllRelacionesMofStore } from "@/stores/relaciones_mof";
 import { useAllCargosMofStore } from "@/stores/cargos_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
 import { useAccessibilityStore } from "@/stores/accessibility";
+import { useConfigMofStore } from "@/stores/config_mof";
 
 // --- PLUGINS & UTILS ---
 import {
@@ -181,6 +182,7 @@ const nivelesStore = useAllNivelesMofStore();
 const relacionesStore = useAllRelacionesMofStore();
 const cargosStore = useAllCargosMofStore();
 const clasesStore = useAllClasesMofStore();
+const configStore = useConfigMofStore();
 
 const { prefetchCatalogs } = usePrefetchCatalogs({
   clasesStore,
@@ -198,6 +200,7 @@ const unitForm = useUnidadForm({
   nivelesStore,
   tiposStore,
   relacionesStore,
+  configStore,
 });
 
 const {
@@ -477,7 +480,7 @@ async function manejarClickNodo(nodeId) {
   if (!nodeId) return;
   const strId = String(nodeId);
   const now = Date.now();
-  if (lastClickedNodeId === strId && now - lastClickedTime < 150) {
+  if (lastClickedNodeId === strId && now - lastClickedTime < 500) {
     return;
   }
   lastClickedNodeId = strId;
@@ -1712,22 +1715,41 @@ function computeNodeVisuals({
 
   const colors = isColorblindMode ? FILTER_COLORS_COLORBLIND : FILTER_COLORS;
 
+  const DULL_COLORS = [
+    "#757575",
+    "#9E9E9E",
+    "#CCCCCC",
+    "#CBD5E1",
+    "#E2E8F0",
+    "#FFFFFF",
+    "#F8FAFC",
+  ];
+
+  let baseColor = null;
+  if (isColorblindMode) {
+    baseColor = null;
+  } else if (u.colorPropio) {
+    // Un colorPropio elegido por el usuario se respeta (incluso si es gris)
+    baseColor = u.colorPropio;
+  } else {
+    const claseColor =
+      u.colorClase || (u.colorPropio === undefined ? u.color : null);
+    if (
+      claseColor &&
+      !DULL_COLORS.includes(String(claseColor).trim().toUpperCase())
+    ) {
+      baseColor = claseColor;
+    }
+  }
+
   let finalColor =
-    (isColorblindMode
-      ? null
-      : u.color &&
-          ![
-            "#757575",
-            "#9E9E9E",
-            "#CCCCCC",
-            "#CBD5E1",
-            "#E2E8F0",
-            "#FFFFFF",
-            "#F8FAFC",
-          ].includes(String(u.color).trim().toUpperCase())
-        ? u.color
-        : null) ||
-    getIntenseNodeColor(u.clase, clasesStore.clases, isColorblindMode) ||
+    baseColor ||
+    getIntenseNodeColor(
+      u.clase,
+      clasesStore.clases,
+      isColorblindMode,
+      configStore.paletaNodos,
+    ) ||
     (isStaff ? colors.staffDefault : colors.claseDefault);
 
   let visualReinforcement = null;
@@ -1956,6 +1978,8 @@ const updateGraph = () => {
       node.data.isNonOficialInOficialView = isNodeNonOficialInOficialView;
       node.data.visualReinforcement = visualReinforcement;
       node.data.childrenCount = contarHijosDirectos(node.id);
+      node.data.proyectosCount = u.proyectosCount ?? u.proyectos_count ?? 0;
+      node.data.aplicaProyectos = Boolean(u.aplicaProyectos || u.aplica_proyectos);
       node.data.isNavSelected = isNavSelected;
       node.data.isNavChild = isNavChild;
       node.data.isNavAncestor = isNavAncestor;
@@ -2085,6 +2109,8 @@ const updateGraph = () => {
           u.esSubtroncal === true,
         lado: u.lado || "AUTOMATICO",
         childrenCount: contarHijosDirectos(u.id),
+        proyectosCount: u.proyectosCount ?? u.proyectos_count ?? 0,
+        aplicaProyectos: Boolean(u.aplicaProyectos || u.aplica_proyectos),
         isNavSelected,
         isNavChild,
         isNavAncestor,
@@ -2227,6 +2253,14 @@ watch(isDark, () => {
   updateGraph();
 });
 
+watch(
+  () => configStore.paletaNodos,
+  () => {
+    updateGraph();
+  },
+  { deep: true },
+);
+
 watch(isMobilePortrait, (isBlocked) => {
   if (!isBlocked) {
     nextTick(() => {
@@ -2320,7 +2354,11 @@ onMounted(async () => {
   graphLoadingMessage.value = "Cargando organigrama...";
   graphLoadingSubmessage.value = "Obteniendo unidades y catálogos institucionales...";
   try {
-    const promises = [unidadesStore.getFetchUnidades(), prefetchCatalogs()];
+    const promises = [
+      unidadesStore.getFetchUnidades(),
+      prefetchCatalogs(),
+      configStore.fetchConfig(),
+    ];
     if (!unidadesStore.dashboardStats) {
       promises.push(unidadesStore.getDashboardStats());
     }
@@ -2686,11 +2724,20 @@ function resetFilters() {
                 <div class="d-flex align-center fill-height">
                   <div
                     :style="{
-                      backgroundColor: getIntenseNodeColor(
-                        u.clase,
-                        clasesStore.clases,
-                        isColorblind,
-                      ),
+                      backgroundColor:
+                        u.colorPropio ||
+                        (u.colorClase &&
+                        !['#757575', '#9E9E9E', '#CCCCCC', '#CBD5E1', '#E2E8F0', '#FFFFFF', '#F8FAFC'].includes(
+                          String(u.colorClase).toUpperCase()
+                        )
+                          ? u.colorClase
+                          : null) ||
+                        getIntenseNodeColor(
+                          u.clase,
+                          clasesStore.clases,
+                          isColorblind,
+                          configStore.paletaNodos,
+                        ),
                       height: '32px',
                       width: '4px',
                     }"
@@ -2707,7 +2754,7 @@ function resetFilters() {
                     :query="searchTerm"
                   />
                 </div>
-                <div v-if="u.color" class="text-xxs text-grey-darken-1">
+                <div v-if="u.colorPropio" class="text-xxs text-grey-darken-1">
                   <v-icon size="10">mdi-palette</v-icon> Personalizado
                 </div>
               </td>
@@ -3015,7 +3062,7 @@ function resetFilters() {
                   @click="navegarANodo(item.id)"
                 >
                   <span class="text-truncate" style="max-width: 170px">{{ item.sigla || item.nombre }}</span>
-                  <v-tooltip activator="parent" location="bottom">{{ item.nombre }}</v-tooltip>
+                  <v-tooltip activator="parent" location="bottom"><span class="text-uppercase">{{ (item.nombre || '').toUpperCase() }}</span></v-tooltip>
                 </v-chip>
               </template>
             </div>
@@ -3298,7 +3345,7 @@ function resetFilters() {
                 </v-icon>
                 <span>{{ data.visualReinforcement.badgeText }}</span>
               </div>
-              <div class="node-content" @click="manejarClickNodo(id)">
+              <div class="node-content" @click.stop="manejarClickNodo(id)">
                 <!-- Zona Central Hero: Nombre de la Unidad -->
                 <div class="node-center">
                   <div
@@ -3411,9 +3458,31 @@ function resetFilters() {
                       mdi-chevron-down
                     </v-icon>
                   </div>
+
+                  <!-- Indicador de proyectos de la unidad (MOF-085) -->
+                  <div
+                    v-if="data.proyectosCount > 0"
+                    class="node-line detail-line children-badge mt-1"
+                    :style="{ color: getContrastingTextColor(data.color) }"
+                  >
+                    <v-icon
+                      size="13"
+                      class="mr-1"
+                      :color="
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'white'
+                          : '#0F172A'
+                      "
+                    >
+                      mdi-folder-outline
+                    </v-icon>
+                    <span class="font-weight-bold">
+                      {{ data.proyectosCount }} {{ data.proyectosCount === 1 ? 'proyecto' : 'proyectos' }}
+                    </span>
+                  </div>
                 </div>
                 <v-tooltip activator="parent" location="top" max-width="360">
-                  {{ data.nombre }}
+                  <span class="text-uppercase">{{ (data.nombre || '').toUpperCase() }}</span>
                 </v-tooltip>
               </div>
               <div class="node-actions pa-1 d-flex justify-end" @click.stop>

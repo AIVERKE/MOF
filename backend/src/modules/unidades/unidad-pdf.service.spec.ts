@@ -94,4 +94,28 @@ describe('UnidadPdfService', () => {
     expect(raw).toContain('NotoSans-Bold');
     expect(raw).not.toMatch(/\/BaseFont \/Helvetica/);
   });
+
+  it('builds a PDF for a unit with a linear parent', async () => {
+    const pdf = await service.buildUnidadPdf({
+      ...dipgisLike,
+      parent: { id: 1, nombre: 'Rectorado', sigla: 'REC' },
+      dependenciasFuncionales: [
+        { id: 1, nombre: 'Rectorado', sigla: 'REC' },
+        { id: 2, nombre: 'Vicerrectorado', sigla: 'VR' },
+      ],
+    });
+    expect(pdf.toString('latin1').startsWith('%PDF-')).toBe(true);
+  });
+
+  it('keeps the linear parent out of the functional dependencies', () => {
+    const deps = service['dependenciasSinPadre']({
+      ...dipgisLike,
+      parent: { id: 1, nombre: 'Rectorado' },
+      dependenciasFuncionales: [
+        { id: 1, nombre: 'Rectorado' },
+        { id: 2, nombre: 'Vicerrectorado' },
+      ],
+    });
+    expect(deps.map((d) => d.id)).toEqual([2]);
+  });
 });

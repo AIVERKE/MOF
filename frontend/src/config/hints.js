@@ -61,6 +61,16 @@ export const hints = {
       "Seleccione el tipo de dependencia o enlace jerárquico",
     cargos:
       "Cargos y puestos de trabajo asignados a esta unidad administrativa",
+    inventarios:
+      "Bienes, equipos y materiales inventariados pertenecientes a esta unidad",
+    sia:
+      "Registro de métricas académicas SIA (aprobados, reprobados y matriculados) exclusivo para Carreras",
+    proyectos:
+      "Proyectos de interacción social, investigación, académicos u otros gestionados por esta unidad facultativa",
+    proyectoTipo:
+      "Tipo o clasificación libre del proyecto (ej: Interacción social, Investigación, Académico u otro)",
+    proyectoDetalle:
+      "Descripción y alcance del proyecto",
     clase:
       "Seleccione la jerarquía o nivel de instancia universitaria",
     funcion:
@@ -69,6 +79,12 @@ export const hints = {
       "Norma, resolución o artículo que faculta esta función específica",
     es_troncal:
       "Define si la unidad desciende directamente por la línea central de gobierno",
+    planificacionEstrategicaAplica:
+      "Determina si el bloque de Planificación Estratégica corresponde y aplica a esta unidad",
+    planificacionEstrategicaValor:
+      "Porcentaje o valor numérico decimal de cumplimiento de 0 a 100 con hasta 2 decimales",
+    planificacionEstrategica:
+      "Descripción de las metas, objetivos y alineación con la planificación estratégica institucional",
     ejecucionPoa:
       "Porcentaje o estado del plan operativo anual asignado a la unidad",
     ejecucionPresupuestaria:
@@ -198,6 +214,19 @@ export const hints = {
   /**
    * Notas informativas contextuales para Dashboards
    */
+  inventario: {
+    table: "Tabla dinámica de bienes, equipos y materiales inventariados de la unidad",
+    descripcion: "Descripción del ítem de inventario (ej. Computadora de escritorio)",
+    cantidad: "Cantidad de unidades físicas (número entero mayor o igual a 1)",
+  },
+
+  sia: {
+    table: "Tabla dinámica de métricas estudiantiles del Sistema de Información Académica (SIA)",
+    aprobados: "Número de estudiantes aprobados",
+    reprobados: "Número de estudiantes reprobados",
+    matriculados: "Total de estudiantes matriculados",
+  },
+
   dashboards: {
     ejecutivo: {
       title: "Guía del Reporte Ejecutivo",

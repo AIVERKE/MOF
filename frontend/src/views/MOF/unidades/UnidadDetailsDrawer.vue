@@ -2,7 +2,7 @@
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useDisplay } from "vuetify";
 import UnidadActionsMenu from "./UnidadActionsMenu.vue";
-import { getCleanSigla } from "@/utils/mofHelpers";
+import { getCleanSigla, isClaseCarrera, agruparProyectosPorTipo } from "@/utils/mofHelpers";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -145,6 +145,8 @@ const panels = computed(() => {
   if (!data) return [];
 
   const cargosCount = data.cargos_detalle?.length ?? 0;
+  const inventariosRows = Array.isArray(data.inventarios) ? data.inventarios : [];
+  const inventariosCount = inventariosRows.length;
   const depFuncCount =
     (data.dependencias_nombres?.length ||
       data.dependenciasFuncionales?.length) ??
@@ -154,6 +156,13 @@ const panels = computed(() => {
   const relIntCount = data.relaciones_internas?.length ?? 0;
   const relExtCount = data.relaciones_externas?.length ?? 0;
   const funcCount = data.funciones?.length ?? 0;
+  const esCarrera = Boolean(
+    data.esCarrera ||
+    data.es_carrera ||
+    (props.getClaseNombre ? isClaseCarrera(props.getClaseNombre(data.clase ?? data.tipoUnidad)) : false) ||
+    isClaseCarrera(data.clase ?? data.tipoUnidad)
+  );
+  const siaRows = Array.isArray(data.sia) ? data.sia : [];
   const esDesconcentrada = Boolean(
     data.es_desconcentrada ||
     data.esDesconcentrada ||
@@ -323,6 +332,28 @@ const panels = computed(() => {
       badge: cargosCount > 0 ? cargosCount : null,
       type: "cargos",
     },
+    ...(esCarrera
+      ? [
+          {
+            key: "sia",
+            title: "INFORMACIÓN ACADÉMICA (SIA)",
+            icon: "mdi-school",
+            avatarColor: "indigo-darken-2",
+            type: "sia",
+            badge: siaRows.length > 0 ? siaRows.length : null,
+            rows: siaRows,
+          },
+        ]
+      : []),
+    {
+      key: "inventarios",
+      title: "INVENTARIOS",
+      icon: "mdi-package-variant-closed",
+      avatarColor: "teal-darken-2",
+      badge: inventariosCount > 0 ? inventariosCount : null,
+      type: "inventarios",
+      rows: inventariosRows,
+    },
     {
       key: "tramites_atendidos",
       title: "TRÁMITES ATENDIDOS",
@@ -331,6 +362,41 @@ const panels = computed(() => {
       type: "text_multiline",
       value: data.tramites_atendidos || data.tramitesAtendidos,
     },
+    ...((data.planificacionEstrategicaAplica || data.planificacion_estrategica_aplica)
+      ? [
+          {
+            key: "planificacion_estrategica",
+            title: "PLANIFICACIÓN ESTRATÉGICA",
+            icon: "mdi-chart-timeline-variant",
+            avatarColor: "indigo-darken-1",
+            type: "planificacion_estrategica",
+            valor:
+              data.planificacionEstrategicaValor ??
+              data.planificacion_estrategica_valor,
+            descripcion:
+              data.planificacionEstrategica ||
+              data.planificacion_estrategica,
+          },
+        ]
+      : []),
+    ...((data.aplicaProyectos || data.aplica_proyectos) &&
+    ((data.proyectosCount ?? (data.proyectos?.length || 0)) > 0)
+      ? [
+          {
+            key: "proyectos",
+            title: "PROYECTOS",
+            icon: "mdi-folder-outline",
+            avatarColor: "blue-darken-2",
+            badge: data.proyectosCount ?? (data.proyectos?.length || 0),
+            type: "proyectos",
+            proyectosPorTipo:
+              Array.isArray(data.proyectosPorTipo) && data.proyectosPorTipo.length > 0
+                ? data.proyectosPorTipo
+                : agruparProyectosPorTipo(data.proyectos),
+            proyectosCount: data.proyectosCount ?? (data.proyectos?.length || 0),
+          },
+        ]
+      : []),
     {
       key: "ejecucion_poa",
       title: "EJECUCIÓN POA",
@@ -378,6 +444,16 @@ const panels = computed(() => {
       avatarColor: "red-darken-1",
       type: "text_multiline",
       value: data.ubicacion,
+    },
+    {
+      key: "metricas_uso",
+      title: "MÉTRICAS DE USO",
+      icon: "mdi-chart-line",
+      avatarColor: "info",
+      type: "metricas_uso",
+      badge: String((data.vistasCount ?? data.vistas_count ?? 0) + (data.descargasCount ?? data.descargas_count ?? 0)),
+      vistas: data.vistasCount ?? data.vistas_count ?? 0,
+      descargas: data.descargasCount ?? data.descargas_count ?? 0,
     },
   ];
 });
@@ -487,6 +563,37 @@ const panels = computed(() => {
             </v-tooltip>
           </v-chip>
         </div>
+
+        <!-- Métricas de uso de la ficha (MOF-077) -->
+        <div class="d-flex align-center flex-wrap gap-2 mt-2">
+          <v-chip
+            size="small"
+            variant="tonal"
+            color="info"
+            class="font-weight-bold"
+            data-test="metric-vistas-chip"
+          >
+            <v-icon start size="15">mdi-eye-outline</v-icon>
+            {{ detailData.vistasCount ?? detailData.vistas_count ?? 0 }} vistas
+            <v-tooltip activator="parent" location="top">
+              Aperturas de la ficha técnica en el panel lateral
+            </v-tooltip>
+          </v-chip>
+
+          <v-chip
+            size="small"
+            variant="tonal"
+            color="teal"
+            class="font-weight-bold"
+            data-test="metric-descargas-chip"
+          >
+            <v-icon start size="15">mdi-download-outline</v-icon>
+            {{ detailData.descargasCount ?? detailData.descargas_count ?? 0 }} descargas PDF
+            <v-tooltip activator="parent" location="top">
+              Descargas del reporte PDF de la unidad
+            </v-tooltip>
+          </v-chip>
+        </div>
       </div>
 
       <v-divider class="mb-3" />
@@ -528,8 +635,43 @@ const panels = computed(() => {
           </v-expansion-panel-title>
 
           <v-expansion-panel-text class="px-3 py-2 text-slate-800">
+            <!-- Panel Métricas de Uso (MOF-077) -->
+            <template v-if="panel.type === 'metricas_uso'">
+              <div class="d-flex flex-column gap-2 py-1">
+                <div class="d-flex align-center justify-space-between pa-2 rounded bg-slate-100 border-b-thin">
+                  <div class="d-flex align-center">
+                    <v-avatar size="28" color="info" variant="tonal" class="mr-2">
+                      <v-icon size="16">mdi-eye-outline</v-icon>
+                    </v-avatar>
+                    <div>
+                      <div class="text-caption font-weight-bold text-slate-800">Aperturas de la Ficha Técnica</div>
+                      <div class="text-xxs text-grey">Visualizaciones del panel lateral</div>
+                    </div>
+                  </div>
+                  <v-chip size="small" color="info" variant="flat" class="font-weight-black">
+                    {{ panel.vistas }}
+                  </v-chip>
+                </div>
+
+                <div class="d-flex align-center justify-space-between pa-2 rounded bg-slate-100 border-b-thin">
+                  <div class="d-flex align-center">
+                    <v-avatar size="28" color="teal" variant="tonal" class="mr-2">
+                      <v-icon size="16">mdi-download-outline</v-icon>
+                    </v-avatar>
+                    <div>
+                      <div class="text-caption font-weight-bold text-slate-800">Descargas del Reporte PDF</div>
+                      <div class="text-xxs text-grey">Reportes PDF generados de la unidad</div>
+                    </div>
+                  </div>
+                  <v-chip size="small" color="teal" variant="flat" class="font-weight-black">
+                    {{ panel.descargas }}
+                  </v-chip>
+                </div>
+              </div>
+            </template>
+
             <!-- Panel tipo texto simple con icono y presentación viva -->
-            <template v-if="panel.type === 'text'">
+            <template v-else-if="panel.type === 'text'">
               <div class="d-flex align-center py-1">
                 <v-avatar
                   size="26"
@@ -841,6 +983,121 @@ const panels = computed(() => {
               </div>
             </template>
 
+            <!-- Panel Planificación Estratégica (MOF-073) -->
+            <template v-else-if="panel.type === 'planificacion_estrategica'">
+              <div class="d-flex flex-column gap-2">
+                <div v-if="panel.valor != null" class="d-flex align-center">
+                  <span class="text-caption font-weight-bold text-slate-700 mr-2">
+                    Avance / Indicador:
+                  </span>
+                  <v-chip
+                    size="small"
+                    color="indigo-darken-1"
+                    variant="flat"
+                    class="font-weight-black"
+                    data-test="planificacion-detail-valor"
+                  >
+                    {{ panel.valor }}%
+                  </v-chip>
+                </div>
+                <div
+                  v-if="panel.descripcion"
+                  class="text-caption text-slate-800 bg-slate-50 pa-2 rounded border-thin line-height-1-4"
+                  data-test="planificacion-detail-descripcion"
+                >
+                  {{ panel.descripcion }}
+                </div>
+              </div>
+            </template>
+
+            <!-- Panel Inventarios (MOF-074) -->
+            <template v-else-if="panel.type === 'inventarios'">
+              <div v-if="panel.rows?.length" class="overflow-x-auto">
+                <v-table density="compact" class="border rounded text-caption">
+                  <thead>
+                    <tr class="bg-slate-50">
+                      <th class="text-caption font-weight-bold text-slate-600 text-center" style="width: 44px">
+                        #
+                      </th>
+                      <th class="text-left text-caption font-weight-bold text-slate-600">
+                        Descripción
+                      </th>
+                      <th class="text-center text-caption font-weight-bold text-slate-600" style="width: 100px">
+                        Cantidad
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item, idx) in panel.rows" :key="item.id || idx">
+                      <td class="text-caption font-weight-bold text-slate-500 text-center">
+                        {{ idx + 1 }}
+                      </td>
+                      <td class="text-left text-slate-800" data-test="inventario-detail-descripcion">
+                        {{ item.descripcion }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="inventario-detail-cantidad">
+                        <v-chip size="x-small" color="teal-darken-2" variant="flat" class="font-weight-bold">
+                          {{ item.cantidad }}
+                        </v-chip>
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin registros de inventario.</span>
+              </div>
+            </template>
+
+            <!-- Panel Proyectos (MOF-085) -->
+            <template v-else-if="panel.type === 'proyectos'">
+              <div class="d-flex flex-column gap-3">
+                <div
+                  v-for="grupo in panel.proyectosPorTipo"
+                  :key="grupo.tipo"
+                  class="border rounded-lg pa-3 bg-slate-50"
+                >
+                  <div class="d-flex align-center justify-space-between mb-2">
+                    <span class="text-caption font-weight-bold text-slate-800 text-uppercase">
+                      {{ grupo.tipo }}
+                    </span>
+                    <v-chip size="x-small" color="primary" variant="flat" class="font-weight-bold">
+                      {{ grupo.cantidad || grupo.proyectos?.length || 0 }}
+                    </v-chip>
+                  </div>
+                  <v-divider class="mb-2"></v-divider>
+                  <div class="d-flex flex-column gap-2">
+                    <div
+                      v-for="proy in grupo.proyectos"
+                      :key="proy.id || proy.detalle"
+                      class="bg-white pa-2 rounded border-thin"
+                    >
+                      <div class="text-caption text-slate-800 line-height-1-4">
+                        {{ proy.detalle }}
+                      </div>
+                      <div
+                        v-if="proy.unidades && proy.unidades.length > 1"
+                        class="d-flex flex-wrap align-center ga-1 mt-1"
+                      >
+                        <span class="text-xxs text-medium-emphasis">Proyecto conjunto con:</span>
+                        <v-chip
+                          v-for="u in proy.unidades.filter(un => String(un.id) !== String(detailData.id))"
+                          :key="u.id"
+                          size="x-small"
+                          variant="tonal"
+                          color="info"
+                          class="font-weight-medium text-xxs"
+                        >
+                          {{ u.sigla && u.sigla !== '-' ? u.sigla : u.nombre }}
+                        </v-chip>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
             <!-- Panel Cargos con viñetas estilizadas e icono -->
             <template v-else-if="panel.type === 'cargos'">
               <div v-if="detailData.cargos_detalle?.length" class="d-flex flex-column gap-1">
@@ -880,6 +1137,51 @@ const panels = computed(() => {
               <div v-else class="d-flex align-center text-caption text-grey py-1">
                 <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
                 <span class="font-italic">Sin cargos registrados.</span>
+              </div>
+            </template>
+
+            <!-- Panel Información Académica SIA (solo Carreras - MOF-075) -->
+            <template v-else-if="panel.type === 'sia'">
+              <div v-if="panel.rows?.length" class="border rounded overflow-hidden">
+                <v-table density="compact" class="sia-details-table">
+                  <thead>
+                    <tr class="bg-slate-100">
+                      <th class="text-caption font-weight-bold text-center" style="width: 44px">#</th>
+                      <th class="text-center text-caption font-weight-bold text-success">
+                        <v-icon size="14" color="success" class="mr-1">mdi-check-circle-outline</v-icon>
+                        Aprobados
+                      </th>
+                      <th class="text-center text-caption font-weight-bold text-error">
+                        <v-icon size="14" color="error" class="mr-1">mdi-close-circle-outline</v-icon>
+                        Reprobados
+                      </th>
+                      <th class="text-center text-caption font-weight-bold text-primary">
+                        <v-icon size="14" color="primary" class="mr-1">mdi-account-school-outline</v-icon>
+                        Matriculados
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, idx) in panel.rows" :key="row.id || idx">
+                      <td class="text-caption font-weight-bold text-slate-500 text-center">
+                        {{ idx + 1 }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="sia-detail-aprobados">
+                        {{ row.aprobados != null ? row.aprobados : '-' }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="sia-detail-reprobados">
+                        {{ row.reprobados != null ? row.reprobados : '-' }}
+                      </td>
+                      <td class="text-center font-weight-bold text-slate-800" data-test="sia-detail-matriculados">
+                        {{ row.matriculados != null ? row.matriculados : '-' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </div>
+              <div v-else class="d-flex align-center text-caption text-grey py-1">
+                <v-icon size="16" class="mr-1 text-grey-lighten-1">mdi-information-outline</v-icon>
+                <span class="font-italic">Sin registros académicos SIA.</span>
               </div>
             </template>
           </v-expansion-panel-text>

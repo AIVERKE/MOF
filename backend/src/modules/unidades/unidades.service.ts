@@ -5,21 +5,35 @@ import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcio
 import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
 import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity';
 import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity';
+import { UnidadInventario } from './entities/unidad-inventario.entity';
+import { UnidadSia } from './entities/unidad-sia.entity';
+import { Proyecto } from './entities/proyecto.entity';
+import { ProyectoUnidad } from './entities/proyecto-unidad.entity';
 import { CatalogoTipo } from '../catalogos/entities/catalogo-tipo.entity';
 import { CatalogoNivel } from '../catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../catalogos/entities/catalogo-relacion.entity';
 import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
+import { esClaseCarrera } from '../catalogos/clase-carrera';
+import { esClaseDecanato } from '../catalogos/clase-decanato';
 import {
   MofConfig,
   type MofConfigDefaults,
 } from './entities/mof-config.entity';
 import {
   DependenciaFuncionalDto,
+  HEX_COLOR_REGEX,
+  ProyectoDto,
+  ProyectoItemDto,
+  SIA_CAMPOS,
   SetParentDto,
   UnidadDto,
   UnidadFuncionDto,
+  UnidadInventarioDto,
+  UnidadInventarioItemDto,
   UnidadRelacionExternaDto,
   UnidadRelacionInternaDto,
+  UnidadSiaDto,
+  UnidadSiaItemDto,
 } from './dto/unidad.dto';
 import { UpdateMofConfigDto } from './dto/mof-config.dto';
 import {
@@ -37,6 +51,10 @@ function toDateOnly(value?: string | null): string | null {
   if (!value) return null;
   return value.slice(0, 10);
 }
+
+export type ContadoresUso = { vistasCount: number; descargasCount: number };
+
+type ColumnaContador = 'vistas_count' | 'descargas_count';
 
 type RelItem =
   | number
@@ -64,6 +82,88 @@ export function normalizeRelIds(
     out.set(relId, tipo);
   }
   return out;
+}
+
+/**
+ * Color propio a persistir: `null`/vacío hereda de la Clase, el hex se guarda
+ * en mayúsculas y uno igual al de la Clase también se guarda como `null`, así
+ * la unidad sigue a su Clase si esta cambia de color.
+ */
+export function colorPropioFinal(
+  color: string | null | undefined,
+  claseColor: string | null | undefined,
+): string | null {
+  const propio = color?.trim().toUpperCase() || null;
+  if (!propio) return null;
+  return propio === claseColor?.trim().toUpperCase() ? null : propio;
+}
+
+/** `color` es el efectivo (propio o de la Clase); los otros dos, sus fuentes. */
+function coloresUnidad(u: Unidad) {
+  const colorClase = u.tipoUnidad?.color ?? null;
+  const colorPropio = u.color ?? null;
+  return { color: colorPropio ?? colorClase, colorPropio, colorClase };
+}
+
+/** Clave para agrupar tipos libres de proyecto: sin acentos, mayúsculas y espacios colapsados. */
+export function claveTipoProyecto(tipo: string): string {
+  return tipo
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+}
+
+/**
+ * Agrupa por tipo sin distinguir mayúsculas ni acentos. La etiqueta del grupo
+ * es la grafía del primer proyecto; los grupos se ordenan alfabéticamente.
+ */
+export function agruparProyectosPorTipo<T extends { tipo: string }>(
+  proyectos: readonly T[],
+): { tipo: string; cantidad: number; proyectos: T[] }[] {
+  const grupos = new Map<
+    string,
+    { tipo: string; cantidad: number; proyectos: T[] }
+  >();
+  for (const p of proyectos) {
+    const clave = claveTipoProyecto(p.tipo);
+    let grupo = grupos.get(clave);
+    if (!grupo) {
+      grupo = { tipo: p.tipo, cantidad: 0, proyectos: [] };
+      grupos.set(clave, grupo);
+    }
+    grupo.cantidad++;
+    grupo.proyectos.push(p);
+  }
+  return [...grupos.values()].sort((a, b) =>
+    a.tipo.localeCompare(b.tipo, 'es', { sensitivity: 'base' }),
+  );
+}
+
+/**
+ * Para cada unidad cargada, si lleva Proyectos: su clase es Decanato o algún
+ * ancestro lo es. Mismo criterio que `UnidadesService.aplicaProyectos`, sin consultas.
+ */
+export function aplicanProyectos(
+  rows: readonly Unidad[],
+): Map<string, boolean> {
+  const porId = new Map(rows.map((r) => [String(r.id), r]));
+  const memo = new Map<string, boolean>();
+  const resolver = (id: string, seen: Set<string>): boolean => {
+    const cached = memo.get(id);
+    if (cached !== undefined) return cached;
+    const u = porId.get(id);
+    if (!u || seen.has(id)) return false;
+    seen.add(id);
+    const aplica =
+      esClaseDecanato(u.tipoUnidad?.descripcion) ||
+      (u.parentId != null && resolver(String(u.parentId), seen));
+    memo.set(id, aplica);
+    return aplica;
+  };
+  for (const r of rows) resolver(String(r.id), new Set());
+  return memo;
 }
 
 /** Valores históricos usados cuando aún no hay fila en mof_config. */
@@ -99,6 +199,16 @@ export const MOF_CONFIG_FALLBACK = {
     ['#212121', '#424242', '#616161', '#757575', '#9E9E9E'],
     ['#BF360C', '#D84315', '#E64A19', '#F4511E', '#FF5722'],
   ] as string[][],
+  paletaNodos: [
+    '#1D4ED8',
+    '#B91C1C',
+    '#047857',
+    '#B45309',
+    '#6D28D9',
+    '#BE185D',
+    '#0369A1',
+    '#C2410C',
+  ] as string[],
   passwordPolicy: { minLength: 6 },
 };
 
@@ -127,6 +237,14 @@ export class UnidadesService {
     private readonly claseRepo: Repository<TipoUnidad>,
     @InjectRepository(MofConfig)
     private readonly mofConfigRepo: Repository<MofConfig>,
+    @InjectRepository(UnidadInventario)
+    private readonly inventarioRepo: Repository<UnidadInventario>,
+    @InjectRepository(UnidadSia)
+    private readonly siaRepo: Repository<UnidadSia>,
+    @InjectRepository(Proyecto)
+    private readonly proyectoRepo: Repository<Proyecto>,
+    @InjectRepository(ProyectoUnidad)
+    private readonly proyectoUnidadRepo: Repository<ProyectoUnidad>,
   ) {}
 
   private async resolveCatalogId(
@@ -225,7 +343,7 @@ export class UnidadesService {
         return candidate;
       }
       counter++;
-      candidate = `${base}-${counter}`.slice(0, 32);
+      candidate = `${base}-${counter}`;
     }
   }
 
@@ -266,7 +384,7 @@ export class UnidadesService {
       es_subtroncal: u.esSubTroncal ?? false,
       esSubtroncal: u.esSubTroncal ?? false,
       lado: u.lado ?? 'AUTOMATICO',
-      color: u.tipoUnidad?.color ?? null,
+      ...coloresUnidad(u),
       clase: u.tipoUnidad?.descripcion ?? null,
       tipo_unidad: u.tipoUnidad?.descripcion ?? null,
       tipoUnidad: u.tipoUnidadId,
@@ -354,6 +472,23 @@ export class UnidadesService {
       descripcion: r.descripcion,
     }));
 
+    const inventariosRaw = await this.inventarioRepo.find({
+      where: { unidadId: String(u.id) },
+      order: { id: 'ASC' },
+    });
+    const inventarios = inventariosRaw.map((r) => this.mapInventario(r));
+
+    // Las filas SIA de una unidad reclasificada se conservan pero no se exponen.
+    const esCarrera = esClaseCarrera(u.tipoUnidad?.descripcion);
+    const sia = esCarrera ? await this.findSiaRows(u.id) : [];
+
+    // Igual que SIA: si la unidad deja de aplicar, sus proyectos se conservan pero no se exponen.
+    const aplicaProyectos = await this.aplicaProyectos(
+      u.tipoUnidad?.descripcion,
+      u.parentId,
+    );
+    const proyectos = aplicaProyectos ? await this.findProyectos(u.id) : [];
+
     return {
       id: Number(u.id),
       codigo: u.codigo,
@@ -411,7 +546,7 @@ export class UnidadesService {
         (u.relacion?.descripcion ?? '').toLowerCase().includes('asesor'),
       peso_real: u.tipoUnidad?.peso != null ? Number(u.tipoUnidad.peso) : 10,
       pesoReal: u.tipoUnidad?.peso != null ? Number(u.tipoUnidad.peso) : 10,
-      color: u.tipoUnidad?.color ?? null,
+      ...coloresUnidad(u),
       funciones,
       dependenciasFuncionales: deps.map((d) => ({
         id: Number(d.dependenciaId),
@@ -425,6 +560,13 @@ export class UnidadesService {
       unidadesDependientesFuncionales: hijasFuncionales,
       relacionesInternas,
       relacionesExternas,
+      inventarios,
+      esCarrera,
+      sia,
+      aplicaProyectos,
+      proyectosCount: proyectos.length,
+      proyectos,
+      proyectosPorTipo: agruparProyectosPorTipo(proyectos),
       // 7 campos S-MAU
       tramitesAtendidos: u.tramitesAtendidos ?? null,
       tramites_atendidos: u.tramitesAtendidos ?? null,
@@ -439,7 +581,41 @@ export class UnidadesService {
       infraestructura: u.infraestructura ?? null,
       infraestructura_fisica: u.infraestructura ?? null,
       ubicacion: u.ubicacion ?? null,
+      // Con el switch apagado los valores se conservan pero no se exponen.
+      planificacionEstrategicaAplica: u.planificacionEstrategicaAplica ?? false,
+      planificacionEstrategicaValor: u.planificacionEstrategicaAplica
+        ? (u.planificacionEstrategicaValor ?? null)
+        : null,
+      planificacionEstrategica: u.planificacionEstrategicaAplica
+        ? (u.planificacionEstrategica ?? null)
+        : null,
+      // Solo lectura: consultar el detalle no suma vistas (ver registrarVista).
+      vistasCount: Number(u.vistasCount ?? 0),
+      descargasCount: Number(u.descargasCount ?? 0),
     };
+  }
+
+  /**
+   * Fusiona el bloque de Planificación Estratégica del DTO sobre la unidad
+   * (`undefined` conserva, `null`/vacío limpia) y valida el estado final:
+   * si aplica, porcentaje y descripción son obligatorios.
+   */
+  private applyPlanificacionEstrategica(u: Unidad, dto: UnidadDto) {
+    if (dto.planificacionEstrategicaAplica !== undefined) {
+      u.planificacionEstrategicaAplica = dto.planificacionEstrategicaAplica;
+    }
+    if (dto.planificacionEstrategicaValor !== undefined) {
+      u.planificacionEstrategicaValor = dto.planificacionEstrategicaValor;
+    }
+    if (dto.planificacionEstrategica !== undefined) {
+      u.planificacionEstrategica = dto.planificacionEstrategica?.trim() || null;
+    }
+    if (
+      u.planificacionEstrategicaAplica &&
+      (u.planificacionEstrategicaValor == null || !u.planificacionEstrategica)
+    ) {
+      throwBusiness(ErrorCodes.PLANIFICACION_ESTRATEGICA_INCOMPLETA);
+    }
   }
 
   async lista() {
@@ -467,7 +643,16 @@ export class UnidadesService {
       return String(a.codigo || '').localeCompare(String(b.codigo || ''));
     });
 
-    return rows.map((u) => this.mapListItem(u, u.parent?.nombre ?? null));
+    const aplican = aplicanProyectos(rows);
+    const conteos = await this.contarProyectosPorUnidad();
+    return rows.map((u): Record<string, unknown> => {
+      const aplica = aplican.get(String(u.id)) ?? false;
+      return {
+        ...this.mapListItem(u, u.parent?.nombre ?? null),
+        aplicaProyectos: aplica,
+        proyectosCount: aplica ? (conteos.get(String(u.id)) ?? 0) : 0,
+      };
+    });
   }
 
   async findById(id: number) {
@@ -497,6 +682,15 @@ export class UnidadesService {
       where: { id: tipoUnidadId },
     });
     if (!clase) notFound(tipoUnidadId);
+    if (dto.sia?.length && !esClaseCarrera(clase.descripcion)) {
+      throwBusiness(ErrorCodes.SIA_SOLO_CARRERA);
+    }
+    if (
+      dto.proyectos?.length &&
+      !(await this.aplicaProyectos(clase.descripcion, dto.parentId))
+    ) {
+      throwBusiness(ErrorCodes.PROYECTOS_NO_APLICA);
+    }
 
     let sigla = (dto.sigla || '').trim();
     if (
@@ -506,8 +700,6 @@ export class UnidadesService {
       /^[0-9]+(\.[0-9]+)*\.?$/.test(sigla)
     ) {
       sigla = await this.generateUniqueSigla(dto.nombre);
-    } else {
-      sigla = sigla.slice(0, 32);
     }
     const esTroncal = dto.esTroncal ?? false;
     const incomingSubTroncal =
@@ -531,6 +723,7 @@ export class UnidadesService {
       esTroncal,
       esSubTroncal,
       lado,
+      color: colorPropioFinal(dto.color, clase.color),
       objetivo: dto.objetivo ?? null,
       baseLegal: dto.baseLegal ?? null,
       resCreacion: dto.resCreacion ?? null,
@@ -542,7 +735,11 @@ export class UnidadesService {
       cargaHorariaEjecutada: dto.cargaHorariaEjecutada ?? null,
       infraestructura: dto.infraestructura ?? null,
       ubicacion: dto.ubicacion ?? null,
+      planificacionEstrategicaAplica: false,
+      planificacionEstrategicaValor: null,
+      planificacionEstrategica: null,
     });
+    this.applyPlanificacionEstrategica(entity, dto);
     const saved = await this.unidadRepo.manager.transaction(async (m) => {
       const row = await m.save(entity);
       if (dto.dependenciasFuncionales?.length) {
@@ -553,6 +750,15 @@ export class UnidadesService {
       }
       if (dto.relacionesExternas?.length) {
         await this.replaceRelacionesExternas(m, row.id, dto.relacionesExternas);
+      }
+      if (dto.inventarios?.length) {
+        await this.syncInventarios(m, row.id, dto.inventarios);
+      }
+      if (dto.sia?.length) {
+        await this.syncSia(m, row.id, dto.sia);
+      }
+      if (dto.proyectos?.length) {
+        await this.syncProyectos(m, row.id, dto.proyectos);
       }
       return row;
     });
@@ -587,7 +793,7 @@ export class UnidadesService {
         s !== currentCode &&
         !/^[0-9]+(\.[0-9]+)*\.?$/.test(s)
       ) {
-        u.sigla = s.slice(0, 32);
+        u.sigla = s;
       }
     }
     if (dto.nombre) u.nombre = dto.nombre;
@@ -635,6 +841,7 @@ export class UnidadesService {
     if (dto.infraestructura !== undefined)
       u.infraestructura = dto.infraestructura;
     if (dto.ubicacion !== undefined) u.ubicacion = dto.ubicacion;
+    this.applyPlanificacionEstrategica(u, dto);
     if (dto.tipo !== undefined) {
       u.tipoId = await this.resolveCatalogId(this.tipoRepo, dto.tipo);
     }
@@ -647,16 +854,51 @@ export class UnidadesService {
         dto.relacion,
       );
     }
+    let clase: TipoUnidad | null = null;
     if (dto.tipoUnidad !== undefined) {
-      const clase = await this.claseRepo.findOne({
+      clase = await this.claseRepo.findOne({
         where: { id: dto.tipoUnidad },
       });
       if (!clase) notFound(dto.tipoUnidad);
       u.tipoUnidadId = dto.tipoUnidad;
     }
+    // Se evalúa con la clase final: puede cambiar en este mismo PUT.
+    let sincronizarSia = false;
+    if (dto.sia !== undefined) {
+      clase ??= await this.claseRepo.findOne({
+        where: { id: u.tipoUnidadId },
+      });
+      sincronizarSia = esClaseCarrera(clase?.descripcion);
+      if (dto.sia.length && !sincronizarSia) {
+        throwBusiness(ErrorCodes.SIA_SOLO_CARRERA);
+      }
+    }
+    if (dto.color !== undefined || (dto.tipoUnidad !== undefined && u.color)) {
+      clase ??= await this.claseRepo.findOne({
+        where: { id: u.tipoUnidadId },
+      });
+      u.color = colorPropioFinal(
+        dto.color !== undefined ? dto.color : u.color,
+        clase?.color,
+      );
+    }
     if (dto.parentId !== undefined) {
       await this.assertNoCycle(id, dto.parentId);
       u.parentId = dto.parentId != null ? String(dto.parentId) : null;
+    }
+    // Con la clase y el padre finales: ambos pueden cambiar en este mismo PUT.
+    let sincronizarProyectos = false;
+    if (dto.proyectos !== undefined) {
+      clase ??= await this.claseRepo.findOne({
+        where: { id: u.tipoUnidadId },
+      });
+      sincronizarProyectos = await this.aplicaProyectos(
+        clase?.descripcion,
+        u.parentId,
+      );
+      if (dto.proyectos.length && !sincronizarProyectos) {
+        throwBusiness(ErrorCodes.PROYECTOS_NO_APLICA);
+      }
     }
 
     await this.unidadRepo.manager.transaction(async (m) => {
@@ -669,6 +911,15 @@ export class UnidadesService {
       }
       if (dto.relacionesExternas !== undefined) {
         await this.replaceRelacionesExternas(m, id, dto.relacionesExternas);
+      }
+      if (dto.inventarios !== undefined) {
+        await this.syncInventarios(m, id, dto.inventarios);
+      }
+      if (sincronizarSia) {
+        await this.syncSia(m, id, dto.sia!);
+      }
+      if (sincronizarProyectos) {
+        await this.syncProyectos(m, id, dto.proyectos!);
       }
     });
 
@@ -749,6 +1000,197 @@ export class UnidadesService {
         descripcion,
       })),
     );
+  }
+
+  /**
+   * Deja el inventario vigente de la unidad igual a `items`: actualiza las filas
+   * con `id`, crea las que no lo traen y da de baja las que no se enviaron.
+   * Un `id` de otra unidad aborta la transacción.
+   */
+  private async syncInventarios(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly UnidadInventarioItemDto[],
+  ) {
+    const actuales = await m.find(UnidadInventario, {
+      where: { unidadId: String(unidadId) },
+    });
+    const porId = new Map(actuales.map((r) => [Number(r.id), r]));
+    const enviados = new Set<number>();
+    for (const item of items) {
+      if (item.id == null) continue;
+      if (enviados.has(item.id)) {
+        throwBusiness(ErrorCodes.INVENTARIO_ID_DUPLICADO, item.id);
+      }
+      if (!porId.has(item.id)) {
+        throwBusiness(ErrorCodes.INVENTARIO_NO_PERTENECE_UNIDAD, item.id);
+      }
+      enviados.add(item.id);
+    }
+
+    const bajas = actuales.filter((r) => !enviados.has(Number(r.id)));
+    if (bajas.length) await m.softRemove(bajas);
+
+    const filas = items.map((item) => {
+      const row =
+        item.id != null
+          ? porId.get(item.id)!
+          : m.create(UnidadInventario, { unidadId: String(unidadId) });
+      row.descripcion = item.descripcion.trim();
+      row.cantidad = item.cantidad;
+      return row;
+    });
+    if (filas.length) await m.save(filas);
+  }
+
+  /** Igual que `syncInventarios`, para las filas SIA de una Carrera. */
+  private async syncSia(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly UnidadSiaItemDto[],
+  ) {
+    items.forEach((item) => this.assertSiaConValor(item));
+    const actuales = await m.find(UnidadSia, {
+      where: { unidadId: String(unidadId) },
+    });
+    const porId = new Map(actuales.map((r) => [Number(r.id), r]));
+    const enviados = new Set<number>();
+    for (const item of items) {
+      if (item.id == null) continue;
+      if (enviados.has(item.id)) {
+        throwBusiness(ErrorCodes.SIA_ID_DUPLICADO, item.id);
+      }
+      if (!porId.has(item.id)) {
+        throwBusiness(ErrorCodes.SIA_NO_PERTENECE_UNIDAD, item.id);
+      }
+      enviados.add(item.id);
+    }
+
+    const bajas = actuales.filter((r) => !enviados.has(Number(r.id)));
+    if (bajas.length) await m.softRemove(bajas);
+
+    const filas = items.map((item) => {
+      const row =
+        item.id != null
+          ? porId.get(item.id)!
+          : m.create(UnidadSia, { unidadId: String(unidadId) });
+      this.assignSia(row, item);
+      return row;
+    });
+    if (filas.length) await m.save(filas);
+  }
+
+  /**
+   * Deja los proyectos vigentes de la unidad iguales a `items`: actualiza los
+   * que traen `id`, crea los que no lo traen y desvincula la unidad de los que
+   * no se enviaron (un proyecto que queda sin unidades se da de baja).
+   * Un `id` que no es de la unidad aborta la transacción.
+   */
+  private async syncProyectos(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly ProyectoItemDto[],
+  ) {
+    const uid = String(unidadId);
+    const vinculos = await m.find(ProyectoUnidad, { where: { unidadId: uid } });
+    const actuales = new Set(vinculos.map((v) => Number(v.proyectoId)));
+    const enviados = new Set<number>();
+    for (const item of items) {
+      if (item.id == null) continue;
+      if (enviados.has(item.id)) {
+        throwBusiness(ErrorCodes.PROYECTO_ID_DUPLICADO, item.id);
+      }
+      if (!actuales.has(item.id)) {
+        throwBusiness(ErrorCodes.PROYECTO_NO_PERTENECE_UNIDAD, item.id);
+      }
+      enviados.add(item.id);
+    }
+
+    const bajas = [...actuales].filter((id) => !enviados.has(id));
+    await this.desvincularProyectos(m, uid, bajas);
+
+    const existentes = enviados.size
+      ? await m.find(Proyecto, {
+          where: { id: In([...enviados].map(String)) },
+        })
+      : [];
+    const porId = new Map(existentes.map((p) => [Number(p.id), p]));
+    const cache = new Map<string, boolean>();
+    for (const item of items) {
+      const proyecto =
+        item.id != null ? porId.get(item.id)! : m.create(Proyecto, {});
+      await this.guardarProyecto(m, uid, item, proyecto, cache);
+    }
+  }
+
+  /**
+   * Guarda tipo y detalle. Si el proyecto es nuevo o trae `unidadIds`, reemplaza
+   * sus participantes: la unidad `unidadId` más las enviadas.
+   */
+  private async guardarProyecto(
+    m: EntityManager,
+    unidadId: string,
+    dto: ProyectoDto,
+    proyecto: Proyecto,
+    cache: Map<string, boolean>,
+  ) {
+    const participantes =
+      proyecto.id == null || dto.unidadIds !== undefined
+        ? await this.participantesProyecto(unidadId, dto.unidadIds ?? [], cache)
+        : null;
+    proyecto.tipo = dto.tipo.trim().replace(/\s+/g, ' ');
+    proyecto.detalle = dto.detalle.trim();
+    const saved = await m.save(proyecto);
+    if (participantes) {
+      await m.delete(ProyectoUnidad, { proyectoId: saved.id });
+      await m.insert(
+        ProyectoUnidad,
+        participantes.map((id) => ({ proyectoId: saved.id, unidadId: id })),
+      );
+    }
+    return saved;
+  }
+
+  /** La unidad de la ruta primero, sin repetidos; cada otra debe existir y aplicar. */
+  private async participantesProyecto(
+    unidadId: string,
+    unidadIds: readonly number[],
+    cache: Map<string, boolean>,
+  ): Promise<string[]> {
+    const ids = [unidadId];
+    for (const raw of unidadIds) {
+      const id = String(raw);
+      if (ids.includes(id)) continue;
+      let aplica = cache.get(id);
+      if (aplica === undefined) {
+        aplica = (await this.aplicaProyectosUnidad(id)) ?? false;
+        cache.set(id, aplica);
+      }
+      if (!aplica) throwBusiness(ErrorCodes.PROYECTO_UNIDAD_NO_APLICA, raw);
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  /**
+   * Quita la unidad de esos proyectos. Los que quedan sin unidades se dan de
+   * baja: así todo vínculo apunta a un proyecto vigente y el conteo de
+   * `contarProyectosPorUnidad` no necesita cruzar con `proyecto`.
+   */
+  private async desvincularProyectos(
+    m: EntityManager,
+    unidadId: string,
+    proyectoIds: readonly number[],
+  ) {
+    if (!proyectoIds.length) return;
+    const ids = proyectoIds.map(String);
+    await m.delete(ProyectoUnidad, { unidadId, proyectoId: In(ids) });
+    const restantes = await m.find(ProyectoUnidad, {
+      where: { proyectoId: In(ids) },
+    });
+    const conUnidades = new Set(restantes.map((v) => String(v.proyectoId)));
+    const huerfanos = ids.filter((id) => !conUnidades.has(id));
+    if (huerfanos.length) await m.softDelete(Proyecto, { id: In(huerfanos) });
   }
 
   async remove(id: number) {
@@ -1162,6 +1604,380 @@ export class UnidadesService {
     return true;
   }
 
+  // --- INVENTARIOS ---
+  private mapInventario(r: UnidadInventario) {
+    return {
+      id: Number(r.id),
+      descripcion: r.descripcion,
+      cantidad: r.cantidad,
+    };
+  }
+
+  private async assertUnidadExists(unidadId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+    });
+    if (!u) notFound(unidadId);
+  }
+
+  /** Busca por (id, unidad): un ítem de otra unidad responde 404. */
+  private async findInventarioOrFail(unidadId: number, inventarioId: number) {
+    await this.assertUnidadExists(unidadId);
+    const row = await this.inventarioRepo.findOne({
+      where: { id: String(inventarioId), unidadId: String(unidadId) },
+    });
+    if (!row) notFound(inventarioId);
+    return row;
+  }
+
+  async listInventarios(unidadId: number) {
+    await this.assertUnidadExists(unidadId);
+    const rows = await this.inventarioRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { id: 'ASC' },
+    });
+    return rows.map((r) => this.mapInventario(r));
+  }
+
+  async getInventario(unidadId: number, inventarioId: number) {
+    return this.mapInventario(
+      await this.findInventarioOrFail(unidadId, inventarioId),
+    );
+  }
+
+  async addInventario(unidadId: number, dto: UnidadInventarioDto) {
+    await this.assertUnidadExists(unidadId);
+    const saved = await this.inventarioRepo.save(
+      this.inventarioRepo.create({
+        unidadId: String(unidadId),
+        descripcion: dto.descripcion.trim(),
+        cantidad: dto.cantidad,
+      }),
+    );
+    return this.mapInventario(saved);
+  }
+
+  async updateInventario(
+    unidadId: number,
+    inventarioId: number,
+    dto: UnidadInventarioDto,
+  ) {
+    const row = await this.findInventarioOrFail(unidadId, inventarioId);
+    row.descripcion = dto.descripcion.trim();
+    row.cantidad = dto.cantidad;
+    return this.mapInventario(await this.inventarioRepo.save(row));
+  }
+
+  async removeInventario(unidadId: number, inventarioId: number) {
+    const row = await this.findInventarioOrFail(unidadId, inventarioId);
+    await this.inventarioRepo.softRemove(row);
+    return true;
+  }
+
+  // --- SIA (solo Carreras) ---
+  private mapSia(r: UnidadSia) {
+    const valores = Object.fromEntries(
+      SIA_CAMPOS.map((campo) => [campo, r[campo] ?? null]),
+    ) as Pick<UnidadSia, (typeof SIA_CAMPOS)[number]>;
+    return { id: Number(r.id), ...valores };
+  }
+
+  /** Copia todas las columnas SIA del DTO; las omitidas quedan en null. */
+  private assignSia(row: UnidadSia, dto: UnidadSiaDto) {
+    for (const campo of SIA_CAMPOS) row[campo] = dto[campo] ?? null;
+  }
+
+  private assertSiaConValor(dto: UnidadSiaDto) {
+    if (SIA_CAMPOS.every((campo) => dto[campo] == null)) {
+      throwBusiness(ErrorCodes.SIA_FILA_VACIA);
+    }
+  }
+
+  private async findSiaRows(unidadId: number | string) {
+    const rows = await this.siaRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { id: 'ASC' },
+    });
+    return rows.map((r) => this.mapSia(r));
+  }
+
+  /** 404 si la unidad no existe; indica si su clase es Carrera. */
+  private async unidadEsCarrera(unidadId: number) {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+      relations: ['tipoUnidad'],
+    });
+    if (!u) notFound(unidadId);
+    return esClaseCarrera(u.tipoUnidad?.descripcion);
+  }
+
+  private async assertUnidadCarrera(unidadId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) {
+      throwBusiness(ErrorCodes.SIA_SOLO_CARRERA, unidadId);
+    }
+  }
+
+  /** Busca por (id, unidad): una fila de otra unidad responde 404. */
+  private async findSiaOrFail(unidadId: number, siaId: number) {
+    const row = await this.siaRepo.findOne({
+      where: { id: String(siaId), unidadId: String(unidadId) },
+    });
+    if (!row) notFound(siaId);
+    return row;
+  }
+
+  /** En una unidad que no es Carrera devuelve `[]` (filas ocultas). */
+  async listSia(unidadId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) return [];
+    return this.findSiaRows(unidadId);
+  }
+
+  async getSia(unidadId: number, siaId: number) {
+    if (!(await this.unidadEsCarrera(unidadId))) notFound(siaId);
+    return this.mapSia(await this.findSiaOrFail(unidadId, siaId));
+  }
+
+  async addSia(unidadId: number, dto: UnidadSiaDto) {
+    await this.assertUnidadCarrera(unidadId);
+    this.assertSiaConValor(dto);
+    const row = this.siaRepo.create({ unidadId: String(unidadId) });
+    this.assignSia(row, dto);
+    return this.mapSia(await this.siaRepo.save(row));
+  }
+
+  async updateSia(unidadId: number, siaId: number, dto: UnidadSiaDto) {
+    await this.assertUnidadCarrera(unidadId);
+    this.assertSiaConValor(dto);
+    const row = await this.findSiaOrFail(unidadId, siaId);
+    this.assignSia(row, dto);
+    return this.mapSia(await this.siaRepo.save(row));
+  }
+
+  async removeSia(unidadId: number, siaId: number) {
+    await this.assertUnidadCarrera(unidadId);
+    const row = await this.findSiaOrFail(unidadId, siaId);
+    await this.siaRepo.softRemove(row);
+    return true;
+  }
+
+  // --- PROYECTOS (Decanato hacia abajo) ---
+  /**
+   * Una unidad lleva Proyectos si su clase es Decanato o si algún ancestro por
+   * `parent_id` lo es. `parentId` puede ser el padre final de un PUT aún sin guardar.
+   */
+  private async aplicaProyectos(
+    claseDescripcion: string | null | undefined,
+    parentId: string | number | null | undefined,
+  ): Promise<boolean> {
+    if (esClaseDecanato(claseDescripcion)) return true;
+    let current = parentId != null ? String(parentId) : null;
+    const seen = new Set<string>();
+    while (current && !seen.has(current)) {
+      seen.add(current);
+      const node = await this.unidadRepo.findOne({
+        where: { id: current },
+        relations: ['tipoUnidad'],
+      });
+      if (!node) return false;
+      if (esClaseDecanato(node.tipoUnidad?.descripcion)) return true;
+      current = node.parentId ?? null;
+    }
+    return false;
+  }
+
+  /** `null` si la unidad no existe o fue dada de baja. */
+  private async aplicaProyectosUnidad(
+    unidadId: number | string,
+  ): Promise<boolean | null> {
+    const u = await this.unidadRepo.findOne({
+      where: { id: String(unidadId) },
+      relations: ['tipoUnidad'],
+    });
+    if (!u) return null;
+    return this.aplicaProyectos(u.tipoUnidad?.descripcion, u.parentId);
+  }
+
+  /** 404 si la unidad no existe; indica si lleva el bloque de Proyectos. */
+  private async unidadAplicaProyectos(unidadId: number) {
+    const aplica = await this.aplicaProyectosUnidad(unidadId);
+    if (aplica == null) notFound(unidadId);
+    return aplica;
+  }
+
+  private async assertUnidadAplicaProyectos(unidadId: number) {
+    if (!(await this.unidadAplicaProyectos(unidadId))) {
+      throwBusiness(ErrorCodes.PROYECTOS_NO_APLICA, unidadId);
+    }
+  }
+
+  /** Proyectos vigentes por unidad (todo vínculo apunta a un proyecto vigente). */
+  private async contarProyectosPorUnidad(): Promise<Map<string, number>> {
+    const vinculos = await this.proyectoUnidadRepo.find({
+      select: { unidadId: true },
+    });
+    const conteos = new Map<string, number>();
+    for (const v of vinculos) {
+      const id = String(v.unidadId);
+      conteos.set(id, (conteos.get(id) ?? 0) + 1);
+    }
+    return conteos;
+  }
+
+  private mapProyecto(p: Proyecto) {
+    const unidades = (p.unidades ?? [])
+      .filter((pu) => pu.unidad && !pu.unidad.deletedAt)
+      .map((pu) => ({
+        id: Number(pu.unidad.id),
+        codigo: pu.unidad.codigo,
+        sigla: pu.unidad.sigla,
+        nombre: pu.unidad.nombre,
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return { id: Number(p.id), tipo: p.tipo, detalle: p.detalle, unidades };
+  }
+
+  private findProyectosPorId(ids: readonly (number | string)[]) {
+    return this.proyectoRepo.find({
+      where: { id: In(ids.map(String)) },
+      relations: { unidades: { unidad: true } },
+      order: { id: 'ASC' },
+    });
+  }
+
+  /** Proyectos de la unidad en orden de alta, con todas sus unidades participantes. */
+  private async findProyectos(unidadId: number | string) {
+    const vinculos = await this.proyectoUnidadRepo.find({
+      where: { unidadId: String(unidadId) },
+    });
+    if (!vinculos.length) return [];
+    const proyectos = await this.findProyectosPorId(
+      vinculos.map((v) => v.proyectoId),
+    );
+    return proyectos.map((p) => this.mapProyecto(p));
+  }
+
+  /** Busca por (proyecto, unidad): un proyecto en el que no participa responde 404. */
+  private async findProyectoOrFail(unidadId: number, proyectoId: number) {
+    const vinculo = await this.proyectoUnidadRepo.findOne({
+      where: { proyectoId: String(proyectoId), unidadId: String(unidadId) },
+    });
+    const [proyecto] = vinculo
+      ? await this.findProyectosPorId([proyectoId])
+      : [];
+    if (!proyecto) notFound(proyectoId);
+    return proyecto;
+  }
+
+  /** En una unidad que no aplica devuelve `[]` (proyectos ocultos). */
+  async listProyectos(unidadId: number) {
+    if (!(await this.unidadAplicaProyectos(unidadId))) return [];
+    return this.findProyectos(unidadId);
+  }
+
+  async getProyecto(unidadId: number, proyectoId: number) {
+    if (!(await this.unidadAplicaProyectos(unidadId))) notFound(proyectoId);
+    return this.mapProyecto(
+      await this.findProyectoOrFail(unidadId, proyectoId),
+    );
+  }
+
+  async addProyecto(unidadId: number, dto: ProyectoDto) {
+    await this.assertUnidadAplicaProyectos(unidadId);
+    const saved = await this.proyectoRepo.manager.transaction((m) =>
+      this.guardarProyecto(
+        m,
+        String(unidadId),
+        dto,
+        m.create(Proyecto, {}),
+        new Map(),
+      ),
+    );
+    return this.mapProyecto(
+      await this.findProyectoOrFail(unidadId, Number(saved.id)),
+    );
+  }
+
+  async updateProyecto(unidadId: number, proyectoId: number, dto: ProyectoDto) {
+    await this.assertUnidadAplicaProyectos(unidadId);
+    const proyecto = await this.findProyectoOrFail(unidadId, proyectoId);
+    // Sin la relación cargada, `save` no toca los vínculos: los maneja guardarProyecto.
+    const row = this.proyectoRepo.create({
+      id: proyecto.id,
+      tipo: proyecto.tipo,
+      detalle: proyecto.detalle,
+    });
+    await this.proyectoRepo.manager.transaction((m) =>
+      this.guardarProyecto(m, String(unidadId), dto, row, new Map()),
+    );
+    return this.mapProyecto(
+      await this.findProyectoOrFail(unidadId, proyectoId),
+    );
+  }
+
+  /** Desvincula la unidad; si el proyecto queda sin unidades, se da de baja. */
+  async removeProyecto(unidadId: number, proyectoId: number) {
+    await this.assertUnidadAplicaProyectos(unidadId);
+    await this.findProyectoOrFail(unidadId, proyectoId);
+    await this.proyectoRepo.manager.transaction((m) =>
+      this.desvincularProyectos(m, String(unidadId), [proyectoId]),
+    );
+    return true;
+  }
+
+  /** Tipos ya usados (agrupados como en la ficha), de más a menos frecuentes. */
+  async tiposProyecto() {
+    const proyectos = await this.proyectoRepo.find({
+      select: { id: true, tipo: true },
+      order: { id: 'ASC' },
+    });
+    return agruparProyectosPorTipo(proyectos)
+      .map(({ tipo, cantidad }) => ({ tipo, cantidad }))
+      .sort(
+        (a, b) =>
+          b.cantidad - a.cantidad ||
+          a.tipo.localeCompare(b.tipo, 'es', { sensitivity: 'base' }),
+      );
+  }
+
+  /** Suma una apertura de la ficha técnica (panel lateral). */
+  registrarVista(id: number): Promise<ContadoresUso> {
+    return this.incrementarContador(id, 'vistas_count');
+  }
+
+  /** Suma una descarga del PDF de la unidad. */
+  registrarDescarga(id: number): Promise<ContadoresUso> {
+    return this.incrementarContador(id, 'descargas_count');
+  }
+
+  /**
+   * Incremento atómico en una sola sentencia (seguro ante aperturas
+   * simultáneas). Va en SQL crudo a propósito: un `save`/`update` de TypeORM
+   * dispararía `OrganigramaSubscriber` (auditoría + aviso a la Gaceta) y
+   * movería `updated_at` en cada apertura. El CTE hace que `query()` devuelva
+   * las filas; con `UPDATE ... RETURNING` suelto el driver devuelve
+   * `[filas, cantidad]`.
+   */
+  private async incrementarContador(
+    id: number,
+    columna: ColumnaContador,
+  ): Promise<ContadoresUso> {
+    const rows: { vistas_count: number; descargas_count: number }[] =
+      await this.unidadRepo.query(
+        `WITH upd AS (
+           UPDATE "unidad" SET "${columna}" = "${columna}" + 1
+           WHERE "id" = $1 AND "deleted_at" IS NULL
+           RETURNING "vistas_count", "descargas_count"
+         )
+         SELECT * FROM upd`,
+        [id],
+      );
+    if (!rows.length) notFound(id);
+    return {
+      vistasCount: Number(rows[0].vistas_count),
+      descargasCount: Number(rows[0].descargas_count),
+    };
+  }
+
   async findEntityForPdf(id: number) {
     const u = await this.unidadRepo.findOne({
       where: { id: String(id) },
@@ -1436,6 +2252,10 @@ export class UnidadesService {
         Array.isArray(row.paleta) && row.paleta.length > 0
           ? row.paleta
           : MOF_CONFIG_FALLBACK.paleta,
+      paletaNodos:
+        Array.isArray(row.paletaNodos) && row.paletaNodos.length > 0
+          ? row.paletaNodos
+          : MOF_CONFIG_FALLBACK.paletaNodos,
       passwordPolicy: {
         ...MOF_CONFIG_FALLBACK.passwordPolicy,
         ...(row.passwordPolicy || {}),
@@ -1466,7 +2286,10 @@ export class UnidadesService {
     }
     if (dto.paleta) {
       for (const fila of dto.paleta) {
-        if (!Array.isArray(fila) || fila.some((c) => typeof c !== 'string')) {
+        if (
+          !Array.isArray(fila) ||
+          fila.some((c) => typeof c !== 'string' || !HEX_COLOR_REGEX.test(c))
+        ) {
           throw new BusinessException(
             'La paleta debe ser una grilla de colores hexadecimales',
             HttpStatus.BAD_REQUEST,
@@ -1474,6 +2297,9 @@ export class UnidadesService {
         }
       }
       row.paleta = dto.paleta;
+    }
+    if (dto.paletaNodos) {
+      row.paletaNodos = dto.paletaNodos.map((c) => c.toUpperCase());
     }
     if (dto.passwordPolicy) {
       row.passwordPolicy = {

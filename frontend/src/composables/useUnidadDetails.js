@@ -13,84 +13,189 @@ export function useUnidadDetails({ unidadesStore }) {
   const loadingDetail = ref(false);
   const initialOpenPanels = ref([]);
 
+  // Previene registros duplicados de vista ante doble clic, propagación de eventos o rebotes rápidos
+  const lastRegisteredView = { id: null, timestamp: 0 };
+  const VISTA_DEDUPLICATION_WINDOW_MS = 800;
+
+  let inFlightLoadPromise = null;
+  let inFlightUnitId = null;
+
+  async function registrarVista(unidadId) {
+    if (!unidadId) return null;
+    const now = Date.now();
+    const strId = String(unidadId);
+    if (
+      lastRegisteredView.id === strId &&
+      now - lastRegisteredView.timestamp < VISTA_DEDUPLICATION_WINDOW_MS
+    ) {
+      return null;
+    }
+    lastRegisteredView.id = strId;
+    lastRegisteredView.timestamp = now;
+
+    try {
+      const response = await apiFetch(ENDPOINTS.MOF.VISTAS_UNIDAD(unidadId), {
+        method: "POST",
+      });
+      if (response.ok) {
+        const body = await response.json();
+        return body?.data || null;
+      }
+    } catch (e) {
+      console.error("Error al registrar vista de unidad:", e);
+    }
+    return null;
+  }
+
   async function loadUnidadDetails(unidadId, { openPanels = [] } = {}) {
+    if (!unidadId) return null;
+    const strId = String(unidadId);
+
+    // Si ya hay una petición en curso para la misma unidad, reusar la promesa en vuelo
+    if (inFlightLoadPromise && inFlightUnitId === strId) {
+      return inFlightLoadPromise;
+    }
+
     loadingDetail.value = true;
     detailsDrawer.value = true;
     detailData.value = null;
     initialOpenPanels.value = openPanels;
-    try {
-      const [data, personal] = await Promise.all([
-        unidadesStore.getUnidadById(unidadId),
-        unidadesStore.getPersonalUnidad(unidadId),
-      ]);
-      if (data) {
-        const dependenciasDetalle = (data.dependenciasFuncionales || []).map(
-          (dep) => {
-            if (typeof dep === "object" && (dep.denominacion || dep.nombre)) {
-              return dep.denominacion || dep.nombre;
-            }
-            const id = typeof dep === "object" ? dep.id : dep;
-            const unidadFound = unidadesStore.unidades.find(
-              (u) => String(u.id) === String(id),
-            );
-            return unidadFound
-              ? unidadFound.nombre || unidadFound.denominacion
-              : "ID: " + id;
-          },
-        );
-        const mappedRelInternas = (data.relacionesInternas || []).map((r) => {
-          const relId = r.relacionadaId || r.unidadDestinoId || r.id;
-          const found = (unidadesStore.unidades || []).find(
-            (u) => String(u.id) === String(relId),
-          );
-          return {
-            id: r.id,
-            relacionadaId: relId,
-            codigo: r.codigo || found?.codigo || "",
-            sigla: r.sigla || found?.sigla || "",
-            nombre:
-              r.nombre ||
-              r.denominacion ||
-              r.unidadDestinoNombre ||
-              found?.nombre ||
-              found?.denominacion ||
-              (relId ? `Unidad #${relId}` : "Sin denominación"),
-            tipo: r.tipo || r.descripcion || null,
-          };
-        });
+    inFlightUnitId = strId;
 
-        detailData.value = {
-          ...data,
-          es_desconcentrada: Boolean(
-            data.es_desconcentrada ||
-            data.esDesconcentrada ||
-            (data.dependenciasFuncionales && data.dependenciasFuncionales.length > 0) ||
-            dependenciasDetalle.length > 0
-          ),
-          nombre_display: data.denominacion || data.nombre,
-          objetivo_display: data.objetivo_puesto || data.objetivo,
-          dependencias_nombres: dependenciasDetalle,
-          cargos_detalle: Array.isArray(personal) ? personal : [],
-          dependencia_lineal_nombre: data.parent?.nombre || data.dependencia || null,
-          hijas_lineales: Array.isArray(data.hijasLineales) ? data.hijasLineales : [],
-          hijas_funcionales: Array.isArray(data.hijasFuncionales) ? data.hijasFuncionales : [],
-          relaciones_internas: mappedRelInternas,
-          relaciones_externas: Array.isArray(data.relacionesExternas) ? data.relacionesExternas : [],
-          tramites_atendidos: data.tramitesAtendidos || data.tramites_atendidos || null,
-          ejecucion_poa: data.ejecucionPoa || data.ejecucion_poa || null,
-          ejecucion_presupuestaria: data.ejecucionPresupuestaria || data.ejecucion_presupuestaria || null,
-          carga_horaria_programada: data.cargaHorariaProgramada || data.carga_horaria_programada || null,
-          carga_horaria_ejecutada: data.cargaHorariaEjecutada || data.carga_horaria_ejecutada || null,
-          infraestructura: data.infraestructura || data.infraestructura_fisica || null,
-          ubicacion: data.ubicacion || null,
-          fec_creacion: data.fecCreacion || data.fec_creacion || null,
-        };
+    inFlightLoadPromise = (async () => {
+      try {
+        const [data, personal, contadores] = await Promise.all([
+          unidadesStore.getUnidadById(unidadId),
+          unidadesStore.getPersonalUnidad(unidadId),
+          registrarVista(unidadId),
+        ]);
+        if (data) {
+          const dependenciasDetalle = (data.dependenciasFuncionales || []).map(
+            (dep) => {
+              if (typeof dep === "object" && (dep.denominacion || dep.nombre)) {
+                return dep.denominacion || dep.nombre;
+              }
+              const id = typeof dep === "object" ? dep.id : dep;
+              const unidadFound = unidadesStore.unidades.find(
+                (u) => String(u.id) === String(id),
+              );
+              return unidadFound
+                ? unidadFound.nombre || unidadFound.denominacion
+                : "ID: " + id;
+            },
+          );
+          const mappedRelInternas = (data.relacionesInternas || []).map((r) => {
+            const relId = r.relacionadaId || r.unidadDestinoId || r.id;
+            const found = (unidadesStore.unidades || []).find(
+              (u) => String(u.id) === String(relId),
+            );
+            return {
+              id: r.id,
+              relacionadaId: relId,
+              codigo: r.codigo || found?.codigo || "",
+              sigla: r.sigla || found?.sigla || "",
+              nombre:
+                r.nombre ||
+                r.denominacion ||
+                r.unidadDestinoNombre ||
+                found?.nombre ||
+                found?.denominacion ||
+                (relId ? `Unidad #${relId}` : "Sin denominación"),
+              tipo: r.tipo || r.descripcion || null,
+            };
+          });
+
+          const vistasTotal =
+            contadores?.vistasCount ??
+            data.vistasCount ??
+            data.vistas_count ??
+            0;
+          const descargasTotal =
+            contadores?.descargasCount ??
+            data.descargasCount ??
+            data.descargas_count ??
+            0;
+
+          detailData.value = {
+            ...data,
+            esCarrera: Boolean(data.esCarrera),
+            sia: Array.isArray(data.sia) ? data.sia : [],
+            inventarios: Array.isArray(data.inventarios) ? data.inventarios : [],
+            aplicaProyectos: Boolean(data.aplicaProyectos || data.aplica_proyectos),
+            proyectosCount: data.proyectosCount ?? data.proyectos_count ?? 0,
+            proyectos: Array.isArray(data.proyectos) ? data.proyectos : [],
+            proyectosPorTipo: Array.isArray(data.proyectosPorTipo) ? data.proyectosPorTipo : [],
+            vistasCount: vistasTotal,
+            descargasCount: descargasTotal,
+            vistas_count: vistasTotal,
+            descargas_count: descargasTotal,
+            es_desconcentrada: Boolean(
+              data.es_desconcentrada ||
+                data.esDesconcentrada ||
+                (data.dependenciasFuncionales &&
+                  data.dependenciasFuncionales.length > 0) ||
+                dependenciasDetalle.length > 0,
+            ),
+            nombre_display: data.denominacion || data.nombre,
+            objetivo_display: data.objetivo_puesto || data.objetivo,
+            dependencias_nombres: dependenciasDetalle,
+            cargos_detalle: Array.isArray(personal) ? personal : [],
+            dependencia_lineal_nombre:
+              data.parent?.nombre || data.dependencia || null,
+            hijas_lineales: Array.isArray(data.hijasLineales)
+              ? data.hijasLineales
+              : [],
+            hijas_funcionales: Array.isArray(data.hijasFuncionales)
+              ? data.hijasFuncionales
+              : [],
+            relaciones_internas: mappedRelInternas,
+            relaciones_externas: Array.isArray(data.relacionesExternas)
+              ? data.relacionesExternas
+              : [],
+            tramites_atendidos:
+              data.tramitesAtendidos || data.tramites_atendidos || null,
+            ejecucion_poa: data.ejecucionPoa || data.ejecucion_poa || null,
+            ejecucion_presupuestaria:
+              data.ejecucionPresupuestaria ||
+              data.ejecucion_presupuestaria ||
+              null,
+            carga_horaria_programada:
+              data.cargaHorariaProgramada ||
+              data.carga_horaria_programada ||
+              null,
+            carga_horaria_ejecutada:
+              data.cargaHorariaEjecutada ||
+              data.carga_horaria_ejecutada ||
+              null,
+            infraestructura:
+              data.infraestructura || data.infraestructura_fisica || null,
+            ubicacion: data.ubicacion || null,
+            fec_creacion: data.fecCreacion || data.fec_creacion || null,
+            planificacionEstrategicaAplica: Boolean(
+              data.planificacionEstrategicaAplica ||
+                data.planificacion_estrategica_aplica
+            ),
+            planificacionEstrategicaValor:
+              data.planificacionEstrategicaValor ??
+              data.planificacion_estrategica_valor ??
+              null,
+            planificacionEstrategica:
+              data.planificacionEstrategica ||
+              data.planificacion_estrategica ||
+              null,
+          };
+          return detailData.value;
+        }
+      } catch (e) {
+        mostrar("Error al cargar detalles", "error");
+      } finally {
+        loadingDetail.value = false;
+        inFlightLoadPromise = null;
+        inFlightUnitId = null;
       }
-    } catch (e) {
-      mostrar("Error al cargar detalles", "error");
-    } finally {
-      loadingDetail.value = false;
-    }
+    })();
+
+    return inFlightLoadPromise;
   }
 
   function showDetails(unidadId) {
@@ -129,6 +234,11 @@ export function useUnidadDetails({ unidadesStore }) {
         pestana.location.href = url;
       } else {
         window.open(url, "_blank");
+      }
+      if (detailData.value && String(detailData.value.id) === String(id)) {
+        const nextDescargas = (detailData.value.descargasCount || 0) + 1;
+        detailData.value.descargasCount = nextDescargas;
+        detailData.value.descargas_count = nextDescargas;
       }
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {

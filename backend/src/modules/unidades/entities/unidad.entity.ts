@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   Entity,
   Index,
@@ -6,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  type ValueTransformer,
 } from 'typeorm';
 import { AuditableEntity } from '../../../common/entities/auditable.entity';
 import { CatalogoTipo } from '../../catalogos/entities/catalogo-tipo.entity';
@@ -16,24 +18,40 @@ import { Usuario } from '../../auth/entities/usuario.entity';
 import { UnidadFuncion } from './unidad-funcion.entity';
 import { UnidadRelacionExterna } from './unidad-relacion-externa.entity';
 import { UnidadRelacionInterna } from './unidad-relacion-interna.entity';
+import { UnidadInventario } from './unidad-inventario.entity';
+import { UnidadSia } from './unidad-sia.entity';
+import { ProyectoUnidad } from './proyecto-unidad.entity';
+
+/** El driver de pg devuelve `numeric` como string. */
+const numericTransformer: ValueTransformer = {
+  to: (value?: number | null) => value,
+  from: (value?: string | null) => (value == null ? null : Number(value)),
+};
 
 @Entity('unidad')
 @Index('IDX_unidad_codigo_activo', ['codigo'], {
   unique: true,
   where: '"deleted_at" IS NULL',
 })
+@Check(
+  'CHK_unidad_planificacion_estrategica_valor',
+  '"planificacion_estrategica_valor" IS NULL OR ("planificacion_estrategica_valor" >= 0 AND "planificacion_estrategica_valor" <= 100)',
+)
+@Check('CHK_unidad_vistas_count', '"vistas_count" >= 0')
+@Check('CHK_unidad_descargas_count', '"descargas_count" >= 0')
+@Check('CHK_unidad_color', `"color" IS NULL OR "color" ~ '^#[0-9A-F]{6}$'`)
 export class Unidad extends AuditableEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;
 
-  @Column({ type: 'varchar', length: 64 })
+  @Column({ type: 'text' })
   codigo: string;
 
   @Index()
-  @Column({ type: 'varchar', length: 32 })
+  @Column({ type: 'text' })
   sigla: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'text' })
   nombre: string;
 
   @ManyToOne(() => Unidad, (unidad) => unidad.hijos, { nullable: true })
@@ -86,18 +104,17 @@ export class Unidad extends AuditableEntity {
   @Column({ name: 'lado', type: 'varchar', length: 20, default: 'AUTOMATICO' })
   lado: string;
 
+  /** Color propio en el organigrama (`#RRGGBB`). `null` hereda el de la Clase. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  color: string | null;
+
   @Column({ type: 'text', nullable: true })
   objetivo: string | null;
 
   @Column({ name: 'base_legal', type: 'text', nullable: true })
   baseLegal: string | null;
 
-  @Column({
-    name: 'res_creacion',
-    type: 'varchar',
-    length: 512,
-    nullable: true,
-  })
+  @Column({ name: 'res_creacion', type: 'text', nullable: true })
   resCreacion: string | null;
 
   @Column({ name: 'fec_creacion', type: 'date', nullable: true })
@@ -124,6 +141,51 @@ export class Unidad extends AuditableEntity {
   @Column({ name: 'ubicacion', type: 'text', nullable: true })
   ubicacion: string | null;
 
+  /** Switch del bloque: con `false` el valor y el texto se conservan pero no se exponen. */
+  @Column({
+    name: 'planificacion_estrategica_aplica',
+    type: 'boolean',
+    default: false,
+  })
+  planificacionEstrategicaAplica: boolean;
+
+  /** Porcentaje 0–100 de la planificación estratégica. */
+  @Column({
+    name: 'planificacion_estrategica_valor',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    transformer: numericTransformer,
+  })
+  planificacionEstrategicaValor: number | null;
+
+  @Column({ name: 'planificacion_estrategica', type: 'text', nullable: true })
+  planificacionEstrategica: string | null;
+
+  /**
+   * Contadores de uso. Solo los modifica el UPDATE atómico de
+   * `UnidadesService.incrementarContador`: con `insert`/`update` en `false`, un
+   * `save()` de la unidad no los escribe ni pisa un incremento concurrente.
+   */
+  @Column({
+    name: 'vistas_count',
+    type: 'int',
+    default: 0,
+    insert: false,
+    update: false,
+  })
+  vistasCount: number;
+
+  @Column({
+    name: 'descargas_count',
+    type: 'int',
+    default: 0,
+    insert: false,
+    update: false,
+  })
+  descargasCount: number;
+
   @ManyToOne(() => Usuario, { nullable: true })
   @JoinColumn({ name: 'created_by' })
   createdByUser: Usuario | null;
@@ -146,4 +208,13 @@ export class Unidad extends AuditableEntity {
 
   @OneToMany(() => UnidadRelacionInterna, (rel) => rel.unidad)
   relacionesInternas: UnidadRelacionInterna[];
+
+  @OneToMany(() => UnidadInventario, (inv) => inv.unidad)
+  inventarios: UnidadInventario[];
+
+  @OneToMany(() => UnidadSia, (sia) => sia.unidad)
+  sia: UnidadSia[];
+
+  @OneToMany(() => ProyectoUnidad, (pu) => pu.unidad)
+  proyectos: ProyectoUnidad[];
 }

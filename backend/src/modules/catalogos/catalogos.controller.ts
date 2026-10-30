@@ -156,7 +156,11 @@ export class CatalogosController {
 
   // ---- Clases ----
   @Get('clases')
-  @ApiOperation({ summary: 'Listar clases (tipo_unidad)' })
+  @ApiOperation({
+    summary: 'Listar clases (tipo_unidad)',
+    description:
+      'Cada clase incluye `esCarrera` (sus unidades llevan el bloque SIA) y `esDecanato` (sus unidades y las que dependen de ellas llevan el bloque de Proyectos).',
+  })
   async listClases() {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,

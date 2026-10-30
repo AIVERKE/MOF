@@ -38,6 +38,15 @@ export class MofConfig {
   @Column({ type: 'jsonb' })
   paleta: string[][];
 
+  /** Colores de nodo por posición de Clase cuando ni la unidad ni la Clase tienen color. */
+  @Column({
+    name: 'paleta_nodos',
+    type: 'jsonb',
+    default: () =>
+      `'["#1D4ED8","#B91C1C","#047857","#B45309","#6D28D9","#BE185D","#0369A1","#C2410C"]'`,
+  })
+  paletaNodos: string[];
+
   @Column({
     name: 'password_policy',
     type: 'jsonb',

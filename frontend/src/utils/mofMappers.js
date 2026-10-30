@@ -53,6 +53,7 @@ import {
   formatDateToString,
   resolveCatalogItem,
   getCleanSigla,
+  isClaseCarrera,
 } from "@/utils/mofHelpers";
 
 /** Id de unidad relacionada como entero positivo, o null si no es válido. */
@@ -90,6 +91,7 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     fecCreacion: null,
     relacion: d.relacion !== undefined ? d.relacion : null,
     cargos: [],
+    inventarios: [],
     funciones: [],
     dependenciasFuncionales: [],
     es_desconcentrada: d.es_desconcentrada === true || d.esDesconcentrada === true,
@@ -97,12 +99,17 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     nivel: d.nivel !== undefined ? d.nivel : null,
     clase: d.clase !== undefined ? d.clase : null,
     parentId: parentId ? getSafeId(parentId) : null,
-    color: d.color || "#1976D2",
+    color: d.colorPropio !== undefined ? d.colorPropio : (d.color || null),
+    colorPropio: d.colorPropio !== undefined ? d.colorPropio : null,
+    colorClase: d.colorClase !== undefined ? d.colorClase : null,
     oficial: d.oficial !== undefined ? d.oficial !== false : true,
     es_troncal: d.es_troncal === true,
     es_sub_troncal: d.es_sub_troncal === true || d.es_subtroncal === true,
     es_subtroncal: d.es_sub_troncal === true || d.es_subtroncal === true,
     lado: d.lado || "AUTOMATICO",
+    planificacionEstrategicaAplica: d.planificacionEstrategicaAplica === true || d.planificacion_estrategica_aplica === true,
+    planificacionEstrategicaValor: d.planificacionEstrategicaValor ?? d.planificacion_estrategica_valor ?? null,
+    planificacionEstrategica: d.planificacionEstrategica || d.planificacion_estrategica || "",
     tramitesAtendidos: "",
     ejecucionPoa: "",
     ejecucionPresupuestaria: "",
@@ -112,6 +119,9 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     ubicacion: "",
     relacionesInternas: [],
     relacionesExternas: [],
+    sia: [],
+    proyectos: [],
+    aplicaProyectos: false,
   };
 }
 
@@ -254,8 +264,20 @@ export function mapBackendToForm(raw, options = {}) {
     descripcion: r.descripcion || (typeof r === "string" ? r : ""),
   }));
 
+  // 7. Resolver Filas SIA (solo para unidades Carrera)
+  const sia = Array.isArray(raw.sia)
+    ? raw.sia.map((s) => ({
+        id: s.id ?? null,
+        aprobados: s.aprobados ?? null,
+        reprobados: s.reprobados ?? null,
+        matriculados: s.matriculados ?? null,
+      }))
+    : [];
+
   return {
     id: raw.id ?? null,
+    esCarrera: Boolean(raw.esCarrera),
+    sia,
     nombre: raw.nombre || raw.denominacion || "",
     codigo: raw.codigo || "",
     sigla:
@@ -275,7 +297,9 @@ export function mapBackendToForm(raw, options = {}) {
     relacion: relacionId,
     parentId: getSafeId(raw.parentId ?? raw.parent),
     cargos,
-    color: raw.color || "#1976D2",
+    color: raw.colorPropio !== undefined ? raw.colorPropio : (raw.color || null),
+    colorPropio: raw.colorPropio ?? null,
+    colorClase: raw.colorClase ?? null,
     oficial: raw.oficial !== false,
     es_troncal: raw.es_troncal === true || raw.esTroncal === true,
     es_sub_troncal:
@@ -298,6 +322,39 @@ export function mapBackendToForm(raw, options = {}) {
     ubicacion: raw.ubicacion || "",
     relacionesInternas,
     relacionesExternas,
+    planificacionEstrategicaAplica: Boolean(
+      raw.planificacionEstrategicaAplica ??
+      raw.planificacion_estrategica_aplica
+    ),
+    planificacionEstrategicaValor:
+      raw.planificacionEstrategicaValor ??
+      raw.planificacion_estrategica_valor ??
+      null,
+    planificacionEstrategica:
+      raw.planificacionEstrategica ||
+      raw.planificacion_estrategica ||
+      "",
+    inventarios: Array.isArray(raw.inventarios)
+      ? raw.inventarios.map((i) => ({
+          id: i.id != null ? Number(i.id) : null,
+          descripcion: i.descripcion || "",
+          cantidad: Math.max(1, parseInt(i.cantidad, 10) || 1),
+        }))
+      : [],
+    aplicaProyectos: Boolean(raw.aplicaProyectos || raw.aplica_proyectos),
+    proyectosCount: raw.proyectosCount ?? raw.proyectos_count ?? 0,
+    proyectos: Array.isArray(raw.proyectos)
+      ? raw.proyectos.map((p) => ({
+          id: p.id != null ? Number(p.id) : null,
+          tipo: p.tipo || "",
+          detalle: p.detalle || "",
+          unidadIds: Array.isArray(p.unidades)
+            ? p.unidades
+                .map((u) => (typeof u === "object" ? u.id : u))
+                .filter((id) => String(id) !== String(raw.id))
+            : (Array.isArray(p.unidadIds) ? p.unidadIds : []),
+        }))
+      : [],
   };
 }
 
@@ -315,7 +372,7 @@ export function mapBackendToForm(raw, options = {}) {
  * @param {Object} formData - Estado del formulario
  * @returns {Object} Payload listo para enviar por HTTP
  */
-export function mapFormToBackend(formData) {
+export function mapFormToBackend(formData, options = {}) {
   if (!formData) return {};
 
   const isTroncal = formData.es_troncal === true || formData.esTroncal === true;
@@ -334,7 +391,36 @@ export function mapFormToBackend(formData) {
         .filter((id) => id !== null)
     : [];
 
-  return {
+  const isCarrera =
+    options.isCarrera !== undefined
+      ? Boolean(options.isCarrera)
+      : isClaseCarrera(formData.clase ?? formData.tipoUnidad, options.clasesCatalog);
+
+  const cleanSia = (formData.sia || [])
+    .map((item) => {
+      const toIntOrNull = (val) => {
+        if (val === "" || val == null) return null;
+        const num = Number(val);
+        return Number.isInteger(num) && num >= 0 ? num : null;
+      };
+      const row = {
+        aprobados: toIntOrNull(item.aprobados),
+        reprobados: toIntOrNull(item.reprobados),
+        matriculados: toIntOrNull(item.matriculados),
+      };
+      if (item.id != null) {
+        row.id = Number(item.id);
+      }
+      return row;
+    })
+    .filter(
+      (row) =>
+        row.aprobados != null ||
+        row.reprobados != null ||
+        row.matriculados != null,
+    );
+
+  const payload = {
     codigo: formData.codigo?.trim() || "",
     sigla: formData.sigla?.trim() || "",
     nombre: formData.nombre?.trim() || "",
@@ -346,7 +432,7 @@ export function mapFormToBackend(formData) {
     resCreacion: (formData.resCreacion ?? formData.res_creacion)?.trim() || "",
     fecCreacion: formatDateToString(formData.fecCreacion) || null,
     objetivo: (formData.objetivo ?? formData.objetivo_puesto)?.trim() || "",
-    color: formData.color || "#1976D2",
+    color: formData.color ? String(formData.color).trim().toUpperCase() : null,
     // MAPEO CANÓNICO: 'clase' del formulario se envía como 'tipoUnidad' al backend NestJS
     tipoUnidad: getSafeId(formData.clase ?? formData.tipoUnidad) || 1,
     oficial: formData.oficial !== false,
@@ -364,6 +450,20 @@ export function mapFormToBackend(formData) {
     cargaHorariaEjecutada: (formData.cargaHorariaEjecutada ?? formData.carga_horaria_ejecutada)?.trim() || null,
     infraestructura: (formData.infraestructura ?? formData.infraestructura_fisica)?.trim() || null,
     ubicacion: formData.ubicacion?.trim() || null,
+    planificacionEstrategicaAplica: Boolean(formData.planificacionEstrategicaAplica),
+    ...(formData.planificacionEstrategicaAplica
+      ? {
+          planificacionEstrategicaValor:
+            formData.planificacionEstrategicaValor !== "" &&
+            formData.planificacionEstrategicaValor != null
+              ? Number(formData.planificacionEstrategicaValor)
+              : null,
+          planificacionEstrategica:
+            typeof formData.planificacionEstrategica === "string"
+              ? formData.planificacionEstrategica.trim() || null
+              : null,
+        }
+      : {}),
     relacionesInternas: uniqueByRelacionadaId(
       (formData.relacionesInternas || []).map((r) => ({
         relacionadaId: toRelId(typeof r === "object" && r !== null ? r.relacionadaId : r),
@@ -373,5 +473,50 @@ export function mapFormToBackend(formData) {
     relacionesExternas: (formData.relacionesExternas || [])
       .map((r) => (typeof r === "object" ? r.descripcion?.trim() : String(r).trim()))
       .filter(Boolean),
+    inventarios: Array.isArray(formData.inventarios)
+      ? formData.inventarios
+          .filter((i) => i && typeof i.descripcion === "string" && i.descripcion.trim().length > 0)
+          .map((i) => {
+            const item = {
+              descripcion: i.descripcion.trim(),
+              cantidad: Math.max(1, parseInt(i.cantidad, 10) || 1),
+            };
+            if (i.id != null && Number.isInteger(Number(i.id)) && Number(i.id) > 0) {
+              item.id = Number(i.id);
+            }
+            return item;
+          })
+      : undefined,
   };
+
+  if (isCarrera) {
+    payload.sia = cleanSia;
+  }
+
+  const isAplicaProy =
+    options?.aplicaProyectos === true ||
+    formData.aplicaProyectos === true ||
+    formData.aplica_proyectos === true;
+
+  if (isAplicaProy && Array.isArray(formData.proyectos)) {
+    payload.proyectos = formData.proyectos
+      .filter((p) => p && (String(p.tipo || "").trim() || String(p.detalle || "").trim()))
+      .map((p) => {
+      const item = {
+        tipo: String(p.tipo || "").trim(),
+        detalle: String(p.detalle || "").trim(),
+      };
+      if (p.id != null && Number(p.id) > 0) {
+        item.id = Number(p.id);
+      }
+      if (Array.isArray(p.unidadIds)) {
+        item.unidadIds = p.unidadIds
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id) && id > 0);
+      }
+      return item;
+    });
+  }
+
+  return payload;
 }

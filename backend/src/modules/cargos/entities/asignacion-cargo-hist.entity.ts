@@ -66,7 +66,7 @@ export class AsignacionCargoHist {
   @Column({ name: 'unidad_id_nuevo', type: 'bigint', nullable: true })
   unidadIdNuevo: string | null;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
+  @Column({ type: 'text', nullable: true })
   razon: string | null;
 
   @CreateDateColumn({ name: 'changed_at', type: 'timestamptz' })
