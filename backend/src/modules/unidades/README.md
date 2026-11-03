@@ -20,7 +20,7 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 14. **OBJETIVO** (`objetivo`)
 15. **BASE LEGAL** (`baseLegal` - base legal general de la unidad)
 16. **FUNCIONES Y BASE LEGAL** (`funciones` - funciones con su base legal específica)
-17. **RELACIONAMIENTO Y COORDINACIÓN INTERNA** (`relacionesInternas` / `unidad_relacion_interna`)
+17. **RELACIONAMIENTO Y COORDINACIÓN INTERNA** (`relacionesInternas` / `unidad_relacion_interna` para unidades del catálogo, `coordinacionesInternas` / `unidad_coordinacion_interna` para textos libres; lista unificada en `relacionamientoInterno`)
 18. **RELACIONAMIENTO Y COORDINACIÓN INTERINSTITUCIONAL** (`relacionesExternas` / `unidad_relacion_externa`)
 19. **PERSONAL (FIJO)** (`cargos` / talento humano asignado)
 20. **TRÁMITES ATENDIDOS** (`tramitesAtendidos` / `tramites_atendidos`)
@@ -52,6 +52,93 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 - `GET /api/v1/mof/unidades/:id/relaciones-internas`: Listar unidades relacionadas internamente.
 - `POST /api/v1/mof/unidades/:id/relaciones-internas`: Agregar relación interna `{ relacionadaId: number, tipo?: string }`.
 - `DELETE /api/v1/mof/unidades/:id/relaciones-internas/:relacionId`: Eliminar relación interna.
+
+#### Textos libres (sección O del MOF)
+La coordinación interna admite dos tipos de ítem, que conviven:
+
+- **Unidades del catálogo** (`relacionesInternas`, tabla `unidad_relacion_interna`): igual que siempre, sin cambios.
+- **Textos libres** (`coordinacionesInternas`, tabla `unidad_coordinacion_interna`): descripciones o agrupaciones abiertas como «Unidades Organizacionales de la Facultad» o «Departamento de Planificación y Coordinación». Columna `descripcion` `text`, sin tope de longitud.
+
+Son campos y tablas independientes: cambiar uno no toca el otro.
+
+##### Lectura
+`GET /api/v1/mof/unidades/:id` trae tres listas:
+
+```json
+{
+  "relacionesInternas": [
+    { "id": 7, "relacionadaId": 20, "codigo": "1.2.3", "nombre": "CARRERA DE INFORMÁTICA", "sigla": "INF", "tipo": null }
+  ],
+  "coordinacionesInternas": [
+    { "id": 1, "descripcion": "Unidades Organizacionales de la Facultad" },
+    { "id": 2, "descripcion": "Departamento de Planificación y Coordinación" }
+  ],
+  "relacionamientoInterno": [
+    { "orden": 1, "origen": "TEXTO",  "id": 1, "descripcion": "Unidades Organizacionales de la Facultad" },
+    { "orden": 2, "origen": "TEXTO",  "id": 2, "descripcion": "Departamento de Planificación y Coordinación" },
+    { "orden": 3, "origen": "UNIDAD", "id": 7, "descripcion": "CARRERA DE INFORMÁTICA",
+      "relacionadaId": 20, "codigo": "1.2.3", "sigla": "INF", "tipo": null }
+  ]
+}
+```
+
+- `relacionesInternas`: sin cambios. La sigue usando el selector de unidades del formulario.
+- `coordinacionesInternas`: textos libres en orden de alta. Es lo que edita el formulario.
+- `relacionamientoInterno`: la lista ya unificada y numerada que muestra el panel lateral. Primero van los textos libres y después las unidades vinculadas, cada grupo en su orden de alta. `orden` va de 1 a n sin cortes. En los ítems `UNIDAD`, `descripcion` es el nombre de la unidad e `id` es el de la fila de relación (no el de la unidad: ese es `relacionadaId`).
+
+##### Escritura desde el formulario
+`POST /api/v1/mof/unidades` y `PUT /api/v1/mof/unidades/:id` aceptan `coordinacionesInternas`:
+
+```json
+"coordinacionesInternas": [
+  "Unidades Organizacionales de la Facultad",
+  "Departamento de Planificación y Coordinación"
+]
+```
+
+- Reemplaza la lista completa en el orden enviado. Así se editan textos (se manda el texto nuevo en su posición) y se eliminan (se deja de mandar).
+- `[]` vacía la lista. Si se omite el campo, no se modifica. Un `PUT` que solo trae `relacionesInternas` conserva los textos, y al revés.
+- Cada ítem puede ser un string o `{ "descripcion": "…" }`. Se recorta y se colapsan los espacios internos. Los textos vacíos y los repetidos exactos se descartan sin error. Sin límite de longitud ni lista de caracteres.
+- Un ítem que no es texto (número, `null`, etc.) responde 400 `VALIDATION_FAILED` (`"Cada coordinación interna debe ser un texto"`) y no se guarda nada.
+- Se guarda en la misma transacción que el resto de la unidad: si algo falla, no se guarda nada.
+
+##### Endpoints por ítem (escritura: ADMIN, OPERADOR)
+- `GET /api/v1/mof/unidades/:id/coordinaciones-internas`: lista `[{ id, descripcion }]`.
+- `GET /api/v1/mof/unidades/:id/coordinaciones-internas/:coordinacionId`: un ítem.
+- `POST /api/v1/mof/unidades/:id/coordinaciones-internas`: agrega `{ descripcion }`. Devuelve `{ id, descripcion }`.
+- `PUT /api/v1/mof/unidades/:id/coordinaciones-internas/:coordinacionId`: reemplaza `{ descripcion }`. Devuelve `{ id, descripcion }`.
+- `DELETE /api/v1/mof/unidades/:id/coordinaciones-internas/:coordinacionId`: elimina el ítem.
+
+`descripcion` es obligatoria (vacía tras recortar → 400 `VALIDATION_FAILED`). Un ítem de otra unidad o una unidad inexistente responde 404 (`NOT_FOUND`). Estos cambios no generan auditoría ni avisos a la Gaceta (`OrganigramaSubscriber` solo sigue `unidad` y `unidad_funcion`), igual que las relaciones externas.
+
+##### Reporte PDF
+En `GET /api/v1/mof/unidades/pdf/:id`, la columna **Interno** del bloque "Relacionamiento y coordinación" es una **lista numerada continua** (`1.`, `2.`, …): primero los textos libres y después las unidades vinculadas. Las unidades conservan el resumen por grupos (`TODAS LAS CARRERAS (12)`, etc.) y el formato `NOMBRE (SIGLA)`. Las líneas siguientes de un texto de varias líneas se sangran bajo el número. La columna **Interinstitucional / externo** no cambia: sigue con viñetas.
+
+##### Integración en el front
+1. **Mappers** (`frontend/src/utils/mofMappers.js`):
+   - En el formulario vacío (junto a `relacionesInternas: []`, ~línea 120): `coordinacionesInternas: []`.
+   - Detalle → formulario (después de `relacionesExternas`, ~línea 261): `coordinacionesInternas: (raw.coordinacionesInternas || []).map((c) => ({ id: c.id, descripcion: c.descripcion || "" }))`.
+   - Formulario → payload (junto a `relacionesExternas`, ~línea 473): `coordinacionesInternas: (formData.coordinacionesInternas || []).map((c) => (typeof c === "object" ? c.descripcion : String(c)).trim()).filter(Boolean)`. Enviarlo **siempre**, aunque esté vacío, para que se persistan las eliminaciones.
+   - Agregar casos en `utils/__tests__/mofMappers.spec.js` (ida y vuelta, vacíos descartados).
+2. **Formulario** (`frontend/src/views/MOF/unidades/UnidadFormDialog.vue`, sección `section-relacionamiento`):
+   - No tocar el `SelectAllUnidades` de "Coordinación Interna (Unidades relacionadas)" (`internalRelUnitIds`).
+   - Debajo, agregar el bloque "Coordinación Interna (texto libre)", copiado del bloque interinstitucional (`nuevaRelacionExterna` / `agregarRelacionExterna` / `eliminarRelacionExterna`):
+     - `v-text-field` con `@keydown.enter.prevent` y botón «Agregar» deshabilitado si el texto está vacío;
+     - no agregar un texto repetido (comparación tras `trim`).
+   - Lista de los textos agregados, en el orden en que se mandan:
+     - cada ítem se puede **editar** (lápiz → campo editable en línea con confirmar/cancelar; no se guarda vacío) y **eliminar** (cerrar o ícono de basura);
+     - una lista vertical (`v-list` o filas) queda mejor que chips, porque los textos pueden ser largos.
+   - Los cambios viajan en el `POST`/`PUT` de la unidad: no hace falta llamar a los endpoints por ítem.
+   - Hint nuevo `coordinacionInternaTexto` en `frontend/src/config/hints.js` (`hints.unidadForm`).
+   - Sin `maxlength`: el backend no tiene tope.
+3. **Detalle** (`frontend/src/composables/useUnidadDetails.js`, donde se arma `relaciones_internas` ~línea 151): agregar `relacionamiento_interno: Array.isArray(data.relacionamientoInterno) ? data.relacionamientoInterno : []`. Mantener `relaciones_internas` como está.
+4. **Panel lateral** (`frontend/src/views/MOF/unidades/UnidadDetailsDrawer.vue`):
+   - Badge del panel (~línea 156): `relIntCount = data.relacionamiento_interno?.length ?? data.relaciones_internas?.length ?? 0`.
+   - Panel `relaciones_internas` (~líneas 903-957): recorrer `detailData.relacionamiento_interno` con `:key="rel.origen + rel.id"` y anteponer `{{ rel.orden }}.` a cada fila.
+     - `origen === 'TEXTO'`: ícono `mdi-text-box-outline` y `rel.descripcion`, sin chips.
+     - `origen === 'UNIDAD'`: la fila actual, con `rel.descripcion` como nombre y los chips de `sigla`, `codigo` y `tipo`.
+   - El mensaje "Sin relacionamiento interno registrado." se muestra solo si la lista unificada está vacía.
+5. **Fuera de alcance**: la coordinación interinstitucional (UI y payload sin cambios), inventarios, SIA y proyectos.
 
 ### Relacionamiento y Coordinación Interinstitucional (Externa)
 

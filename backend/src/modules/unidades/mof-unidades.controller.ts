@@ -43,6 +43,8 @@ import {
   ProyectoUnidadRefDto,
   SetParentDto,
   UnidadContadoresResponseDto,
+  UnidadCoordinacionInternaDto,
+  UnidadCoordinacionInternaResponseDto,
   UnidadDto,
   UnidadFuncionDto,
   UnidadInventarioDto,
@@ -68,6 +70,9 @@ function resultSchema(data: Record<string, unknown>) {
 
 const inventarioSchema = { $ref: getSchemaPath(UnidadInventarioResponseDto) };
 const siaSchema = { $ref: getSchemaPath(UnidadSiaResponseDto) };
+const coordinacionInternaSchema = {
+  $ref: getSchemaPath(UnidadCoordinacionInternaResponseDto),
+};
 const proyectoSchema = { $ref: getSchemaPath(ProyectoResponseDto) };
 const proyectoTipoSchema = { $ref: getSchemaPath(ProyectoTipoResponseDto) };
 const contadoresSchema = {
@@ -92,6 +97,7 @@ const SIA_BAD_REQUEST =
 @ApiTags('MOF - Unidades')
 @ApiExtraModels(
   ResultResponse,
+  UnidadCoordinacionInternaResponseDto,
   UnidadInventarioResponseDto,
   UnidadSiaResponseDto,
   UnidadContadoresResponseDto,
@@ -452,6 +458,107 @@ export class MofUnidadesController {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
       await this.unidadesService.removeRelacionInterna(id, relacionId),
+    );
+  }
+
+  // --- COORDINACIÓN INTERNA (TEXTO LIBRE) ---
+  @Get('unidades/:id/coordinaciones-internas')
+  @ApiOperation({
+    summary: 'Listar coordinaciones internas en texto libre de la unidad',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiOkResponse({
+    schema: resultSchema({ type: 'array', items: coordinacionInternaSchema }),
+  })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
+  async listCoordinacionesInternas(@Param('id', ParseIntPipe) id: number) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.listCoordinacionesInternas(id),
+    );
+  }
+
+  @Get('unidades/:id/coordinaciones-internas/:coordinacionId')
+  @ApiOperation({ summary: 'Obtener una coordinación interna en texto libre' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'coordinacionId', description: 'ID de la coordinación' })
+  @ApiOkResponse({ schema: resultSchema(coordinacionInternaSchema) })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o el ítem no pertenece a la unidad',
+  })
+  async getCoordinacionInterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('coordinacionId', ParseIntPipe) coordinacionId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.FIND_SUCCESSFULLY,
+      await this.unidadesService.getCoordinacionInterna(id, coordinacionId),
+    );
+  }
+
+  @Post('unidades/:id/coordinaciones-internas')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Agregar coordinación interna en texto libre' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiBody({ type: UnidadCoordinacionInternaDto })
+  @ApiCreatedResponse({ schema: resultSchema(coordinacionInternaSchema) })
+  @ApiBadRequestResponse({ description: 'Error de validación' })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
+  async addCoordinacionInterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UnidadCoordinacionInternaDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.addCoordinacionInterna(id, dto),
+    );
+  }
+
+  @Put('unidades/:id/coordinaciones-internas/:coordinacionId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Actualizar coordinación interna en texto libre' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'coordinacionId', description: 'ID de la coordinación' })
+  @ApiBody({ type: UnidadCoordinacionInternaDto })
+  @ApiOkResponse({ schema: resultSchema(coordinacionInternaSchema) })
+  @ApiBadRequestResponse({ description: 'Error de validación' })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o el ítem no pertenece a la unidad',
+  })
+  async updateCoordinacionInterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('coordinacionId', ParseIntPipe) coordinacionId: number,
+    @Body() dto: UnidadCoordinacionInternaDto,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.updateCoordinacionInterna(
+        id,
+        coordinacionId,
+        dto,
+      ),
+    );
+  }
+
+  @Delete('unidades/:id/coordinaciones-internas/:coordinacionId')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({ summary: 'Eliminar coordinación interna en texto libre' })
+  @ApiParam({ name: 'id', description: 'ID de la unidad' })
+  @ApiParam({ name: 'coordinacionId', description: 'ID de la coordinación' })
+  @ApiOkResponse({ schema: resultSchema({ type: 'boolean', example: true }) })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  @ApiNotFoundResponse({
+    description: 'Unidad no encontrada o el ítem no pertenece a la unidad',
+  })
+  async removeCoordinacionInterna(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('coordinacionId', ParseIntPipe) coordinacionId: number,
+  ) {
+    return ResultResponse.ok(
+      RestMessages.UPDATE_SUCCESSFULLY,
+      await this.unidadesService.removeCoordinacionInterna(id, coordinacionId),
     );
   }
 

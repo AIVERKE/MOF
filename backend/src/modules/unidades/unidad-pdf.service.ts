@@ -35,6 +35,8 @@ export type UnidadPdfDetail = {
   hijasLineales?: { nombre?: string | null; sigla?: string | null }[];
   hijasFuncionales?: { nombre?: string | null; sigla?: string | null }[];
   relacionesInternas?: { nombre?: string | null; sigla?: string | null }[];
+  /** Textos libres de coordinación interna; van antes que las unidades vinculadas. */
+  coordinacionesInternas?: { descripcion?: string | null }[];
   relacionesExternas?: { descripcion?: string | null }[];
 };
 
@@ -170,7 +172,7 @@ export class UnidadPdfService {
       const funcional = this.listNames(detail.hijasFuncionales);
       const objetivo = this.clean(detail.objetivo) || '-';
       const baseLegalUnidad = this.clean(detail.baseLegal || detail.base_legal);
-      const relInterno = this.listNames(detail.relacionesInternas);
+      const relInterno = this.relacionamientoInterno(detail);
       const relExterno = this.listDescripciones(detail.relacionesExternas);
 
       // —— Header institucional ——
@@ -925,17 +927,47 @@ export class UnidadPdfService {
     return blocks.length ? blocks.join('\n') : '-';
   }
 
+  /**
+   * Lista numerada continua: `1. TEXTO`. Las líneas siguientes de un ítem se
+   * sangran bajo el texto, conservando los marcadores propios que traiga.
+   */
+  private numberedList(items: string[]): string {
+    const blocks = items
+      .map((item) => this.upper(item).split('\n').filter(Boolean))
+      .filter((lines) => lines.length > 0)
+      .map((lines, i) => {
+        const prefix = `${i + 1}. `;
+        // Un espacio más que el prefijo: los dígitos son más anchos que un espacio.
+        const indent = ' '.repeat(prefix.length + 1);
+        return lines
+          .map((line, j) => (j === 0 ? `${prefix}${line}` : `${indent}${line}`))
+          .join('\n');
+      });
+    return blocks.length ? blocks.join('\n') : '-';
+  }
+
+  /** Sección "Relacionamiento y coordinación interna": textos libres y luego unidades vinculadas. */
+  private relacionamientoInterno(detail: UnidadPdfDetail): string {
+    return this.numberedList([
+      ...(detail.coordinacionesInternas || []).map((c) => c.descripcion || ''),
+      ...(detail.relacionesInternas || []).map((r) => this.nameWithSigla(r)),
+    ]);
+  }
+
+  private nameWithSigla(i: {
+    nombre?: string | null;
+    sigla?: string | null;
+  }): string {
+    const nombre = (i.nombre || '').trim();
+    const sigla = (i.sigla || '').trim();
+    if (!nombre) return sigla;
+    return sigla && sigla !== nombre ? `${nombre} (${sigla})` : nombre;
+  }
+
   private listNames(
     items?: { nombre?: string | null; sigla?: string | null }[],
   ): string {
-    return this.bulletList(
-      (items || []).map((i) => {
-        const nombre = (i.nombre || '').trim();
-        const sigla = (i.sigla || '').trim();
-        if (!nombre) return sigla;
-        return sigla && sigla !== nombre ? `${nombre} (${sigla})` : nombre;
-      }),
-    );
+    return this.bulletList((items || []).map((i) => this.nameWithSigla(i)));
   }
 
   private listDescripciones(items?: { descripcion?: string | null }[]): string {

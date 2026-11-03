@@ -247,6 +247,33 @@ export class UnidadDto {
   @ArrayMaxSize(MAX_RELACIONES)
   relacionesInternas?: (number | UnidadRelacionInternaDto)[];
 
+  @ApiPropertyOptional({
+    description:
+      'Coordinación interna en texto libre (ej. "Unidades Organizacionales de la Facultad"). Se aceptan strings o `{ descripcion }`. Reemplaza la lista completa en el orden enviado: se recortan los textos, se descartan vacíos y repetidos. `[]` la vacía; si se omite, no se modifica. Independiente de `relacionesInternas`.',
+    type: [String],
+    example: [
+      'Unidades Organizacionales de la Facultad',
+      'Departamento de Planificación y Coordinación',
+    ],
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    Array.isArray(value)
+      ? value.map((item: unknown) =>
+          item && typeof item === 'object'
+            ? (item as { descripcion?: unknown }).descripcion
+            : item,
+        )
+      : value,
+  )
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_RELACIONES)
+  @IsString({
+    each: true,
+    message: 'Cada coordinación interna debe ser un texto',
+  })
+  coordinacionesInternas?: string[];
+
   @ApiPropertyOptional({ description: 'Relaciones externas asociadas' })
   @IsOptional()
   @IsArray()
@@ -329,6 +356,19 @@ export class UnidadRelacionInternaDto {
   tipo?: string;
 }
 
+export class UnidadCoordinacionInternaDto {
+  @ApiProperty({
+    description: 'Texto libre de coordinación interna (sin límite de longitud)',
+    example: 'Unidades Organizacionales de la Facultad',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @IsNotEmpty({ message: 'La descripción de la coordinación es obligatoria' })
+  descripcion: string;
+}
+
 export class UnidadRelacionExternaDto {
   @ApiProperty({ description: 'Descripción de la relación externa' })
   @IsString()
@@ -377,6 +417,14 @@ export class UnidadInventarioResponseDto {
 
   @ApiProperty({ example: 3 })
   cantidad: number;
+}
+
+export class UnidadCoordinacionInternaResponseDto {
+  @ApiProperty({ example: 4 })
+  id: number;
+
+  @ApiProperty({ example: 'Unidades Organizacionales de la Facultad' })
+  descripcion: string;
 }
 
 export class UnidadContadoresResponseDto {
