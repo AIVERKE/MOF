@@ -194,3 +194,53 @@ describe("mapeo de color propio y herencia de clase", () => {
     expect(empty.color).toBeNull();
   });
 });
+
+describe("coordinacionesInternas (textos libres en coordinación interna)", () => {
+  it("mapBackendToForm mapea coordinacionesInternas a { id, descripcion }", () => {
+    const raw = {
+      id: 1,
+      nombre: "Unidad X",
+      coordinacionesInternas: [
+        { id: 10, descripcion: "Unidades Organizacionales de la Facultad" },
+        { id: 11, descripcion: "Departamento de Planificación y Coordinación" },
+      ],
+    };
+    const form = mapBackendToForm(raw);
+    expect(form.coordinacionesInternas).toEqual([
+      { id: 10, descripcion: "Unidades Organizacionales de la Facultad" },
+      { id: 11, descripcion: "Departamento de Planificación y Coordinación" },
+    ]);
+  });
+
+  it("mapBackendToForm inicializa coordinacionesInternas como arreglo vacío si no viene", () => {
+    const form = mapBackendToForm({ id: 2, nombre: "Sin coordinaciones" });
+    expect(form.coordinacionesInternas).toEqual([]);
+  });
+
+  it("mapFormToBackend recorta, filtra vacíos y envía siempre coordinacionesInternas", () => {
+    const payload = mapFormToBackend({
+      nombre: "Unidad",
+      coordinacionesInternas: [
+        { id: 1, descripcion: "  Texto con espacios  " },
+        { descripcion: "" },
+        "   ",
+        "Coordinación libre directa",
+        { id: 2, descripcion: "Otra coordinación" },
+      ],
+    });
+
+    expect(payload.coordinacionesInternas).toEqual([
+      "Texto con espacios",
+      "Coordinación libre directa",
+      "Otra coordinación",
+    ]);
+  });
+
+  it("mapFormToBackend envía arreglo vacío si coordinacionesInternas está vacío para persistir eliminaciones", () => {
+    const payload = mapFormToBackend({
+      nombre: "Unidad",
+      coordinacionesInternas: [],
+    });
+    expect(payload.coordinacionesInternas).toEqual([]);
+  });
+});
