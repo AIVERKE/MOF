@@ -5,6 +5,7 @@ import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcio
 import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
 import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity';
 import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity';
+import { UnidadCoordinacionInterna } from './entities/unidad-coordinacion-interna.entity';
 import { UnidadInventario } from './entities/unidad-inventario.entity';
 import { UnidadSia } from './entities/unidad-sia.entity';
 import { Proyecto } from './entities/proyecto.entity';
@@ -26,6 +27,7 @@ import {
   ProyectoItemDto,
   SIA_CAMPOS,
   SetParentDto,
+  UnidadCoordinacionInternaDto,
   UnidadDto,
   UnidadFuncionDto,
   UnidadInventarioDto,
@@ -42,7 +44,11 @@ import {
   throwBusiness,
 } from '../../common/exceptions/business.exception';
 import { ErrorCodes } from '../../common/errors';
-import { resumirRelacionesInternas } from './relaciones-internas-resumen';
+import {
+  consolidarRelacionamientoInterno,
+  normalizarCoordinacionesInternas,
+  resumirRelacionesInternas,
+} from './relaciones-internas-resumen';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -245,6 +251,8 @@ export class UnidadesService {
     private readonly proyectoRepo: Repository<Proyecto>,
     @InjectRepository(ProyectoUnidad)
     private readonly proyectoUnidadRepo: Repository<ProyectoUnidad>,
+    @InjectRepository(UnidadCoordinacionInterna)
+    private readonly coordIntRepo: Repository<UnidadCoordinacionInterna>,
   ) {}
 
   private async resolveCatalogId(
@@ -472,6 +480,12 @@ export class UnidadesService {
       descripcion: r.descripcion,
     }));
 
+    const coordinacionesInternas = await this.findCoordinacionesInternas(u.id);
+    const relacionamientoInterno = consolidarRelacionamientoInterno(
+      coordinacionesInternas,
+      relacionesInternas,
+    );
+
     const inventariosRaw = await this.inventarioRepo.find({
       where: { unidadId: String(u.id) },
       order: { id: 'ASC' },
@@ -559,6 +573,8 @@ export class UnidadesService {
       hijasFuncionales,
       unidadesDependientesFuncionales: hijasFuncionales,
       relacionesInternas,
+      coordinacionesInternas,
+      relacionamientoInterno,
       relacionesExternas,
       inventarios,
       esCarrera,
@@ -748,6 +764,13 @@ export class UnidadesService {
       if (dto.relacionesInternas?.length) {
         await this.replaceRelacionesInternas(m, row.id, dto.relacionesInternas);
       }
+      if (dto.coordinacionesInternas?.length) {
+        await this.replaceCoordinacionesInternas(
+          m,
+          row.id,
+          dto.coordinacionesInternas,
+        );
+      }
       if (dto.relacionesExternas?.length) {
         await this.replaceRelacionesExternas(m, row.id, dto.relacionesExternas);
       }
@@ -909,6 +932,13 @@ export class UnidadesService {
       if (dto.relacionesInternas !== undefined) {
         await this.replaceRelacionesInternas(m, id, dto.relacionesInternas);
       }
+      if (dto.coordinacionesInternas !== undefined) {
+        await this.replaceCoordinacionesInternas(
+          m,
+          id,
+          dto.coordinacionesInternas,
+        );
+      }
       if (dto.relacionesExternas !== undefined) {
         await this.replaceRelacionesExternas(m, id, dto.relacionesExternas);
       }
@@ -975,6 +1005,24 @@ export class UnidadesService {
       ids.map((depId) => ({
         unidadId: String(unidadId),
         dependenciaId: String(depId),
+      })),
+    );
+  }
+
+  /** Deja los textos libres de coordinación interna iguales a `items`, en ese orden. */
+  private async replaceCoordinacionesInternas(
+    m: EntityManager,
+    unidadId: number | string,
+    items: readonly (string | UnidadCoordinacionInternaDto)[],
+  ) {
+    const descripciones = normalizarCoordinacionesInternas(items);
+    await m.delete(UnidadCoordinacionInterna, { unidadId: String(unidadId) });
+    if (!descripciones.length) return;
+    await m.insert(
+      UnidadCoordinacionInterna,
+      descripciones.map((descripcion) => ({
+        unidadId: String(unidadId),
+        descripcion,
       })),
     );
   }
@@ -1551,6 +1599,93 @@ export class UnidadesService {
     });
     if (!rel) notFound(relacionId);
     await this.relIntRepo.remove(rel);
+    return true;
+  }
+
+  // --- COORDINACIÓN INTERNA (TEXTO LIBRE) ---
+  private async findCoordinacionesInternas(unidadId: number | string) {
+    const rows = await this.coordIntRepo.find({
+      where: { unidadId: String(unidadId) },
+      order: { id: 'ASC' },
+    });
+    return rows.map((r) => this.mapCoordinacionInterna(r));
+  }
+
+  private mapCoordinacionInterna(r: UnidadCoordinacionInterna) {
+    return { id: Number(r.id), descripcion: r.descripcion };
+  }
+
+  private async findCoordinacionInternaOrFail(
+    unidadId: number,
+    coordinacionId: number,
+  ) {
+    const row = await this.coordIntRepo.findOne({
+      where: { id: String(coordinacionId), unidadId: String(unidadId) },
+    });
+    if (!row) notFound(coordinacionId);
+    return row;
+  }
+
+  /** Normaliza un texto suelto; vacío tras recortar responde VALIDATION_FAILED. */
+  private descripcionCoordinacion(dto: UnidadCoordinacionInternaDto): string {
+    const [descripcion] = normalizarCoordinacionesInternas([dto.descripcion]);
+    if (!descripcion) {
+      throwBusiness(
+        ErrorCodes.VALIDATION_FAILED,
+        null,
+        'La descripción de la coordinación es obligatoria',
+      );
+    }
+    return descripcion;
+  }
+
+  async listCoordinacionesInternas(unidadId: number) {
+    await this.assertUnidadExists(unidadId);
+    return this.findCoordinacionesInternas(unidadId);
+  }
+
+  async getCoordinacionInterna(unidadId: number, coordinacionId: number) {
+    await this.assertUnidadExists(unidadId);
+    return this.mapCoordinacionInterna(
+      await this.findCoordinacionInternaOrFail(unidadId, coordinacionId),
+    );
+  }
+
+  async addCoordinacionInterna(
+    unidadId: number,
+    dto: UnidadCoordinacionInternaDto,
+  ) {
+    await this.assertUnidadExists(unidadId);
+    const saved = await this.coordIntRepo.save(
+      this.coordIntRepo.create({
+        unidadId: String(unidadId),
+        descripcion: this.descripcionCoordinacion(dto),
+      }),
+    );
+    return this.mapCoordinacionInterna(saved);
+  }
+
+  async updateCoordinacionInterna(
+    unidadId: number,
+    coordinacionId: number,
+    dto: UnidadCoordinacionInternaDto,
+  ) {
+    await this.assertUnidadExists(unidadId);
+    const row = await this.findCoordinacionInternaOrFail(
+      unidadId,
+      coordinacionId,
+    );
+    row.descripcion = this.descripcionCoordinacion(dto);
+    return this.mapCoordinacionInterna(await this.coordIntRepo.save(row));
+  }
+
+  async removeCoordinacionInterna(unidadId: number, coordinacionId: number) {
+    await this.assertUnidadExists(unidadId);
+    const row = await this.findCoordinacionInternaOrFail(
+      unidadId,
+      coordinacionId,
+    );
+    await this.coordIntRepo.remove(row);
     return true;
   }
 

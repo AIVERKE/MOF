@@ -90,3 +90,79 @@ export function resumirRelacionesInternas(
 
   return [...resumenes, ...individuales];
 }
+
+export type CoordinacionInternaTexto = { id: number; descripcion: string };
+
+export type RelacionInternaUnidad = {
+  id: number;
+  relacionadaId: number;
+  codigo?: string | null;
+  nombre?: string | null;
+  sigla?: string | null;
+  tipo?: string | null;
+};
+
+export type RelacionamientoInternoItem =
+  | { orden: number; origen: 'TEXTO'; id: number; descripcion: string }
+  | {
+      orden: number;
+      origen: 'UNIDAD';
+      id: number;
+      descripcion: string;
+      relacionadaId: number;
+      codigo: string | null;
+      sigla: string | null;
+      tipo: string | null;
+    };
+
+/**
+ * Lista única y numerada de la sección "Relacionamiento y coordinación interna":
+ * primero los textos libres, luego las unidades vinculadas, cada grupo en su orden de alta.
+ */
+export function consolidarRelacionamientoInterno(
+  textos: CoordinacionInternaTexto[],
+  unidades: RelacionInternaUnidad[],
+): RelacionamientoInternoItem[] {
+  const items: RelacionamientoInternoItem[] = [];
+  for (const t of textos) {
+    items.push({
+      orden: items.length + 1,
+      origen: 'TEXTO',
+      id: t.id,
+      descripcion: t.descripcion,
+    });
+  }
+  for (const u of unidades) {
+    items.push({
+      orden: items.length + 1,
+      origen: 'UNIDAD',
+      id: u.id,
+      descripcion: u.nombre ?? u.sigla ?? '',
+      relacionadaId: u.relacionadaId,
+      codigo: u.codigo ?? null,
+      sigla: u.sigla ?? null,
+      tipo: u.tipo ?? null,
+    });
+  }
+  return items;
+}
+
+/** Recorta, colapsa espacios y descarta textos vacíos o repetidos, conservando el orden. */
+export function normalizarCoordinacionesInternas(
+  items: readonly unknown[],
+): string[] {
+  const vistos = new Set<string>();
+  const result: string[] = [];
+  for (const item of items) {
+    const raw =
+      item && typeof item === 'object'
+        ? (item as { descripcion?: unknown }).descripcion
+        : item;
+    if (typeof raw !== 'string') continue;
+    const texto = raw.replace(/\s+/g, ' ').trim();
+    if (!texto || vistos.has(texto)) continue;
+    vistos.add(texto);
+    result.push(texto);
+  }
+  return result;
+}

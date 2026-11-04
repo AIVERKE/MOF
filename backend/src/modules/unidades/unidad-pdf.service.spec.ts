@@ -19,6 +19,10 @@ const dipgisLike: UnidadPdfDetail = {
     nombre: `Facultad de Ciencias y Tecnología número ${i + 1}`,
     sigla: `FCT${i + 1}`,
   })),
+  coordinacionesInternas: [
+    { descripcion: 'Unidades Organizacionales de la Facultad' },
+    { descripcion: 'Departamento de Planificación\ny Coordinación' },
+  ],
   relacionesExternas: Array.from({ length: 13 }, (_, i) => ({
     descripcion:
       i === 0
@@ -83,6 +87,53 @@ describe('UnidadPdfService', () => {
 
     it('returns a dash for empty lists', () => {
       expect(bullets(['', '  '])).toBe('-');
+    });
+  });
+
+  describe('numberedList', () => {
+    const numbered = (items: string[]) => service['numberedList'](items);
+
+    it('numbers items continuously, skipping empty ones', () => {
+      expect(numbered(['uno', '', '  ', 'dos', 'tres'])).toBe(
+        '1. UNO\n2. DOS\n3. TRES',
+      );
+    });
+
+    it('indents continuation lines and keeps their own markers', () => {
+      expect(numbered(['título\n- sub a\n- sub b', 'otro'])).toBe(
+        '1. TÍTULO\n    - SUB A\n    - SUB B\n2. OTRO',
+      );
+    });
+
+    it('returns a dash for empty lists', () => {
+      expect(numbered([])).toBe('-');
+    });
+  });
+
+  describe('relacionamientoInterno', () => {
+    it('lists free texts first and then linked units in one numbered list', () => {
+      expect(
+        service['relacionamientoInterno']({
+          id: 1,
+          codigo: '1',
+          nombre: 'X',
+          coordinacionesInternas: [
+            { descripcion: 'Unidades Organizacionales de la Facultad' },
+          ],
+          relacionesInternas: [
+            { nombre: 'Carrera de Informática', sigla: 'INF' },
+            { nombre: 'TODAS LAS CARRERAS (12)' },
+          ],
+        }),
+      ).toBe(
+        '1. UNIDADES ORGANIZACIONALES DE LA FACULTAD\n2. CARRERA DE INFORMÁTICA (INF)\n3. TODAS LAS CARRERAS (12)',
+      );
+    });
+
+    it('returns a dash when there is nothing registered', () => {
+      expect(
+        service['relacionamientoInterno']({ id: 1, codigo: '1', nombre: 'X' }),
+      ).toBe('-');
     });
   });
 

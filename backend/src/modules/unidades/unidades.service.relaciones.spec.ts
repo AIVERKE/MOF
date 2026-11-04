@@ -3,6 +3,7 @@ import { Unidad } from './entities/unidad.entity';
 import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity';
 import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcional.entity';
 import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity';
+import { UnidadCoordinacionInterna } from './entities/unidad-coordinacion-interna.entity';
 import { UnidadDto } from './dto/unidad.dto';
 import { UnidadesService, normalizeRelIds } from './unidades.service';
 
@@ -14,6 +15,7 @@ function createFakeManager(existingUnidadIds: number[]) {
     [UnidadRelacionInterna, []],
     [UnidadDependenciaFuncional, []],
     [UnidadRelacionExterna, []],
+    [UnidadCoordinacionInterna, []],
   ]);
   const failInsertOn = new Set<unknown>();
 
@@ -72,6 +74,7 @@ function buildService(fake: ReturnType<typeof createFakeManager>) {
   const unused = {} as never;
   return new UnidadesService(
     unidadRepo as unknown as Repository<Unidad>,
+    unused,
     unused,
     unused,
     unused,
@@ -171,5 +174,98 @@ describe('UnidadesService.update relaciones', () => {
     expect(
       fake.rows(UnidadRelacionInterna).map((r) => r.relacionadaId),
     ).toEqual(['20']);
+  });
+});
+
+describe('UnidadesService.update coordinaciones internas (texto libre)', () => {
+  const textos = (fake: ReturnType<typeof createFakeManager>) =>
+    fake.rows(UnidadCoordinacionInterna).map((r) => r.descripcion);
+
+  it('reemplaza la lista: recorta, colapsa espacios y descarta vacíos y repetidos', async () => {
+    const fake = createFakeManager([]);
+    fake.seed(UnidadCoordinacionInterna, [
+      { unidadId: '10', descripcion: 'Anterior' },
+    ]);
+    const service = buildService(fake);
+
+    await service.update(
+      10,
+      dto({
+        coordinacionesInternas: [
+          '  Unidades Organizacionales   de la Facultad ',
+          '',
+          '   ',
+          'Unidades Organizacionales de la Facultad',
+          'Departamento de Planificación y Coordinación',
+        ],
+      }),
+    );
+
+    expect(textos(fake)).toEqual([
+      'Unidades Organizacionales de la Facultad',
+      'Departamento de Planificación y Coordinación',
+    ]);
+  });
+
+  it('si se omite el campo no toca los textos, aunque cambien las unidades vinculadas', async () => {
+    const fake = createFakeManager([20]);
+    fake.seed(UnidadCoordinacionInterna, [
+      { unidadId: '10', descripcion: 'Unidades de la Facultad' },
+    ]);
+    const service = buildService(fake);
+
+    await service.update(10, dto({ relacionesInternas: [20] }));
+
+    expect(textos(fake)).toEqual(['Unidades de la Facultad']);
+    expect(
+      fake.rows(UnidadRelacionInterna).map((r) => r.relacionadaId),
+    ).toEqual(['20']);
+  });
+
+  it('enviar textos no toca las unidades vinculadas', async () => {
+    const fake = createFakeManager([20]);
+    fake.seed(UnidadRelacionInterna, [{ unidadId: '10', relacionadaId: '20' }]);
+    const service = buildService(fake);
+
+    await service.update(10, dto({ coordinacionesInternas: ['Decanato'] }));
+
+    expect(
+      fake.rows(UnidadRelacionInterna).map((r) => r.relacionadaId),
+    ).toEqual(['20']);
+    expect(textos(fake)).toEqual(['Decanato']);
+  });
+
+  it('[] vacía la lista', async () => {
+    const fake = createFakeManager([]);
+    fake.seed(UnidadCoordinacionInterna, [
+      { unidadId: '10', descripcion: 'Anterior' },
+    ]);
+    const service = buildService(fake);
+
+    await service.update(10, dto({ coordinacionesInternas: [] }));
+
+    expect(textos(fake)).toEqual([]);
+    expect(fake.m.insert).not.toHaveBeenCalled();
+  });
+
+  it('si falla un insert, revierte y conserva los textos previos', async () => {
+    const fake = createFakeManager([]);
+    fake.seed(UnidadCoordinacionInterna, [
+      { unidadId: '10', descripcion: 'Anterior' },
+    ]);
+    fake.failInsertOn.add(UnidadRelacionExterna);
+    const service = buildService(fake);
+
+    await expect(
+      service.update(
+        10,
+        dto({
+          coordinacionesInternas: ['Nuevo'],
+          relacionesExternas: ['Ministerio'],
+        }),
+      ),
+    ).rejects.toThrow('boom');
+
+    expect(textos(fake)).toEqual(['Anterior']);
   });
 });

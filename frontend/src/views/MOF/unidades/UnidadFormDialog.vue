@@ -258,6 +258,8 @@ const sectionsConfig = [
       "relacionamiento",
       "coordinacion",
       "coordinacion interna",
+      "coordinaciones internas",
+      "texto libre",
       "coordinacion externa",
       "relaciones externas",
       "coordinacion interinstitucional",
@@ -1421,8 +1423,11 @@ function moverAbajo(index) {
               <v-col cols="12">
                 <SelectAllUnidades
                   v-model="internalRelUnitIds"
+                  v-model:custom-texts="formData.coordinacionesInternas"
+                  allow-custom-text
                   type="autocomplete"
-                  label="Coordinación Interna (Unidades relacionadas)"
+                  label="Coordinación Interna"
+                  placeholder="Buscar unidad en catálogo o escribir texto libre y presionar Enter..."
                   :hint="hints.unidadForm.coordinacionInterna"
                   :persistent-hint="false"
                   multiple

@@ -39,42 +39,21 @@ describe("rules.fechaCreacionRango", () => {
   });
 });
 
-describe("rules.siglaFormato", () => {
-  const SIGLA_ERROR = "La sigla solo puede contener letras, números, guiones, puntos, comas y apóstrofos (')";
-
-  it.each([
-    "SEC.GRAL",
-    "S.G.",
-    "FCPN",
-    "CE-HCU",
-    "D'ALES",
-    "ADM,FIN",
-    "ÑANDÚ",
-    "dtic",
-    "U2",
-    "",
-    null,
-    undefined,
-  ])("acepta %p", (sigla) => {
-    expect(rules.siglaFormato(sigla)).toBe(true);
+describe("rules.codigo", () => {
+  it("requiere un valor no vacío", () => {
+    expect(rules.codigo("")).toBe("El código es requerido");
+    expect(rules.codigo(null)).toBe("El código es requerido");
+    expect(rules.codigo(undefined)).toBe("El código es requerido");
+    expect(rules.codigo("   ")).toBe("El código es requerido");
   });
 
   it.each([
-    "SEC@GRAL",
-    "SEC#1",
-    "SEC$",
-    "SEC^",
-    "SEC*",
-    "SEC~",
-    "SEC{1}",
-    "SEC[1]",
-    "SEC|GRAL",
-    "SEC\\GRAL",
-    "SEC<GRAL>",
-    "SEC GRAL",
-    "SEC/GRAL",
-    "SEC%1",
-  ])("rechaza %p", (sigla) => {
-    expect(rules.siglaFormato(sigla)).toBe(SIGLA_ERROR);
+    "1.2.3",
+    "1.2 A/B",
+    "COD-01 #2",
+    "FAC-CIEN",
+    "1.2.3.4 (PROV)",
+  ])("acepta texto libre con espacios y símbolos (%p)", (codigo) => {
+    expect(rules.codigo(codigo)).toBe(true);
   });
 });
