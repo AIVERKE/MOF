@@ -43,6 +43,8 @@ export type UnidadPdfDetail = {
   hijasLineales?: { nombre?: string | null; sigla?: string | null }[];
   hijasFuncionales?: { nombre?: string | null; sigla?: string | null }[];
   relacionesInternas?: { nombre?: string | null; sigla?: string | null }[];
+  /** Textos libres de coordinación interna; van antes que las unidades vinculadas. */
+  coordinacionesInternas?: { descripcion?: string | null }[];
   relacionesExternas?: { descripcion?: string | null }[];
 };
 
@@ -560,14 +562,10 @@ export class UnidadPdfService {
         w: oW,
         blocks: [
           this.labelBlock(doc, oLabel, oW, { ...opLabel, height: opLabelH }),
-          ...this.listBlocks(
-            doc,
-            nombresUnidadesMof(
-              (detail.relacionesInternas || []).map((r) => r.nombre || r.sigla),
-            ),
-            oW,
-            { numbered: true, indent: LIST.internas },
-          ),
+          ...this.listBlocks(doc, this.relacionamientoInterno(detail), oW, {
+            numbered: true,
+            indent: LIST.internas,
+          }),
         ],
       },
       {
@@ -1240,6 +1238,20 @@ export class UnidadPdfService {
         justify: opts.justify,
       }),
     );
+  }
+
+  /**
+   * O. Relacionamiento y coordinación interna (MOF-087): primero los textos
+   * libres de coordinación, tal como se escribieron, y después las unidades
+   * vinculadas con su nombre corto, en una sola lista numerada.
+   */
+  private relacionamientoInterno(detail: UnidadPdfDetail): string[] {
+    return [
+      ...(detail.coordinacionesInternas || []).map((c) => c.descripcion || ''),
+      ...nombresUnidadesMof(
+        (detail.relacionesInternas || []).map((r) => r.nombre || r.sigla),
+      ),
+    ];
   }
 
   /** Una unidad sola va como texto; varias, numeradas; ninguna, "Ninguna.". */

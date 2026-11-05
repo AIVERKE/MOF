@@ -118,6 +118,7 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     infraestructura: "",
     ubicacion: "",
     relacionesInternas: [],
+    coordinacionesInternas: [],
     relacionesExternas: [],
     sia: [],
     proyectos: [],
@@ -264,6 +265,12 @@ export function mapBackendToForm(raw, options = {}) {
     descripcion: r.descripcion || (typeof r === "string" ? r : ""),
   }));
 
+  // 6.1 Resolver Coordinaciones Internas (textos libres)
+  const coordinacionesInternas = (raw.coordinacionesInternas || []).map((c) => ({
+    id: c.id,
+    descripcion: c.descripcion || "",
+  }));
+
   // 7. Resolver Filas SIA (solo para unidades Carrera)
   const sia = Array.isArray(raw.sia)
     ? raw.sia.map((s) => ({
@@ -321,6 +328,7 @@ export function mapBackendToForm(raw, options = {}) {
     infraestructura: raw.infraestructura || raw.infraestructura_fisica || "",
     ubicacion: raw.ubicacion || "",
     relacionesInternas,
+    coordinacionesInternas,
     relacionesExternas,
     planificacionEstrategicaAplica: Boolean(
       raw.planificacionEstrategicaAplica ??
@@ -470,6 +478,9 @@ export function mapFormToBackend(formData, options = {}) {
         tipo: r?.tipo || null,
       })),
     ),
+    coordinacionesInternas: (formData.coordinacionesInternas || [])
+      .map((c) => (typeof c === "object" && c !== null ? c.descripcion : String(c)).trim())
+      .filter(Boolean),
     relacionesExternas: (formData.relacionesExternas || [])
       .map((r) => (typeof r === "object" ? r.descripcion?.trim() : String(r).trim()))
       .filter(Boolean),

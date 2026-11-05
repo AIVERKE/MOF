@@ -18,6 +18,10 @@ const dipgisLike: UnidadPdfDetail = {
     nombre: `Facultad de Ciencias y Tecnología número ${i + 1}`,
     sigla: `FCT${i + 1}`,
   })),
+  coordinacionesInternas: [
+    { descripcion: 'Unidades Organizacionales de la Facultad' },
+    { descripcion: 'Departamento de Planificación\ny Coordinación' },
+  ],
   relacionesExternas: Array.from({ length: 13 }, (_, i) => ({
     descripcion:
       i === 0
@@ -121,6 +125,38 @@ describe('UnidadPdfService', () => {
     it('keeps Spanish text and common punctuation intact', () => {
       const text = 'Año «Señal» – “Información” • 50 € ¿Sí? ¡No!';
       expect(clean(text)).toBe(text);
+    });
+  });
+
+  describe('relacionamientoInterno (O, MOF-087)', () => {
+    const items = (detail: Partial<UnidadPdfDetail>) =>
+      service['relacionamientoInterno']({
+        id: 1,
+        codigo: '1',
+        nombre: 'X',
+        ...detail,
+      });
+
+    it('lista primero los textos libres y después las unidades vinculadas', () => {
+      expect(
+        items({
+          coordinacionesInternas: [
+            { descripcion: 'Unidades Organizacionales de la Facultad' },
+          ],
+          relacionesInternas: [
+            { nombre: 'FCPN - CARRERA DE INFORMÁTICA', sigla: 'INF' },
+            { nombre: 'TODAS LAS CARRERAS (12)' },
+          ],
+        }),
+      ).toEqual([
+        'Unidades Organizacionales de la Facultad',
+        'Carrera de Informática',
+        'Todas las Carreras (12)',
+      ]);
+    });
+
+    it('sin nada registrado queda vacía (el PDF muestra "Ninguna.")', () => {
+      expect(items({})).toEqual([]);
     });
   });
 

@@ -36,10 +36,18 @@ const props = defineProps({
     enableBatchGroups: {
         type: Boolean,
         default: false
+    },
+    allowCustomText: {
+        type: Boolean,
+        default: false
+    },
+    customTexts: {
+        type: Array,
+        default: () => []
     }
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'update:customTexts']);
 
 const undadesAllUnidadesStore = useAllUnidadesMofStore();
 const clasesStore = useAllClasesMofStore();
@@ -238,6 +246,21 @@ const selectedCountTotal = computed(() => {
     return Array.isArray(props.modelValue) ? props.modelValue.length : 0;
 });
 
+const selectedCountSummary = computed(() => {
+    const units = Array.isArray(props.modelValue) ? props.modelValue.length : 0;
+    const texts = props.allowCustomText && Array.isArray(props.customTexts) ? props.customTexts.length : 0;
+    if (units > 0 && texts > 0) {
+        return `${units} unidad${units > 1 ? 'es' : ''}, ${texts} texto${texts > 1 ? 's' : ''}`;
+    }
+    if (texts > 0) {
+        return `${texts} texto${texts > 1 ? 's' : ''} libre${texts > 1 ? 's' : ''}`;
+    }
+    if (units > 0) {
+        return `${units} unidad${units > 1 ? 'es' : ''} seleccionada${units > 1 ? 's' : ''}`;
+    }
+    return '';
+});
+
 /**
  * Alterna la selección de todo un grupo (tri-state: si todos están seleccionados, los deselecciona; si no, selecciona los faltantes).
  */
@@ -266,26 +289,38 @@ function toggleGroup(groupKey) {
 const CONFIRM_CLEAR_THRESHOLD = 10;
 
 function clearAllSelection() {
-    const total = selectedCountTotal.value;
+    const total = selectedCountTotal.value + (props.allowCustomText && Array.isArray(props.customTexts) ? props.customTexts.length : 0);
     if (
         total > CONFIRM_CLEAR_THRESHOLD &&
-        !window.confirm(`¿Quitar las ${total} unidades seleccionadas?`)
+        !window.confirm(`¿Quitar los ${total} elementos seleccionados?`)
     ) {
         return;
     }
     value.value = [];
+    if (props.allowCustomText) {
+        emit('update:customTexts', []);
+    }
 }
+
+const customTextKeys = computed(() => {
+    if (!props.allowCustomText || !Array.isArray(props.customTexts)) return [];
+    return props.customTexts.map((_, idx) => `__custom_${idx}`);
+});
 
 const value = computed({
   get() {
-    return props.modelValue;
+    if (!props.allowCustomText) {
+      return props.modelValue;
+    }
+    const currentUnits = Array.isArray(props.modelValue) ? props.modelValue : [];
+    return [...currentUnits, ...customTextKeys.value];
   },
   set(val) {
     if (Array.isArray(val)) {
       const groupItems = val.filter(x => typeof x === 'string' && x.startsWith('__group_'));
       if (groupItems.length > 0) {
         let currentClean = val
-          .filter(x => typeof x !== 'string' || !x.startsWith('__group_'))
+          .filter(x => typeof x !== 'string' || (!x.startsWith('__group_') && !x.startsWith('__custom_')))
           .map(x => (typeof x === 'object' && x !== null ? (x.id || x.value) : x));
 
         for (const gItem of groupItems) {
@@ -308,15 +343,51 @@ const value = computed({
         search.value = '';
         return;
       }
+
+      if (props.allowCustomText) {
+        const remainingCustomKeys = new Set(
+          val.filter(x => typeof x === 'string' && x.startsWith('__custom_'))
+        );
+        const currentCustomList = props.customTexts || [];
+        const nextCustomList = currentCustomList.filter((_, idx) =>
+          remainingCustomKeys.has(`__custom_${idx}`)
+        );
+        if (nextCustomList.length !== currentCustomList.length) {
+          emit('update:customTexts', nextCustomList);
+        }
+
+        const remainingUnitIds = val
+          .filter(x => typeof x !== 'string' || !x.startsWith('__custom_'))
+          .map(x => (typeof x === 'object' && x !== null ? (x.id || x.value) : x));
+        emit('update:modelValue', remainingUnitIds);
+        return;
+      }
     }
     emit('update:modelValue', val);
   }
 });
 
+const customDropdownItems = computed(() => {
+    if (!props.allowCustomText || !Array.isArray(props.customTexts)) return [];
+    return props.customTexts.map((ct, idx) => {
+        const desc = typeof ct === 'object' && ct !== null ? ct.descripcion : String(ct);
+        return {
+            id: `__custom_${idx}`,
+            isCustomText: true,
+            customIndex: idx,
+            nombre: desc,
+            descripcion: desc,
+            sigla: 'TEXTO',
+            codigo: '',
+        };
+    });
+});
+
 const dropdownItems = computed(() => {
     const base = filteredUnidades.value || [];
+    const custom = customDropdownItems.value;
     if (!props.enableBatchGroups || availableGroups.value.length === 0) {
-        return base;
+        return [...custom, ...base];
     }
 
     const groupItems = availableGroups.value.map(g => ({
@@ -335,7 +406,7 @@ const dropdownItems = computed(() => {
         groupData: g
     }));
 
-    return [...groupItems, ...base];
+    return [...custom, ...groupItems, ...base];
 });
 
 const autocompleteProps = computed(() => {
@@ -414,6 +485,10 @@ function customFilter(value, query, item) {
 
     const raw = item?.raw || item || {};
 
+    if (raw.isCustomText) {
+        return false;
+    }
+
     if (raw.isGroup) {
         const groupData = raw.groupData;
         const nombre = normalizeText(raw.nombre);
@@ -443,6 +518,71 @@ function customFilter(value, query, item) {
 
     return tokens.every(token => searchable.includes(token));
 }
+
+function addCurrentSearchAsCustomText() {
+    const text = (search.value || '').trim();
+    if (!text) return;
+
+    // Verificar si coincide con una unidad del catálogo
+    const exactUnit = (filteredUnidades.value || []).find(
+        u => normalizeText(u.nombre) === normalizeText(text) || (u.sigla && normalizeText(u.sigla) === normalizeText(text))
+    );
+    if (exactUnit) {
+        const current = Array.isArray(props.modelValue) ? [...props.modelValue] : [];
+        if (!current.some(id => String(id) === String(exactUnit.id))) {
+            current.push(Number(exactUnit.id));
+            emit('update:modelValue', current);
+        }
+        search.value = '';
+        return;
+    }
+
+    // Agregar como texto libre
+    const currentList = Array.isArray(props.customTexts) ? props.customTexts : [];
+    const yaExiste = currentList.some(ct => {
+        const desc = typeof ct === 'object' && ct !== null ? ct.descripcion : String(ct);
+        return normalizeText(desc) === normalizeText(text);
+    });
+    if (!yaExiste) {
+        emit('update:customTexts', [...currentList, { descripcion: text }]);
+    }
+    search.value = '';
+}
+
+function removeCustomText(index) {
+    const currentList = Array.isArray(props.customTexts) ? [...props.customTexts] : [];
+    if (index >= 0 && index < currentList.length) {
+        currentList.splice(index, 1);
+        emit('update:customTexts', currentList);
+    }
+}
+
+function updateCustomText(index, newText) {
+    const text = (newText || '').trim();
+    if (!text) return;
+    const currentList = Array.isArray(props.customTexts) ? [...props.customTexts] : [];
+    if (index >= 0 && index < currentList.length) {
+        const item = currentList[index];
+        if (typeof item === 'object' && item !== null) {
+            currentList[index] = { ...item, descripcion: text };
+        } else {
+            currentList[index] = { descripcion: text };
+        }
+        emit('update:customTexts', currentList);
+    }
+}
+
+function handleInputKeydown(e) {
+    if (!props.allowCustomText) return;
+    if (e.key === 'Enter') {
+        const text = (search.value || '').trim();
+        if (text) {
+            addCurrentSearchAsCustomText();
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }
+}
 </script>
 
 <template>
@@ -455,8 +595,8 @@ function customFilter(value, query, item) {
       <span class="text-caption font-weight-bold text-grey-darken-3">
         {{ props.label }}
       </span>
-      <span v-if="selectedCountTotal > 0" class="text-caption font-weight-bold text-indigo-darken-2">
-        {{ selectedCountTotal }} unidad{{ selectedCountTotal > 1 ? 'es' : '' }} seleccionada{{ selectedCountTotal > 1 ? 's' : '' }}
+      <span v-if="selectedCountTotal > 0 || (props.allowCustomText && props.customTexts?.length > 0)" class="text-caption font-weight-bold text-indigo-darken-2">
+        {{ selectedCountSummary }}
       </span>
     </div>
 
@@ -551,10 +691,31 @@ function customFilter(value, query, item) {
         :custom-filter="props.type === 'autocomplete' ? customFilter : undefined"
         v-bind="{ ...autocompleteProps, ...$attrs }"
         :loading="undadesAllUnidadesStore.loading"
+        @keydown="handleInputKeydown"
     >
-        <!-- Encabezado de Agrupaciones dentro del menú desplegable -->
-        <template v-if="props.enableBatchGroups && availableGroups.length > 0" #prepend-item>
-            <div class="batch-dropdown-header px-3 py-2 bg-indigo-lighten-5 border-b d-flex align-center justify-space-between">
+        <!-- Encabezado de Agrupaciones o banner de texto libre dentro del menú desplegable -->
+        <template v-if="(props.allowCustomText && search?.trim()) || (props.enableBatchGroups && availableGroups.length > 0)" #prepend-item>
+            <!-- Opción para agregar como texto libre cuando el usuario escribe -->
+            <div
+                v-if="props.allowCustomText && search?.trim()"
+                class="batch-dropdown-header px-3 py-2 bg-indigo-lighten-5 border-b d-flex align-center justify-space-between cursor-pointer"
+                @mousedown.prevent="addCurrentSearchAsCustomText"
+            >
+                <span class="text-caption font-weight-bold text-indigo-darken-3 d-flex align-center">
+                    <v-icon size="16" color="indigo" class="mr-1.5">mdi-text-box-plus-outline</v-icon>
+                    Presiona Enter o clic para agregar texto libre:
+                    <strong class="text-primary font-italic ml-1">"{{ search.trim() }}"</strong>
+                </span>
+                <v-btn size="x-small" color="indigo" variant="flat" class="ml-2 flex-shrink-0">
+                    + Agregar
+                </v-btn>
+            </div>
+
+            <!-- Encabezado de Agrupaciones dentro del menú desplegable -->
+            <div
+                v-if="props.enableBatchGroups && availableGroups.length > 0"
+                class="batch-dropdown-header px-3 py-2 bg-indigo-lighten-5 border-b d-flex align-center justify-space-between"
+            >
                 <span class="text-caption font-weight-bold text-indigo-darken-3 d-flex align-center">
                     <v-icon size="15" color="indigo" class="mr-1.5">mdi-layers-triple</v-icon>
                     Agrupaciones Rápidas (S-MAU)
@@ -563,6 +724,41 @@ function customFilter(value, query, item) {
                     Clic para seleccionar / deseleccionar grupo completo
                 </span>
             </div>
+        </template>
+
+        <!-- No-data slot cuando allowCustomText está activo -->
+        <template v-if="props.allowCustomText && search?.trim()" #no-data>
+            <div
+                class="pa-3 text-center cursor-pointer hover:bg-slate-50 d-flex flex-column align-center"
+                @mousedown.prevent="addCurrentSearchAsCustomText"
+            >
+                <v-icon size="24" color="indigo" class="mb-1">mdi-text-box-plus-outline</v-icon>
+                <div class="text-caption font-weight-bold text-indigo-darken-3">
+                    No se encontró en catálogo. Presiona Enter o clic para agregar como texto libre:
+                </div>
+                <div class="text-caption text-slate-800 font-italic mt-0.5">
+                    "{{ search.trim() }}"
+                </div>
+            </div>
+        </template>
+
+        <!-- Botón rápido en append-inner para agregar texto libre -->
+        <template v-if="props.allowCustomText && search?.trim()" #append-inner>
+            <v-tooltip text="Agregar como texto libre (Enter)" location="top">
+                <template #activator="{ props: tipProps }">
+                    <v-btn
+                        v-bind="tipProps"
+                        size="x-small"
+                        color="indigo"
+                        variant="tonal"
+                        class="mr-1 text-caption font-weight-bold"
+                        @mousedown.prevent="addCurrentSearchAsCustomText"
+                    >
+                        <v-icon start size="14">mdi-plus</v-icon>
+                        Texto libre
+                    </v-btn>
+                </template>
+            </v-tooltip>
         </template>
 
         <!-- Item formateado en el menú desplegable -->
@@ -636,8 +832,72 @@ function customFilter(value, query, item) {
 
         <!-- Chip formateado para selección múltiple -->
         <template v-if="props.type === 'autocomplete'" #chip="{ props: chipProps, item }">
+            <!-- Si es texto libre -->
             <v-chip
-                v-if="!item.raw?.isGroup"
+                v-if="item.raw?.isCustomText"
+                v-bind="chipProps"
+                size="small"
+                color="blue-grey-darken-2"
+                variant="tonal"
+                class="ma-0-5"
+                closable
+                @click:close.stop="removeCustomText(item.raw.customIndex)"
+            >
+                <v-icon start size="14" color="blue-grey-darken-2">mdi-text-box-outline</v-icon>
+                <span class="text-truncate" style="max-width: 240px;">
+                    {{ item.raw.descripcion }}
+                </span>
+                <v-icon end size="13" class="ml-1 cursor-pointer" color="blue-grey-darken-1">
+                    mdi-pencil
+                </v-icon>
+                <v-tooltip activator="parent" location="top">
+                    Texto libre: {{ item.raw.descripcion }} (clic para editar)
+                </v-tooltip>
+
+                <!-- Menú popover para edición rápida al hacer clic en el chip -->
+                <v-menu activator="parent" location="bottom start" :close-on-content-click="false">
+                    <template #default="{ isActive }">
+                        <v-card min-width="280" class="pa-3 elevation-4">
+                            <div class="text-caption font-weight-bold text-slate-700 mb-2 d-flex align-center">
+                                <v-icon size="14" color="primary" class="mr-1">mdi-pencil</v-icon>
+                                Editar texto libre
+                            </div>
+                            <v-text-field
+                                :model-value="item.raw.descripcion"
+                                density="compact"
+                                variant="outlined"
+                                autofocus
+                                hide-details
+                                class="mb-2"
+                                @keydown.enter.prevent="(e) => { updateCustomText(item.raw.customIndex, e.target.value); isActive.value = false; }"
+                            />
+                            <div class="d-flex justify-end gap-1">
+                                <v-btn size="x-small" variant="text" color="grey" @click="isActive.value = false">
+                                    Cancelar
+                                </v-btn>
+                                <v-btn
+                                    size="x-small"
+                                    color="primary"
+                                    variant="flat"
+                                    @click="(e) => {
+                                        const input = e.target.closest('.v-card').querySelector('input');
+                                        if (input && input.value.trim()) {
+                                            updateCustomText(item.raw.customIndex, input.value);
+                                            isActive.value = false;
+                                        }
+                                    }"
+                                >
+                                    Guardar
+                                </v-btn>
+                            </div>
+                        </v-card>
+                    </template>
+                </v-menu>
+            </v-chip>
+
+            <!-- Si es una unidad normal -->
+            <v-chip
+                v-else-if="!item.raw?.isGroup"
                 v-bind="chipProps"
                 size="small"
                 color="indigo-darken-1"

@@ -4,6 +4,7 @@ import { Unidad } from './entities/unidad.entity';
 import { UnidadFuncion } from './entities/unidad-funcion.entity';
 import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity';
 import { UnidadRelacionInterna } from './entities/unidad-relacion-interna.entity';
+import { UnidadCoordinacionInterna } from './entities/unidad-coordinacion-interna.entity';
 import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcional.entity';
 import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
 import { UnidadInventario } from './entities/unidad-inventario.entity';
@@ -31,6 +32,7 @@ import { MofConfig } from './entities/mof-config.entity';
       UnidadFuncion,
       UnidadRelacionExterna,
       UnidadRelacionInterna,
+      UnidadCoordinacionInterna,
       UnidadDependenciaFuncional,
       UnidadJerarquiaHist,
       UnidadInventario,

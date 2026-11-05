@@ -140,6 +140,27 @@ function formatFecha(val) {
 }
 
 // Definición declarativa de los 26 paneles S-MAU con títulos exactos
+const listaRelacionamientoInterno = computed(() => {
+  const data = props.detailData;
+  if (!data) return [];
+  if (Array.isArray(data.relacionamiento_interno) && data.relacionamiento_interno.length > 0) {
+    return data.relacionamiento_interno;
+  }
+  if (Array.isArray(data.relaciones_internas) && data.relaciones_internas.length > 0) {
+    return data.relaciones_internas.map((r, idx) => ({
+      orden: idx + 1,
+      origen: "UNIDAD",
+      id: r.id,
+      relacionadaId: r.relacionadaId,
+      descripcion: r.nombre || ("Unidad #" + (r.relacionadaId || r.id)),
+      sigla: r.sigla,
+      codigo: r.codigo,
+      tipo: r.tipo,
+    }));
+  }
+  return [];
+});
+
 const panels = computed(() => {
   const data = props.detailData;
   if (!data) return [];
@@ -153,7 +174,10 @@ const panels = computed(() => {
     0;
   const hijasLinCount = data.hijas_lineales?.length ?? 0;
   const hijasFuncCount = data.hijas_funcionales?.length ?? 0;
-  const relIntCount = data.relaciones_internas?.length ?? 0;
+  const relIntCount =
+    data.relacionamiento_interno?.length ??
+    data.relaciones_internas?.length ??
+    0;
   const relExtCount = data.relaciones_externas?.length ?? 0;
   const funcCount = data.funciones?.length ?? 0;
   const esCarrera = Boolean(
@@ -901,21 +925,28 @@ const panels = computed(() => {
 
             <!-- Panel Relacionamiento Interno -->
             <template v-else-if="panel.type === 'relaciones_internas'">
-              <div v-if="detailData.relaciones_internas?.length" class="d-flex flex-column gap-1">
+              <div v-if="listaRelacionamientoInterno.length" class="d-flex flex-column gap-1">
                 <div
-                  v-for="(rel, idx) in detailData.relaciones_internas"
-                  :key="rel.id || idx"
+                  v-for="rel in listaRelacionamientoInterno"
+                  :key="rel.origen + rel.id"
                   class="d-flex align-center justify-space-between py-1 px-2 rounded bg-slate-100 border-b-thin"
                 >
                   <div class="d-flex align-center">
-                    <v-icon size="15" color="indigo-darken-1" class="mr-2 flex-shrink-0">
-                      mdi-account-switch-outline
+                    <span class="text-caption font-weight-bold text-slate-600 mr-2 flex-shrink-0">
+                      {{ rel.orden }}.
+                    </span>
+                    <v-icon
+                      size="15"
+                      :color="rel.origen === 'TEXTO' ? 'blue-grey-darken-1' : 'indigo-darken-1'"
+                      class="mr-2 flex-shrink-0"
+                    >
+                      {{ rel.origen === 'TEXTO' ? 'mdi-text-box-outline' : 'mdi-account-switch-outline' }}
                     </v-icon>
                     <span class="text-caption font-weight-medium text-slate-800 line-height-1-2">
-                      {{ rel.nombre || ('Unidad #' + (rel.relacionadaId || rel.id)) }}
+                      {{ rel.descripcion }}
                     </span>
                   </div>
-                  <div class="d-flex align-center gap-1 ml-2">
+                  <div v-if="rel.origen === 'UNIDAD'" class="d-flex align-center gap-1 ml-2">
                     <v-chip
                       v-if="rel.sigla"
                       size="small"

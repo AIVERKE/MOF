@@ -96,6 +96,7 @@ function buildService(db: ReturnType<typeof createFakeDb>) {
     vacio as never,
     vacio as never,
     vacio as never,
+    vacio as never,
   );
 }
 
