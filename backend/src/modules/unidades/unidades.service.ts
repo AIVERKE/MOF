@@ -16,6 +16,10 @@ import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
 import { esClaseCarrera } from '../catalogos/clase-carrera';
 import { esClaseDecanato } from '../catalogos/clase-decanato';
 import {
+  ADMINISTRACION_CENTRAL,
+  facultadDesdeNombre,
+} from './unidad-pdf-texto';
+import {
   MofConfig,
   type MofConfigDefaults,
 } from './entities/mof-config.entity';
@@ -1984,7 +1988,15 @@ export class UnidadesService {
       relations: ['tipo', 'nivel', 'relacion', 'tipoUnidad', 'parent'],
     });
     if (!u) notFound(id);
-    const detail = await this.mapDetail(u);
+    const base = await this.mapDetail(u);
+    const detail = {
+      ...base,
+      facultad: await this.facultadDeUnidad(u),
+      hijasFuncionales: await this.hijasFuncionalesMof(
+        id,
+        base.hijasFuncionales,
+      ),
+    };
     if (!detail.relacionesInternas.length) return detail;
 
     const universo = await this.unidadRepo.find({
@@ -2004,6 +2016,56 @@ export class UnidadesService {
         id,
       ),
     };
+  }
+
+  /**
+   * J. del MOF: dependientes funcionales que no cuelgan ya de la unidad por
+   * línea. Una dependencia funcional hacia un ancestro lineal (la hija, la
+   * nieta…) ya está implícita en la estructura y el formato oficial no la
+   * repite: el Decanato de Medicina tiene registrados a Vicedecanato, Centro
+   * de Seguimiento y tres Institutos (nietos vía las Carreras), y su MOF dice
+   * "Ninguna.". Solo afecta al PDF; el detalle de la API no cambia.
+   */
+  private async hijasFuncionalesMof<T extends { id: number }>(
+    id: number,
+    hijas: T[],
+  ): Promise<T[]> {
+    if (!hijas.length) return hijas;
+    const rows: { id: string }[] = await this.unidadRepo.query(
+      `WITH RECURSIVE descendientes AS (
+         SELECT id FROM unidad WHERE parent_id = $1 AND deleted_at IS NULL
+         UNION
+         SELECT u.id FROM unidad u
+         JOIN descendientes d ON u.parent_id = d.id
+         WHERE u.deleted_at IS NULL
+       )
+       SELECT id FROM descendientes`,
+      [String(id)],
+    );
+    const lineales = new Set(rows.map((r) => Number(r.id)));
+    return hijas.filter((h) => !lineales.has(h.id));
+  }
+
+  /**
+   * Segunda línea del encabezado del PDF: la "FACULTAD DE …" del primer nodo
+   * (la unidad o un ancestro por `parent_id`, normalmente el Decanato) cuyo
+   * nombre la menciona; si ninguno, Administración Central.
+   */
+  private async facultadDeUnidad(u: Unidad): Promise<string> {
+    const seen = new Set<string>([String(u.id)]);
+    let node: Pick<Unidad, 'nombre' | 'parentId'> | null = u;
+    while (node) {
+      const facultad = facultadDesdeNombre(node.nombre);
+      if (facultad) return facultad;
+      const parentId = node.parentId != null ? String(node.parentId) : null;
+      if (!parentId || seen.has(parentId)) break;
+      seen.add(parentId);
+      node = await this.unidadRepo.findOne({
+        where: { id: parentId },
+        select: { id: true, nombre: true, parentId: true },
+      });
+    }
+    return ADMINISTRACION_CENTRAL;
   }
 
   async getDashboardStats(filters?: {
