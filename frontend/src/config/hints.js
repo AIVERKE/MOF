@@ -101,6 +101,8 @@ export const hints = {
       "Servicios, trámites y procesos gestionados para la comunidad universitaria",
     coordinacionInterna:
       "Unidades internas con las que se interactúa permanentemente",
+    coordinacionInternaTexto:
+      "Descripción o agrupación abierta de coordinación interna (ej: Unidades Organizacionales de la Facultad)",
     coordinacionExterna:
       "Nombre de la entidad, ministerio u organismo externo de coordinación",
   },

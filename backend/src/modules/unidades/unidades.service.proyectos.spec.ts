@@ -280,6 +280,7 @@ function buildService(db: ReturnType<typeof createFakeDb>) {
     vacio as never,
     db.proyectoRepo as unknown as Repository<Proyecto>,
     db.proyectoUnidadRepo as unknown as Repository<ProyectoUnidad>,
+    vacio as never,
   );
 }
 

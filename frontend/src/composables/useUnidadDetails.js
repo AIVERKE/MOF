@@ -149,6 +149,9 @@ export function useUnidadDetails({ unidadesStore }) {
               ? data.hijasFuncionales
               : [],
             relaciones_internas: mappedRelInternas,
+            relacionamiento_interno: Array.isArray(data.relacionamientoInterno)
+              ? data.relacionamientoInterno
+              : [],
             relaciones_externas: Array.isArray(data.relacionesExternas)
               ? data.relacionesExternas
               : [],

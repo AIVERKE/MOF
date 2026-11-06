@@ -18,6 +18,7 @@ import { Usuario } from '../../auth/entities/usuario.entity';
 import { UnidadFuncion } from './unidad-funcion.entity';
 import { UnidadRelacionExterna } from './unidad-relacion-externa.entity';
 import { UnidadRelacionInterna } from './unidad-relacion-interna.entity';
+import { UnidadCoordinacionInterna } from './unidad-coordinacion-interna.entity';
 import { UnidadInventario } from './unidad-inventario.entity';
 import { UnidadSia } from './unidad-sia.entity';
 import { ProyectoUnidad } from './proyecto-unidad.entity';
@@ -208,6 +209,9 @@ export class Unidad extends AuditableEntity {
 
   @OneToMany(() => UnidadRelacionInterna, (rel) => rel.unidad)
   relacionesInternas: UnidadRelacionInterna[];
+
+  @OneToMany(() => UnidadCoordinacionInterna, (c) => c.unidad)
+  coordinacionesInternas: UnidadCoordinacionInterna[];
 
   @OneToMany(() => UnidadInventario, (inv) => inv.unidad)
   inventarios: UnidadInventario[];
