@@ -45,7 +45,7 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 - `PUT /api/v1/mof/unidades/:id`: Actualizar unidad (incluyendo 7 campos operativos y relaciones).
 - `DELETE /api/v1/mof/unidades/:id`: Baja lógica (soft-delete).
 - `PUT /api/v1/mof/unidades/:id/setparent`: Cambiar dependencia jerárquica con registro histórico.
-- `GET /api/v1/mof/unidades/pdf/:id`: Exportación en PDF.
+- `GET /api/v1/mof/unidades/pdf/:id`: Exportación en PDF con el formato oficial del MOF (ver [Reporte PDF](#reporte-pdf-formato-oficial-del-mof)).
 
 ### Relacionamiento y Coordinación Interna
 
@@ -112,7 +112,7 @@ Son campos y tablas independientes: cambiar uno no toca el otro.
 `descripcion` es obligatoria (vacía tras recortar → 400 `VALIDATION_FAILED`). Un ítem de otra unidad o una unidad inexistente responde 404 (`NOT_FOUND`). Estos cambios no generan auditoría ni avisos a la Gaceta (`OrganigramaSubscriber` solo sigue `unidad` y `unidad_funcion`), igual que las relaciones externas.
 
 ##### Reporte PDF
-En `GET /api/v1/mof/unidades/pdf/:id`, la columna **Interno** del bloque "Relacionamiento y coordinación" es una **lista numerada continua** (`1.`, `2.`, …): primero los textos libres y después las unidades vinculadas. Las unidades conservan el resumen por grupos (`TODAS LAS CARRERAS (12)`, etc.) y el formato `NOMBRE (SIGLA)`. Las líneas siguientes de un texto de varias líneas se sangran bajo el número. La columna **Interinstitucional / externo** no cambia: sigue con viñetas.
+En `GET /api/v1/mof/unidades/pdf/:id`, la sección **O. Relacionamiento y coordinación interna** es una **lista numerada continua** (`1.`, `2.`, …; `UnidadPdfService.relacionamientoInterno`): primero los textos libres, tal como se escribieron, y después las unidades vinculadas. Las unidades conservan el resumen por grupos (`Todas las Carreras (12)`, etc.) y salen con su nombre corto en tipo título, como el resto del formato oficial (la sigla solo se agrega si dos unidades quedan con el mismo nombre). Las líneas siguientes de un ítem se sangran bajo el texto. **P. Interinstitucional** también va numerada. Ver [Reporte PDF](#reporte-pdf-formato-oficial-del-mof).
 
 ##### Integración en el front
 1. **Mappers** (`frontend/src/utils/mofMappers.js`):
@@ -347,6 +347,30 @@ Integración en el front (solo quitar restricciones, sin lógica nueva):
 3. **`frontend/src/views/MOF/unidades/UnidadInventarioTable.vue`** (~línea 177): quitar `maxlength="1024"` de la descripción. La cantidad conserva su validación de entero ≥ 1.
 4. **Cargos y clases**: quitar `maxlength`/`counter` de Nombre (255) y Descripción (512) en `frontend/src/views/MOF/cargos/CargoCatalogDialog.vue` (~líneas 78–91) y `frontend/src/views/MOF/clases/HierarchyManagerDrawer.vue` (~líneas 797–809).
 5. Si el formulario de Proyectos o de Funciones agrega `maxlength`, no ponerlo: el backend no tiene tope.
+
+### Reporte PDF (formato oficial del MOF)
+`GET /api/v1/mof/unidades/pdf/:id` (y `GET /api/v1/integraciones/mpp/unidades/:id/pdf`) arma el documento con la plantilla oficial (`FORMATO MOF.pdf`): hoja Carta, tabla de bordes negros y títulos en gris, secciones A–U. Lo dibuja `UnidadPdfService` con los datos de `UnidadesService.findEntityForPdf`.
+
+- **Encabezado** (solo primera página): logo · "UNIVERSIDAD MAYOR DE SAN ANDRÉS / {facultad} / MANUAL DE ORGANIZACIÓN Y FUNCIONES" · celda con los textos fijos "RESOLUCIÓN HCU QUE APRUEBA EL MOF" y "Versión" en gris (el sistema no guarda esos datos). `{facultad}` es la "FACULTAD DE …" del nombre del primer nodo de la cadena `parent_id` que la menciona (normalmente el Decanato); si ninguno, `ADMINISTRACIÓN CENTRAL`.
+- **A–J**: A nombre corto de la unidad, B código, C resolución, D fecha, E nivel, F tipo, G dependencia lineal, H dependencias funcionales (sin repetir al padre), I/J unidades dependientes lineales y funcionales numeradas. **K**: organigrama con el padre, la unidad resaltada y hasta 8 hijas lineales (desde la 9.ª, una caja "+N MÁS").
+- **L** objetivo; **M** funciones numeradas | **N** base legal de la unidad (si está vacía, las bases legales distintas de sus funciones con viñetas); **O** coordinación interna | **P** interinstitucional, ambas numeradas; **Q/R/S/U** bloque de firmas. Ya no lleva código QR.
+- Las columnas siguen en la página siguiente cuando no entran; un texto más largo que una página se parte entre renglones. Como en Word, cada tramo termina en el último renglón que entró, y el bloque de firmas también puede seguir en la página siguiente.
+- Vacíos: listas y dependencias muestran "Ninguna."; C, D y N quedan en blanco.
+
+**Tipografía y medidas** (tomadas de `FORMATO MOF.pdf`, Word 2016):
+- Arial 11 en valores, listas y objetivo; Arial Bold 11 en títulos (L, O y P en 10); encabezado Bold 12/11/12; B. CÓDIGO en Arial Italic 11; "RESOLUCIÓN HCU…" y "Versión" en Arial Italic 8/9 gris `#BFBFBF`; Q/R/S/U y "FECHA:" en Arial Narrow Bold 10; "Nombre:"/"Cargo:" en Arial Bold 10. Interlineado sencillo de Word (1.15 × tamaño).
+- Fuente: se usa la **Arial del sistema** (`C:\Windows\Fonts`, `/usr/share/fonts/truetype/msttcorefonts`, `/Library/Fonts`) o una copia en `src/assets/fonts` (ignorada por git: Arial es de Microsoft y no se versiona). Si falta alguna variante, se usa **Liberation Sans** (`src/assets/fonts`, licencia OFL), que tiene las mismas medidas que Arial; sin Arial Narrow, la Bold se angosta al 82 % (Arial Narrow mide el 82 % de Arial). En Docker (Alpine) sale Liberation.
+- Cortes de renglón: `wrapLines` corta como Word, sin contar el espacio que sigue a la última palabra y midiendo con un factor de 0.993 (Word usa anchos de pantalla de Arial algo más angostos). Con ese valor se reproducen todos los cortes del formato oficial.
+- Medidas de tabla, columnas, sangrías de listas y firmas: constantes `PAGE_MARGINS`, `WIDTH`, `LIST`, `HEADER`, `FIRMA` y `FIRMA_ROWS` de `unidad-pdf.service.ts`.
+- Diferencias que se dejaron a propósito: "Versión" sin número (el sistema no lo guarda) y el organigrama K, que sigue el diseño propio (padre → unidad → hijas) en lugar de dibujar las unidades de staff a los costados.
+
+**Nombre corto** (`unidad-pdf-texto.ts`, no cambia la BD):
+- `nombreCorto` quita al inicio los prefijos de sigla con guion (`FMENTM - `, `DEC-`, `CARR.TS-`, `FO.DEC-`) y `FACULTAD DE … - `: `FMENTM - FACULTAD DE MEDICINA… - DECANATO` → `DECANATO`. Un guion dentro del nombre (`DIRECCIÓN DE CARRERA- INGENIERÍA ELÉCTRICA`, `INSTITUTO … - IEA`) se conserva.
+- E. Nivel jerárquico (`nivelMof`): solo el nivel, sin subcategoría. "Ejecutivo Estratégico Facultativo", "Ejecutivo Estratégico Institucional" y "Ejecutivo Operativo" → "Ejecutivo"; "Operativo" y "Directorio" quedan igual.
+- F. Tipo de unidad (`tipoUnidadMof`): sin la aclaración entre paréntesis. "Sustantivo (Académico)" → "Sustantivo".
+- J. Unidades dependientes (funcional) (`UnidadesService.hijasFuncionalesMof`, solo para el PDF): se quitan las que ya cuelgan por línea de la unidad (hijas, nietas…), porque esa dependencia ya está implícita en la estructura. El Decanato de Medicina tiene registradas como funcionales a Vicedecanato, Centro de Seguimiento y tres Institutos de Investigación (bisnietos vía las Carreras), y su MOF dice "Ninguna.". El detalle de la API no cambia.
+- `tituloEs` pasa a tipo título los nombres guardados en MAYÚSCULAS (conectores en minúscula; siglas entre paréntesis, palabras sin vocales y siglas conocidas se respetan). Un texto que ya trae minúsculas no se toca. Se aplica a nombres de unidades, nivel y tipo; objetivo, funciones, base legal y relaciones externas salen tal como están guardados.
+- En una lista, dos unidades que quedan con el mismo nombre corto llevan su primera sigla: "Unidad de Administración Desconcentrada (FMENTM)".
 
 ### Métricas de uso (vistas y descargas)
 Dos contadores por unidad en `unidad`: `vistas_count` (aperturas de la ficha técnica) y `descargas_count` (descargas del PDF). Son `integer NOT NULL DEFAULT 0` con CHECK `>= 0`, así que persisten en base de datos. Cada unidad tiene los suyos.
