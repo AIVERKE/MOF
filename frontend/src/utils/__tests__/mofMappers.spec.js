@@ -98,8 +98,20 @@ describe("proyectos en mappers", () => {
       aplicaProyectos: true,
       proyectosCount: 2,
       proyectos: [
-        { id: 1, tipo: "Investigación", detalle: "P1", unidades: [{ id: 11, nombre: "U2" }] },
-        { id: 2, tipo: "Social", detalle: "P2", unidadIds: [12] },
+        {
+          id: 1,
+          tipoId: 2,
+          tipo: "Programa Investigación",
+          detalle: "P1",
+          unidades: [{ id: 11, nombre: "U2" }],
+        },
+        {
+          id: 2,
+          tipoId: "3",
+          tipo: "Programa Interacción Social y Extensión Universitaria",
+          detalle: "P2",
+          unidadIds: [12],
+        },
       ],
     };
 
@@ -109,13 +121,15 @@ describe("proyectos en mappers", () => {
     expect(form.proyectos).toHaveLength(2);
     expect(form.proyectos[0]).toEqual({
       id: 1,
-      tipo: "Investigación",
+      tipoId: 2,
+      tipo: "Programa Investigación",
       detalle: "P1",
       unidadIds: [11],
     });
     expect(form.proyectos[1]).toEqual({
       id: 2,
-      tipo: "Social",
+      tipoId: 3,
+      tipo: "Programa Interacción Social y Extensión Universitaria",
       detalle: "P2",
       unidadIds: [12],
     });
@@ -125,26 +139,32 @@ describe("proyectos en mappers", () => {
     const payload = mapFormToBackend({
       nombre: "Rectorado",
       aplicaProyectos: false,
-      proyectos: [{ tipo: "Inv", detalle: "Detalle" }],
+      proyectos: [{ tipoId: 2, detalle: "Detalle" }],
     });
 
     expect(payload.proyectos).toBeUndefined();
   });
 
-  it("mapFormToBackend limpia y mapea proyectos cuando aplicaProyectos es true", () => {
+  it("mapFormToBackend envía tipoId (no el nombre) y descarta filas vacías", () => {
     const payload = mapFormToBackend({
       nombre: "Decanato",
       aplicaProyectos: true,
       proyectos: [
-        { id: "5", tipo: "  Investigación  ", detalle: "  Detalle P5  ", unidadIds: [10, "12", 0] },
-        { tipo: "", detalle: "" },
-        { tipo: "Interacción", detalle: "Comunitaria" },
+        {
+          id: "5",
+          tipoId: "2",
+          tipo: "Programa Investigación",
+          detalle: "  Detalle P5  ",
+          unidadIds: [10, "12", 0],
+        },
+        { tipoId: null, tipo: "", detalle: "" },
+        { tipoId: 3, detalle: "Comunitaria" },
       ],
     });
 
     expect(payload.proyectos).toEqual([
-      { id: 5, tipo: "Investigación", detalle: "Detalle P5", unidadIds: [10, 12] },
-      { tipo: "Interacción", detalle: "Comunitaria" },
+      { id: 5, tipoId: 2, detalle: "Detalle P5", unidadIds: [10, 12] },
+      { tipoId: 3, detalle: "Comunitaria" },
     ]);
   });
 });

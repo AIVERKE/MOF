@@ -1,7 +1,8 @@
 <script setup>
 import { computed, ref, onMounted, provide } from "vue";
 import { hints } from "@/config/hints";
-import { ENDPOINTS, apiFetch } from "@/config/api";
+import { ENDPOINTS, apiFetch, getApiErrorMeta } from "@/config/api";
+import { useSnackbar } from "@/composables/useSnackbar";
 
 // Desconectar los inputs de este componente del v-form padre para que
 // filas nuevas en edición no apaguen el botón "Guardar Unidad"
@@ -14,55 +15,76 @@ const props = defineProps({
     type: String,
     default: () =>
       hints.unidadForm?.proyectos ||
-      "Proyectos de interacción social, investigación, académicos u otros gestionados por esta unidad",
+      "Proyectos académicos, de investigación o de interacción social y extensión universitaria gestionados por esta unidad",
   },
   readonly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
+const { mostrar } = useSnackbar();
 
 const rows = computed(() => (Array.isArray(props.modelValue) ? props.modelValue : []));
 const saveAttempted = ref(false);
 
-const tiposSugeridos = ref([
-  "Investigación",
-  "Interacción social",
-  "Académico",
-  "Extensión universitaria",
-  "Innovación docente",
-]);
+/** Catálogo de tipos (`GET /mof/proyectos/tipos`): [{ id, tipo }]. */
+const tipos = ref([]);
 
-onMounted(async () => {
+/**
+ * Opciones del selector: el catálogo activo más los tipos que ya traen las
+ * filas y no están en él (p. ej. uno dado de baja), para no mostrar un id suelto.
+ */
+const tiposItems = computed(() => {
+  const ids = new Set(tipos.value.map((t) => String(t.id)));
+  const extra = [];
+  for (const r of rows.value) {
+    if (r.tipoId != null && r.tipo && !ids.has(String(r.tipoId))) {
+      ids.add(String(r.tipoId));
+      extra.push({ id: Number(r.tipoId), tipo: r.tipo });
+    }
+  }
+  return [...tipos.value, ...extra];
+});
+
+function normalizarTipo(item) {
+  if (!item || typeof item !== "object" || item.id == null) return null;
+  return { id: Number(item.id), tipo: String(item.tipo ?? item.descripcion ?? "") };
+}
+
+async function cargarTipos() {
   try {
     const res = await apiFetch(ENDPOINTS.MOF.PROYECTOS_TIPOS);
-    if (res.ok) {
-      const body = await res.json();
-      const list = body.data || body;
-      if (Array.isArray(list) && list.length > 0) {
-        const tipos = list
-          .map((item) => (typeof item === "object" ? item.tipo : item))
-          .filter(Boolean);
-        if (tipos.length > 0) {
-          tiposSugeridos.value = Array.from(new Set([...tipos, ...tiposSugeridos.value]));
-        }
-      }
+    if (!res.ok) return;
+    const body = await res.json();
+    const list = body?.data ?? body;
+    if (Array.isArray(list)) {
+      tipos.value = list.map(normalizarTipo).filter(Boolean);
     }
   } catch (e) {
-    // Fallback silencioso a las sugerencias por defecto
+    // Sin catálogo el selector queda vacío; el resto del formulario sigue usable
   }
-});
+}
+
+onMounted(cargarTipos);
+
+function tipoNombre(row) {
+  if (row?.tipoId == null) return "";
+  const t = tiposItems.value.find((x) => String(x.id) === String(row.tipoId));
+  return t?.tipo || row.tipo || "";
+}
 
 function addRow() {
   emit("update:modelValue", [
     ...rows.value,
-    { id: null, tipo: "", detalle: "", unidadIds: [] },
+    { id: null, tipoId: null, tipo: "", detalle: "", unidadIds: [] },
   ]);
 }
 
 function updateTipo(index, value) {
+  const tipoId = value == null || value === "" ? null : Number(value);
+  const tipo = tiposItems.value.find((t) => t.id === tipoId)?.tipo || "";
   emit(
     "update:modelValue",
-    rows.value.map((r, i) => (i === index ? { ...r, tipo: value } : r)),
+    rows.value.map((r, i) => (i === index ? { ...r, tipoId, tipo } : r)),
   );
 }
 
@@ -87,9 +109,13 @@ function removeRow(index) {
   );
 }
 
+function tieneTipo(row) {
+  return row?.tipoId != null && Number(row.tipoId) > 0;
+}
+
 function isTipoInvalid(row) {
   if (!saveAttempted.value) return false;
-  return !row.tipo || !String(row.tipo).trim();
+  return !tieneTipo(row);
 }
 
 function isDetalleInvalid(row) {
@@ -100,15 +126,69 @@ function isDetalleInvalid(row) {
 function validate() {
   saveAttempted.value = true;
   for (const row of rows.value) {
-    if (!row.tipo || !String(row.tipo).trim()) return false;
+    if (!tieneTipo(row)) return false;
     if (!row.detalle || !String(row.detalle).trim()) return false;
   }
   return true;
 }
 
+// --- Alta de un tipo de proyecto nuevo ---
+const dialogNuevoTipo = ref(false);
+const nuevoTipo = ref("");
+const filaNuevoTipo = ref(null);
+const guardandoTipo = ref(false);
+
+function abrirNuevoTipo(index) {
+  filaNuevoTipo.value = index;
+  nuevoTipo.value = "";
+  dialogNuevoTipo.value = true;
+}
+
+function cerrarNuevoTipo() {
+  dialogNuevoTipo.value = false;
+  filaNuevoTipo.value = null;
+  nuevoTipo.value = "";
+}
+
+async function crearTipo() {
+  const tipo = String(nuevoTipo.value || "").trim().replace(/\s+/g, " ");
+  if (!tipo || guardandoTipo.value) return;
+  guardandoTipo.value = true;
+  try {
+    const res = await apiFetch(ENDPOINTS.MOF.PROYECTOS_TIPOS, {
+      method: "POST",
+      body: JSON.stringify({ tipo }),
+    });
+    if (!res.ok) {
+      const { message } = await getApiErrorMeta(res);
+      mostrar(message || "No se pudo añadir el tipo de proyecto", "error");
+      return;
+    }
+    const body = await res.json();
+    const creado = normalizarTipo(body?.data ?? body);
+    if (!creado) return;
+    if (!tipos.value.some((t) => t.id === creado.id)) {
+      tipos.value = [...tipos.value, creado];
+    }
+    if (filaNuevoTipo.value != null) {
+      updateTipo(filaNuevoTipo.value, creado.id);
+    }
+    mostrar(`Tipo «${creado.tipo}» disponible`, "success");
+    cerrarNuevoTipo();
+  } catch (e) {
+    mostrar("No se pudo añadir el tipo de proyecto", "error");
+  } finally {
+    guardandoTipo.value = false;
+  }
+}
+
 defineExpose({
   validate,
   saveAttempted,
+  abrirNuevoTipo,
+  crearTipo,
+  nuevoTipo,
+  tipos,
 });
 </script>
 
@@ -157,7 +237,7 @@ defineExpose({
       <v-icon size="28" color="grey-lighten-1" class="mb-1 d-block mx-auto">mdi-folder-plus-outline</v-icon>
       <span>No hay proyectos registrados para esta unidad.</span>
       <span v-if="!readonly" class="d-block text-slate-500 mt-1">
-        Presione <strong>«Añadir proyecto»</strong> para registrar uno con tipo libre.
+        Presione <strong>«Añadir proyecto»</strong> para registrar uno.
       </span>
     </div>
 
@@ -177,7 +257,7 @@ defineExpose({
               #{{ idx + 1 }}
             </v-chip>
             <span class="text-caption font-weight-bold text-slate-700">
-              {{ row.tipo && row.tipo.trim() ? row.tipo.trim() : 'NUEVO PROYECTO' }}
+              {{ tipoNombre(row) || 'NUEVO PROYECTO' }}
             </span>
           </div>
 
@@ -195,11 +275,14 @@ defineExpose({
         </div>
 
         <v-row dense>
-          <!-- Tipo (Texto libre con autocompletado sugerido) -->
+          <!-- Tipo (catálogo, con alta de tipos nuevos) -->
           <v-col cols="12" sm="5">
-            <v-combobox
-              :model-value="row.tipo"
-              :items="tiposSugeridos"
+            <v-autocomplete
+              class="tipo-proyecto-select"
+              :model-value="row.tipoId"
+              :items="tiposItems"
+              item-title="tipo"
+              item-value="id"
               label="Tipo de proyecto *"
               density="compact"
               variant="outlined"
@@ -207,12 +290,23 @@ defineExpose({
               :readonly="readonly"
               :error="isTipoInvalid(row)"
               :error-messages="isTipoInvalid(row) ? ['El tipo de proyecto es requerido'] : []"
+              :data-test="`select-tipo-proyecto-${idx}`"
               @update:model-value="updateTipo(idx, $event)"
             >
               <template #prepend-inner>
                 <v-icon size="16" color="primary">mdi-tag-outline</v-icon>
               </template>
-            </v-combobox>
+              <template v-if="!readonly" #append-item>
+                <v-divider class="my-1" />
+                <v-list-item
+                  prepend-icon="mdi-plus"
+                  title="Añadir tipo de proyecto"
+                  class="text-primary font-weight-bold"
+                  :data-test="`btn-nuevo-tipo-proyecto-${idx}`"
+                  @click="abrirNuevoTipo(idx)"
+                />
+              </template>
+            </v-autocomplete>
           </v-col>
 
           <!-- Unidades participantes conjuntas (opcional) -->
@@ -268,6 +362,39 @@ defineExpose({
         </v-row>
       </v-card>
     </div>
+
+    <!-- Alta de un tipo de proyecto nuevo -->
+    <v-dialog v-model="dialogNuevoTipo" max-width="440">
+      <v-card class="pa-4 rounded-lg">
+        <div class="text-subtitle-1 font-weight-bold mb-1">Nuevo tipo de proyecto</div>
+        <div class="text-caption text-slate-500 mb-3">
+          Quedará disponible para todas las unidades.
+        </div>
+        <v-text-field
+          v-model="nuevoTipo"
+          label="Tipo de proyecto *"
+          density="compact"
+          variant="outlined"
+          hide-details="auto"
+          autofocus
+          data-test="input-nuevo-tipo-proyecto"
+          @keydown.enter.prevent="crearTipo"
+        />
+        <div class="d-flex justify-end ga-2 mt-4">
+          <v-btn variant="text" @click="cerrarNuevoTipo">Cancelar</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            :loading="guardandoTipo"
+            :disabled="!nuevoTipo || !nuevoTipo.trim()"
+            data-test="btn-guardar-nuevo-tipo-proyecto"
+            @click="crearTipo"
+          >
+            Añadir
+          </v-btn>
+        </div>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 

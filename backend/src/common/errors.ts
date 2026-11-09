@@ -23,6 +23,7 @@ export const ErrorCodes = {
   PROYECTO_UNIDAD_NO_APLICA: 'PROYECTO_UNIDAD_NO_APLICA',
   PROYECTO_NO_PERTENECE_UNIDAD: 'PROYECTO_NO_PERTENECE_UNIDAD',
   PROYECTO_ID_DUPLICADO: 'PROYECTO_ID_DUPLICADO',
+  TIPO_PROYECTO_NO_EXISTE: 'TIPO_PROYECTO_NO_EXISTE',
   USUARIO_CI_DUPLICADO: 'USUARIO_CI_DUPLICADO',
   PRIMER_ACCESO_REQUERIDO: 'PRIMER_ACCESO_REQUERIDO',
   PRIMER_ACCESO_INVALIDO: 'PRIMER_ACCESO_INVALIDO',
@@ -156,6 +157,11 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     code: ErrorCodes.PROYECTO_ID_DUPLICADO,
     httpStatus: HttpStatus.BAD_REQUEST,
     message: 'El proyecto está repetido en la solicitud',
+  },
+  TIPO_PROYECTO_NO_EXISTE: {
+    code: ErrorCodes.TIPO_PROYECTO_NO_EXISTE,
+    httpStatus: HttpStatus.BAD_REQUEST,
+    message: 'El tipo de proyecto no existe o está inactivo',
   },
   USUARIO_CI_DUPLICADO: {
     code: ErrorCodes.USUARIO_CI_DUPLICADO,

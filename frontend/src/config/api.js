@@ -64,6 +64,7 @@ export const ERROR_CODE_MESSAGES = {
   PROYECTO_UNIDAD_NO_APLICA: "Una de las unidades vinculadas al proyecto no aplica para proyectos",
   PROYECTO_NO_PERTENECE_UNIDAD: "El proyecto no pertenece a la unidad",
   PROYECTO_ID_DUPLICADO: "El proyecto está repetido en la solicitud",
+  TIPO_PROYECTO_NO_EXISTE: "El tipo de proyecto no existe o está inactivo",
   SIA_FILA_VACIA: "La fila SIA debe tener al menos un valor",
   PLANIFICACION_ESTRATEGICA_INCOMPLETA:
     "Si la Planificación Estratégica aplica, el porcentaje y la descripción son obligatorios",
