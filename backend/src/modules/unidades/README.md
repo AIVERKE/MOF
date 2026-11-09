@@ -33,7 +33,7 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 27. **INVENTARIOS** (`inventarios` / `unidad_inventario`) — filas de descripción y cantidad, propias de cada unidad
 28. **SIA** (`sia` / `unidad_sia`) — filas de aprobados, reprobados y matriculados; solo en unidades de tipo Carrera
 29. **PLANIFICACIÓN ESTRATÉGICA** (`planificacionEstrategicaAplica`, `planificacionEstrategicaValor`, `planificacionEstrategica`) — switch, porcentaje 0–100 y descripción
-30. **PROYECTOS** (`proyectos` / `proyecto` + `proyecto_unidad`) — tipo en texto libre y detalle; solo en Decanatos y unidades que dependen de uno; un proyecto puede ser conjunto entre varias unidades
+30. **PROYECTOS** (`proyectos` / `proyecto` + `proyecto_unidad` + `tipo_proyecto`) — tipo del catálogo (tres programas oficiales más los que añadan los usuarios) y detalle; solo en Decanatos y unidades que dependen de uno; un proyecto puede ser conjunto entre varias unidades
 
 ## Endpoints Principales
 
@@ -220,9 +220,14 @@ Una unidad lleva Proyectos si su clase es Decanato **o** si algún ancestro por 
 - No tiene relación con el texto de funciones que mencione investigación o interacción: son entidades aparte.
 
 #### Modelo
-- `proyecto`: `id`, `tipo` (`text`, **texto libre**, sin catálogo ni enum), `detalle` (`text`), auditoría y baja lógica.
+- `tipo_proyecto`: catálogo `id`, `descripcion` (`text`), `activo`, auditoría. La migración `1793500000000-CreateTipoProyecto` lo crea con:
+  1. Programa Académico
+  2. Programa Investigación
+  3. Programa Interacción Social y Extensión Universitaria
+
+  Los usuarios pueden añadir otros (`POST /mof/proyectos/tipos`). La misma migración reasignó los proyectos que tenían tipo libre por palabra clave (`investig` → 2; `interacc`/`extens` → 3; el resto → 1) y eliminó la columna `proyecto.tipo`.
+- `proyecto`: `id`, `tipo_proyecto_id` (FK a `tipo_proyecto`, obligatorio), `detalle` (`text`), auditoría y baja lógica.
 - `proyecto_unidad`: (`proyecto_id`, `unidad_id`). Un proyecto conjunto (ej. Informática + Química) tiene una fila por unidad y **suma 1 en el contador de cada una**.
-- `tipo` se guarda recortado y con los espacios colapsados. Al agrupar, tipos que solo difieren en mayúsculas o acentos (`Investigación`, `investigacion`) van juntos, con la grafía del primero que se registró.
 
 #### Lectura
 `GET /api/v1/mof/clases`: cada clase trae `esDecanato`.
@@ -236,18 +241,19 @@ Una unidad lleva Proyectos si su clase es Decanato **o** si algún ancestro por 
   "aplicaProyectos": true,
   "proyectosCount": 3,
   "proyectos": [
-    { "id": 5, "tipo": "Interacción social", "detalle": "Brigadas de salud comunitaria",
+    { "id": 5, "tipoId": 3, "tipo": "Programa Interacción Social y Extensión Universitaria",
+      "detalle": "Brigadas de salud comunitaria",
       "unidades": [{ "id": 10, "codigo": "…", "sigla": "FCS-DEC", "nombre": "FACULTAD DE CIENCIAS SOCIALES - DECANATO" }] },
-    { "id": 6, "tipo": "Investigación", "detalle": "Química computacional",
+    { "id": 6, "tipoId": 2, "tipo": "Programa Investigación", "detalle": "Química computacional",
       "unidades": [
         { "id": 21, "codigo": "…", "sigla": "INF", "nombre": "CARRERA DE INFORMÁTICA" },
         { "id": 22, "codigo": "…", "sigla": "QMC", "nombre": "CARRERA DE QUÍMICA" }
       ] },
-    { "id": 9, "tipo": "investigacion", "detalle": "Observatorio social", "unidades": [ … ] }
+    { "id": 9, "tipoId": 2, "tipo": "Programa Investigación", "detalle": "Observatorio social", "unidades": [ … ] }
   ],
   "proyectosPorTipo": [
-    { "tipo": "Interacción social", "cantidad": 1, "proyectos": [ { "id": 5, … } ] },
-    { "tipo": "Investigación", "cantidad": 2, "proyectos": [ { "id": 6, … }, { "id": 9, … } ] }
+    { "tipo": "Programa Interacción Social y Extensión Universitaria", "cantidad": 1, "proyectos": [ { "id": 5, … } ] },
+    { "tipo": "Programa Investigación", "cantidad": 2, "proyectos": [ { "id": 6, … }, { "id": 9, … } ] }
   ]
 }
 ```
@@ -256,31 +262,36 @@ Una unidad lleva Proyectos si su clase es Decanato **o** si algún ancestro por 
 - `proyectosPorTipo`: grupos en orden alfabético. Es lo que muestra el panel lateral.
 - Si la unidad no aplica: `aplicaProyectos: false`, `proyectosCount: 0` y ambas listas `[]`.
 
-`GET /api/v1/mof/proyectos/tipos`: tipos ya usados, de más a menos frecuentes: `[{ "tipo": "Investigación", "cantidad": 7 }, …]`. Sirve solo para sugerir en el autocompletado: no restringe.
+- Cada proyecto trae `tipoId` (id del catálogo) y `tipo` (su descripción).
+
+#### Catálogo de tipos
+- `GET /api/v1/mof/proyectos/tipos`: tipos activos en orden de alta (primero los tres programas), con los proyectos vigentes de cada uno: `[{ "id": 1, "tipo": "Programa Académico", "cantidad": 4 }, …]`.
+- `POST /api/v1/mof/proyectos/tipos` (ADMIN, OPERADOR): `{ "tipo": "Programa de Posgrado" }`. Recorta y colapsa espacios. Si ya existe uno equivalente sin distinguir mayúsculas ni acentos, devuelve ese (y lo reactiva si estaba inactivo) en lugar de duplicarlo. Responde `{ id, tipo, cantidad }`.
 
 #### Escritura desde el formulario
 `POST /api/v1/mof/unidades` y `PUT /api/v1/mof/unidades/:id` aceptan `proyectos`, con la misma convención que `inventarios`:
 
 ```json
 "proyectos": [
-  { "id": 5, "tipo": "Interacción social", "detalle": "Brigadas de salud comunitaria" },
-  { "id": 6, "tipo": "Investigación", "detalle": "Química computacional", "unidadIds": [22] },
-  { "tipo": "Feria de emprendimiento", "detalle": "Primera edición", "unidadIds": [] }
+  { "id": 5, "tipoId": 3, "detalle": "Brigadas de salud comunitaria" },
+  { "id": 6, "tipoId": 2, "detalle": "Química computacional", "unidadIds": [22] },
+  { "tipoId": 4, "detalle": "Primera edición", "unidadIds": [] }
 ]
 ```
 
 - Con `id` → se actualiza; sin `id` → se crea; un proyecto vigente de la unidad que no se envía → **la unidad se desvincula** (las demás participantes lo conservan; si no queda ninguna, el proyecto se da de baja). `[]` desvincula todos; omitir el campo no modifica nada.
-- `tipo` y `detalle`: texto obligatorio, sin límite de longitud. No se admiten otros campos.
+- `tipoId`: obligatorio; debe existir en `tipo_proyecto` y estar activo (`TIPO_PROYECTO_NO_EXISTE`). Para un tipo nuevo, crearlo antes con `POST /mof/proyectos/tipos`.
+- `detalle`: texto obligatorio, sin límite de longitud. No se admiten otros campos.
 - `unidadIds`: **otras** unidades participantes. La unidad del formulario siempre participa (no hace falta incluirla; se ignoran repetidos). Si se envía, reemplaza la lista; si se omite en un proyecto existente, sus participantes no cambian. En uno nuevo, omitirlo equivale a `[]`.
 - Se valida con la clase y el padre **finales**: en el mismo `PUT` se puede mover la unidad bajo un Decanato y enviar `proyectos`. En el `POST`, con `tipoUnidad` y `parentId` del cuerpo.
 - En una unidad que no aplica, enviar filas responde `PROYECTOS_NO_APLICA`; `proyectos: []` se ignora.
-- Errores (400): `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica; `data` trae el id), `PROYECTO_NO_PERTENECE_UNIDAD` (`id` de un proyecto en el que la unidad no participa), `PROYECTO_ID_DUPLICADO`, `VALIDATION_FAILED`. Ante un error no se guarda nada.
+- Errores (400): `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica; `data` trae el id), `PROYECTO_NO_PERTENECE_UNIDAD` (`id` de un proyecto en el que la unidad no participa), `PROYECTO_ID_DUPLICADO`, `TIPO_PROYECTO_NO_EXISTE`, `VALIDATION_FAILED`. Ante un error no se guarda nada.
 
 #### Endpoints por proyecto (escritura: ADMIN, OPERADOR)
 - `GET /api/v1/mof/unidades/:id/proyectos`: proyectos de la unidad (`[]` si no aplica).
 - `GET /api/v1/mof/unidades/:id/proyectos/:proyectoId`: un proyecto.
-- `POST /api/v1/mof/unidades/:id/proyectos`: `{ tipo, detalle, unidadIds? }`. Devuelve el proyecto con sus `unidades`.
-- `PUT /api/v1/mof/unidades/:id/proyectos/:proyectoId`: reemplaza `tipo` y `detalle`; `unidadIds` como arriba.
+- `POST /api/v1/mof/unidades/:id/proyectos`: `{ tipoId, detalle, unidadIds? }`. Devuelve el proyecto con sus `unidades`.
+- `PUT /api/v1/mof/unidades/:id/proyectos/:proyectoId`: reemplaza `tipoId` y `detalle`; `unidadIds` como arriba.
 - `DELETE /api/v1/mof/unidades/:id/proyectos/:proyectoId`: desvincula la unidad (baja lógica si era la última).
 
 Un proyecto en el que la unidad no participa responde 404 (`NOT_FOUND`); en una unidad que no aplica, `GET` de un proyecto responde 404 y las escrituras `PROYECTOS_NO_APLICA`.
@@ -288,8 +299,8 @@ Un proyecto en el que la unidad no participa responde 404 (`NOT_FOUND`); en una 
 #### Integración en el front
 1. **Formulario** (`frontend/src/views/MOF/unidades/UnidadFormDialog.vue`, mappers en `frontend/src/utils/mofMappers.js`):
    - Mostrar la sección cuando la clase elegida tiene `esDecanato` (de `GET /mof/clases`) **o** el padre elegido tiene `aplicaProyectos` (de `GET /mof/unidades`). Recalcular al cambiar clase o padre. Al abrir una unidad existente, el detalle ya trae `aplicaProyectos`.
-   - Filas `{ id?, tipo, detalle, unidadIds }`. Inicializar desde `detalle.proyectos`, con `unidadIds` = `p.unidades.map(u => u.id)` sin la unidad actual.
-   - `tipo`: `v-combobox` (acepta texto libre) con sugerencias de `GET /mof/proyectos/tipos`. `detalle`: `v-textarea`.
+   - Filas `{ id?, tipoId, tipo, detalle, unidadIds }` (`tipo` solo para mostrar; se envía `tipoId`). Inicializar desde `detalle.proyectos`, con `unidadIds` = `p.unidades.map(u => u.id)` sin la unidad actual.
+   - Tipo: `v-autocomplete` sobre `GET /mof/proyectos/tipos`, con la acción «Añadir tipo de proyecto» al final de la lista (abre un diálogo, hace `POST /mof/proyectos/tipos` y deja el tipo nuevo seleccionado). `detalle`: `v-textarea`. Componente: `UnidadProyectoTable.vue`.
    - Unidades participantes: autocompletar múltiple sobre `GET /mof/unidades` filtrado por `aplicaProyectos` y sin la unidad actual.
    - Enviar `proyectos` en el `POST`/`PUT` solo si la sección está visible. Si no lo está, no enviar el campo.
 2. **Organigrama** (`frontend/src/views/MOF/OrganigramaVueFlow.vue`):
@@ -319,7 +330,7 @@ Los campos de texto de la ficha técnica, inventarios, proyectos, funciones, car
 | `unidad_relacion_externa` | `descripcion` (1024) |
 | `unidad_relacion_interna` | `tipo` (32) |
 | `unidad_jerarquia_hist` | `razon` (512) |
-| `proyecto` | `tipo` (120) |
+| `proyecto` | `tipo` (120); luego reemplazada por `tipo_proyecto_id` (`1793500000000-CreateTipoProyecto`) |
 | `cargo` | `codigo` (64), `nombre` (255), `descripcion` (512) |
 | `cargo_nivel` | `nombre` (128), `descripcion` (512) |
 | `cargo_jerarquia_hist`, `asignacion_cargo_hist` | `razon` (512) |

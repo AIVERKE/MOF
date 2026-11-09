@@ -354,6 +354,7 @@ export function mapBackendToForm(raw, options = {}) {
     proyectos: Array.isArray(raw.proyectos)
       ? raw.proyectos.map((p) => ({
           id: p.id != null ? Number(p.id) : null,
+          tipoId: p.tipoId != null ? Number(p.tipoId) : null,
           tipo: p.tipo || "",
           detalle: p.detalle || "",
           unidadIds: Array.isArray(p.unidades)
@@ -511,10 +512,10 @@ export function mapFormToBackend(formData, options = {}) {
 
   if (isAplicaProy && Array.isArray(formData.proyectos)) {
     payload.proyectos = formData.proyectos
-      .filter((p) => p && (String(p.tipo || "").trim() || String(p.detalle || "").trim()))
+      .filter((p) => p && (p.tipoId != null || String(p.detalle || "").trim()))
       .map((p) => {
       const item = {
-        tipo: String(p.tipo || "").trim(),
+        tipoId: p.tipoId != null ? Number(p.tipoId) : null,
         detalle: String(p.detalle || "").trim(),
       };
       if (p.id != null && Number(p.id) > 0) {

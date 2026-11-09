@@ -66,9 +66,9 @@ export const hints = {
     sia:
       "Registro de métricas académicas SIA (aprobados, reprobados y matriculados) exclusivo para Carreras",
     proyectos:
-      "Proyectos de interacción social, investigación, académicos u otros gestionados por esta unidad facultativa",
+      "Proyectos académicos, de investigación o de interacción social y extensión universitaria gestionados por esta unidad facultativa",
     proyectoTipo:
-      "Tipo o clasificación libre del proyecto (ej: Interacción social, Investigación, Académico u otro)",
+      "Programa Académico, Programa Investigación, Programa Interacción Social y Extensión Universitaria, o un tipo nuevo añadido desde la lista",
     proyectoDetalle:
       "Descripción y alcance del proyecto",
     clase:

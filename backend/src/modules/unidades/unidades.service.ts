@@ -10,6 +10,7 @@ import { UnidadInventario } from './entities/unidad-inventario.entity';
 import { UnidadSia } from './entities/unidad-sia.entity';
 import { Proyecto } from './entities/proyecto.entity';
 import { ProyectoUnidad } from './entities/proyecto-unidad.entity';
+import { TipoProyecto } from './entities/tipo-proyecto.entity';
 import { CatalogoTipo } from '../catalogos/entities/catalogo-tipo.entity';
 import { CatalogoNivel } from '../catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../catalogos/entities/catalogo-relacion.entity';
@@ -25,6 +26,7 @@ import {
   type MofConfigDefaults,
 } from './entities/mof-config.entity';
 import {
+  CrearTipoProyectoDto,
   DependenciaFuncionalDto,
   HEX_COLOR_REGEX,
   ProyectoDto,
@@ -257,6 +259,8 @@ export class UnidadesService {
     private readonly proyectoUnidadRepo: Repository<ProyectoUnidad>,
     @InjectRepository(UnidadCoordinacionInterna)
     private readonly coordIntRepo: Repository<UnidadCoordinacionInterna>,
+    @InjectRepository(TipoProyecto)
+    private readonly tipoProyectoRepo: Repository<TipoProyecto>,
   ) {}
 
   private async resolveCatalogId(
@@ -1177,7 +1181,8 @@ export class UnidadesService {
 
   /**
    * Guarda tipo y detalle. Si el proyecto es nuevo o trae `unidadIds`, reemplaza
-   * sus participantes: la unidad `unidadId` más las enviadas.
+   * sus participantes: la unidad `unidadId` más las enviadas. El tipo debe
+   * existir en el catálogo y estar activo.
    */
   private async guardarProyecto(
     m: EntityManager,
@@ -1190,7 +1195,8 @@ export class UnidadesService {
       proyecto.id == null || dto.unidadIds !== undefined
         ? await this.participantesProyecto(unidadId, dto.unidadIds ?? [], cache)
         : null;
-    proyecto.tipo = dto.tipo.trim().replace(/\s+/g, ' ');
+    await this.assertTipoProyecto(dto.tipoId);
+    proyecto.tipoProyectoId = dto.tipoId;
     proyecto.detalle = dto.detalle.trim();
     const saved = await m.save(proyecto);
     if (participantes) {
@@ -1972,13 +1978,19 @@ export class UnidadesService {
         nombre: pu.unidad.nombre,
       }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-    return { id: Number(p.id), tipo: p.tipo, detalle: p.detalle, unidades };
+    return {
+      id: Number(p.id),
+      tipoId: Number(p.tipoProyectoId),
+      tipo: p.tipoProyecto?.descripcion ?? '',
+      detalle: p.detalle,
+      unidades,
+    };
   }
 
   private findProyectosPorId(ids: readonly (number | string)[]) {
     return this.proyectoRepo.find({
       where: { id: In(ids.map(String)) },
-      relations: { unidades: { unidad: true } },
+      relations: { tipoProyecto: true, unidades: { unidad: true } },
       order: { id: 'ASC' },
     });
   }
@@ -2042,7 +2054,7 @@ export class UnidadesService {
     // Sin la relación cargada, `save` no toca los vínculos: los maneja guardarProyecto.
     const row = this.proyectoRepo.create({
       id: proyecto.id,
-      tipo: proyecto.tipo,
+      tipoProyectoId: proyecto.tipoProyectoId,
       detalle: proyecto.detalle,
     });
     await this.proyectoRepo.manager.transaction((m) =>
@@ -2063,19 +2075,64 @@ export class UnidadesService {
     return true;
   }
 
-  /** Tipos ya usados (agrupados como en la ficha), de más a menos frecuentes. */
+  private async assertTipoProyecto(tipoId: number) {
+    const tipo = await this.tipoProyectoRepo.findOne({
+      where: { id: tipoId, activo: true },
+    });
+    if (!tipo) throwBusiness(ErrorCodes.TIPO_PROYECTO_NO_EXISTE, tipoId);
+  }
+
+  /**
+   * Catálogo de tipos activos en orden de alta (primero los tres programas
+   * oficiales), con la cantidad de proyectos vigentes de cada uno.
+   */
   async tiposProyecto() {
-    const proyectos = await this.proyectoRepo.find({
-      select: { id: true, tipo: true },
+    const [tipos, proyectos] = await Promise.all([
+      this.tipoProyectoRepo.find({
+        where: { activo: true },
+        order: { id: 'ASC' },
+      }),
+      this.proyectoRepo.find({ select: { id: true, tipoProyectoId: true } }),
+    ]);
+    const conteos = new Map<number, number>();
+    for (const p of proyectos) {
+      const id = Number(p.tipoProyectoId);
+      conteos.set(id, (conteos.get(id) ?? 0) + 1);
+    }
+    return tipos.map((t) => ({
+      id: t.id,
+      tipo: t.descripcion,
+      cantidad: conteos.get(t.id) ?? 0,
+    }));
+  }
+
+  /**
+   * Alta de un tipo de proyecto. Si ya existe uno equivalente (sin distinguir
+   * mayúsculas, acentos ni espacios repetidos) devuelve ese, reactivándolo si
+   * estaba inactivo, en lugar de duplicarlo.
+   */
+  async crearTipoProyecto(dto: CrearTipoProyectoDto) {
+    const descripcion = dto.tipo.trim().replace(/\s+/g, ' ');
+    const clave = claveTipoProyecto(descripcion);
+    const existentes = await this.tipoProyectoRepo.find({
       order: { id: 'ASC' },
     });
-    return agruparProyectosPorTipo(proyectos)
-      .map(({ tipo, cantidad }) => ({ tipo, cantidad }))
-      .sort(
-        (a, b) =>
-          b.cantidad - a.cantidad ||
-          a.tipo.localeCompare(b.tipo, 'es', { sensitivity: 'base' }),
+    let tipo = existentes.find(
+      (t) => claveTipoProyecto(t.descripcion) === clave,
+    );
+    if (tipo && !tipo.activo) {
+      tipo.activo = true;
+      tipo = await this.tipoProyectoRepo.save(tipo);
+    }
+    if (!tipo) {
+      tipo = await this.tipoProyectoRepo.save(
+        this.tipoProyectoRepo.create({ descripcion, activo: true }),
       );
+    }
+    const cantidad = await this.proyectoRepo.count({
+      where: { tipoProyectoId: tipo.id },
+    });
+    return { id: tipo.id, tipo: tipo.descripcion, cantidad };
   }
 
   /** Suma una apertura de la ficha técnica (panel lateral). */

@@ -35,6 +35,7 @@ import type { Response } from 'express';
 import { UnidadesService } from './unidades.service';
 import { UnidadPdfService } from './unidad-pdf.service';
 import {
+  CrearTipoProyectoDto,
   DependenciaFuncionalDto,
   ProyectoDto,
   ProyectoGrupoResponseDto,
@@ -89,7 +90,7 @@ const UNIDAD_BAD_REQUEST =
   'Error de validación (`VALIDATION_FAILED`, p. ej. nombre o código vacíos, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA`, `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción) o, en `proyectos`, `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA`, `PROYECTO_NO_PERTENECE_UNIDAD` y `PROYECTO_ID_DUPLICADO`';
 
 const PROYECTO_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`: `tipo` o `detalle` vacíos, `unidadIds` con valores no enteros), `PROYECTOS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica)';
+  'Error de validación (`VALIDATION_FAILED`: `tipoId` no entero o `detalle` vacío, `unidadIds` con valores no enteros), `TIPO_PROYECTO_NO_EXISTE` (el `tipoId` no existe o está inactivo), `PROYECTOS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica)';
 
 const SIA_BAD_REQUEST =
   'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';
@@ -814,9 +815,9 @@ export class MofUnidadesController {
   // --- PROYECTOS (Decanato hacia abajo) ---
   @Get('proyectos/tipos')
   @ApiOperation({
-    summary: 'Tipos de proyecto ya usados',
+    summary: 'Catálogo de tipos de proyecto',
     description:
-      'Sugerencias para el autocompletado del campo `tipo`, de más a menos usados. No restringe: el tipo es texto libre. Tipos que solo difieren en mayúsculas o acentos se cuentan juntos.',
+      'Tipos activos en orden de alta: primero Programa Académico, Programa Investigación y Programa Interacción Social y Extensión Universitaria, luego los añadidos por los usuarios. `cantidad` son los proyectos vigentes de cada tipo. El `id` es el `tipoId` que se envía al guardar un proyecto.',
   })
   @ApiOkResponse({
     schema: resultSchema({ type: 'array', items: proyectoTipoSchema }),
@@ -825,6 +826,24 @@ export class MofUnidadesController {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
       await this.unidadesService.tiposProyecto(),
+    );
+  }
+
+  @Post('proyectos/tipos')
+  @Roles('ADMIN', 'OPERADOR')
+  @ApiOperation({
+    summary: 'Añadir tipo de proyecto',
+    description:
+      'Agrega un tipo al catálogo. Si ya existe uno equivalente (sin distinguir mayúsculas, acentos ni espacios repetidos) devuelve ese en lugar de duplicarlo.',
+  })
+  @ApiBody({ type: CrearTipoProyectoDto })
+  @ApiCreatedResponse({ schema: resultSchema(proyectoTipoSchema) })
+  @ApiBadRequestResponse({ description: 'Error de validación' })
+  @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
+  async crearTipoProyecto(@Body() dto: CrearTipoProyectoDto) {
+    return ResultResponse.ok(
+      RestMessages.PERSIST_SUCCESSFULLY,
+      await this.unidadesService.crearTipoProyecto(dto),
     );
   }
 
