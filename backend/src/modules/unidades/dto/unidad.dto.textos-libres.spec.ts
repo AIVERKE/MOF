@@ -1,6 +1,7 @@
 import { plainToInstance, type ClassConstructor } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
+  CrearTipoProyectoDto,
   ProyectoDto,
   UnidadDto,
   UnidadFuncionDto,
@@ -112,16 +113,27 @@ describe('Textos libres en inventarios, proyectos, funciones y cargos', () => {
     ).toEqual(['descripcion']);
   });
 
-  it('proyecto: tipo y detalle sin tope, siguen siendo obligatorios', async () => {
+  it('proyecto: detalle sin tope; tipoId y detalle siguen siendo obligatorios', async () => {
     expect(
       await propiedadesConError(ProyectoDto, {
-        tipo: `Interacción social / ${'extensión '.repeat(50)}`,
+        tipoId: 1,
         detalle: `${SIMBOLOS} ${LARGO}`,
       }),
     ).toEqual([]);
     expect(
-      await propiedadesConError(ProyectoDto, { tipo: '', detalle: '' }),
-    ).toEqual(['detalle', 'tipo']);
+      await propiedadesConError(ProyectoDto, { tipoId: null, detalle: '' }),
+    ).toEqual(['detalle', 'tipoId']);
+  });
+
+  it('tipo de proyecto nuevo: sin tope y obligatorio', async () => {
+    expect(
+      await propiedadesConError(CrearTipoProyectoDto, {
+        tipo: `Interacción social / ${'extensión '.repeat(50)}`,
+      }),
+    ).toEqual([]);
+    expect(
+      await propiedadesConError(CrearTipoProyectoDto, { tipo: '   ' }),
+    ).toEqual(['tipo']);
   });
 
   it('función: texto y base legal extensos', async () => {

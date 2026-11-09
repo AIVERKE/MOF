@@ -528,10 +528,9 @@ export class ProyectoDto {
       'Tipo de proyecto en texto libre (no hay lista cerrada). Proyectos con el mismo tipo, sin distinguir mayúsculas ni acentos, se agrupan juntos.',
     example: 'Interacción social',
   })
-  @Transform(normalizarTexto)
-  @IsString()
-  @IsNotEmpty({ message: 'El tipo de proyecto es obligatorio' })
-  tipo: string;
+  @IsInt({ message: 'El tipo de proyecto es obligatorio' })
+  @IsPositive({ message: 'El tipo de proyecto es obligatorio' })
+  tipoId: number;
 
   @ApiProperty({
     description: 'Detalle descriptivo del proyecto',
@@ -590,7 +589,13 @@ export class ProyectoResponseDto {
   @ApiProperty({ example: 5 })
   id: number;
 
-  @ApiProperty({ example: 'Interacción social' })
+  @ApiProperty({ example: 3, description: 'ID del tipo de proyecto' })
+  tipoId: number;
+
+  @ApiProperty({
+    example: 'Programa Interacción Social y Extensión Universitaria',
+    description: 'Descripción del tipo de proyecto',
+  })
   tipo: string;
 
   @ApiProperty({
@@ -608,8 +613,8 @@ export class ProyectoResponseDto {
 
 export class ProyectoGrupoResponseDto {
   @ApiProperty({
-    example: 'Interacción social',
-    description: 'Tipo tal como se registró por primera vez',
+    example: 'Programa Investigación',
+    description: 'Descripción del tipo de proyecto',
   })
   tipo: string;
 
@@ -620,8 +625,23 @@ export class ProyectoGrupoResponseDto {
   proyectos: ProyectoResponseDto[];
 }
 
+export class CrearTipoProyectoDto {
+  @ApiProperty({
+    description:
+      'Descripción del tipo nuevo. Si ya existe uno igual (sin distinguir mayúsculas, acentos ni espacios repetidos), se devuelve ese.',
+    example: 'Programa de Posgrado',
+  })
+  @Transform(normalizarTexto)
+  @IsString()
+  @IsNotEmpty({ message: 'El tipo de proyecto es obligatorio' })
+  tipo: string;
+}
+
 export class ProyectoTipoResponseDto {
-  @ApiProperty({ example: 'Interacción social' })
+  @ApiProperty({ example: 2 })
+  id: number;
+
+  @ApiProperty({ example: 'Programa Investigación' })
   tipo: string;
 
   @ApiProperty({

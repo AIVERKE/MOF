@@ -11,6 +11,7 @@ import { UnidadInventario } from './entities/unidad-inventario.entity';
 import { UnidadSia } from './entities/unidad-sia.entity';
 import { Proyecto } from './entities/proyecto.entity';
 import { ProyectoUnidad } from './entities/proyecto-unidad.entity';
+import { TipoProyecto } from './entities/tipo-proyecto.entity';
 import { CatalogosModule } from '../catalogos/catalogos.module';
 import { AuthModule } from '../auth/auth.module';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -39,6 +40,7 @@ import { MofConfig } from './entities/mof-config.entity';
       UnidadSia,
       Proyecto,
       ProyectoUnidad,
+      TipoProyecto,
       CatalogoTipo,
       CatalogoNivel,
       CatalogoRelacion,
