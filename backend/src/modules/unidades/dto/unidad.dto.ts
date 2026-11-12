@@ -533,6 +533,17 @@ export class ProgramaDto {
   tipoId: number;
 
   @ApiProperty({
+    description: 'Nombre que identifica al programa',
+    example: 'Brigadas de Salud Comunitaria',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString({ message: 'El nombre del programa es obligatorio' })
+  @IsNotEmpty({ message: 'El nombre del programa es obligatorio' })
+  nombre: string;
+
+  @ApiProperty({
     description: 'Detalle descriptivo del programa',
     example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
   })
@@ -545,7 +556,21 @@ export class ProgramaDto {
 
   @ApiPropertyOptional({
     description:
-      'Otras unidades que participan en el programa (programa conjunto). La unidad de la ruta siempre participa: no hace falta incluirla y se ignoran repetidos. Si se envía, reemplaza la lista de participantes; si se omite al actualizar, se conserva. Cada unidad debe ser un Decanato o depender de uno (`PROGRAMA_UNIDAD_NO_APLICA`).',
+      'Resolución que respalda el programa (texto libre). Vacío o `null` la deja sin resolución; al actualizar, omitirla también la borra.',
+    example: 'Res. HCF N° 123/2026',
+    nullable: true,
+    type: String,
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
+  @IsOptional()
+  @IsString()
+  resolucion?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Otras unidades que participan en el programa (programa conjunto). La unidad de la ruta siempre participa: no hace falta incluirla y se ignoran repetidos. Si se envía, reemplaza la lista de participantes; si se omite al actualizar, se conserva. Puede ser cualquier unidad vigente (`PROGRAMA_UNIDAD_NO_EXISTE` si no existe); las que no son Decanato ni dependen de uno ven el programa en solo lectura.',
     example: [42],
     type: [Number],
   })
@@ -598,10 +623,20 @@ export class ProgramaResponseDto {
   })
   tipo: string;
 
+  @ApiProperty({ example: 'Brigadas de Salud Comunitaria' })
+  nombre: string;
+
   @ApiProperty({
     example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
   })
   detalle: string;
+
+  @ApiProperty({
+    example: 'Res. HCF N° 123/2026',
+    nullable: true,
+    type: String,
+  })
+  resolucion: string | null;
 
   @ApiProperty({
     type: () => [ProgramaUnidadRefDto],

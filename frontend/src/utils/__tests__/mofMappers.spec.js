@@ -102,7 +102,9 @@ describe("programas en mappers", () => {
           id: 1,
           tipoId: 2,
           tipo: "Programa Investigación",
+          nombre: "Programa 1",
           detalle: "P1",
+          resolucion: "Res. HCF 10/2026",
           unidades: [{ id: 11, nombre: "U2" }],
         },
         {
@@ -123,14 +125,18 @@ describe("programas en mappers", () => {
       id: 1,
       tipoId: 2,
       tipo: "Programa Investigación",
+      nombre: "Programa 1",
       detalle: "P1",
+      resolucion: "Res. HCF 10/2026",
       unidadIds: [11],
     });
     expect(form.programas[1]).toEqual({
       id: 2,
       tipoId: 3,
       tipo: "Programa Interacción Social y Extensión Universitaria",
+      nombre: "",
       detalle: "P2",
+      resolucion: "",
       unidadIds: [12],
     });
   });
@@ -145,7 +151,7 @@ describe("programas en mappers", () => {
     expect(payload.programas).toBeUndefined();
   });
 
-  it("mapFormToBackend envía tipoId (no el nombre) y descarta filas vacías", () => {
+  it("mapFormToBackend envía tipoId (no el nombre del tipo) y descarta filas vacías", () => {
     const payload = mapFormToBackend({
       nombre: "Decanato",
       aplicaProgramas: true,
@@ -154,17 +160,37 @@ describe("programas en mappers", () => {
           id: "5",
           tipoId: "2",
           tipo: "Programa Investigación",
+          nombre: "  Programa P5 ",
           detalle: "  Detalle P5  ",
+          resolucion: "  Res. HCF 5/2026 ",
           unidadIds: [10, "12", 0],
         },
-        { tipoId: null, tipo: "", detalle: "" },
-        { tipoId: 3, detalle: "Comunitaria" },
+        { tipoId: null, tipo: "", nombre: "  ", detalle: "", resolucion: "" },
+        { tipoId: 3, nombre: "Brigadas", detalle: "Comunitaria", resolucion: "   " },
       ],
     });
 
     expect(payload.programas).toEqual([
-      { id: 5, tipoId: 2, detalle: "Detalle P5", unidadIds: [10, 12] },
-      { tipoId: 3, detalle: "Comunitaria" },
+      {
+        id: 5,
+        tipoId: 2,
+        nombre: "Programa P5",
+        detalle: "Detalle P5",
+        resolucion: "Res. HCF 5/2026",
+        unidadIds: [10, 12],
+      },
+      { tipoId: 3, nombre: "Brigadas", detalle: "Comunitaria", resolucion: null },
+    ]);
+  });
+
+  it("mapFormToBackend conserva una fila con solo nombre para que la validación la marque", () => {
+    const payload = mapFormToBackend({
+      nombre: "Decanato",
+      aplicaProgramas: true,
+      programas: [{ tipoId: null, nombre: "Solo nombre", detalle: "" }],
+    });
+    expect(payload.programas).toEqual([
+      { tipoId: null, nombre: "Solo nombre", detalle: "", resolucion: null },
     ]);
   });
 });

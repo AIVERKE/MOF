@@ -87,10 +87,10 @@ const COLOR_DESCRIPTION =
   'Color del nodo: `color` (`#RRGGBB`) es el color propio de la unidad; `null` o vacío vuelve a heredar el de la Clase y, si se omite, se conserva. Un color igual al de la Clase se guarda como `null`. Las lecturas devuelven `colorPropio` (guardado en la unidad), `colorClase` (`tipo_unidad.color`) y `color` (el efectivo: propio o, si no hay, el de la Clase).';
 
 const UNIDAD_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`, p. ej. nombre o código vacíos, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA`, `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción) o, en `programas`, `PROGRAMAS_NO_APLICA`, `PROGRAMA_UNIDAD_NO_APLICA`, `PROGRAMA_NO_PERTENECE_UNIDAD` y `PROGRAMA_ID_DUPLICADO`';
+  'Error de validación (`VALIDATION_FAILED`, p. ej. nombre o código vacíos, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA`, `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción) o, en `programas`, `PROGRAMAS_NO_APLICA`, `PROGRAMA_UNIDAD_NO_EXISTE`, `PROGRAMA_NO_PERTENECE_UNIDAD` y `PROGRAMA_ID_DUPLICADO`';
 
 const PROGRAMA_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`: `tipoId` no entero o `detalle` vacío, `unidadIds` con valores no enteros), `TIPO_PROGRAMA_NO_EXISTE` (el `tipoId` no existe o está inactivo), `PROGRAMAS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROGRAMA_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica)';
+  'Error de validación (`VALIDATION_FAILED`: `tipoId` no entero, `nombre` o `detalle` vacíos, `unidadIds` con valores no enteros), `TIPO_PROGRAMA_NO_EXISTE` (el `tipoId` no existe o está inactivo), `PROGRAMAS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROGRAMA_UNIDAD_NO_EXISTE` (una unidad de `unidadIds` no existe)';
 
 const SIA_BAD_REQUEST =
   'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';
@@ -121,7 +121,7 @@ export class MofUnidadesController {
   @Get('unidades')
   @ApiOperation({
     summary: 'Listar unidades',
-    description: `${COLOR_DESCRIPTION} Cada unidad trae \`aplicaProgramas\` (es un Decanato o depende de uno) y \`programasCount\` (programas en los que participa, incluidos los conjuntos; \`0\` si no aplica).`,
+    description: `${COLOR_DESCRIPTION} Cada unidad trae \`aplicaProgramas\` (es un Decanato o depende de uno) y \`programasCount\` (programas en los que participa, incluidos los conjuntos; también en las que no aplican y solo participan como conjuntas).`,
   })
   async list() {
     return ResultResponse.ok(
@@ -851,7 +851,7 @@ export class MofUnidadesController {
   @ApiOperation({
     summary: 'Listar programas de la unidad',
     description:
-      'Incluye los programas conjuntos en los que participa. Devuelve `[]` si la unidad no es un Decanato ni depende de uno.',
+      'Incluye los programas conjuntos en los que participa. Una unidad que no es un Decanato ni depende de uno solo puede participar como conjunta: ve sus programas en solo lectura.',
   })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
   @ApiOkResponse({
@@ -871,8 +871,7 @@ export class MofUnidadesController {
   @ApiParam({ name: 'programaId', description: 'ID del programa' })
   @ApiOkResponse({ schema: resultSchema(programaSchema) })
   @ApiNotFoundResponse({
-    description:
-      'Unidad no encontrada, la unidad no aplica o no participa en el programa',
+    description: 'Unidad no encontrada o no participa en el programa',
   })
   async getPrograma(
     @Param('id', ParseIntPipe) id: number,
@@ -889,7 +888,7 @@ export class MofUnidadesController {
   @ApiOperation({
     summary: 'Registrar programa en la unidad',
     description:
-      'La unidad de la ruta participa siempre. `unidadIds` agrega otras unidades (programa conjunto): cada una suma el programa en su contador.',
+      'La unidad de la ruta participa siempre. `unidadIds` agrega otras unidades (programa conjunto), que pueden ser cualquier unidad vigente: cada una suma el programa en su contador.',
   })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
   @ApiBody({ type: ProgramaDto })
@@ -912,7 +911,7 @@ export class MofUnidadesController {
   @ApiOperation({
     summary: 'Actualizar programa de la unidad',
     description:
-      'Reemplaza `tipo` y `detalle`. Si se envía `unidadIds`, reemplaza las otras unidades participantes (la de la ruta se conserva); si se omite, no cambian.',
+      'Reemplaza `tipo`, `nombre`, `detalle` y `resolucion` (omitirla la deja en `null`). Si se envía `unidadIds`, reemplaza las otras unidades participantes (la de la ruta se conserva); si se omite, no cambian.',
   })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
   @ApiParam({ name: 'programaId', description: 'ID del programa' })

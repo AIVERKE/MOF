@@ -327,20 +327,11 @@ const isAplicaProgramas = computed(() => {
   });
 });
 
+// Unidades conjuntas de un programa: cualquier unidad salvo la actual.
 const unidadesParaProgramas = computed(() => {
   const currentId = props.selectedNode?.id || props.formData?.id;
   return (unidadesStore.unidades || []).filter(
-    (u) =>
-      String(u.id) !== String(currentId) &&
-      (u.aplicaProgramas === true ||
-        u.aplica_programas === true ||
-        checkUnidadAplicaProgramas({
-          clase: u.clase || u.tipoUnidad,
-          parentId: u.parentId || u.parent,
-          unidad: u,
-          unidades: unidadesStore.unidades,
-          clases: clasesStore.clases,
-        })),
+    (u) => String(u.id) !== String(currentId),
   );
 });
 

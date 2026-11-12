@@ -61,7 +61,7 @@ export const ERROR_CODE_MESSAGES = {
   SIA_NO_PERTENECE_UNIDAD: "La fila SIA no pertenece a la unidad",
   SIA_ID_DUPLICADO: "La fila SIA está repetida en la solicitud",
   PROGRAMAS_NO_APLICA: "Los programas solo aplican a Decanatos y a las unidades que dependen de uno",
-  PROGRAMA_UNIDAD_NO_APLICA: "Una de las unidades vinculadas al programa no aplica para programas",
+  PROGRAMA_UNIDAD_NO_EXISTE: "Una de las unidades vinculadas al programa no existe",
   PROGRAMA_NO_PERTENECE_UNIDAD: "El programa no pertenece a la unidad",
   PROGRAMA_ID_DUPLICADO: "El programa está repetido en la solicitud",
   TIPO_PROGRAMA_NO_EXISTE: "El tipo de programa no existe o está inactivo",

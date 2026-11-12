@@ -75,7 +75,15 @@ function tipoNombre(row) {
 function addRow() {
   emit("update:modelValue", [
     ...rows.value,
-    { id: null, tipoId: null, tipo: "", detalle: "", unidadIds: [] },
+    {
+      id: null,
+      tipoId: null,
+      tipo: "",
+      nombre: "",
+      detalle: "",
+      resolucion: "",
+      unidadIds: [],
+    },
   ]);
 }
 
@@ -88,17 +96,11 @@ function updateTipo(index, value) {
   );
 }
 
-function updateDetalle(index, value) {
+/** Reemplaza un campo de la fila `index` (nombre, detalle, resolucion, unidadIds). */
+function updateCampo(index, campo, value) {
   emit(
     "update:modelValue",
-    rows.value.map((r, i) => (i === index ? { ...r, detalle: value } : r)),
-  );
-}
-
-function updateUnidadIds(index, value) {
-  emit(
-    "update:modelValue",
-    rows.value.map((r, i) => (i === index ? { ...r, unidadIds: value } : r)),
+    rows.value.map((r, i) => (i === index ? { ...r, [campo]: value } : r)),
   );
 }
 
@@ -118,18 +120,29 @@ function isTipoInvalid(row) {
   return !tieneTipo(row);
 }
 
+function tieneTexto(value) {
+  return value != null && String(value).trim() !== "";
+}
+
+function isNombreInvalid(row) {
+  if (!saveAttempted.value) return false;
+  return !tieneTexto(row.nombre);
+}
+
 function isDetalleInvalid(row) {
   if (!saveAttempted.value) return false;
-  return !row.detalle || !String(row.detalle).trim();
+  return !tieneTexto(row.detalle);
+}
+
+function isRowInvalid(row) {
+  return isTipoInvalid(row) || isNombreInvalid(row) || isDetalleInvalid(row);
 }
 
 function validate() {
   saveAttempted.value = true;
-  for (const row of rows.value) {
-    if (!tieneTipo(row)) return false;
-    if (!row.detalle || !String(row.detalle).trim()) return false;
-  }
-  return true;
+  return rows.value.every(
+    (row) => tieneTipo(row) && tieneTexto(row.nombre) && tieneTexto(row.detalle),
+  );
 }
 
 // --- Alta de un tipo de programa nuevo ---
@@ -248,7 +261,7 @@ defineExpose({
         :key="row.id || idx"
         variant="outlined"
         class="programa-card pa-3 pa-sm-4 rounded-lg bg-white"
-        :class="{ 'border-error': isTipoInvalid(row) || isDetalleInvalid(row) }"
+        :class="{ 'border-error': isRowInvalid(row) }"
       >
         <!-- Encabezado de tarjeta -->
         <div class="d-flex align-center justify-space-between mb-3 pb-2 border-b">
@@ -257,7 +270,7 @@ defineExpose({
               #{{ idx + 1 }}
             </v-chip>
             <span class="text-caption font-weight-bold text-slate-700">
-              {{ tipoNombre(row) || 'NUEVO PROGRAMA' }}
+              {{ row.nombre || tipoNombre(row) || 'NUEVO PROGRAMA' }}
             </span>
           </div>
 
@@ -275,6 +288,26 @@ defineExpose({
         </div>
 
         <v-row dense>
+          <!-- Nombre del programa -->
+          <v-col cols="12" class="mb-2">
+            <v-text-field
+              :model-value="row.nombre"
+              label="Nombre del programa *"
+              density="compact"
+              variant="outlined"
+              hide-details="auto"
+              :readonly="readonly"
+              :error="isNombreInvalid(row)"
+              :error-messages="isNombreInvalid(row) ? ['El nombre del programa es requerido'] : []"
+              :data-test="`input-nombre-programa-${idx}`"
+              @update:model-value="updateCampo(idx, 'nombre', $event)"
+            >
+              <template #prepend-inner>
+                <v-icon size="16" color="primary">mdi-format-title</v-icon>
+              </template>
+            </v-text-field>
+          </v-col>
+
           <!-- Tipo (catálogo, con alta de tipos nuevos) -->
           <v-col cols="12" sm="5">
             <v-autocomplete
@@ -324,7 +357,7 @@ defineExpose({
               closable-chips
               hide-details="auto"
               :readonly="readonly"
-              @update:model-value="updateUnidadIds(idx, $event)"
+              @update:model-value="updateCampo(idx, 'unidadIds', $event)"
             >
               <template #prepend-inner>
                 <v-icon size="16" color="primary">mdi-domain</v-icon>
@@ -356,8 +389,27 @@ defineExpose({
               :readonly="readonly"
               :error="isDetalleInvalid(row)"
               :error-messages="isDetalleInvalid(row) ? ['El detalle del programa es requerido'] : []"
-              @update:model-value="updateDetalle(idx, $event)"
+              :data-test="`input-detalle-programa-${idx}`"
+              @update:model-value="updateCampo(idx, 'detalle', $event)"
             />
+          </v-col>
+
+          <!-- Resolución (texto libre, opcional) -->
+          <v-col cols="12" class="mt-2">
+            <v-text-field
+              :model-value="row.resolucion"
+              label="Resolución (opcional)"
+              density="compact"
+              variant="outlined"
+              hide-details="auto"
+              :readonly="readonly"
+              :data-test="`input-resolucion-programa-${idx}`"
+              @update:model-value="updateCampo(idx, 'resolucion', $event)"
+            >
+              <template #prepend-inner>
+                <v-icon size="16" color="primary">mdi-file-document-outline</v-icon>
+              </template>
+            </v-text-field>
           </v-col>
         </v-row>
       </v-card>

@@ -113,16 +113,53 @@ describe('Textos libres en inventarios, programas, funciones y cargos', () => {
     ).toEqual(['descripcion']);
   });
 
-  it('programa: detalle sin tope; tipoId y detalle siguen siendo obligatorios', async () => {
+  it('programa: nombre, detalle y resolución sin tope; tipoId, nombre y detalle son obligatorios', async () => {
     expect(
       await propiedadesConError(ProgramaDto, {
         tipoId: 1,
+        nombre: `${SIMBOLOS} ${LARGO}`,
         detalle: `${SIMBOLOS} ${LARGO}`,
+        resolucion: `${SIMBOLOS} ${LARGO}`,
       }),
     ).toEqual([]);
     expect(
-      await propiedadesConError(ProgramaDto, { tipoId: null, detalle: '' }),
-    ).toEqual(['detalle', 'tipoId']);
+      await propiedadesConError(ProgramaDto, {
+        tipoId: null,
+        nombre: '   ',
+        detalle: '',
+      }),
+    ).toEqual(['detalle', 'nombre', 'tipoId']);
+    expect(
+      await propiedadesConError(ProgramaDto, { tipoId: 1, detalle: 'x' }),
+    ).toEqual(['nombre']);
+  });
+
+  it('programa: la resolución es opcional y vacía equivale a null', async () => {
+    for (const resolucion of [undefined, null, '', '   ']) {
+      expect(
+        await propiedadesConError(ProgramaDto, {
+          tipoId: 1,
+          nombre: 'Programa',
+          detalle: 'x',
+          resolucion,
+        }),
+      ).toEqual([]);
+    }
+    const dto = plainToInstance(ProgramaDto, {
+      tipoId: 1,
+      nombre: ' P ',
+      detalle: 'x',
+      resolucion: '   ',
+    });
+    expect([dto.nombre, dto.resolucion]).toEqual(['P', null]);
+    expect(
+      await propiedadesConError(ProgramaDto, {
+        tipoId: 1,
+        nombre: 'Programa',
+        detalle: 'x',
+        resolucion: 5,
+      }),
+    ).toEqual(['resolucion']);
   });
 
   it('tipo de programa nuevo: sin tope y obligatorio', async () => {
