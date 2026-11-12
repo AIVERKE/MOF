@@ -7,7 +7,7 @@ vi.mock("@/config/api", async (importOriginal) => {
   return { ...actual, apiFetch: (...args) => apiFetch(...args) };
 });
 
-import UnidadProyectoTable from "../UnidadProyectoTable.vue";
+import UnidadProgramaTable from "../UnidadProgramaTable.vue";
 
 const CATALOGO = [
   { id: 1, tipo: "Programa Académico", cantidad: 0 },
@@ -77,7 +77,7 @@ const stubs = {
 };
 
 async function montar(modelValue = []) {
-  const wrapper = mount(UnidadProyectoTable, {
+  const wrapper = mount(UnidadProgramaTable, {
     props: { modelValue },
     global: { stubs },
   });
@@ -85,20 +85,20 @@ async function montar(modelValue = []) {
   return wrapper;
 }
 
-describe("UnidadProyectoTable.vue", () => {
+describe("UnidadProgramaTable.vue", () => {
   beforeEach(() => {
     apiFetch.mockReset();
     apiFetch.mockResolvedValue(jsonResponse(CATALOGO));
   });
 
-  it("renderiza lista vacía cuando no hay proyectos", async () => {
+  it("renderiza lista vacía cuando no hay programas", async () => {
     const wrapper = await montar([]);
-    expect(wrapper.text()).toContain("No hay proyectos registrados");
+    expect(wrapper.text()).toContain("No hay programas registrados");
   });
 
   it("carga el catálogo de tipos con los tres programas", async () => {
     const wrapper = await montar([{ id: null, tipoId: null, detalle: "", unidadIds: [] }]);
-    expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining("/mof/proyectos/tipos"));
+    expect(apiFetch).toHaveBeenCalledWith(expect.stringContaining("/mof/programas/tipos"));
     const opciones = wrapper.findAll(".tipo-select option").map((o) => o.text()).filter(Boolean);
     expect(opciones).toEqual([
       "Programa Académico",
@@ -107,9 +107,9 @@ describe("UnidadProyectoTable.vue", () => {
     ]);
   });
 
-  it("permite añadir un nuevo proyecto sin tipo seleccionado", async () => {
+  it("permite añadir un nuevo programa sin tipo seleccionado", async () => {
     const wrapper = await montar([]);
-    const addBtn = wrapper.findAll("button").find((b) => b.text().includes("Añadir proyecto"));
+    const addBtn = wrapper.findAll("button").find((b) => b.text().includes("Añadir programa"));
     expect(addBtn).toBeDefined();
     await addBtn.trigger("click");
 
@@ -122,7 +122,7 @@ describe("UnidadProyectoTable.vue", () => {
 
   it("al elegir un tipo emite su id y su nombre", async () => {
     const wrapper = await montar([
-      { id: 1, tipoId: 1, tipo: "Programa Académico", detalle: "Proyecto inicial", unidadIds: [] },
+      { id: 1, tipoId: 1, tipo: "Programa Académico", detalle: "Programa inicial", unidadIds: [] },
     ]);
     await wrapper.find(".tipo-select").setValue("2");
 
@@ -138,13 +138,13 @@ describe("UnidadProyectoTable.vue", () => {
     expect(wrapper.text()).toContain("Programa Interacción Social y Extensión Universitaria");
   });
 
-  it("permite eliminar una fila de proyecto", async () => {
+  it("permite eliminar una fila de programa", async () => {
     const wrapper = await montar([
-      { id: 1, tipoId: 2, detalle: "Proyecto 1", unidadIds: [] },
-      { id: 2, tipoId: 1, detalle: "Proyecto 2", unidadIds: [] },
+      { id: 1, tipoId: 2, detalle: "Programa 1", unidadIds: [] },
+      { id: 2, tipoId: 1, detalle: "Programa 2", unidadIds: [] },
     ]);
 
-    const deleteBtns = wrapper.findAll("button").filter((b) => b.attributes("title") === "Quitar proyecto");
+    const deleteBtns = wrapper.findAll("button").filter((b) => b.attributes("title") === "Quitar programa");
     expect(deleteBtns.length).toBe(2);
 
     await deleteBtns[0].trigger("click");
@@ -169,7 +169,7 @@ describe("UnidadProyectoTable.vue", () => {
       jsonResponse({ id: 5, tipo: "Programa de Posgrado", cantidad: 0 }, true, 201),
     );
 
-    const abrir = wrapper.findAll(".v-list-item-stub").find((b) => b.text().includes("Añadir tipo de proyecto"));
+    const abrir = wrapper.findAll(".v-list-item-stub").find((b) => b.text().includes("Añadir tipo de programa"));
     expect(abrir).toBeDefined();
     await abrir.trigger("click");
     await wrapper.find(".text-field-input").setValue("  Programa   de Posgrado ");
@@ -178,7 +178,7 @@ describe("UnidadProyectoTable.vue", () => {
     await flushPromises();
 
     const [url, opts] = apiFetch.mock.calls.at(-1);
-    expect(url).toContain("/mof/proyectos/tipos");
+    expect(url).toContain("/mof/programas/tipos");
     expect(opts.method).toBe("POST");
     expect(JSON.parse(opts.body)).toEqual({ tipo: "Programa de Posgrado" });
 
@@ -205,11 +205,11 @@ describe("UnidadProyectoTable.vue", () => {
   });
 
   it("en modo lectura no ofrece añadir tipos", async () => {
-    const wrapper = mount(UnidadProyectoTable, {
+    const wrapper = mount(UnidadProgramaTable, {
       props: { modelValue: [{ id: 1, tipoId: 1, detalle: "x" }], readonly: true },
       global: { stubs },
     });
     await flushPromises();
-    expect(wrapper.text()).not.toContain("Añadir tipo de proyecto");
+    expect(wrapper.text()).not.toContain("Añadir tipo de programa");
   });
 });

@@ -121,8 +121,8 @@ export function getEmptyFormData(parentId = null, customDefaults = null) {
     coordinacionesInternas: [],
     relacionesExternas: [],
     sia: [],
-    proyectos: [],
-    aplicaProyectos: false,
+    programas: [],
+    aplicaProgramas: false,
   };
 }
 
@@ -349,10 +349,10 @@ export function mapBackendToForm(raw, options = {}) {
           cantidad: Math.max(1, parseInt(i.cantidad, 10) || 1),
         }))
       : [],
-    aplicaProyectos: Boolean(raw.aplicaProyectos || raw.aplica_proyectos),
-    proyectosCount: raw.proyectosCount ?? raw.proyectos_count ?? 0,
-    proyectos: Array.isArray(raw.proyectos)
-      ? raw.proyectos.map((p) => ({
+    aplicaProgramas: Boolean(raw.aplicaProgramas || raw.aplica_programas),
+    programasCount: raw.programasCount ?? raw.programas_count ?? 0,
+    programas: Array.isArray(raw.programas)
+      ? raw.programas.map((p) => ({
           id: p.id != null ? Number(p.id) : null,
           tipoId: p.tipoId != null ? Number(p.tipoId) : null,
           tipo: p.tipo || "",
@@ -505,13 +505,13 @@ export function mapFormToBackend(formData, options = {}) {
     payload.sia = cleanSia;
   }
 
-  const isAplicaProy =
-    options?.aplicaProyectos === true ||
-    formData.aplicaProyectos === true ||
-    formData.aplica_proyectos === true;
+  const isAplicaProg =
+    options?.aplicaProgramas === true ||
+    formData.aplicaProgramas === true ||
+    formData.aplica_programas === true;
 
-  if (isAplicaProy && Array.isArray(formData.proyectos)) {
-    payload.proyectos = formData.proyectos
+  if (isAplicaProg && Array.isArray(formData.programas)) {
+    payload.programas = formData.programas
       .filter((p) => p && (p.tipoId != null || String(p.detalle || "").trim()))
       .map((p) => {
       const item = {

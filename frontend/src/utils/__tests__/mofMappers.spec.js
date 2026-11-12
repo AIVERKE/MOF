@@ -90,14 +90,14 @@ describe("relaciones internas", () => {
   });
 });
 
-describe("proyectos en mappers", () => {
-  it("mapBackendToForm mapea proyectos y aplicaProyectos", () => {
+describe("programas en mappers", () => {
+  it("mapBackendToForm mapea programas y aplicaProgramas", () => {
     const raw = {
       id: 10,
       nombre: "Carrera de Agronomía",
-      aplicaProyectos: true,
-      proyectosCount: 2,
-      proyectos: [
+      aplicaProgramas: true,
+      programasCount: 2,
+      programas: [
         {
           id: 1,
           tipoId: 2,
@@ -116,17 +116,17 @@ describe("proyectos en mappers", () => {
     };
 
     const form = mapBackendToForm(raw);
-    expect(form.aplicaProyectos).toBe(true);
-    expect(form.proyectosCount).toBe(2);
-    expect(form.proyectos).toHaveLength(2);
-    expect(form.proyectos[0]).toEqual({
+    expect(form.aplicaProgramas).toBe(true);
+    expect(form.programasCount).toBe(2);
+    expect(form.programas).toHaveLength(2);
+    expect(form.programas[0]).toEqual({
       id: 1,
       tipoId: 2,
       tipo: "Programa Investigación",
       detalle: "P1",
       unidadIds: [11],
     });
-    expect(form.proyectos[1]).toEqual({
+    expect(form.programas[1]).toEqual({
       id: 2,
       tipoId: 3,
       tipo: "Programa Interacción Social y Extensión Universitaria",
@@ -135,21 +135,21 @@ describe("proyectos en mappers", () => {
     });
   });
 
-  it("mapFormToBackend omite el campo proyectos si aplicaProyectos es false", () => {
+  it("mapFormToBackend omite el campo programas si aplicaProgramas es false", () => {
     const payload = mapFormToBackend({
       nombre: "Rectorado",
-      aplicaProyectos: false,
-      proyectos: [{ tipoId: 2, detalle: "Detalle" }],
+      aplicaProgramas: false,
+      programas: [{ tipoId: 2, detalle: "Detalle" }],
     });
 
-    expect(payload.proyectos).toBeUndefined();
+    expect(payload.programas).toBeUndefined();
   });
 
   it("mapFormToBackend envía tipoId (no el nombre) y descarta filas vacías", () => {
     const payload = mapFormToBackend({
       nombre: "Decanato",
-      aplicaProyectos: true,
-      proyectos: [
+      aplicaProgramas: true,
+      programas: [
         {
           id: "5",
           tipoId: "2",
@@ -162,7 +162,7 @@ describe("proyectos en mappers", () => {
       ],
     });
 
-    expect(payload.proyectos).toEqual([
+    expect(payload.programas).toEqual([
       { id: 5, tipoId: 2, detalle: "Detalle P5", unidadIds: [10, 12] },
       { tipoId: 3, detalle: "Comunitaria" },
     ]);

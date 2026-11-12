@@ -1,8 +1,8 @@
 import { plainToInstance, type ClassConstructor } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
-  CrearTipoProyectoDto,
-  ProyectoDto,
+  CrearTipoProgramaDto,
+  ProgramaDto,
   UnidadDto,
   UnidadFuncionDto,
   UnidadInventarioDto,
@@ -95,7 +95,7 @@ describe('Textos libres en la ficha técnica (UnidadDto)', () => {
   });
 });
 
-describe('Textos libres en inventarios, proyectos, funciones y cargos', () => {
+describe('Textos libres en inventarios, programas, funciones y cargos', () => {
   it('inventario: descripción sin tope y la cantidad sigue siendo entero ≥ 1', async () => {
     const inv = (cantidad: unknown) =>
       propiedadesConError(UnidadInventarioDto, {
@@ -113,26 +113,26 @@ describe('Textos libres en inventarios, proyectos, funciones y cargos', () => {
     ).toEqual(['descripcion']);
   });
 
-  it('proyecto: detalle sin tope; tipoId y detalle siguen siendo obligatorios', async () => {
+  it('programa: detalle sin tope; tipoId y detalle siguen siendo obligatorios', async () => {
     expect(
-      await propiedadesConError(ProyectoDto, {
+      await propiedadesConError(ProgramaDto, {
         tipoId: 1,
         detalle: `${SIMBOLOS} ${LARGO}`,
       }),
     ).toEqual([]);
     expect(
-      await propiedadesConError(ProyectoDto, { tipoId: null, detalle: '' }),
+      await propiedadesConError(ProgramaDto, { tipoId: null, detalle: '' }),
     ).toEqual(['detalle', 'tipoId']);
   });
 
-  it('tipo de proyecto nuevo: sin tope y obligatorio', async () => {
+  it('tipo de programa nuevo: sin tope y obligatorio', async () => {
     expect(
-      await propiedadesConError(CrearTipoProyectoDto, {
+      await propiedadesConError(CrearTipoProgramaDto, {
         tipo: `Interacción social / ${'extensión '.repeat(50)}`,
       }),
     ).toEqual([]);
     expect(
-      await propiedadesConError(CrearTipoProyectoDto, { tipo: '   ' }),
+      await propiedadesConError(CrearTipoProgramaDto, { tipo: '   ' }),
     ).toEqual(['tipo']);
   });
 

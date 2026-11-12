@@ -962,9 +962,9 @@ export function esClaseDecanato(claseVal, clasesCatalog = []) {
 }
 
 /**
- * Valida si una unidad aplica a gestión de proyectos (es Decanato o desciende de uno).
+ * Valida si una unidad aplica a gestión de programas (es Decanato o desciende de uno).
  */
-export function checkUnidadAplicaProyectos({
+export function checkUnidadAplicaProgramas({
   clase,
   parentId,
   unidad,
@@ -984,7 +984,7 @@ export function checkUnidadAplicaProyectos({
       (u) => String(u.id) === String(currentParentId),
     );
     if (!parent) break;
-    if (parent.aplicaProyectos === true || parent.aplica_proyectos === true) {
+    if (parent.aplicaProgramas === true || parent.aplica_programas === true) {
       return true;
     }
     if (
@@ -1001,7 +1001,7 @@ export function checkUnidadAplicaProyectos({
   // 3. Fallback: propiedad en el objeto unidad si ya viene calculada del backend
   if (
     unidad &&
-    (unidad.aplicaProyectos === true || unidad.aplica_proyectos === true)
+    (unidad.aplicaProgramas === true || unidad.aplica_programas === true)
   ) {
     return true;
   }
@@ -1010,24 +1010,24 @@ export function checkUnidadAplicaProyectos({
 }
 
 /**
- * Agrupa una lista de proyectos por su tipo textual (case-insensitive para agrupación,
+ * Agrupa una lista de programas por su tipo textual (case-insensitive para agrupación,
  * preservando la grafía original).
  */
-export function agruparProyectosPorTipo(proyectos = []) {
-  if (!Array.isArray(proyectos)) return [];
+export function agruparProgramasPorTipo(programas = []) {
+  if (!Array.isArray(programas)) return [];
   const map = new Map();
-  for (const p of proyectos) {
+  for (const p of programas) {
     const rawTipo = String(p.tipo || "General").trim();
     const key = rawTipo
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
     if (!map.has(key)) {
-      map.set(key, { tipo: rawTipo, cantidad: 0, proyectos: [] });
+      map.set(key, { tipo: rawTipo, cantidad: 0, programas: [] });
     }
     const group = map.get(key);
     group.cantidad++;
-    group.proyectos.push(p);
+    group.programas.push(p);
   }
   return Array.from(map.values()).sort((a, b) => a.tipo.localeCompare(b.tipo));
 }
