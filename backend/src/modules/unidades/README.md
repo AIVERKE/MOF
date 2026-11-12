@@ -2,7 +2,7 @@
 
 Módulo encargado de la gestión integral de las unidades organizacionales según el modelo documental **S-MAU** (Detalle de la Unidad Organizacional).
 
-## Campos del Detalle S-MAU (26 Campos + Inventarios + SIA + Planificación Estratégica + Proyectos)
+## Campos del Detalle S-MAU (26 Campos + Inventarios + SIA + Planificación Estratégica + Programas)
 
 1. **NOMBRE DE LA UNIDAD ORGANIZACIONAL** (`nombre`)
 2. **SIGLA** (`sigla`)
@@ -33,7 +33,7 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 27. **INVENTARIOS** (`inventarios` / `unidad_inventario`) — filas de descripción y cantidad, propias de cada unidad
 28. **SIA** (`sia` / `unidad_sia`) — filas de aprobados, reprobados y matriculados; solo en unidades de tipo Carrera
 29. **PLANIFICACIÓN ESTRATÉGICA** (`planificacionEstrategicaAplica`, `planificacionEstrategicaValor`, `planificacionEstrategica`) — switch, porcentaje 0–100 y descripción
-30. **PROYECTOS** (`proyectos` / `proyecto` + `proyecto_unidad` + `tipo_proyecto`) — tipo del catálogo (tres programas oficiales más los que añadan los usuarios) y detalle; solo en Decanatos y unidades que dependen de uno; un proyecto puede ser conjunto entre varias unidades
+30. **PROGRAMAS** (`programas` / `programa` + `programa_unidad` + `tipo_programa`) — tipo del catálogo (tres programas oficiales más los que añadan los usuarios) y detalle; solo en Decanatos y unidades que dependen de uno; un programa puede ser conjunto entre varias unidades
 
 ## Endpoints Principales
 
@@ -138,7 +138,7 @@ En `GET /api/v1/mof/unidades/pdf/:id`, la sección **O. Relacionamiento y coordi
      - `origen === 'TEXTO'`: ícono `mdi-text-box-outline` y `rel.descripcion`, sin chips.
      - `origen === 'UNIDAD'`: la fila actual, con `rel.descripcion` como nombre y los chips de `sigla`, `codigo` y `tipo`.
    - El mensaje "Sin relacionamiento interno registrado." se muestra solo si la lista unificada está vacía.
-5. **Fuera de alcance**: la coordinación interinstitucional (UI y payload sin cambios), inventarios, SIA y proyectos.
+5. **Fuera de alcance**: la coordinación interinstitucional (UI y payload sin cambios), inventarios, SIA y programas.
 
 ### Relacionamiento y Coordinación Interinstitucional (Externa)
 
@@ -209,38 +209,39 @@ Una fila de otra unidad responde 404 (`NOT_FOUND`); en una unidad que no es Carr
 
 Agregar una columna cuando se formalice la lista completa: columna en `UnidadSia` + migración, propiedad en `UnidadSiaDto` y `UnidadSiaResponseDto`, y su nombre en `SIA_CAMPOS` (`dto/unidad.dto.ts`). El servicio recorre `SIA_CAMPOS`, así que la lógica no cambia.
 
-### Proyectos (Decanato hacia abajo)
+### Programas (Decanato hacia abajo)
 
 #### Qué unidades aplican
-Una unidad lleva Proyectos si su clase es Decanato **o** si algún ancestro por `parent_id` lo es. Una clase es Decanato cuando su descripción contiene "DECANATO" (`DECANATOS`, `VICEDECANATOS`), sin distinguir mayúsculas ni acentos. La regla vive en `catalogos/clase-decanato.ts`.
+Una unidad lleva Programas si su clase es Decanato **o** si algún ancestro por `parent_id` lo es. Una clase es Decanato cuando su descripción contiene "DECANATO" (`DECANATOS`, `VICEDECANATOS`), sin distinguir mayúsculas ni acentos. La regla vive en `catalogos/clase-decanato.ts`.
 
 - Aplican: decanatos, vicedecanatos, carreras, institutos, laboratorios, posgrados y demás dependencias de una facultad.
 - No aplican: Rectorado, Vicerrectorado, Secretarías, Direcciones y demás unidades del nivel central.
-- Si una unidad deja de aplicar (cambia de clase o de padre), sus proyectos se conservan pero no se exponen ni cuentan. Reaparecen si vuelve a aplicar.
+- Si una unidad deja de aplicar (cambia de clase o de padre), sus programas se conservan pero no se exponen ni cuentan. Reaparecen si vuelve a aplicar.
 - No tiene relación con el texto de funciones que mencione investigación o interacción: son entidades aparte.
 
 #### Modelo
-- `tipo_proyecto`: catálogo `id`, `descripcion` (`text`), `activo`, auditoría. La migración `1793500000000-CreateTipoProyecto` lo crea con:
+- `tipo_programa`: catálogo `id`, `descripcion` (`text`), `activo`, auditoría. Lo creó la migración `1793500000000-CreateTipoProyecto` (entonces como `tipo_proyecto`) con:
   1. Programa Académico
   2. Programa Investigación
   3. Programa Interacción Social y Extensión Universitaria
 
-  Los usuarios pueden añadir otros (`POST /mof/proyectos/tipos`). La misma migración reasignó los proyectos que tenían tipo libre por palabra clave (`investig` → 2; `interacc`/`extens` → 3; el resto → 1) y eliminó la columna `proyecto.tipo`.
-- `proyecto`: `id`, `tipo_proyecto_id` (FK a `tipo_proyecto`, obligatorio), `detalle` (`text`), auditoría y baja lógica.
-- `proyecto_unidad`: (`proyecto_id`, `unidad_id`). Un proyecto conjunto (ej. Informática + Química) tiene una fila por unidad y **suma 1 en el contador de cada una**.
+  Los usuarios pueden añadir otros (`POST /mof/programas/tipos`). La misma migración reasignó los programas que tenían tipo libre por palabra clave (`investig` → 2; `interacc`/`extens` → 3; el resto → 1) y eliminó la columna `proyecto.tipo`.
+- `programa`: `id`, `tipo_programa_id` (FK a `tipo_programa`, obligatorio), `detalle` (`text`), auditoría y baja lógica.
+- `programa_unidad`: (`programa_id`, `unidad_id`). Un programa conjunto (ej. Informática + Química) tiene una fila por unidad y **suma 1 en el contador de cada una**.
+- Antes se llamaban `proyecto`, `tipo_proyecto` y `proyecto_unidad` (columnas `tipo_proyecto_id` y `proyecto_id`). La migración `1793600000000-RenameProyectoToPrograma` renombró tablas, columnas, PK/FK, índices y secuencias sin tocar los datos; los endpoints pasaron de `/proyectos` a `/programas` y los códigos de error de `PROYECTO*` a `PROGRAMA*`.
 
 #### Lectura
 `GET /api/v1/mof/clases`: cada clase trae `esDecanato`.
 
-`GET /api/v1/mof/unidades`: cada unidad trae `aplicaProyectos` y `proyectosCount` (proyectos en los que participa, incluidos los conjuntos; `0` si no aplica). Solo cuenta los de la propia unidad, no los de sus subunidades.
+`GET /api/v1/mof/unidades`: cada unidad trae `aplicaProgramas` y `programasCount` (programas en los que participa, incluidos los conjuntos; `0` si no aplica). Solo cuenta los de la propia unidad, no los de sus subunidades.
 
 `GET /api/v1/mof/unidades/:id`:
 
 ```json
 {
-  "aplicaProyectos": true,
-  "proyectosCount": 3,
-  "proyectos": [
+  "aplicaProgramas": true,
+  "programasCount": 3,
+  "programas": [
     { "id": 5, "tipoId": 3, "tipo": "Programa Interacción Social y Extensión Universitaria",
       "detalle": "Brigadas de salud comunitaria",
       "unidades": [{ "id": 10, "codigo": "…", "sigla": "FCS-DEC", "nombre": "FACULTAD DE CIENCIAS SOCIALES - DECANATO" }] },
@@ -251,64 +252,64 @@ Una unidad lleva Proyectos si su clase es Decanato **o** si algún ancestro por 
       ] },
     { "id": 9, "tipoId": 2, "tipo": "Programa Investigación", "detalle": "Observatorio social", "unidades": [ … ] }
   ],
-  "proyectosPorTipo": [
-    { "tipo": "Programa Interacción Social y Extensión Universitaria", "cantidad": 1, "proyectos": [ { "id": 5, … } ] },
-    { "tipo": "Programa Investigación", "cantidad": 2, "proyectos": [ { "id": 6, … }, { "id": 9, … } ] }
+  "programasPorTipo": [
+    { "tipo": "Programa Interacción Social y Extensión Universitaria", "cantidad": 1, "programas": [ { "id": 5, … } ] },
+    { "tipo": "Programa Investigación", "cantidad": 2, "programas": [ { "id": 6, … }, { "id": 9, … } ] }
   ]
 }
 ```
 
-- `proyectos`: orden de alta. `unidades`: todas las participantes vigentes, incluida la consultada (orden por nombre). Más de una significa proyecto conjunto.
-- `proyectosPorTipo`: grupos en orden alfabético. Es lo que muestra el panel lateral.
-- Si la unidad no aplica: `aplicaProyectos: false`, `proyectosCount: 0` y ambas listas `[]`.
+- `programas`: orden de alta. `unidades`: todas las participantes vigentes, incluida la consultada (orden por nombre). Más de una significa programa conjunto.
+- `programasPorTipo`: grupos en orden alfabético. Es lo que muestra el panel lateral.
+- Si la unidad no aplica: `aplicaProgramas: false`, `programasCount: 0` y ambas listas `[]`.
 
-- Cada proyecto trae `tipoId` (id del catálogo) y `tipo` (su descripción).
+- Cada programa trae `tipoId` (id del catálogo) y `tipo` (su descripción).
 
 #### Catálogo de tipos
-- `GET /api/v1/mof/proyectos/tipos`: tipos activos en orden de alta (primero los tres programas), con los proyectos vigentes de cada uno: `[{ "id": 1, "tipo": "Programa Académico", "cantidad": 4 }, …]`.
-- `POST /api/v1/mof/proyectos/tipos` (ADMIN, OPERADOR): `{ "tipo": "Programa de Posgrado" }`. Recorta y colapsa espacios. Si ya existe uno equivalente sin distinguir mayúsculas ni acentos, devuelve ese (y lo reactiva si estaba inactivo) en lugar de duplicarlo. Responde `{ id, tipo, cantidad }`.
+- `GET /api/v1/mof/programas/tipos`: tipos activos en orden de alta (primero los tres programas), con los programas vigentes de cada uno: `[{ "id": 1, "tipo": "Programa Académico", "cantidad": 4 }, …]`.
+- `POST /api/v1/mof/programas/tipos` (ADMIN, OPERADOR): `{ "tipo": "Programa de Posgrado" }`. Recorta y colapsa espacios. Si ya existe uno equivalente sin distinguir mayúsculas ni acentos, devuelve ese (y lo reactiva si estaba inactivo) en lugar de duplicarlo. Responde `{ id, tipo, cantidad }`.
 
 #### Escritura desde el formulario
-`POST /api/v1/mof/unidades` y `PUT /api/v1/mof/unidades/:id` aceptan `proyectos`, con la misma convención que `inventarios`:
+`POST /api/v1/mof/unidades` y `PUT /api/v1/mof/unidades/:id` aceptan `programas`, con la misma convención que `inventarios`:
 
 ```json
-"proyectos": [
+"programas": [
   { "id": 5, "tipoId": 3, "detalle": "Brigadas de salud comunitaria" },
   { "id": 6, "tipoId": 2, "detalle": "Química computacional", "unidadIds": [22] },
   { "tipoId": 4, "detalle": "Primera edición", "unidadIds": [] }
 ]
 ```
 
-- Con `id` → se actualiza; sin `id` → se crea; un proyecto vigente de la unidad que no se envía → **la unidad se desvincula** (las demás participantes lo conservan; si no queda ninguna, el proyecto se da de baja). `[]` desvincula todos; omitir el campo no modifica nada.
-- `tipoId`: obligatorio; debe existir en `tipo_proyecto` y estar activo (`TIPO_PROYECTO_NO_EXISTE`). Para un tipo nuevo, crearlo antes con `POST /mof/proyectos/tipos`.
+- Con `id` → se actualiza; sin `id` → se crea; un programa vigente de la unidad que no se envía → **la unidad se desvincula** (las demás participantes lo conservan; si no queda ninguna, el programa se da de baja). `[]` desvincula todos; omitir el campo no modifica nada.
+- `tipoId`: obligatorio; debe existir en `tipo_programa` y estar activo (`TIPO_PROGRAMA_NO_EXISTE`). Para un tipo nuevo, crearlo antes con `POST /mof/programas/tipos`.
 - `detalle`: texto obligatorio, sin límite de longitud. No se admiten otros campos.
-- `unidadIds`: **otras** unidades participantes. La unidad del formulario siempre participa (no hace falta incluirla; se ignoran repetidos). Si se envía, reemplaza la lista; si se omite en un proyecto existente, sus participantes no cambian. En uno nuevo, omitirlo equivale a `[]`.
-- Se valida con la clase y el padre **finales**: en el mismo `PUT` se puede mover la unidad bajo un Decanato y enviar `proyectos`. En el `POST`, con `tipoUnidad` y `parentId` del cuerpo.
-- En una unidad que no aplica, enviar filas responde `PROYECTOS_NO_APLICA`; `proyectos: []` se ignora.
-- Errores (400): `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica; `data` trae el id), `PROYECTO_NO_PERTENECE_UNIDAD` (`id` de un proyecto en el que la unidad no participa), `PROYECTO_ID_DUPLICADO`, `TIPO_PROYECTO_NO_EXISTE`, `VALIDATION_FAILED`. Ante un error no se guarda nada.
+- `unidadIds`: **otras** unidades participantes. La unidad del formulario siempre participa (no hace falta incluirla; se ignoran repetidos). Si se envía, reemplaza la lista; si se omite en un programa existente, sus participantes no cambian. En uno nuevo, omitirlo equivale a `[]`.
+- Se valida con la clase y el padre **finales**: en el mismo `PUT` se puede mover la unidad bajo un Decanato y enviar `programas`. En el `POST`, con `tipoUnidad` y `parentId` del cuerpo.
+- En una unidad que no aplica, enviar filas responde `PROGRAMAS_NO_APLICA`; `programas: []` se ignora.
+- Errores (400): `PROGRAMAS_NO_APLICA`, `PROGRAMA_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica; `data` trae el id), `PROGRAMA_NO_PERTENECE_UNIDAD` (`id` de un programa en el que la unidad no participa), `PROGRAMA_ID_DUPLICADO`, `TIPO_PROGRAMA_NO_EXISTE`, `VALIDATION_FAILED`. Ante un error no se guarda nada.
 
-#### Endpoints por proyecto (escritura: ADMIN, OPERADOR)
-- `GET /api/v1/mof/unidades/:id/proyectos`: proyectos de la unidad (`[]` si no aplica).
-- `GET /api/v1/mof/unidades/:id/proyectos/:proyectoId`: un proyecto.
-- `POST /api/v1/mof/unidades/:id/proyectos`: `{ tipoId, detalle, unidadIds? }`. Devuelve el proyecto con sus `unidades`.
-- `PUT /api/v1/mof/unidades/:id/proyectos/:proyectoId`: reemplaza `tipoId` y `detalle`; `unidadIds` como arriba.
-- `DELETE /api/v1/mof/unidades/:id/proyectos/:proyectoId`: desvincula la unidad (baja lógica si era la última).
+#### Endpoints por programa (escritura: ADMIN, OPERADOR)
+- `GET /api/v1/mof/unidades/:id/programas`: programas de la unidad (`[]` si no aplica).
+- `GET /api/v1/mof/unidades/:id/programas/:programaId`: un programa.
+- `POST /api/v1/mof/unidades/:id/programas`: `{ tipoId, detalle, unidadIds? }`. Devuelve el programa con sus `unidades`.
+- `PUT /api/v1/mof/unidades/:id/programas/:programaId`: reemplaza `tipoId` y `detalle`; `unidadIds` como arriba.
+- `DELETE /api/v1/mof/unidades/:id/programas/:programaId`: desvincula la unidad (baja lógica si era la última).
 
-Un proyecto en el que la unidad no participa responde 404 (`NOT_FOUND`); en una unidad que no aplica, `GET` de un proyecto responde 404 y las escrituras `PROYECTOS_NO_APLICA`.
+Un programa en el que la unidad no participa responde 404 (`NOT_FOUND`); en una unidad que no aplica, `GET` de un programa responde 404 y las escrituras `PROGRAMAS_NO_APLICA`.
 
 #### Integración en el front
 1. **Formulario** (`frontend/src/views/MOF/unidades/UnidadFormDialog.vue`, mappers en `frontend/src/utils/mofMappers.js`):
-   - Mostrar la sección cuando la clase elegida tiene `esDecanato` (de `GET /mof/clases`) **o** el padre elegido tiene `aplicaProyectos` (de `GET /mof/unidades`). Recalcular al cambiar clase o padre. Al abrir una unidad existente, el detalle ya trae `aplicaProyectos`.
-   - Filas `{ id?, tipoId, tipo, detalle, unidadIds }` (`tipo` solo para mostrar; se envía `tipoId`). Inicializar desde `detalle.proyectos`, con `unidadIds` = `p.unidades.map(u => u.id)` sin la unidad actual.
-   - Tipo: `v-autocomplete` sobre `GET /mof/proyectos/tipos`, con la acción «Añadir tipo de proyecto» al final de la lista (abre un diálogo, hace `POST /mof/proyectos/tipos` y deja el tipo nuevo seleccionado). `detalle`: `v-textarea`. Componente: `UnidadProyectoTable.vue`.
-   - Unidades participantes: autocompletar múltiple sobre `GET /mof/unidades` filtrado por `aplicaProyectos` y sin la unidad actual.
-   - Enviar `proyectos` en el `POST`/`PUT` solo si la sección está visible. Si no lo está, no enviar el campo.
+   - Mostrar la sección cuando la clase elegida tiene `esDecanato` (de `GET /mof/clases`) **o** el padre elegido tiene `aplicaProgramas` (de `GET /mof/unidades`). Recalcular al cambiar clase o padre. Al abrir una unidad existente, el detalle ya trae `aplicaProgramas`.
+   - Filas `{ id?, tipoId, tipo, detalle, unidadIds }` (`tipo` solo para mostrar; se envía `tipoId`). Inicializar desde `detalle.programas`, con `unidadIds` = `p.unidades.map(u => u.id)` sin la unidad actual.
+   - Tipo: `v-autocomplete` sobre `GET /mof/programas/tipos`, con la acción «Añadir tipo de programa» al final de la lista (abre un diálogo, hace `POST /mof/programas/tipos` y deja el tipo nuevo seleccionado). `detalle`: `v-textarea`. Componente: `UnidadProgramaTable.vue`.
+   - Unidades participantes: autocompletar múltiple sobre `GET /mof/unidades` filtrado por `aplicaProgramas` y sin la unidad actual.
+   - Enviar `programas` en el `POST`/`PUT` solo si la sección está visible. Si no lo está, no enviar el campo.
 2. **Organigrama** (`frontend/src/views/MOF/OrganigramaVueFlow.vue`):
-   - Al armar `data` del nodo (donde se asigna `childrenCount`), agregar `proyectosCount: u.proyectosCount ?? 0`.
-   - Debajo del badge de subunidades, una línea `v-if="data.proyectosCount > 0"` con `1 proyecto` / `N proyectos`, con el mismo estilo de `children-badge`. No cambiar el resto de la tarjeta. Las unidades que no aplican siempre traen `0`, así que no muestran la línea.
+   - Al armar `data` del nodo (donde se asigna `childrenCount`), agregar `programasCount: u.programasCount ?? 0`.
+   - Debajo del badge de subunidades, una línea `v-if="data.programasCount > 0"` con `1 programa` / `N programas`, con el mismo estilo de `children-badge`. No cambiar el resto de la tarjeta. Las unidades que no aplican siempre traen `0`, así que no muestran la línea.
 3. **Panel lateral** (`frontend/src/views/MOF/unidades/UnidadDetailsDrawer.vue`):
-   - Bloque "Proyectos" solo si `aplicaProyectos` y `proyectosCount > 0`.
-   - Recorrer `proyectosPorTipo`: encabezado con `tipo` y `cantidad`, y por cada proyecto su `detalle`. Si `p.unidades.length > 1`, mostrar chips con las otras unidades (proyecto conjunto).
+   - Bloque "Programas" solo si `aplicaProgramas` y `programasCount > 0`.
+   - Recorrer `programasPorTipo`: encabezado con `tipo` y `cantidad`, y por cada programa su `detalle`. Si `p.unidades.length > 1`, mostrar chips con las otras unidades (programa conjunto).
    - Fuera de alcance: reporte PDF.
 
 ### Sigla
@@ -320,7 +321,7 @@ Un proyecto en el que la unidad no participa responde 404 (`NOT_FOUND`); en una 
 
 ### Textos libres sin límite de longitud
 
-Los campos de texto de la ficha técnica, inventarios, proyectos, funciones, cargos y clases no tienen listas de caracteres permitidos/prohibidos ni topes de longitud. Se quitaron los `@Matches` y `@MaxLength` de los DTOs, y la migración `1793300000000-TextosSinLimiteDeLongitud` pasó sus columnas de `varchar(n)` a `text`:
+Los campos de texto de la ficha técnica, inventarios, programas, funciones, cargos y clases no tienen listas de caracteres permitidos/prohibidos ni topes de longitud. Se quitaron los `@Matches` y `@MaxLength` de los DTOs, y la migración `1793300000000-TextosSinLimiteDeLongitud` pasó sus columnas de `varchar(n)` a `text`:
 
 | Tabla | Columnas (largo anterior) |
 | --- | --- |
@@ -330,7 +331,7 @@ Los campos de texto de la ficha técnica, inventarios, proyectos, funciones, car
 | `unidad_relacion_externa` | `descripcion` (1024) |
 | `unidad_relacion_interna` | `tipo` (32) |
 | `unidad_jerarquia_hist` | `razon` (512) |
-| `proyecto` | `tipo` (120); luego reemplazada por `tipo_proyecto_id` (`1793500000000-CreateTipoProyecto`) |
+| `proyecto` (hoy `programa`) | `tipo` (120); luego reemplazada por `tipo_proyecto_id` (`1793500000000-CreateTipoProyecto`), hoy `tipo_programa_id` |
 | `cargo` | `codigo` (64), `nombre` (255), `descripcion` (512) |
 | `cargo_nivel` | `nombre` (128), `descripcion` (512) |
 | `cargo_jerarquia_hist`, `asignacion_cargo_hist` | `razon` (512) |
@@ -357,7 +358,7 @@ Integración en el front (solo quitar restricciones, sin lógica nueva):
    - Planificación Estratégica (~línea 1392): `:rules="[rules.required]"`. El porcentaje conserva `porcentajePlanificacion`.
 3. **`frontend/src/views/MOF/unidades/UnidadInventarioTable.vue`** (~línea 177): quitar `maxlength="1024"` de la descripción. La cantidad conserva su validación de entero ≥ 1.
 4. **Cargos y clases**: quitar `maxlength`/`counter` de Nombre (255) y Descripción (512) en `frontend/src/views/MOF/cargos/CargoCatalogDialog.vue` (~líneas 78–91) y `frontend/src/views/MOF/clases/HierarchyManagerDrawer.vue` (~líneas 797–809).
-5. Si el formulario de Proyectos o de Funciones agrega `maxlength`, no ponerlo: el backend no tiene tope.
+5. Si el formulario de Programas o de Funciones agrega `maxlength`, no ponerlo: el backend no tiene tope.
 
 ### Reporte PDF (formato oficial del MOF)
 `GET /api/v1/mof/unidades/pdf/:id` (y `GET /api/v1/integraciones/mpp/unidades/:id/pdf`) arma el documento con la plantilla oficial (`FORMATO MOF.pdf`): hoja Carta, tabla de bordes negros y títulos en gris, secciones A–U. Lo dibuja `UnidadPdfService` con los datos de `UnidadesService.findEntityForPdf`.

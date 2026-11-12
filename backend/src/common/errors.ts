@@ -19,11 +19,11 @@ export const ErrorCodes = {
   SIA_ID_DUPLICADO: 'SIA_ID_DUPLICADO',
   SIA_FILA_VACIA: 'SIA_FILA_VACIA',
   PLANIFICACION_ESTRATEGICA_INCOMPLETA: 'PLANIFICACION_ESTRATEGICA_INCOMPLETA',
-  PROYECTOS_NO_APLICA: 'PROYECTOS_NO_APLICA',
-  PROYECTO_UNIDAD_NO_APLICA: 'PROYECTO_UNIDAD_NO_APLICA',
-  PROYECTO_NO_PERTENECE_UNIDAD: 'PROYECTO_NO_PERTENECE_UNIDAD',
-  PROYECTO_ID_DUPLICADO: 'PROYECTO_ID_DUPLICADO',
-  TIPO_PROYECTO_NO_EXISTE: 'TIPO_PROYECTO_NO_EXISTE',
+  PROGRAMAS_NO_APLICA: 'PROGRAMAS_NO_APLICA',
+  PROGRAMA_UNIDAD_NO_APLICA: 'PROGRAMA_UNIDAD_NO_APLICA',
+  PROGRAMA_NO_PERTENECE_UNIDAD: 'PROGRAMA_NO_PERTENECE_UNIDAD',
+  PROGRAMA_ID_DUPLICADO: 'PROGRAMA_ID_DUPLICADO',
+  TIPO_PROGRAMA_NO_EXISTE: 'TIPO_PROGRAMA_NO_EXISTE',
   USUARIO_CI_DUPLICADO: 'USUARIO_CI_DUPLICADO',
   PRIMER_ACCESO_REQUERIDO: 'PRIMER_ACCESO_REQUERIDO',
   PRIMER_ACCESO_INVALIDO: 'PRIMER_ACCESO_INVALIDO',
@@ -136,32 +136,32 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     message:
       'Si la Planificación Estratégica aplica, el porcentaje y la descripción son obligatorios',
   },
-  PROYECTOS_NO_APLICA: {
-    code: ErrorCodes.PROYECTOS_NO_APLICA,
+  PROGRAMAS_NO_APLICA: {
+    code: ErrorCodes.PROGRAMAS_NO_APLICA,
     httpStatus: HttpStatus.BAD_REQUEST,
     message:
-      'Los proyectos solo aplican a Decanatos y a las unidades que dependen de uno',
+      'Los programas solo aplican a Decanatos y a las unidades que dependen de uno',
   },
-  PROYECTO_UNIDAD_NO_APLICA: {
-    code: ErrorCodes.PROYECTO_UNIDAD_NO_APLICA,
+  PROGRAMA_UNIDAD_NO_APLICA: {
+    code: ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA,
     httpStatus: HttpStatus.BAD_REQUEST,
     message:
       'Una unidad participante no existe o no es un Decanato ni depende de uno',
   },
-  PROYECTO_NO_PERTENECE_UNIDAD: {
-    code: ErrorCodes.PROYECTO_NO_PERTENECE_UNIDAD,
+  PROGRAMA_NO_PERTENECE_UNIDAD: {
+    code: ErrorCodes.PROGRAMA_NO_PERTENECE_UNIDAD,
     httpStatus: HttpStatus.BAD_REQUEST,
-    message: 'El proyecto no pertenece a la unidad',
+    message: 'El programa no pertenece a la unidad',
   },
-  PROYECTO_ID_DUPLICADO: {
-    code: ErrorCodes.PROYECTO_ID_DUPLICADO,
+  PROGRAMA_ID_DUPLICADO: {
+    code: ErrorCodes.PROGRAMA_ID_DUPLICADO,
     httpStatus: HttpStatus.BAD_REQUEST,
-    message: 'El proyecto está repetido en la solicitud',
+    message: 'El programa está repetido en la solicitud',
   },
-  TIPO_PROYECTO_NO_EXISTE: {
-    code: ErrorCodes.TIPO_PROYECTO_NO_EXISTE,
+  TIPO_PROGRAMA_NO_EXISTE: {
+    code: ErrorCodes.TIPO_PROGRAMA_NO_EXISTE,
     httpStatus: HttpStatus.BAD_REQUEST,
-    message: 'El tipo de proyecto no existe o está inactivo',
+    message: 'El tipo de programa no existe o está inactivo',
   },
   USUARIO_CI_DUPLICADO: {
     code: ErrorCodes.USUARIO_CI_DUPLICADO,

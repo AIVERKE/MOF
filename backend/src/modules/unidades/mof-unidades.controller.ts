@@ -35,13 +35,13 @@ import type { Response } from 'express';
 import { UnidadesService } from './unidades.service';
 import { UnidadPdfService } from './unidad-pdf.service';
 import {
-  CrearTipoProyectoDto,
+  CrearTipoProgramaDto,
   DependenciaFuncionalDto,
-  ProyectoDto,
-  ProyectoGrupoResponseDto,
-  ProyectoResponseDto,
-  ProyectoTipoResponseDto,
-  ProyectoUnidadRefDto,
+  ProgramaDto,
+  ProgramaGrupoResponseDto,
+  ProgramaResponseDto,
+  ProgramaTipoResponseDto,
+  ProgramaUnidadRefDto,
   SetParentDto,
   UnidadContadoresResponseDto,
   UnidadCoordinacionInternaDto,
@@ -74,8 +74,8 @@ const siaSchema = { $ref: getSchemaPath(UnidadSiaResponseDto) };
 const coordinacionInternaSchema = {
   $ref: getSchemaPath(UnidadCoordinacionInternaResponseDto),
 };
-const proyectoSchema = { $ref: getSchemaPath(ProyectoResponseDto) };
-const proyectoTipoSchema = { $ref: getSchemaPath(ProyectoTipoResponseDto) };
+const programaSchema = { $ref: getSchemaPath(ProgramaResponseDto) };
+const programaTipoSchema = { $ref: getSchemaPath(ProgramaTipoResponseDto) };
 const contadoresSchema = {
   $ref: getSchemaPath(UnidadContadoresResponseDto),
 };
@@ -87,10 +87,10 @@ const COLOR_DESCRIPTION =
   'Color del nodo: `color` (`#RRGGBB`) es el color propio de la unidad; `null` o vacío vuelve a heredar el de la Clase y, si se omite, se conserva. Un color igual al de la Clase se guarda como `null`. Las lecturas devuelven `colorPropio` (guardado en la unidad), `colorClase` (`tipo_unidad.color`) y `color` (el efectivo: propio o, si no hay, el de la Clase).';
 
 const UNIDAD_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`, p. ej. nombre o código vacíos, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA`, `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción) o, en `proyectos`, `PROYECTOS_NO_APLICA`, `PROYECTO_UNIDAD_NO_APLICA`, `PROYECTO_NO_PERTENECE_UNIDAD` y `PROYECTO_ID_DUPLICADO`';
+  'Error de validación (`VALIDATION_FAILED`, p. ej. nombre o código vacíos, porcentaje fuera de 0–100 o con más de 2 decimales, color que no es `#RRGGBB`), `UNIDAD_CODIGO_DUPLICADO`, `CATALOG_REF_NOT_FOUND`, `SIA_SOLO_CARRERA`, `PLANIFICACION_ESTRATEGICA_INCOMPLETA` (el switch está activo y falta el porcentaje o la descripción) o, en `programas`, `PROGRAMAS_NO_APLICA`, `PROGRAMA_UNIDAD_NO_APLICA`, `PROGRAMA_NO_PERTENECE_UNIDAD` y `PROGRAMA_ID_DUPLICADO`';
 
-const PROYECTO_BAD_REQUEST =
-  'Error de validación (`VALIDATION_FAILED`: `tipoId` no entero o `detalle` vacío, `unidadIds` con valores no enteros), `TIPO_PROYECTO_NO_EXISTE` (el `tipoId` no existe o está inactivo), `PROYECTOS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROYECTO_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica)';
+const PROGRAMA_BAD_REQUEST =
+  'Error de validación (`VALIDATION_FAILED`: `tipoId` no entero o `detalle` vacío, `unidadIds` con valores no enteros), `TIPO_PROGRAMA_NO_EXISTE` (el `tipoId` no existe o está inactivo), `PROGRAMAS_NO_APLICA` (la unidad no es un Decanato ni depende de uno) o `PROGRAMA_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica)';
 
 const SIA_BAD_REQUEST =
   'Error de validación, `SIA_SOLO_CARRERA` (la unidad no es de tipo Carrera) o `SIA_FILA_VACIA` (la fila no tiene ningún valor)';
@@ -102,10 +102,10 @@ const SIA_BAD_REQUEST =
   UnidadInventarioResponseDto,
   UnidadSiaResponseDto,
   UnidadContadoresResponseDto,
-  ProyectoUnidadRefDto,
-  ProyectoResponseDto,
-  ProyectoGrupoResponseDto,
-  ProyectoTipoResponseDto,
+  ProgramaUnidadRefDto,
+  ProgramaResponseDto,
+  ProgramaGrupoResponseDto,
+  ProgramaTipoResponseDto,
 )
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -121,7 +121,7 @@ export class MofUnidadesController {
   @Get('unidades')
   @ApiOperation({
     summary: 'Listar unidades',
-    description: `${COLOR_DESCRIPTION} Cada unidad trae \`aplicaProyectos\` (es un Decanato o depende de uno) y \`proyectosCount\` (proyectos en los que participa, incluidos los conjuntos; \`0\` si no aplica).`,
+    description: `${COLOR_DESCRIPTION} Cada unidad trae \`aplicaProgramas\` (es un Decanato o depende de uno) y \`programasCount\` (programas en los que participa, incluidos los conjuntos; \`0\` si no aplica).`,
   })
   async list() {
     return ResultResponse.ok(
@@ -248,7 +248,7 @@ export class MofUnidadesController {
   @ApiOperation({
     summary: 'Obtener unidad por ID',
     description:
-      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado. Incluye `vistasCount` y `descargasCount` (métricas de uso); consultar este endpoint no los incrementa. Incluye `color`, `colorPropio` y `colorClase` (ver `GET /unidades`). Incluye `aplicaProyectos`, `proyectosCount`, `proyectos: [{ id, tipo, detalle, unidades }]` (orden de alta; `unidades` son todas las participantes) y `proyectosPorTipo: [{ tipo, cantidad, proyectos }]` (agrupados sin distinguir mayúsculas ni acentos, orden alfabético); ambos `[]` si la unidad no aplica.',
+      'Incluye `esCarrera` (la clase de la unidad es Carrera) y `sia: [{ id, aprobados, reprobados, matriculados }]`; `sia` es `[]` cuando la unidad no es Carrera. Incluye `planificacionEstrategicaAplica`, `planificacionEstrategicaValor` y `planificacionEstrategica`; los dos últimos son `null` cuando el switch está apagado. Incluye `vistasCount` y `descargasCount` (métricas de uso); consultar este endpoint no los incrementa. Incluye `color`, `colorPropio` y `colorClase` (ver `GET /unidades`). Incluye `aplicaProgramas`, `programasCount`, `programas: [{ id, tipo, detalle, unidades }]` (orden de alta; `unidades` son todas las participantes) y `programasPorTipo: [{ tipo, cantidad, programas }]` (agrupados sin distinguir mayúsculas ni acentos, orden alfabético); ambos `[]` si la unidad no aplica.',
   })
   @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
@@ -812,153 +812,153 @@ export class MofUnidadesController {
     );
   }
 
-  // --- PROYECTOS (Decanato hacia abajo) ---
-  @Get('proyectos/tipos')
+  // --- PROGRAMAS (Decanato hacia abajo) ---
+  @Get('programas/tipos')
   @ApiOperation({
-    summary: 'Catálogo de tipos de proyecto',
+    summary: 'Catálogo de tipos de programa',
     description:
-      'Tipos activos en orden de alta: primero Programa Académico, Programa Investigación y Programa Interacción Social y Extensión Universitaria, luego los añadidos por los usuarios. `cantidad` son los proyectos vigentes de cada tipo. El `id` es el `tipoId` que se envía al guardar un proyecto.',
+      'Tipos activos en orden de alta: primero Programa Académico, Programa Investigación y Programa Interacción Social y Extensión Universitaria, luego los añadidos por los usuarios. `cantidad` son los programas vigentes de cada tipo. El `id` es el `tipoId` que se envía al guardar un programa.',
   })
   @ApiOkResponse({
-    schema: resultSchema({ type: 'array', items: proyectoTipoSchema }),
+    schema: resultSchema({ type: 'array', items: programaTipoSchema }),
   })
-  async tiposProyecto() {
+  async tiposPrograma() {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
-      await this.unidadesService.tiposProyecto(),
+      await this.unidadesService.tiposPrograma(),
     );
   }
 
-  @Post('proyectos/tipos')
+  @Post('programas/tipos')
   @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({
-    summary: 'Añadir tipo de proyecto',
+    summary: 'Añadir tipo de programa',
     description:
       'Agrega un tipo al catálogo. Si ya existe uno equivalente (sin distinguir mayúsculas, acentos ni espacios repetidos) devuelve ese en lugar de duplicarlo.',
   })
-  @ApiBody({ type: CrearTipoProyectoDto })
-  @ApiCreatedResponse({ schema: resultSchema(proyectoTipoSchema) })
+  @ApiBody({ type: CrearTipoProgramaDto })
+  @ApiCreatedResponse({ schema: resultSchema(programaTipoSchema) })
   @ApiBadRequestResponse({ description: 'Error de validación' })
   @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
-  async crearTipoProyecto(@Body() dto: CrearTipoProyectoDto) {
+  async crearTipoPrograma(@Body() dto: CrearTipoProgramaDto) {
     return ResultResponse.ok(
       RestMessages.PERSIST_SUCCESSFULLY,
-      await this.unidadesService.crearTipoProyecto(dto),
+      await this.unidadesService.crearTipoPrograma(dto),
     );
   }
 
-  @Get('unidades/:id/proyectos')
+  @Get('unidades/:id/programas')
   @ApiOperation({
-    summary: 'Listar proyectos de la unidad',
+    summary: 'Listar programas de la unidad',
     description:
-      'Incluye los proyectos conjuntos en los que participa. Devuelve `[]` si la unidad no es un Decanato ni depende de uno.',
+      'Incluye los programas conjuntos en los que participa. Devuelve `[]` si la unidad no es un Decanato ni depende de uno.',
   })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
   @ApiOkResponse({
-    schema: resultSchema({ type: 'array', items: proyectoSchema }),
+    schema: resultSchema({ type: 'array', items: programaSchema }),
   })
   @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
-  async listProyectos(@Param('id', ParseIntPipe) id: number) {
+  async listProgramas(@Param('id', ParseIntPipe) id: number) {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
-      await this.unidadesService.listProyectos(id),
+      await this.unidadesService.listProgramas(id),
     );
   }
 
-  @Get('unidades/:id/proyectos/:proyectoId')
-  @ApiOperation({ summary: 'Obtener proyecto de la unidad' })
+  @Get('unidades/:id/programas/:programaId')
+  @ApiOperation({ summary: 'Obtener programa de la unidad' })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
-  @ApiParam({ name: 'proyectoId', description: 'ID del proyecto' })
-  @ApiOkResponse({ schema: resultSchema(proyectoSchema) })
+  @ApiParam({ name: 'programaId', description: 'ID del programa' })
+  @ApiOkResponse({ schema: resultSchema(programaSchema) })
   @ApiNotFoundResponse({
     description:
-      'Unidad no encontrada, la unidad no aplica o no participa en el proyecto',
+      'Unidad no encontrada, la unidad no aplica o no participa en el programa',
   })
-  async getProyecto(
+  async getPrograma(
     @Param('id', ParseIntPipe) id: number,
-    @Param('proyectoId', ParseIntPipe) proyectoId: number,
+    @Param('programaId', ParseIntPipe) programaId: number,
   ) {
     return ResultResponse.ok(
       RestMessages.FIND_SUCCESSFULLY,
-      await this.unidadesService.getProyecto(id, proyectoId),
+      await this.unidadesService.getPrograma(id, programaId),
     );
   }
 
-  @Post('unidades/:id/proyectos')
+  @Post('unidades/:id/programas')
   @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({
-    summary: 'Registrar proyecto en la unidad',
+    summary: 'Registrar programa en la unidad',
     description:
-      'La unidad de la ruta participa siempre. `unidadIds` agrega otras unidades (proyecto conjunto): cada una suma el proyecto en su contador.',
+      'La unidad de la ruta participa siempre. `unidadIds` agrega otras unidades (programa conjunto): cada una suma el programa en su contador.',
   })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
-  @ApiBody({ type: ProyectoDto })
-  @ApiCreatedResponse({ schema: resultSchema(proyectoSchema) })
-  @ApiBadRequestResponse({ description: PROYECTO_BAD_REQUEST })
+  @ApiBody({ type: ProgramaDto })
+  @ApiCreatedResponse({ schema: resultSchema(programaSchema) })
+  @ApiBadRequestResponse({ description: PROGRAMA_BAD_REQUEST })
   @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
   @ApiNotFoundResponse({ description: 'Unidad no encontrada' })
-  async addProyecto(
+  async addPrograma(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: ProyectoDto,
+    @Body() dto: ProgramaDto,
   ) {
     return ResultResponse.ok(
       RestMessages.PERSIST_SUCCESSFULLY,
-      await this.unidadesService.addProyecto(id, dto),
+      await this.unidadesService.addPrograma(id, dto),
     );
   }
 
-  @Put('unidades/:id/proyectos/:proyectoId')
+  @Put('unidades/:id/programas/:programaId')
   @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({
-    summary: 'Actualizar proyecto de la unidad',
+    summary: 'Actualizar programa de la unidad',
     description:
       'Reemplaza `tipo` y `detalle`. Si se envía `unidadIds`, reemplaza las otras unidades participantes (la de la ruta se conserva); si se omite, no cambian.',
   })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
-  @ApiParam({ name: 'proyectoId', description: 'ID del proyecto' })
-  @ApiBody({ type: ProyectoDto })
-  @ApiOkResponse({ schema: resultSchema(proyectoSchema) })
-  @ApiBadRequestResponse({ description: PROYECTO_BAD_REQUEST })
+  @ApiParam({ name: 'programaId', description: 'ID del programa' })
+  @ApiBody({ type: ProgramaDto })
+  @ApiOkResponse({ schema: resultSchema(programaSchema) })
+  @ApiBadRequestResponse({ description: PROGRAMA_BAD_REQUEST })
   @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
   @ApiNotFoundResponse({
-    description: 'Unidad no encontrada o no participa en el proyecto',
+    description: 'Unidad no encontrada o no participa en el programa',
   })
-  async updateProyecto(
+  async updatePrograma(
     @Param('id', ParseIntPipe) id: number,
-    @Param('proyectoId', ParseIntPipe) proyectoId: number,
-    @Body() dto: ProyectoDto,
+    @Param('programaId', ParseIntPipe) programaId: number,
+    @Body() dto: ProgramaDto,
   ) {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
-      await this.unidadesService.updateProyecto(id, proyectoId, dto),
+      await this.unidadesService.updatePrograma(id, programaId, dto),
     );
   }
 
-  @Delete('unidades/:id/proyectos/:proyectoId')
+  @Delete('unidades/:id/programas/:programaId')
   @Roles('ADMIN', 'OPERADOR')
   @ApiOperation({
-    summary: 'Quitar proyecto de la unidad',
+    summary: 'Quitar programa de la unidad',
     description:
-      'Desvincula la unidad del proyecto. Las demás unidades participantes lo conservan; si no queda ninguna, el proyecto se da de baja (borrado lógico).',
+      'Desvincula la unidad del programa. Las demás unidades participantes lo conservan; si no queda ninguna, el programa se da de baja (borrado lógico).',
   })
   @ApiParam({ name: 'id', description: 'ID de la unidad' })
-  @ApiParam({ name: 'proyectoId', description: 'ID del proyecto' })
+  @ApiParam({ name: 'programaId', description: 'ID del programa' })
   @ApiOkResponse({ schema: resultSchema({ type: 'boolean', example: true }) })
   @ApiBadRequestResponse({
     description:
-      '`PROYECTOS_NO_APLICA`: la unidad no es un Decanato ni depende de uno',
+      '`PROGRAMAS_NO_APLICA`: la unidad no es un Decanato ni depende de uno',
   })
   @ApiForbiddenResponse({ description: 'Requiere rol ADMIN u OPERADOR' })
   @ApiNotFoundResponse({
-    description: 'Unidad no encontrada o no participa en el proyecto',
+    description: 'Unidad no encontrada o no participa en el programa',
   })
-  async removeProyecto(
+  async removePrograma(
     @Param('id', ParseIntPipe) id: number,
-    @Param('proyectoId', ParseIntPipe) proyectoId: number,
+    @Param('programaId', ParseIntPipe) programaId: number,
   ) {
     return ResultResponse.ok(
       RestMessages.UPDATE_SUCCESSFULLY,
-      await this.unidadesService.removeProyecto(id, proyectoId),
+      await this.unidadesService.removePrograma(id, programaId),
     );
   }
 }

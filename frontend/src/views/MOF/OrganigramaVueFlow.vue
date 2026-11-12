@@ -1978,8 +1978,8 @@ const updateGraph = () => {
       node.data.isNonOficialInOficialView = isNodeNonOficialInOficialView;
       node.data.visualReinforcement = visualReinforcement;
       node.data.childrenCount = contarHijosDirectos(node.id);
-      node.data.proyectosCount = u.proyectosCount ?? u.proyectos_count ?? 0;
-      node.data.aplicaProyectos = Boolean(u.aplicaProyectos || u.aplica_proyectos);
+      node.data.programasCount = u.programasCount ?? u.programas_count ?? 0;
+      node.data.aplicaProgramas = Boolean(u.aplicaProgramas || u.aplica_programas);
       node.data.isNavSelected = isNavSelected;
       node.data.isNavChild = isNavChild;
       node.data.isNavAncestor = isNavAncestor;
@@ -2109,8 +2109,8 @@ const updateGraph = () => {
           u.esSubtroncal === true,
         lado: u.lado || "AUTOMATICO",
         childrenCount: contarHijosDirectos(u.id),
-        proyectosCount: u.proyectosCount ?? u.proyectos_count ?? 0,
-        aplicaProyectos: Boolean(u.aplicaProyectos || u.aplica_proyectos),
+        programasCount: u.programasCount ?? u.programas_count ?? 0,
+        aplicaProgramas: Boolean(u.aplicaProgramas || u.aplica_programas),
         isNavSelected,
         isNavChild,
         isNavAncestor,
@@ -3459,9 +3459,9 @@ function resetFilters() {
                     </v-icon>
                   </div>
 
-                  <!-- Indicador de proyectos de la unidad (MOF-085) -->
+                  <!-- Indicador de programas de la unidad (MOF-085) -->
                   <div
-                    v-if="data.proyectosCount > 0"
+                    v-if="data.programasCount > 0"
                     class="node-line detail-line children-badge mt-1"
                     :style="{ color: getContrastingTextColor(data.color) }"
                   >
@@ -3477,7 +3477,7 @@ function resetFilters() {
                       mdi-folder-outline
                     </v-icon>
                     <span class="font-weight-bold">
-                      {{ data.proyectosCount }} {{ data.proyectosCount === 1 ? 'proyecto' : 'proyectos' }}
+                      {{ data.programasCount }} {{ data.programasCount === 1 ? 'programa' : 'programas' }}
                     </span>
                   </div>
                 </div>

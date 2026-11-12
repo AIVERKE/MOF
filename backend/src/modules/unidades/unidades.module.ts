@@ -9,9 +9,9 @@ import { UnidadDependenciaFuncional } from './entities/unidad-dependencia-funcio
 import { UnidadJerarquiaHist } from './entities/unidad-jerarquia-hist.entity';
 import { UnidadInventario } from './entities/unidad-inventario.entity';
 import { UnidadSia } from './entities/unidad-sia.entity';
-import { Proyecto } from './entities/proyecto.entity';
-import { ProyectoUnidad } from './entities/proyecto-unidad.entity';
-import { TipoProyecto } from './entities/tipo-proyecto.entity';
+import { Programa } from './entities/programa.entity';
+import { ProgramaUnidad } from './entities/programa-unidad.entity';
+import { TipoPrograma } from './entities/tipo-programa.entity';
 import { CatalogosModule } from '../catalogos/catalogos.module';
 import { AuthModule } from '../auth/auth.module';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -38,9 +38,9 @@ import { MofConfig } from './entities/mof-config.entity';
       UnidadJerarquiaHist,
       UnidadInventario,
       UnidadSia,
-      Proyecto,
-      ProyectoUnidad,
-      TipoProyecto,
+      Programa,
+      ProgramaUnidad,
+      TipoPrograma,
       CatalogoTipo,
       CatalogoNivel,
       CatalogoRelacion,

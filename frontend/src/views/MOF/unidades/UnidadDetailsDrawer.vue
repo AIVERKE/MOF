@@ -2,7 +2,7 @@
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useDisplay } from "vuetify";
 import UnidadActionsMenu from "./UnidadActionsMenu.vue";
-import { getCleanSigla, isClaseCarrera, agruparProyectosPorTipo } from "@/utils/mofHelpers";
+import { getCleanSigla, isClaseCarrera, agruparProgramasPorTipo } from "@/utils/mofHelpers";
 
 const props = defineProps({
   modelValue: Boolean,
@@ -403,21 +403,21 @@ const panels = computed(() => {
           },
         ]
       : []),
-    ...((data.aplicaProyectos || data.aplica_proyectos) &&
-    ((data.proyectosCount ?? (data.proyectos?.length || 0)) > 0)
+    ...((data.aplicaProgramas || data.aplica_programas) &&
+    ((data.programasCount ?? (data.programas?.length || 0)) > 0)
       ? [
           {
-            key: "proyectos",
-            title: "PROYECTOS",
+            key: "programas",
+            title: "PROGRAMAS",
             icon: "mdi-folder-outline",
             avatarColor: "blue-darken-2",
-            badge: data.proyectosCount ?? (data.proyectos?.length || 0),
-            type: "proyectos",
-            proyectosPorTipo:
-              Array.isArray(data.proyectosPorTipo) && data.proyectosPorTipo.length > 0
-                ? data.proyectosPorTipo
-                : agruparProyectosPorTipo(data.proyectos),
-            proyectosCount: data.proyectosCount ?? (data.proyectos?.length || 0),
+            badge: data.programasCount ?? (data.programas?.length || 0),
+            type: "programas",
+            programasPorTipo:
+              Array.isArray(data.programasPorTipo) && data.programasPorTipo.length > 0
+                ? data.programasPorTipo
+                : agruparProgramasPorTipo(data.programas),
+            programasCount: data.programasCount ?? (data.programas?.length || 0),
           },
         ]
       : []),
@@ -1081,11 +1081,11 @@ const panels = computed(() => {
               </div>
             </template>
 
-            <!-- Panel Proyectos (MOF-085) -->
-            <template v-else-if="panel.type === 'proyectos'">
+            <!-- Panel Programas (MOF-085) -->
+            <template v-else-if="panel.type === 'programas'">
               <div class="d-flex flex-column gap-3">
                 <div
-                  v-for="grupo in panel.proyectosPorTipo"
+                  v-for="grupo in panel.programasPorTipo"
                   :key="grupo.tipo"
                   class="border rounded-lg pa-3 bg-slate-50"
                 >
@@ -1094,26 +1094,26 @@ const panels = computed(() => {
                       {{ grupo.tipo }}
                     </span>
                     <v-chip size="x-small" color="primary" variant="flat" class="font-weight-bold">
-                      {{ grupo.cantidad || grupo.proyectos?.length || 0 }}
+                      {{ grupo.cantidad || grupo.programas?.length || 0 }}
                     </v-chip>
                   </div>
                   <v-divider class="mb-2"></v-divider>
                   <div class="d-flex flex-column gap-2">
                     <div
-                      v-for="proy in grupo.proyectos"
-                      :key="proy.id || proy.detalle"
+                      v-for="prog in grupo.programas"
+                      :key="prog.id || prog.detalle"
                       class="bg-white pa-2 rounded border-thin"
                     >
                       <div class="text-caption text-slate-800 line-height-1-4">
-                        {{ proy.detalle }}
+                        {{ prog.detalle }}
                       </div>
                       <div
-                        v-if="proy.unidades && proy.unidades.length > 1"
+                        v-if="prog.unidades && prog.unidades.length > 1"
                         class="d-flex flex-wrap align-center ga-1 mt-1"
                       >
-                        <span class="text-xxs text-medium-emphasis">Proyecto conjunto con:</span>
+                        <span class="text-xxs text-medium-emphasis">Programa conjunto con:</span>
                         <v-chip
-                          v-for="u in proy.unidades.filter(un => String(un.id) !== String(detailData.id))"
+                          v-for="u in prog.unidades.filter(un => String(un.id) !== String(detailData.id))"
                           :key="u.id"
                           size="x-small"
                           variant="tonal"

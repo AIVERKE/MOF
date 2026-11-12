@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed, nextTick } from "vue";
 import { rules, FEC_CREACION_MIN, fecCreacionMax } from "@/utils/rules";
-import { swatches, getUsedColors, isClaseCarrera, checkUnidadAplicaProyectos } from "@/utils/mofHelpers";
+import { swatches, getUsedColors, isClaseCarrera, checkUnidadAplicaProgramas } from "@/utils/mofHelpers";
 import { toRelId } from "@/utils/mofMappers";
 import { useAllUnidadesMofStore } from "@/stores/unidades_mof";
 import { useAllClasesMofStore } from "@/stores/clases_mof";
@@ -14,7 +14,7 @@ import SelectAllUnidades from "./SelectAllUnidades.vue";
 import CargosUnidadTable from "../cargos/CargosUnidadTable.vue";
 import UnidadInventarioTable from "./UnidadInventarioTable.vue";
 import UnidadSiaTable from "./UnidadSiaTable.vue";
-import UnidadProyectoTable from "./UnidadProyectoTable.vue";
+import UnidadProgramaTable from "./UnidadProgramaTable.vue";
 import SelectAllClases from "../clases/SelectAllClases.vue";
 import { hints } from "@/config/hints";
 import HelpTooltip from "@/components/HelpTooltip.vue";
@@ -24,7 +24,7 @@ import { useSnackbar } from "@/composables/useSnackbar";
 const { smAndDown } = useResponsive();
 const { mostrar } = useSnackbar();
 const inventarioTableRef = ref(null);
-const proyectoTableRef = ref(null);
+const programaTableRef = ref(null);
 
 const props = defineProps({
   modelValue: Boolean,
@@ -317,8 +317,8 @@ const isCarrera = computed(() => {
   return isClaseCarrera(claseId);
 });
 
-const isAplicaProyectos = computed(() => {
-  return checkUnidadAplicaProyectos({
+const isAplicaProgramas = computed(() => {
+  return checkUnidadAplicaProgramas({
     clase: props.formData?.clase,
     parentId: props.formData?.parentId,
     unidad: props.selectedNode,
@@ -327,14 +327,14 @@ const isAplicaProyectos = computed(() => {
   });
 });
 
-const unidadesParaProyectos = computed(() => {
+const unidadesParaProgramas = computed(() => {
   const currentId = props.selectedNode?.id || props.formData?.id;
   return (unidadesStore.unidades || []).filter(
     (u) =>
       String(u.id) !== String(currentId) &&
-      (u.aplicaProyectos === true ||
-        u.aplica_proyectos === true ||
-        checkUnidadAplicaProyectos({
+      (u.aplicaProgramas === true ||
+        u.aplica_programas === true ||
+        checkUnidadAplicaProgramas({
           clase: u.clase || u.tipoUnidad,
           parentId: u.parentId || u.parent,
           unidad: u,
@@ -370,14 +370,14 @@ const activeSectionsConfig = computed(() => {
     }
   }
 
-  if (isAplicaProyectos.value) {
+  if (isAplicaProgramas.value) {
     const insertIdx = base.findIndex((s) => s.id === "section-sia" || s.id === "section-inventarios");
-    const proyectosSection = {
-      id: "section-proyectos",
-      name: "Proyectos de Unidad",
+    const programasSection = {
+      id: "section-programas",
+      name: "Programas de Unidad",
       keywords: [
-        "proyectos",
-        "proyecto",
+        "programas",
+        "programa",
         "investigacion",
         "investigación",
         "interaccion",
@@ -388,9 +388,9 @@ const activeSectionsConfig = computed(() => {
       ],
     };
     if (insertIdx !== -1) {
-      base.splice(insertIdx + 1, 0, proyectosSection);
+      base.splice(insertIdx + 1, 0, programasSection);
     } else {
-      base.push(proyectosSection);
+      base.push(programasSection);
     }
   }
   return base;
@@ -609,11 +609,11 @@ async function confirm() {
     return;
   }
 
-  if (isAplicaProyectos.value && proyectoTableRef.value && !proyectoTableRef.value.validate()) {
-    mostrar("Por favor completa los campos de los proyectos registrados", "warning");
-    const proyEl = document.getElementById("section-proyectos");
-    if (proyEl) {
-      proyEl.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (isAplicaProgramas.value && programaTableRef.value && !programaTableRef.value.validate()) {
+    mostrar("Por favor completa los campos de los programas registrados", "warning");
+    const progEl = document.getElementById("section-programas");
+    if (progEl) {
+      progEl.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     return;
   }
@@ -1134,18 +1134,18 @@ function moverAbajo(index) {
             />
           </div>
 
-          <!-- PROYECTOS DE LA UNIDAD (DECANATO HACIA ABAJO) (MOF-085) -->
+          <!-- PROGRAMAS DE LA UNIDAD (DECANATO HACIA ABAJO) (MOF-085) -->
           <div
-            v-if="isAplicaProyectos"
-            id="section-proyectos"
-            v-show="isSectionVisible('section-proyectos')"
-            :class="{ 'section-search-match': isSectionHighlighted('section-proyectos') }"
+            v-if="isAplicaProgramas"
+            id="section-programas"
+            v-show="isSectionVisible('section-programas')"
+            :class="{ 'section-search-match': isSectionHighlighted('section-programas') }"
             class="my-3"
           >
-            <UnidadProyectoTable
-              ref="proyectoTableRef"
-              v-model="formData.proyectos"
-              :unidades-disponibles="unidadesParaProyectos"
+            <UnidadProgramaTable
+              ref="programaTableRef"
+              v-model="formData.programas"
+              :unidades-disponibles="unidadesParaProgramas"
             />
           </div>
 

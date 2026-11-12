@@ -1,14 +1,14 @@
 import { FindOperator, Repository } from 'typeorm';
 import { Unidad } from './entities/unidad.entity';
-import { Proyecto } from './entities/proyecto.entity';
-import { ProyectoUnidad } from './entities/proyecto-unidad.entity';
-import { TipoProyecto } from './entities/tipo-proyecto.entity';
+import { Programa } from './entities/programa.entity';
+import { ProgramaUnidad } from './entities/programa-unidad.entity';
+import { TipoPrograma } from './entities/tipo-programa.entity';
 import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
-import { ProyectoDto, UnidadDto } from './dto/unidad.dto';
+import { ProgramaDto, UnidadDto } from './dto/unidad.dto';
 import {
   UnidadesService,
-  agruparProyectosPorTipo,
-  aplicanProyectos,
+  agruparProgramasPorTipo,
+  aplicanProgramas,
 } from './unidades.service';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { ErrorCodes } from '../../common/errors';
@@ -56,9 +56,9 @@ const UNIDADES: FilaUnidad[] = [
   parentId: parentId as string | null,
 }));
 
-type FilaProyecto = {
+type FilaPrograma = {
   id?: string;
-  tipoProyectoId: number;
+  tipoProgramaId: number;
   detalle: string;
   deletedAt?: Date | null;
 };
@@ -79,17 +79,17 @@ const TIPOS: FilaTipo[] = [
   },
   { id: INACTIVO, descripcion: 'Programa Antiguo', activo: false },
 ];
-type Vinculo = { proyectoId: string; unidadId: string };
+type Vinculo = { programaId: string; unidadId: string };
 
 const valores = (v: unknown): string[] =>
   v instanceof FindOperator ? (v.value as unknown[]).map(String) : [String(v)];
 
-/** Tablas `unidad`, `tipo_proyecto`, `proyecto` y `proyecto_unidad` en memoria; la transacción revierte si falla. */
+/** Tablas `unidad`, `tipo_programa`, `programa` y `programa_unidad` en memoria; la transacción revierte si falla. */
 function createFakeDb(
-  seed: { proyectos?: FilaProyecto[]; vinculos?: Vinculo[] } = {},
+  seed: { programas?: FilaPrograma[]; vinculos?: Vinculo[] } = {},
 ) {
   const unidades = new Map(UNIDADES.map((u) => [u.id, { ...u }]));
-  let proyectos: FilaProyecto[] = (seed.proyectos ?? []).map((p) => ({
+  let programas: FilaPrograma[] = (seed.programas ?? []).map((p) => ({
     deletedAt: null,
     ...p,
   }));
@@ -102,12 +102,12 @@ function createFakeDb(
     tipoUnidad: { id: u.tipoUnidadId, descripcion: CLASES[u.tipoUnidadId] },
     parent: null,
   });
-  const vigentes = () => proyectos.filter((p) => !p.deletedAt);
-  const conUnidades = (p: FilaProyecto) => ({
+  const vigentes = () => programas.filter((p) => !p.deletedAt);
+  const conUnidades = (p: FilaPrograma) => ({
     ...p,
-    tipoProyecto: tipos.find((t) => t.id === p.tipoProyectoId) ?? null,
+    tipoPrograma: tipos.find((t) => t.id === p.tipoProgramaId) ?? null,
     unidades: vinculos
-      .filter((v) => v.proyectoId === p.id)
+      .filter((v) => v.programaId === p.id)
       .map((v) => ({ ...v, unidad: unidades.get(v.unidadId) ?? null })),
   });
 
@@ -115,14 +115,14 @@ function createFakeDb(
     find: jest.fn(
       (entity: unknown, opts: { where: Record<string, unknown> }) => {
         const w = opts.where;
-        if (entity === ProyectoUnidad) {
+        if (entity === ProgramaUnidad) {
           return Promise.resolve(
             vinculos.filter(
               (v) =>
                 (w.unidadId === undefined ||
                   valores(w.unidadId).includes(v.unidadId)) &&
-                (w.proyectoId === undefined ||
-                  valores(w.proyectoId).includes(v.proyectoId)),
+                (w.programaId === undefined ||
+                  valores(w.programaId).includes(v.programaId)),
             ),
           );
         }
@@ -131,7 +131,7 @@ function createFakeDb(
       },
     ),
     create: jest.fn((_e: unknown, data: object) => ({ ...data })),
-    save: jest.fn((x: FilaProyecto | FilaUnidad) => {
+    save: jest.fn((x: FilaPrograma | FilaUnidad) => {
       if ('codigo' in x) {
         x.id ??= '50';
         unidades.set(x.id, { ...x });
@@ -139,10 +139,10 @@ function createFakeDb(
       }
       if (x.id == null) {
         x.id = String(nextId++);
-        proyectos.push({ ...x, deletedAt: null });
+        programas.push({ ...x, deletedAt: null });
       } else {
-        const fila = proyectos.find((p) => p.id === x.id)!;
-        fila.tipoProyectoId = x.tipoProyectoId;
+        const fila = programas.find((p) => p.id === x.id)!;
+        fila.tipoProgramaId = x.tipoProgramaId;
         fila.detalle = x.detalle;
       }
       return Promise.resolve(x);
@@ -153,8 +153,8 @@ function createFakeDb(
           !(
             (w.unidadId === undefined ||
               valores(w.unidadId).includes(v.unidadId)) &&
-            (w.proyectoId === undefined ||
-              valores(w.proyectoId).includes(v.proyectoId))
+            (w.programaId === undefined ||
+              valores(w.programaId).includes(v.programaId))
           ),
       );
       return Promise.resolve();
@@ -162,7 +162,7 @@ function createFakeDb(
     insert: jest.fn((_e: unknown, filas: Vinculo[]) => {
       vinculos.push(
         ...filas.map((f) => ({
-          proyectoId: String(f.proyectoId),
+          programaId: String(f.programaId),
           unidadId: String(f.unidadId),
         })),
       );
@@ -170,7 +170,7 @@ function createFakeDb(
     }),
     softDelete: jest.fn((_e: unknown, w: { id: unknown }) => {
       const ids = valores(w.id);
-      proyectos
+      programas
         .filter((p) => ids.includes(p.id!))
         .forEach((p) => (p.deletedAt = new Date()));
       return Promise.resolve();
@@ -180,14 +180,14 @@ function createFakeDb(
   const transaction = jest.fn(
     async (cb: (mgr: typeof m) => Promise<unknown>) => {
       const snapshot = {
-        proyectos: proyectos.map((p) => ({ ...p })),
+        programas: programas.map((p) => ({ ...p })),
         vinculos: vinculos.map((v) => ({ ...v })),
         unidades: [...unidades.values()].map((u) => ({ ...u })),
       };
       try {
         return await cb(m);
       } catch (e) {
-        proyectos = snapshot.proyectos;
+        programas = snapshot.programas;
         vinculos = snapshot.vinculos;
         unidades.clear();
         snapshot.unidades.forEach((u) => unidades.set(u.id, u));
@@ -227,7 +227,7 @@ function createFakeDb(
     manager: { transaction },
   };
 
-  const proyectoRepo = {
+  const programaRepo = {
     find: jest.fn((opts: { where?: { id: unknown } }) => {
       const ids = opts.where ? valores(opts.where.id) : null;
       return Promise.resolve(
@@ -237,9 +237,9 @@ function createFakeDb(
           .map(conUnidades),
       );
     }),
-    count: jest.fn((opts: { where: { tipoProyectoId: number } }) =>
+    count: jest.fn((opts: { where: { tipoProgramaId: number } }) =>
       Promise.resolve(
-        vigentes().filter((p) => p.tipoProyectoId === opts.where.tipoProyectoId)
+        vigentes().filter((p) => p.tipoProgramaId === opts.where.tipoProgramaId)
           .length,
       ),
     ),
@@ -247,7 +247,7 @@ function createFakeDb(
     manager: { transaction },
   };
 
-  const tipoProyectoRepo = {
+  const tipoProgramaRepo = {
     findOne: jest.fn((opts: { where: { id: number; activo?: boolean } }) => {
       const { id, activo } = opts.where;
       const t = tipos.find(
@@ -282,7 +282,7 @@ function createFakeDb(
     }),
   };
 
-  const proyectoUnidadRepo = {
+  const programaUnidadRepo = {
     find: jest.fn((opts: { where?: { unidadId: string } }) =>
       Promise.resolve(
         vinculos.filter(
@@ -294,7 +294,7 @@ function createFakeDb(
       Promise.resolve(
         vinculos.find(
           (v) =>
-            v.proyectoId === opts.where.proyectoId &&
+            v.programaId === opts.where.programaId &&
             v.unidadId === opts.where.unidadId,
         ) ?? null,
       ),
@@ -304,14 +304,14 @@ function createFakeDb(
   return {
     unidades,
     unidadRepo,
-    proyectoRepo,
-    proyectoUnidadRepo,
-    tipoProyectoRepo,
+    programaRepo,
+    programaUnidadRepo,
+    tipoProgramaRepo,
     tipos: () => tipos.map((t) => ({ ...t })),
-    proyectos: () =>
-      vigentes().map(({ id, tipoProyectoId, detalle }) => ({
+    programas: () =>
+      vigentes().map(({ id, tipoProgramaId, detalle }) => ({
         id,
-        tipoProyectoId,
+        tipoProgramaId,
         detalle,
       })),
     vinculos: () => vinculos.map((v) => ({ ...v })),
@@ -345,19 +345,19 @@ function buildService(db: ReturnType<typeof createFakeDb>) {
     unused,
     vacio as never,
     vacio as never,
-    db.proyectoRepo as unknown as Repository<Proyecto>,
-    db.proyectoUnidadRepo as unknown as Repository<ProyectoUnidad>,
+    db.programaRepo as unknown as Repository<Programa>,
+    db.programaUnidadRepo as unknown as Repository<ProgramaUnidad>,
     vacio as never,
-    db.tipoProyectoRepo as unknown as Repository<TipoProyecto>,
+    db.tipoProgramaRepo as unknown as Repository<TipoPrograma>,
   );
 }
 
 const dto = (extra: Partial<UnidadDto>) => extra as UnidadDto;
-const proyecto = (
+const programa = (
   tipoId: number,
   detalle = `Detalle del tipo ${tipoId}`,
-  extra: Partial<ProyectoDto> = {},
-): ProyectoDto => ({ tipoId, detalle, ...extra });
+  extra: Partial<ProgramaDto> = {},
+): ProgramaDto => ({ tipoId, detalle, ...extra });
 
 async function expectBusiness(p: Promise<unknown>, code: string) {
   const err = await p.then(
@@ -368,11 +368,11 @@ async function expectBusiness(p: Promise<unknown>, code: string) {
   expect((err as BusinessException).errorCode).toBe(code);
 }
 
-describe('aplicanProyectos', () => {
+describe('aplicanProgramas', () => {
   it('habilita Decanatos y todas sus dependencias, no el nivel central', async () => {
     const db = createFakeDb();
     const rows = await db.unidadRepo.find();
-    const aplican = aplicanProyectos(rows as unknown as Unidad[]);
+    const aplican = aplicanProgramas(rows as unknown as Unidad[]);
     expect(Object.fromEntries(aplican)).toEqual({
       '1': false,
       '2': false,
@@ -387,9 +387,9 @@ describe('aplicanProyectos', () => {
   });
 });
 
-describe('agruparProyectosPorTipo', () => {
+describe('agruparProgramasPorTipo', () => {
   it('agrupa sin distinguir mayúsculas, acentos ni espacios y conserva la primera grafía', () => {
-    const grupos = agruparProyectosPorTipo([
+    const grupos = agruparProgramasPorTipo([
       { id: 1, tipo: 'Investigación' },
       { id: 2, tipo: 'Académico' },
       { id: 3, tipo: 'investigacion' },
@@ -399,12 +399,12 @@ describe('agruparProyectosPorTipo', () => {
       {
         tipo: 'Académico',
         cantidad: 1,
-        proyectos: [{ id: 2, tipo: 'Académico' }],
+        programas: [{ id: 2, tipo: 'Académico' }],
       },
       {
         tipo: 'Investigación',
         cantidad: 3,
-        proyectos: [
+        programas: [
           { id: 1, tipo: 'Investigación' },
           { id: 3, tipo: 'investigacion' },
           { id: 4, tipo: 'INVESTIGACIÓN  ' },
@@ -414,8 +414,8 @@ describe('agruparProyectosPorTipo', () => {
   });
 });
 
-describe('UnidadesService - proyectos', () => {
-  it('registra en un Decanato proyectos de los tres programas y los agrupa por tipo', async () => {
+describe('UnidadesService - programas', () => {
+  it('registra en un Decanato programas de los tres programas y los agrupa por tipo', async () => {
     const db = createFakeDb();
     const service = buildService(db);
     for (const tipoId of [
@@ -424,19 +424,19 @@ describe('UnidadesService - proyectos', () => {
       INVESTIGACION,
       INVESTIGACION,
     ]) {
-      await service.addProyecto(10, proyecto(tipoId));
+      await service.addPrograma(10, programa(tipoId));
     }
 
     const detalle = await service.findById(10);
-    expect(detalle).toMatchObject({ aplicaProyectos: true, proyectosCount: 4 });
+    expect(detalle).toMatchObject({ aplicaProgramas: true, programasCount: 4 });
     expect(
-      detalle.proyectosPorTipo.map(({ tipo, cantidad }) => [tipo, cantidad]),
+      detalle.programasPorTipo.map(({ tipo, cantidad }) => [tipo, cantidad]),
     ).toEqual([
       ['Programa Académico', 1],
       ['Programa Interacción Social y Extensión Universitaria', 1],
       ['Programa Investigación', 2],
     ]);
-    expect(detalle.proyectos[0]).toEqual({
+    expect(detalle.programas[0]).toEqual({
       id: 100,
       tipoId: INTERACCION,
       tipo: 'Programa Interacción Social y Extensión Universitaria',
@@ -450,21 +450,21 @@ describe('UnidadesService - proyectos', () => {
         },
       ],
     });
-    expect(db.proyectos()[3].tipoProyectoId).toBe(INVESTIGACION);
+    expect(db.programas()[3].tipoProgramaId).toBe(INVESTIGACION);
   });
 
   it('rechaza un tipo inexistente o inactivo sin guardar nada', async () => {
     const db = createFakeDb();
     const service = buildService(db);
     await expectBusiness(
-      service.addProyecto(10, proyecto(999)),
-      ErrorCodes.TIPO_PROYECTO_NO_EXISTE,
+      service.addPrograma(10, programa(999)),
+      ErrorCodes.TIPO_PROGRAMA_NO_EXISTE,
     );
     await expectBusiness(
-      service.update(12, dto({ proyectos: [proyecto(INACTIVO)] })),
-      ErrorCodes.TIPO_PROYECTO_NO_EXISTE,
+      service.update(12, dto({ programas: [programa(INACTIVO)] })),
+      ErrorCodes.TIPO_PROGRAMA_NO_EXISTE,
     );
-    expect(db.proyectos()).toEqual([]);
+    expect(db.programas()).toEqual([]);
     expect(db.vinculos()).toEqual([]);
   });
 
@@ -472,39 +472,39 @@ describe('UnidadesService - proyectos', () => {
     const db = createFakeDb();
     const service = buildService(db);
     for (const id of [11, 12, 13]) {
-      await service.addProyecto(id, proyecto(INVESTIGACION));
-      expect(await service.listProyectos(id)).toHaveLength(1);
+      await service.addPrograma(id, programa(INVESTIGACION));
+      expect(await service.listProgramas(id)).toHaveLength(1);
     }
   });
 
-  it('rechaza proyectos en el nivel central y no los muestra', async () => {
+  it('rechaza programas en el nivel central y no los muestra', async () => {
     const db = createFakeDb();
     const service = buildService(db);
     await expectBusiness(
-      service.addProyecto(1, proyecto(ACADEMICO)),
-      ErrorCodes.PROYECTOS_NO_APLICA,
+      service.addPrograma(1, programa(ACADEMICO)),
+      ErrorCodes.PROGRAMAS_NO_APLICA,
     );
     await expectBusiness(
-      service.update(2, dto({ proyectos: [proyecto(ACADEMICO)] })),
-      ErrorCodes.PROYECTOS_NO_APLICA,
+      service.update(2, dto({ programas: [programa(ACADEMICO)] })),
+      ErrorCodes.PROGRAMAS_NO_APLICA,
     );
-    await expect(service.update(2, dto({ proyectos: [] }))).resolves.toBe(2);
-    expect(await service.listProyectos(1)).toEqual([]);
+    await expect(service.update(2, dto({ programas: [] }))).resolves.toBe(2);
+    expect(await service.listProgramas(1)).toEqual([]);
     expect(await service.findById(1)).toMatchObject({
-      aplicaProyectos: false,
-      proyectosCount: 0,
-      proyectos: [],
-      proyectosPorTipo: [],
+      aplicaProgramas: false,
+      programasCount: 0,
+      programas: [],
+      programasPorTipo: [],
     });
-    expect(db.proyectos()).toEqual([]);
+    expect(db.programas()).toEqual([]);
   });
 
-  it('un proyecto conjunto suma en el contador de cada unidad participante', async () => {
+  it('un programa conjunto suma en el contador de cada unidad participante', async () => {
     const db = createFakeDb();
     const service = buildService(db);
-    const conjunto = await service.addProyecto(
+    const conjunto = await service.addPrograma(
       21,
-      proyecto(INVESTIGACION, 'Química computacional', {
+      programa(INVESTIGACION, 'Química computacional', {
         unidadIds: [22, 21, 22],
       }),
     );
@@ -512,76 +512,76 @@ describe('UnidadesService - proyectos', () => {
 
     const lista = await service.lista();
     const contador = (id: number) =>
-      lista.find((u) => u.id === id)?.proyectosCount;
+      lista.find((u) => u.id === id)?.programasCount;
     expect([contador(21), contador(22), contador(20), contador(1)]).toEqual([
       1, 1, 0, 0,
     ]);
-    expect(lista.find((u) => u.id === 1)?.aplicaProyectos).toBe(false);
-    expect(lista.find((u) => u.id === 20)?.aplicaProyectos).toBe(true);
+    expect(lista.find((u) => u.id === 1)?.aplicaProgramas).toBe(false);
+    expect(lista.find((u) => u.id === 20)?.aplicaProgramas).toBe(true);
 
     const quimica = await service.findById(22);
-    expect(quimica.proyectos[0].unidades.map((u) => u.id)).toEqual([21, 22]);
+    expect(quimica.programas[0].unidades.map((u) => u.id)).toEqual([21, 22]);
   });
 
   it('rechaza participantes del nivel central o inexistentes sin guardar nada', async () => {
     const db = createFakeDb();
     const service = buildService(db);
     await expectBusiness(
-      service.addProyecto(21, proyecto(ACADEMICO, 'x', { unidadIds: [2] })),
-      ErrorCodes.PROYECTO_UNIDAD_NO_APLICA,
+      service.addPrograma(21, programa(ACADEMICO, 'x', { unidadIds: [2] })),
+      ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA,
     );
     await expectBusiness(
-      service.addProyecto(21, proyecto(ACADEMICO, 'x', { unidadIds: [999] })),
-      ErrorCodes.PROYECTO_UNIDAD_NO_APLICA,
+      service.addPrograma(21, programa(ACADEMICO, 'x', { unidadIds: [999] })),
+      ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA,
     );
-    expect(db.proyectos()).toEqual([]);
+    expect(db.programas()).toEqual([]);
     expect(db.vinculos()).toEqual([]);
   });
 
-  it('quitar un proyecto conjunto lo desvincula y lo da de baja con la última unidad', async () => {
+  it('quitar un programa conjunto lo desvincula y lo da de baja con la última unidad', async () => {
     const db = createFakeDb();
     const service = buildService(db);
-    const { id } = await service.addProyecto(
+    const { id } = await service.addPrograma(
       21,
-      proyecto(INVESTIGACION, 'x', { unidadIds: [22] }),
+      programa(INVESTIGACION, 'x', { unidadIds: [22] }),
     );
 
-    await service.removeProyecto(21, id);
-    expect(await service.listProyectos(21)).toEqual([]);
-    expect(await service.listProyectos(22)).toHaveLength(1);
-    expect(db.proyectos()).toHaveLength(1);
+    await service.removePrograma(21, id);
+    expect(await service.listProgramas(21)).toEqual([]);
+    expect(await service.listProgramas(22)).toHaveLength(1);
+    expect(db.programas()).toHaveLength(1);
 
-    await service.removeProyecto(22, id);
-    expect(db.proyectos()).toEqual([]);
-    expect((await service.tiposProyecto()).every((t) => t.cantidad === 0)).toBe(
+    await service.removePrograma(22, id);
+    expect(db.programas()).toEqual([]);
+    expect((await service.tiposPrograma()).every((t) => t.cantidad === 0)).toBe(
       true,
     );
   });
 
-  it('un proyecto en el que la unidad no participa responde 404', async () => {
+  it('un programa en el que la unidad no participa responde 404', async () => {
     const db = createFakeDb();
     const service = buildService(db);
-    const { id } = await service.addProyecto(21, proyecto(ACADEMICO));
-    await expectBusiness(service.getProyecto(22, id), ErrorCodes.NOT_FOUND);
+    const { id } = await service.addPrograma(21, programa(ACADEMICO));
+    await expectBusiness(service.getPrograma(22, id), ErrorCodes.NOT_FOUND);
     await expectBusiness(
-      service.updateProyecto(22, id, proyecto(INTERACCION)),
+      service.updatePrograma(22, id, programa(INTERACCION)),
       ErrorCodes.NOT_FOUND,
     );
-    await expectBusiness(service.removeProyecto(22, id), ErrorCodes.NOT_FOUND);
+    await expectBusiness(service.removePrograma(22, id), ErrorCodes.NOT_FOUND);
   });
 
-  it('updateProyecto conserva los participantes si se omite unidadIds y los reemplaza si se envía', async () => {
+  it('updatePrograma conserva los participantes si se omite unidadIds y los reemplaza si se envía', async () => {
     const db = createFakeDb();
     const service = buildService(db);
-    const { id } = await service.addProyecto(
+    const { id } = await service.addPrograma(
       21,
-      proyecto(INVESTIGACION, 'x', { unidadIds: [22] }),
+      programa(INVESTIGACION, 'x', { unidadIds: [22] }),
     );
 
-    const editado = await service.updateProyecto(
+    const editado = await service.updatePrograma(
       21,
       id,
-      proyecto(INTERACCION, 'nuevo detalle'),
+      programa(INTERACCION, 'nuevo detalle'),
     );
     expect(editado).toMatchObject({
       tipoId: INTERACCION,
@@ -590,13 +590,13 @@ describe('UnidadesService - proyectos', () => {
     });
     expect(editado.unidades.map((u) => u.id)).toEqual([21, 22]);
 
-    const solo = await service.updateProyecto(
+    const solo = await service.updatePrograma(
       22,
       id,
-      proyecto(INTERACCION, 'nuevo detalle', { unidadIds: [] }),
+      programa(INTERACCION, 'nuevo detalle', { unidadIds: [] }),
     );
     expect(solo.unidades.map((u) => u.id)).toEqual([22]);
-    expect(await service.listProyectos(21)).toEqual([]);
+    expect(await service.listProgramas(21)).toEqual([]);
   });
 
   describe('sincronización desde el formulario (PUT /unidades/:id)', () => {
@@ -605,21 +605,21 @@ describe('UnidadesService - proyectos', () => {
       const service = buildService(db);
       await service.update(
         12,
-        dto({ proyectos: [proyecto(ACADEMICO), proyecto(INVESTIGACION)] }),
+        dto({ programas: [programa(ACADEMICO), programa(INVESTIGACION)] }),
       );
-      const [a, b] = await service.listProyectos(12);
+      const [a, b] = await service.listProgramas(12);
 
       await service.update(
         12,
         dto({
-          proyectos: [
+          programas: [
             { id: a.id, tipoId: INTERACCION, detalle: 'editado' },
-            proyecto(INTERACCION),
+            programa(INTERACCION),
           ],
         }),
       );
       expect(
-        (await service.listProyectos(12)).map((p) => [
+        (await service.listProgramas(12)).map((p) => [
           p.id,
           p.tipoId,
           p.detalle,
@@ -629,101 +629,101 @@ describe('UnidadesService - proyectos', () => {
         [102, INTERACCION, `Detalle del tipo ${INTERACCION}`],
       ]);
       // El omitido quedó sin unidades: baja lógica.
-      expect(db.proyectos().map((p) => Number(p.id))).not.toContain(b.id);
+      expect(db.programas().map((p) => Number(p.id))).not.toContain(b.id);
     });
 
-    it('omitir el campo no modifica los proyectos y [] los desvincula todos', async () => {
+    it('omitir el campo no modifica los programas y [] los desvincula todos', async () => {
       const db = createFakeDb();
       const service = buildService(db);
-      await service.update(12, dto({ proyectos: [proyecto(ACADEMICO)] }));
+      await service.update(12, dto({ programas: [programa(ACADEMICO)] }));
       await service.update(12, dto({ nombre: 'Otro nombre' }));
-      expect(await service.listProyectos(12)).toHaveLength(1);
+      expect(await service.listProgramas(12)).toHaveLength(1);
 
-      await service.update(12, dto({ proyectos: [] }));
-      expect(await service.listProyectos(12)).toEqual([]);
+      await service.update(12, dto({ programas: [] }));
+      expect(await service.listProgramas(12)).toEqual([]);
     });
 
-    it('omitir un proyecto conjunto solo quita a la unidad que lo omite', async () => {
+    it('omitir un programa conjunto solo quita a la unidad que lo omite', async () => {
       const db = createFakeDb();
       const service = buildService(db);
-      await service.addProyecto(
+      await service.addPrograma(
         21,
-        proyecto(INVESTIGACION, 'x', { unidadIds: [22] }),
+        programa(INVESTIGACION, 'x', { unidadIds: [22] }),
       );
-      await service.update(21, dto({ proyectos: [] }));
-      expect(await service.listProyectos(21)).toEqual([]);
-      expect(await service.listProyectos(22)).toHaveLength(1);
+      await service.update(21, dto({ programas: [] }));
+      expect(await service.listProgramas(21)).toEqual([]);
+      expect(await service.listProgramas(22)).toHaveLength(1);
     });
 
     it('rechaza ids ajenos o repetidos y revierte toda la operación', async () => {
       const db = createFakeDb();
       const service = buildService(db);
-      const ajeno = await service.addProyecto(22, proyecto(ACADEMICO));
-      const propio = await service.addProyecto(21, proyecto(INVESTIGACION));
-      const antes = { proyectos: db.proyectos(), vinculos: db.vinculos() };
+      const ajeno = await service.addPrograma(22, programa(ACADEMICO));
+      const propio = await service.addPrograma(21, programa(INVESTIGACION));
+      const antes = { programas: db.programas(), vinculos: db.vinculos() };
 
       await expectBusiness(
         service.update(
           21,
           dto({
-            proyectos: [{ id: ajeno.id, tipoId: ACADEMICO, detalle: 'x' }],
+            programas: [{ id: ajeno.id, tipoId: ACADEMICO, detalle: 'x' }],
           }),
         ),
-        ErrorCodes.PROYECTO_NO_PERTENECE_UNIDAD,
+        ErrorCodes.PROGRAMA_NO_PERTENECE_UNIDAD,
       );
       await expectBusiness(
         service.update(
           21,
           dto({
-            proyectos: [
+            programas: [
               { id: propio.id, tipoId: ACADEMICO, detalle: 'x' },
               { id: propio.id, tipoId: ACADEMICO, detalle: 'y' },
             ],
           }),
         ),
-        ErrorCodes.PROYECTO_ID_DUPLICADO,
+        ErrorCodes.PROGRAMA_ID_DUPLICADO,
       );
       await expectBusiness(
         service.update(
           21,
           dto({
-            proyectos: [
+            programas: [
               { id: propio.id, tipoId: INTERACCION, detalle: 'cambiado' },
-              proyecto(ACADEMICO, 'x', { unidadIds: [1] }),
+              programa(ACADEMICO, 'x', { unidadIds: [1] }),
             ],
           }),
         ),
-        ErrorCodes.PROYECTO_UNIDAD_NO_APLICA,
+        ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA,
       );
-      expect({ proyectos: db.proyectos(), vinculos: db.vinculos() }).toEqual(
+      expect({ programas: db.programas(), vinculos: db.vinculos() }).toEqual(
         antes,
       );
     });
 
-    it('valida con el padre final: una unidad movida bajo un Decanato puede guardar proyectos', async () => {
+    it('valida con el padre final: una unidad movida bajo un Decanato puede guardar programas', async () => {
       const db = createFakeDb();
       const service = buildService(db);
       await service.update(
         2,
-        dto({ parentId: 10, proyectos: [proyecto(ACADEMICO)] }),
+        dto({ parentId: 10, programas: [programa(ACADEMICO)] }),
       );
-      expect(await service.listProyectos(2)).toHaveLength(1);
+      expect(await service.listProgramas(2)).toHaveLength(1);
     });
 
-    it('si la unidad deja de depender de un Decanato, sus proyectos se ocultan y no cuentan', async () => {
+    it('si la unidad deja de depender de un Decanato, sus programas se ocultan y no cuentan', async () => {
       const db = createFakeDb();
       const service = buildService(db);
-      await service.addProyecto(12, proyecto(ACADEMICO));
+      await service.addPrograma(12, programa(ACADEMICO));
       await service.update(12, dto({ parentId: 1 }));
 
       expect(await service.findById(12)).toMatchObject({
-        aplicaProyectos: false,
-        proyectosCount: 0,
-        proyectos: [],
+        aplicaProgramas: false,
+        programasCount: 0,
+        programas: [],
       });
       const lista = await service.lista();
-      expect(lista.find((u) => u.id === 12)?.proyectosCount).toBe(0);
-      expect(db.proyectos()).toHaveLength(1);
+      expect(lista.find((u) => u.id === 12)?.programasCount).toBe(0);
+      expect(db.programas()).toHaveLength(1);
     });
   });
 
@@ -742,10 +742,10 @@ describe('UnidadesService - proyectos', () => {
         ...base,
         tipoUnidad: 29,
         parentId: 12,
-        proyectos: [proyecto(INVESTIGACION)],
+        programas: [programa(INVESTIGACION)],
       }),
     );
-    expect(await service.listProyectos(50)).toHaveLength(1);
+    expect(await service.listProgramas(50)).toHaveLength(1);
 
     await expectBusiness(
       service.create(
@@ -754,20 +754,20 @@ describe('UnidadesService - proyectos', () => {
           codigo: 'OTRA',
           tipoUnidad: 22,
           parentId: 1,
-          proyectos: [proyecto(ACADEMICO)],
+          programas: [programa(ACADEMICO)],
         }),
       ),
-      ErrorCodes.PROYECTOS_NO_APLICA,
+      ErrorCodes.PROGRAMAS_NO_APLICA,
     );
   });
 
-  it('tiposProyecto devuelve el catálogo activo en orden de alta con sus conteos', async () => {
+  it('tiposPrograma devuelve el catálogo activo en orden de alta con sus conteos', async () => {
     const db = createFakeDb();
     const service = buildService(db);
-    await service.addProyecto(10, proyecto(ACADEMICO));
-    await service.addProyecto(12, proyecto(INVESTIGACION));
-    await service.addProyecto(13, proyecto(INVESTIGACION));
-    expect(await service.tiposProyecto()).toEqual([
+    await service.addPrograma(10, programa(ACADEMICO));
+    await service.addPrograma(12, programa(INVESTIGACION));
+    await service.addPrograma(13, programa(INVESTIGACION));
+    expect(await service.tiposPrograma()).toEqual([
       { id: ACADEMICO, tipo: 'Programa Académico', cantidad: 1 },
       { id: INVESTIGACION, tipo: 'Programa Investigación', cantidad: 2 },
       {
@@ -778,11 +778,11 @@ describe('UnidadesService - proyectos', () => {
     ]);
   });
 
-  describe('crearTipoProyecto', () => {
+  describe('crearTipoPrograma', () => {
     it('agrega un tipo nuevo al final del catálogo y se puede usar', async () => {
       const db = createFakeDb();
       const service = buildService(db);
-      const nuevo = await service.crearTipoProyecto({
+      const nuevo = await service.crearTipoPrograma({
         tipo: '  Programa   de Posgrado ',
       });
       expect(nuevo).toEqual({
@@ -791,8 +791,8 @@ describe('UnidadesService - proyectos', () => {
         cantidad: 0,
       });
 
-      await service.addProyecto(10, proyecto(nuevo.id));
-      const tipos = await service.tiposProyecto();
+      await service.addPrograma(10, programa(nuevo.id));
+      const tipos = await service.tiposPrograma();
       expect(tipos.at(-1)).toEqual({
         id: 5,
         tipo: 'Programa de Posgrado',
@@ -803,7 +803,7 @@ describe('UnidadesService - proyectos', () => {
     it('no duplica un tipo que solo difiere en mayúsculas o acentos', async () => {
       const db = createFakeDb();
       const service = buildService(db);
-      const mismo = await service.crearTipoProyecto({
+      const mismo = await service.crearTipoPrograma({
         tipo: 'programa investigacion',
       });
       expect(mismo).toMatchObject({
@@ -816,7 +816,7 @@ describe('UnidadesService - proyectos', () => {
     it('reactiva un tipo inactivo equivalente en lugar de crear otro', async () => {
       const db = createFakeDb();
       const service = buildService(db);
-      const reactivado = await service.crearTipoProyecto({
+      const reactivado = await service.crearTipoPrograma({
         tipo: 'PROGRAMA ANTIGUO',
       });
       expect(reactivado.id).toBe(INACTIVO);
