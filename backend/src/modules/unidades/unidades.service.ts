@@ -504,12 +504,14 @@ export class UnidadesService {
     const esCarrera = esClaseCarrera(u.tipoUnidad?.descripcion);
     const sia = esCarrera ? await this.findSiaRows(u.id) : [];
 
-    // Igual que SIA: si la unidad deja de aplicar, sus programas se conservan pero no se exponen.
+    // `aplicaProgramas` solo decide si la unidad puede editar programas. Los
+    // programas en los que participa se exponen siempre: una unidad fuera de
+    // Decanato que es conjunta de un programa lo ve en solo lectura.
     const aplicaProgramas = await this.aplicaProgramas(
       u.tipoUnidad?.descripcion,
       u.parentId,
     );
-    const programas = aplicaProgramas ? await this.findProgramas(u.id) : [];
+    const programas = await this.findProgramas(u.id);
 
     return {
       id: Number(u.id),
@@ -669,14 +671,11 @@ export class UnidadesService {
 
     const aplican = aplicanProgramas(rows);
     const conteos = await this.contarProgramasPorUnidad();
-    return rows.map((u): Record<string, unknown> => {
-      const aplica = aplican.get(String(u.id)) ?? false;
-      return {
-        ...this.mapListItem(u, u.parent?.nombre ?? null),
-        aplicaProgramas: aplica,
-        programasCount: aplica ? (conteos.get(String(u.id)) ?? 0) : 0,
-      };
-    });
+    return rows.map((u): Record<string, unknown> => ({
+      ...this.mapListItem(u, u.parent?.nombre ?? null),
+      aplicaProgramas: aplican.get(String(u.id)) ?? false,
+      programasCount: conteos.get(String(u.id)) ?? 0,
+    }));
   }
 
   async findById(id: number) {
@@ -1171,33 +1170,34 @@ export class UnidadesService {
         })
       : [];
     const porId = new Map(existentes.map((p) => [Number(p.id), p]));
-    const cache = new Map<string, boolean>();
     for (const item of items) {
       const programa =
         item.id != null ? porId.get(item.id)! : m.create(Programa, {});
-      await this.guardarPrograma(m, uid, item, programa, cache);
+      await this.guardarPrograma(m, uid, item, programa);
     }
   }
 
   /**
-   * Guarda tipo y detalle. Si el programa es nuevo o trae `unidadIds`, reemplaza
-   * sus participantes: la unidad `unidadId` más las enviadas. El tipo debe
-   * existir en el catálogo y estar activo.
+   * Guarda tipo, nombre, detalle y resolución (una resolución omitida queda en
+   * `null`). Si el programa es nuevo o trae `unidadIds`, reemplaza sus
+   * participantes: la unidad `unidadId` más las enviadas. El tipo debe existir
+   * en el catálogo y estar activo.
    */
   private async guardarPrograma(
     m: EntityManager,
     unidadId: string,
     dto: ProgramaDto,
     programa: Programa,
-    cache: Map<string, boolean>,
   ) {
     const participantes =
       programa.id == null || dto.unidadIds !== undefined
-        ? await this.participantesPrograma(unidadId, dto.unidadIds ?? [], cache)
+        ? await this.participantesPrograma(unidadId, dto.unidadIds ?? [])
         : null;
     await this.assertTipoPrograma(dto.tipoId);
     programa.tipoProgramaId = dto.tipoId;
+    programa.nombre = dto.nombre.trim();
     programa.detalle = dto.detalle.trim();
+    programa.resolucion = dto.resolucion?.trim() || null;
     const saved = await m.save(programa);
     if (participantes) {
       await m.delete(ProgramaUnidad, { programaId: saved.id });
@@ -1209,25 +1209,29 @@ export class UnidadesService {
     return saved;
   }
 
-  /** La unidad de la ruta primero, sin repetidos; cada otra debe existir y aplicar. */
+  /**
+   * La unidad de la ruta primero, sin repetidos. Las otras pueden ser
+   * cualquier unidad vigente, sea o no de Decanato hacia abajo.
+   */
   private async participantesPrograma(
     unidadId: string,
     unidadIds: readonly number[],
-    cache: Map<string, boolean>,
   ): Promise<string[]> {
-    const ids = [unidadId];
-    for (const raw of unidadIds) {
-      const id = String(raw);
-      if (ids.includes(id)) continue;
-      let aplica = cache.get(id);
-      if (aplica === undefined) {
-        aplica = (await this.aplicaProgramasUnidad(id)) ?? false;
-        cache.set(id, aplica);
+    const otras = [...new Set(unidadIds.map(String))].filter(
+      (id) => id !== unidadId,
+    );
+    if (otras.length) {
+      const existentes = await this.unidadRepo.find({
+        select: { id: true },
+        where: { id: In(otras) },
+      });
+      const vigentes = new Set(existentes.map((u) => String(u.id)));
+      const faltante = otras.find((id) => !vigentes.has(id));
+      if (faltante !== undefined) {
+        throwBusiness(ErrorCodes.PROGRAMA_UNIDAD_NO_EXISTE, Number(faltante));
       }
-      if (!aplica) throwBusiness(ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA, raw);
-      ids.push(id);
     }
-    return ids;
+    return [unidadId, ...otras];
   }
 
   /**
@@ -1982,7 +1986,9 @@ export class UnidadesService {
       id: Number(p.id),
       tipoId: Number(p.tipoProgramaId),
       tipo: p.tipoPrograma?.descripcion ?? '',
+      nombre: p.nombre,
       detalle: p.detalle,
+      resolucion: p.resolucion ?? null,
       unidades,
     };
   }
@@ -2019,14 +2025,17 @@ export class UnidadesService {
     return programa;
   }
 
-  /** En una unidad que no aplica devuelve `[]` (programas ocultos). */
+  /**
+   * Lectura para cualquier unidad: una que no aplica solo participa como
+   * conjunta y ve sus programas en solo lectura. 404 si la unidad no existe.
+   */
   async listProgramas(unidadId: number) {
-    if (!(await this.unidadAplicaProgramas(unidadId))) return [];
+    await this.unidadAplicaProgramas(unidadId);
     return this.findProgramas(unidadId);
   }
 
   async getPrograma(unidadId: number, programaId: number) {
-    if (!(await this.unidadAplicaProgramas(unidadId))) notFound(programaId);
+    await this.unidadAplicaProgramas(unidadId);
     return this.mapPrograma(
       await this.findProgramaOrFail(unidadId, programaId),
     );
@@ -2035,13 +2044,7 @@ export class UnidadesService {
   async addPrograma(unidadId: number, dto: ProgramaDto) {
     await this.assertUnidadAplicaProgramas(unidadId);
     const saved = await this.programaRepo.manager.transaction((m) =>
-      this.guardarPrograma(
-        m,
-        String(unidadId),
-        dto,
-        m.create(Programa, {}),
-        new Map(),
-      ),
+      this.guardarPrograma(m, String(unidadId), dto, m.create(Programa, {})),
     );
     return this.mapPrograma(
       await this.findProgramaOrFail(unidadId, Number(saved.id)),
@@ -2055,10 +2058,12 @@ export class UnidadesService {
     const row = this.programaRepo.create({
       id: programa.id,
       tipoProgramaId: programa.tipoProgramaId,
+      nombre: programa.nombre,
       detalle: programa.detalle,
+      resolucion: programa.resolucion,
     });
     await this.programaRepo.manager.transaction((m) =>
-      this.guardarPrograma(m, String(unidadId), dto, row, new Map()),
+      this.guardarPrograma(m, String(unidadId), dto, row),
     );
     return this.mapPrograma(
       await this.findProgramaOrFail(unidadId, programaId),

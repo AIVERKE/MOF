@@ -33,7 +33,7 @@ Módulo encargado de la gestión integral de las unidades organizacionales segú
 27. **INVENTARIOS** (`inventarios` / `unidad_inventario`) — filas de descripción y cantidad, propias de cada unidad
 28. **SIA** (`sia` / `unidad_sia`) — filas de aprobados, reprobados y matriculados; solo en unidades de tipo Carrera
 29. **PLANIFICACIÓN ESTRATÉGICA** (`planificacionEstrategicaAplica`, `planificacionEstrategicaValor`, `planificacionEstrategica`) — switch, porcentaje 0–100 y descripción
-30. **PROGRAMAS** (`programas` / `programa` + `programa_unidad` + `tipo_programa`) — tipo del catálogo (tres programas oficiales más los que añadan los usuarios) y detalle; solo en Decanatos y unidades que dependen de uno; un programa puede ser conjunto entre varias unidades
+30. **PROGRAMAS** (`programas` / `programa` + `programa_unidad` + `tipo_programa`) — tipo del catálogo (tres programas oficiales más los que añadan los usuarios), nombre, detalle y resolución opcional; se gestionan en Decanatos y unidades que dependen de uno; un programa puede ser conjunto con cualquier otra unidad, que lo ve en solo lectura
 
 ## Endpoints Principales
 
@@ -226,14 +226,14 @@ Una unidad lleva Programas si su clase es Decanato **o** si algún ancestro por 
   3. Programa Interacción Social y Extensión Universitaria
 
   Los usuarios pueden añadir otros (`POST /mof/programas/tipos`). La misma migración reasignó los programas que tenían tipo libre por palabra clave (`investig` → 2; `interacc`/`extens` → 3; el resto → 1) y eliminó la columna `proyecto.tipo`.
-- `programa`: `id`, `tipo_programa_id` (FK a `tipo_programa`, obligatorio), `detalle` (`text`), auditoría y baja lógica.
-- `programa_unidad`: (`programa_id`, `unidad_id`). Un programa conjunto (ej. Informática + Química) tiene una fila por unidad y **suma 1 en el contador de cada una**.
+- `programa`: `id`, `tipo_programa_id` (FK a `tipo_programa`, obligatorio), `nombre` (`text`, obligatorio), `detalle` (`text`, obligatorio), `resolucion` (`text`, opcional), auditoría y baja lógica. La migración `1793700000000-AddNombreResolucionToPrograma` agregó `nombre` (los programas existentes tomaron su `detalle` como nombre) y `resolucion` (en `NULL`).
+- `programa_unidad`: (`programa_id`, `unidad_id`). Un programa conjunto (ej. Informática + Química) tiene una fila por unidad y **suma 1 en el contador de cada una**. Las unidades conjuntas pueden ser **cualquier** unidad vigente, no solo las de Decanato hacia abajo.
 - Antes se llamaban `proyecto`, `tipo_proyecto` y `proyecto_unidad` (columnas `tipo_proyecto_id` y `proyecto_id`). La migración `1793600000000-RenameProyectoToPrograma` renombró tablas, columnas, PK/FK, índices y secuencias sin tocar los datos; los endpoints pasaron de `/proyectos` a `/programas` y los códigos de error de `PROYECTO*` a `PROGRAMA*`.
 
 #### Lectura
 `GET /api/v1/mof/clases`: cada clase trae `esDecanato`.
 
-`GET /api/v1/mof/unidades`: cada unidad trae `aplicaProgramas` y `programasCount` (programas en los que participa, incluidos los conjuntos; `0` si no aplica). Solo cuenta los de la propia unidad, no los de sus subunidades.
+`GET /api/v1/mof/unidades`: cada unidad trae `aplicaProgramas` y `programasCount` (programas en los que participa, incluidos los conjuntos). Solo cuenta los de la propia unidad, no los de sus subunidades. Una unidad que no aplica cuenta los programas en los que participa como conjunta.
 
 `GET /api/v1/mof/unidades/:id`:
 
@@ -243,14 +243,15 @@ Una unidad lleva Programas si su clase es Decanato **o** si algún ancestro por 
   "programasCount": 3,
   "programas": [
     { "id": 5, "tipoId": 3, "tipo": "Programa Interacción Social y Extensión Universitaria",
-      "detalle": "Brigadas de salud comunitaria",
+      "nombre": "Brigadas de Salud", "detalle": "Brigadas de salud comunitaria", "resolucion": "Res. HCF N° 123/2026",
       "unidades": [{ "id": 10, "codigo": "…", "sigla": "FCS-DEC", "nombre": "FACULTAD DE CIENCIAS SOCIALES - DECANATO" }] },
-    { "id": 6, "tipoId": 2, "tipo": "Programa Investigación", "detalle": "Química computacional",
+    { "id": 6, "tipoId": 2, "tipo": "Programa Investigación",
+      "nombre": "Química Computacional", "detalle": "Modelado molecular", "resolucion": null,
       "unidades": [
         { "id": 21, "codigo": "…", "sigla": "INF", "nombre": "CARRERA DE INFORMÁTICA" },
         { "id": 22, "codigo": "…", "sigla": "QMC", "nombre": "CARRERA DE QUÍMICA" }
       ] },
-    { "id": 9, "tipoId": 2, "tipo": "Programa Investigación", "detalle": "Observatorio social", "unidades": [ … ] }
+    { "id": 9, "tipoId": 2, "tipo": "Programa Investigación", "nombre": "Observatorio Social", "detalle": "…", "resolucion": null, "unidades": [ … ] }
   ],
   "programasPorTipo": [
     { "tipo": "Programa Interacción Social y Extensión Universitaria", "cantidad": 1, "programas": [ { "id": 5, … } ] },
@@ -261,9 +262,9 @@ Una unidad lleva Programas si su clase es Decanato **o** si algún ancestro por 
 
 - `programas`: orden de alta. `unidades`: todas las participantes vigentes, incluida la consultada (orden por nombre). Más de una significa programa conjunto.
 - `programasPorTipo`: grupos en orden alfabético. Es lo que muestra el panel lateral.
-- Si la unidad no aplica: `aplicaProgramas: false`, `programasCount: 0` y ambas listas `[]`.
+- Si la unidad no aplica: `aplicaProgramas: false`, pero igual trae los programas en los que participa (como conjunta, o porque dejó de depender de un Decanato). Los ve **en solo lectura**: no puede crear, editar ni quitar programas.
 
-- Cada programa trae `tipoId` (id del catálogo) y `tipo` (su descripción).
+- Cada programa trae `tipoId` (id del catálogo), `tipo` (su descripción), `nombre`, `detalle` y `resolucion` (`null` si no tiene).
 
 #### Catálogo de tipos
 - `GET /api/v1/mof/programas/tipos`: tipos activos en orden de alta (primero los tres programas), con los programas vigentes de cada uno: `[{ "id": 1, "tipo": "Programa Académico", "cantidad": 4 }, …]`.
@@ -274,42 +275,44 @@ Una unidad lleva Programas si su clase es Decanato **o** si algún ancestro por 
 
 ```json
 "programas": [
-  { "id": 5, "tipoId": 3, "detalle": "Brigadas de salud comunitaria" },
-  { "id": 6, "tipoId": 2, "detalle": "Química computacional", "unidadIds": [22] },
-  { "tipoId": 4, "detalle": "Primera edición", "unidadIds": [] }
+  { "id": 5, "tipoId": 3, "nombre": "Brigadas de Salud", "detalle": "Brigadas de salud comunitaria", "resolucion": "Res. HCF N° 123/2026" },
+  { "id": 6, "tipoId": 2, "nombre": "Química Computacional", "detalle": "Modelado molecular", "unidadIds": [22, 1] },
+  { "tipoId": 4, "nombre": "Posgrado en Gestión", "detalle": "Primera edición", "unidadIds": [] }
 ]
 ```
 
 - Con `id` → se actualiza; sin `id` → se crea; un programa vigente de la unidad que no se envía → **la unidad se desvincula** (las demás participantes lo conservan; si no queda ninguna, el programa se da de baja). `[]` desvincula todos; omitir el campo no modifica nada.
 - `tipoId`: obligatorio; debe existir en `tipo_programa` y estar activo (`TIPO_PROGRAMA_NO_EXISTE`). Para un tipo nuevo, crearlo antes con `POST /mof/programas/tipos`.
-- `detalle`: texto obligatorio, sin límite de longitud. No se admiten otros campos.
-- `unidadIds`: **otras** unidades participantes. La unidad del formulario siempre participa (no hace falta incluirla; se ignoran repetidos). Si se envía, reemplaza la lista; si se omite en un programa existente, sus participantes no cambian. En uno nuevo, omitirlo equivale a `[]`.
+- `nombre`: texto obligatorio que identifica al programa, sin límite de longitud.
+- `detalle`: texto obligatorio (descripción), sin límite de longitud.
+- `resolucion`: texto libre opcional, sin límite de longitud. Vacío o `null` lo deja en `null`; al actualizar un programa, omitirlo también lo borra (se reemplazan todos los campos). No se admiten otros campos.
+- `unidadIds`: **otras** unidades participantes; puede ser cualquier unidad vigente (`PROGRAMA_UNIDAD_NO_EXISTE` si no existe o está dada de baja). La unidad del formulario siempre participa (no hace falta incluirla; se ignoran repetidos). Si se envía, reemplaza la lista; si se omite en un programa existente, sus participantes no cambian. En uno nuevo, omitirlo equivale a `[]`.
 - Se valida con la clase y el padre **finales**: en el mismo `PUT` se puede mover la unidad bajo un Decanato y enviar `programas`. En el `POST`, con `tipoUnidad` y `parentId` del cuerpo.
-- En una unidad que no aplica, enviar filas responde `PROGRAMAS_NO_APLICA`; `programas: []` se ignora.
-- Errores (400): `PROGRAMAS_NO_APLICA`, `PROGRAMA_UNIDAD_NO_APLICA` (una unidad de `unidadIds` no existe o no aplica; `data` trae el id), `PROGRAMA_NO_PERTENECE_UNIDAD` (`id` de un programa en el que la unidad no participa), `PROGRAMA_ID_DUPLICADO`, `TIPO_PROGRAMA_NO_EXISTE`, `VALIDATION_FAILED`. Ante un error no se guarda nada.
+- En una unidad que no aplica, enviar filas responde `PROGRAMAS_NO_APLICA`; `programas: []` se ignora (no la desvincula de los programas en los que participa como conjunta).
+- Errores (400): `PROGRAMAS_NO_APLICA`, `PROGRAMA_UNIDAD_NO_EXISTE` (una unidad de `unidadIds` no existe o está dada de baja; `data` trae el id), `PROGRAMA_NO_PERTENECE_UNIDAD` (`id` de un programa en el que la unidad no participa), `PROGRAMA_ID_DUPLICADO`, `TIPO_PROGRAMA_NO_EXISTE`, `VALIDATION_FAILED`. Ante un error no se guarda nada.
 
 #### Endpoints por programa (escritura: ADMIN, OPERADOR)
-- `GET /api/v1/mof/unidades/:id/programas`: programas de la unidad (`[]` si no aplica).
+- `GET /api/v1/mof/unidades/:id/programas`: programas en los que participa la unidad (también si no aplica).
 - `GET /api/v1/mof/unidades/:id/programas/:programaId`: un programa.
-- `POST /api/v1/mof/unidades/:id/programas`: `{ tipoId, detalle, unidadIds? }`. Devuelve el programa con sus `unidades`.
-- `PUT /api/v1/mof/unidades/:id/programas/:programaId`: reemplaza `tipoId` y `detalle`; `unidadIds` como arriba.
+- `POST /api/v1/mof/unidades/:id/programas`: `{ tipoId, nombre, detalle, resolucion?, unidadIds? }`. Devuelve el programa con sus `unidades`.
+- `PUT /api/v1/mof/unidades/:id/programas/:programaId`: reemplaza `tipoId`, `nombre`, `detalle` y `resolucion`; `unidadIds` como arriba.
 - `DELETE /api/v1/mof/unidades/:id/programas/:programaId`: desvincula la unidad (baja lógica si era la última).
 
-Un programa en el que la unidad no participa responde 404 (`NOT_FOUND`); en una unidad que no aplica, `GET` de un programa responde 404 y las escrituras `PROGRAMAS_NO_APLICA`.
+Un programa en el que la unidad no participa responde 404 (`NOT_FOUND`). En una unidad que no aplica, las lecturas funcionan (solo lectura) y las escrituras responden `PROGRAMAS_NO_APLICA`.
 
 #### Integración en el front
 1. **Formulario** (`frontend/src/views/MOF/unidades/UnidadFormDialog.vue`, mappers en `frontend/src/utils/mofMappers.js`):
    - Mostrar la sección cuando la clase elegida tiene `esDecanato` (de `GET /mof/clases`) **o** el padre elegido tiene `aplicaProgramas` (de `GET /mof/unidades`). Recalcular al cambiar clase o padre. Al abrir una unidad existente, el detalle ya trae `aplicaProgramas`.
-   - Filas `{ id?, tipoId, tipo, detalle, unidadIds }` (`tipo` solo para mostrar; se envía `tipoId`). Inicializar desde `detalle.programas`, con `unidadIds` = `p.unidades.map(u => u.id)` sin la unidad actual.
-   - Tipo: `v-autocomplete` sobre `GET /mof/programas/tipos`, con la acción «Añadir tipo de programa» al final de la lista (abre un diálogo, hace `POST /mof/programas/tipos` y deja el tipo nuevo seleccionado). `detalle`: `v-textarea`. Componente: `UnidadProgramaTable.vue`.
-   - Unidades participantes: autocompletar múltiple sobre `GET /mof/unidades` filtrado por `aplicaProgramas` y sin la unidad actual.
+   - Filas `{ id?, tipoId, tipo, nombre, detalle, resolucion, unidadIds }` (`tipo` solo para mostrar; se envía `tipoId`). Inicializar desde `detalle.programas`, con `unidadIds` = `p.unidades.map(u => u.id)` sin la unidad actual.
+   - `nombre` (obligatorio) y `resolucion` (opcional): `v-text-field`. Tipo: `v-autocomplete` sobre `GET /mof/programas/tipos`, con la acción «Añadir tipo de programa» al final de la lista (abre un diálogo, hace `POST /mof/programas/tipos` y deja el tipo nuevo seleccionado). `detalle`: `v-textarea`. Componente: `UnidadProgramaTable.vue`.
+   - Unidades participantes: autocompletar múltiple sobre todas las unidades de `GET /mof/unidades`, sin la unidad actual.
    - Enviar `programas` en el `POST`/`PUT` solo si la sección está visible. Si no lo está, no enviar el campo.
 2. **Organigrama** (`frontend/src/views/MOF/OrganigramaVueFlow.vue`):
    - Al armar `data` del nodo (donde se asigna `childrenCount`), agregar `programasCount: u.programasCount ?? 0`.
-   - Debajo del badge de subunidades, una línea `v-if="data.programasCount > 0"` con `1 programa` / `N programas`, con el mismo estilo de `children-badge`. No cambiar el resto de la tarjeta. Las unidades que no aplican siempre traen `0`, así que no muestran la línea.
+   - Debajo del badge de subunidades, una línea `v-if="data.programasCount > 0"` con `1 programa` / `N programas`, con el mismo estilo de `children-badge`. No cambiar el resto de la tarjeta. Una unidad que no aplica muestra la línea si participa como conjunta en algún programa.
 3. **Panel lateral** (`frontend/src/views/MOF/unidades/UnidadDetailsDrawer.vue`):
-   - Bloque "Programas" solo si `aplicaProgramas` y `programasCount > 0`.
-   - Recorrer `programasPorTipo`: encabezado con `tipo` y `cantidad`, y por cada programa su `detalle`. Si `p.unidades.length > 1`, mostrar chips con las otras unidades (programa conjunto).
+   - Bloque "Programas" si `programasCount > 0` (aunque la unidad no aplique: lo ve en solo lectura).
+   - Recorrer `programasPorTipo`: encabezado con `tipo` y `cantidad`, y por cada programa su `nombre`, su `detalle` y, si tiene, la `resolucion`. Si `p.unidades.length > 1`, mostrar chips con las otras unidades (programa conjunto).
    - Fuera de alcance: reporte PDF.
 
 ### Sigla

@@ -20,7 +20,7 @@ export const ErrorCodes = {
   SIA_FILA_VACIA: 'SIA_FILA_VACIA',
   PLANIFICACION_ESTRATEGICA_INCOMPLETA: 'PLANIFICACION_ESTRATEGICA_INCOMPLETA',
   PROGRAMAS_NO_APLICA: 'PROGRAMAS_NO_APLICA',
-  PROGRAMA_UNIDAD_NO_APLICA: 'PROGRAMA_UNIDAD_NO_APLICA',
+  PROGRAMA_UNIDAD_NO_EXISTE: 'PROGRAMA_UNIDAD_NO_EXISTE',
   PROGRAMA_NO_PERTENECE_UNIDAD: 'PROGRAMA_NO_PERTENECE_UNIDAD',
   PROGRAMA_ID_DUPLICADO: 'PROGRAMA_ID_DUPLICADO',
   TIPO_PROGRAMA_NO_EXISTE: 'TIPO_PROGRAMA_NO_EXISTE',
@@ -142,11 +142,10 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     message:
       'Los programas solo aplican a Decanatos y a las unidades que dependen de uno',
   },
-  PROGRAMA_UNIDAD_NO_APLICA: {
-    code: ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA,
+  PROGRAMA_UNIDAD_NO_EXISTE: {
+    code: ErrorCodes.PROGRAMA_UNIDAD_NO_EXISTE,
     httpStatus: HttpStatus.BAD_REQUEST,
-    message:
-      'Una unidad participante no existe o no es un Decanato ni depende de uno',
+    message: 'Una unidad participante no existe',
   },
   PROGRAMA_NO_PERTENECE_UNIDAD: {
     code: ErrorCodes.PROGRAMA_NO_PERTENECE_UNIDAD,

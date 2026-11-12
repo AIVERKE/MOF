@@ -403,8 +403,9 @@ const panels = computed(() => {
           },
         ]
       : []),
-    ...((data.aplicaProgramas || data.aplica_programas) &&
-    ((data.programasCount ?? (data.programas?.length || 0)) > 0)
+    // Sin exigir aplicaProgramas: una unidad fuera de Decanato que participa
+    // como conjunta ve sus programas en solo lectura.
+    ...((data.programasCount ?? (data.programas?.length || 0)) > 0
       ? [
           {
             key: "programas",
@@ -1101,11 +1102,24 @@ const panels = computed(() => {
                   <div class="d-flex flex-column gap-2">
                     <div
                       v-for="prog in grupo.programas"
-                      :key="prog.id || prog.detalle"
+                      :key="prog.id || prog.nombre || prog.detalle"
                       class="bg-white pa-2 rounded border-thin"
                     >
+                      <div
+                        v-if="prog.nombre"
+                        class="text-caption font-weight-bold text-slate-900 line-height-1-4"
+                      >
+                        {{ prog.nombre }}
+                      </div>
                       <div class="text-caption text-slate-800 line-height-1-4">
                         {{ prog.detalle }}
+                      </div>
+                      <div
+                        v-if="prog.resolucion"
+                        class="d-flex align-center ga-1 mt-1 text-xxs text-medium-emphasis"
+                      >
+                        <v-icon size="12">mdi-file-document-outline</v-icon>
+                        <span>Resolución: {{ prog.resolucion }}</span>
                       </div>
                       <div
                         v-if="prog.unidades && prog.unidades.length > 1"

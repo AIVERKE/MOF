@@ -116,7 +116,7 @@ describe("UnidadProgramaTable.vue", () => {
     const emitted = wrapper.emitted("update:modelValue");
     expect(emitted).toBeTruthy();
     expect(emitted[0][0]).toEqual([
-      { id: null, tipoId: null, tipo: "", detalle: "", unidadIds: [] },
+      { id: null, tipoId: null, tipo: "", nombre: "", detalle: "", resolucion: "", unidadIds: [] },
     ]);
   });
 
@@ -138,6 +138,44 @@ describe("UnidadProgramaTable.vue", () => {
     expect(wrapper.text()).toContain("Programa Interacción Social y Extensión Universitaria");
   });
 
+  it("si el programa tiene nombre, lo usa como encabezado de la tarjeta", async () => {
+    const wrapper = await montar([
+      { id: 1, tipoId: 3, nombre: "Brigadas de Salud", detalle: "Brigadas", unidadIds: [] },
+    ]);
+    expect(wrapper.find(".programa-card").text()).toContain("Brigadas de Salud");
+  });
+
+  it("edita nombre y resolución de la fila", async () => {
+    const wrapper = await montar([
+      { id: 1, tipoId: 1, nombre: "", detalle: "x", resolucion: "", unidadIds: [] },
+    ]);
+    await wrapper.find('[data-test="input-nombre-programa-0"]').setValue("Programa de Becas");
+    await wrapper.find('[data-test="input-resolucion-programa-0"]').setValue("Res. HCU 45/2026");
+
+    const emitted = wrapper.emitted("update:modelValue");
+    expect(emitted[0][0][0]).toMatchObject({ nombre: "Programa de Becas" });
+    expect(emitted[1][0][0]).toMatchObject({ resolucion: "Res. HCU 45/2026" });
+  });
+
+  it("ofrece como unidades conjuntas todas las unidades recibidas", async () => {
+    const unidades = [
+      { id: 1, nombre: "RECTORADO", sigla: "REC" },
+      { id: 10, nombre: "FCS - DECANATO", sigla: "FCS" },
+    ];
+    const wrapper = mount(UnidadProgramaTable, {
+      props: {
+        modelValue: [{ id: 1, tipoId: 1, nombre: "P", detalle: "x", unidadIds: [] }],
+        unidadesDisponibles: unidades,
+      },
+      global: { stubs },
+    });
+    await flushPromises();
+    const select = wrapper
+      .findAllComponents(stubs["v-autocomplete"])
+      .find((c) => c.props("itemTitle") === "nombre");
+    expect(select.props("items")).toEqual(unidades);
+  });
+
   it("permite eliminar una fila de programa", async () => {
     const wrapper = await montar([
       { id: 1, tipoId: 2, detalle: "Programa 1", unidadIds: [] },
@@ -152,14 +190,19 @@ describe("UnidadProgramaTable.vue", () => {
     expect(wrapper.emitted("update:modelValue")[0][0][0].id).toBe(2);
   });
 
-  it("valida que las filas tengan tipo y detalle", async () => {
-    const wrapper = await montar([{ id: null, tipoId: null, detalle: "Algo" }]);
+  it("valida que las filas tengan tipo, nombre y detalle; la resolución es opcional", async () => {
+    const wrapper = await montar([{ id: null, tipoId: null, nombre: "P", detalle: "Algo" }]);
     expect(wrapper.vm.validate()).toBe(false);
 
-    const sinDetalle = await montar([{ id: null, tipoId: 1, detalle: "  " }]);
+    const sinNombre = await montar([{ id: null, tipoId: 1, nombre: "  ", detalle: "Algo" }]);
+    expect(sinNombre.vm.validate()).toBe(false);
+
+    const sinDetalle = await montar([{ id: null, tipoId: 1, nombre: "P", detalle: "  " }]);
     expect(sinDetalle.vm.validate()).toBe(false);
 
-    const valido = await montar([{ id: null, tipoId: 2, detalle: "Laboratorio de IA" }]);
+    const valido = await montar([
+      { id: null, tipoId: 2, nombre: "IA", detalle: "Laboratorio de IA", resolucion: "" },
+    ]);
     expect(valido.vm.validate()).toBe(true);
   });
 
@@ -172,7 +215,7 @@ describe("UnidadProgramaTable.vue", () => {
     const abrir = wrapper.findAll(".v-list-item-stub").find((b) => b.text().includes("Añadir tipo de programa"));
     expect(abrir).toBeDefined();
     await abrir.trigger("click");
-    await wrapper.find(".text-field-input").setValue("  Programa   de Posgrado ");
+    await wrapper.find('[data-test="input-nuevo-tipo-programa"]').setValue("  Programa   de Posgrado ");
     const guardar = wrapper.findAll("button").find((b) => b.text() === "Añadir");
     await guardar.trigger("click");
     await flushPromises();

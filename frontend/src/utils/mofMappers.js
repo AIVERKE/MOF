@@ -356,7 +356,9 @@ export function mapBackendToForm(raw, options = {}) {
           id: p.id != null ? Number(p.id) : null,
           tipoId: p.tipoId != null ? Number(p.tipoId) : null,
           tipo: p.tipo || "",
+          nombre: p.nombre || "",
           detalle: p.detalle || "",
+          resolucion: p.resolucion || "",
           unidadIds: Array.isArray(p.unidades)
             ? p.unidades
                 .map((u) => (typeof u === "object" ? u.id : u))
@@ -512,11 +514,19 @@ export function mapFormToBackend(formData, options = {}) {
 
   if (isAplicaProg && Array.isArray(formData.programas)) {
     payload.programas = formData.programas
-      .filter((p) => p && (p.tipoId != null || String(p.detalle || "").trim()))
+      .filter(
+        (p) =>
+          p &&
+          (p.tipoId != null ||
+            String(p.nombre || "").trim() ||
+            String(p.detalle || "").trim()),
+      )
       .map((p) => {
       const item = {
         tipoId: p.tipoId != null ? Number(p.tipoId) : null,
+        nombre: String(p.nombre || "").trim(),
         detalle: String(p.detalle || "").trim(),
+        resolucion: String(p.resolucion || "").trim() || null,
       };
       if (p.id != null && Number(p.id) > 0) {
         item.id = Number(p.id);

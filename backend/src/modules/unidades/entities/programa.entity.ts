@@ -36,7 +36,13 @@ export class Programa extends AuditableEntity {
   tipoPrograma: TipoPrograma;
 
   @Column({ type: 'text' })
+  nombre: string;
+
+  @Column({ type: 'text' })
   detalle: string;
+
+  @Column({ type: 'text', nullable: true })
+  resolucion: string | null;
 
   @OneToMany(() => ProgramaUnidad, (pu) => pu.programa)
   unidades: ProgramaUnidad[];

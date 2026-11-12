@@ -4,7 +4,7 @@ import { Programa } from './entities/programa.entity';
 import { ProgramaUnidad } from './entities/programa-unidad.entity';
 import { TipoPrograma } from './entities/tipo-programa.entity';
 import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
-import { ProgramaDto, UnidadDto } from './dto/unidad.dto';
+import { ProgramaItemDto, UnidadDto } from './dto/unidad.dto';
 import {
   UnidadesService,
   agruparProgramasPorTipo,
@@ -59,7 +59,9 @@ const UNIDADES: FilaUnidad[] = [
 type FilaPrograma = {
   id?: string;
   tipoProgramaId: number;
+  nombre: string;
   detalle: string;
+  resolucion?: string | null;
   deletedAt?: Date | null;
 };
 type FilaTipo = { id?: number; descripcion: string; activo: boolean };
@@ -143,7 +145,9 @@ function createFakeDb(
       } else {
         const fila = programas.find((p) => p.id === x.id)!;
         fila.tipoProgramaId = x.tipoProgramaId;
+        fila.nombre = x.nombre;
         fila.detalle = x.detalle;
+        fila.resolucion = x.resolucion;
       }
       return Promise.resolve(x);
     }),
@@ -211,7 +215,7 @@ function createFakeDb(
         return Promise.resolve(u && !u.deletedAt ? conClase(u) : null);
       },
     ),
-    find: jest.fn((opts?: { where?: { parentId?: string } }) =>
+    find: jest.fn((opts?: { where?: { parentId?: string; id?: unknown } }) =>
       Promise.resolve(
         [...unidades.values()]
           .filter((u) => !u.deletedAt)
@@ -219,6 +223,11 @@ function createFakeDb(
             (u) =>
               opts?.where?.parentId === undefined ||
               u.parentId === opts.where.parentId,
+          )
+          .filter(
+            (u) =>
+              opts?.where?.id === undefined ||
+              valores(opts.where.id).includes(u.id),
           )
           .map(conClase),
       ),
@@ -309,10 +318,12 @@ function createFakeDb(
     tipoProgramaRepo,
     tipos: () => tipos.map((t) => ({ ...t })),
     programas: () =>
-      vigentes().map(({ id, tipoProgramaId, detalle }) => ({
+      vigentes().map(({ id, tipoProgramaId, nombre, detalle, resolucion }) => ({
         id,
         tipoProgramaId,
+        nombre,
         detalle,
+        resolucion,
       })),
     vinculos: () => vinculos.map((v) => ({ ...v })),
   };
@@ -356,8 +367,13 @@ const dto = (extra: Partial<UnidadDto>) => extra as UnidadDto;
 const programa = (
   tipoId: number,
   detalle = `Detalle del tipo ${tipoId}`,
-  extra: Partial<ProgramaDto> = {},
-): ProgramaDto => ({ tipoId, detalle, ...extra });
+  extra: Partial<ProgramaItemDto> = {},
+): ProgramaItemDto => ({
+  tipoId,
+  nombre: `Programa ${tipoId}`,
+  detalle,
+  ...extra,
+});
 
 async function expectBusiness(p: Promise<unknown>, code: string) {
   const err = await p.then(
@@ -440,7 +456,9 @@ describe('UnidadesService - programas', () => {
       id: 100,
       tipoId: INTERACCION,
       tipo: 'Programa Interacción Social y Extensión Universitaria',
+      nombre: `Programa ${INTERACCION}`,
       detalle: `Detalle del tipo ${INTERACCION}`,
+      resolucion: null,
       unidades: [
         {
           id: 10,
@@ -523,19 +541,91 @@ describe('UnidadesService - programas', () => {
     expect(quimica.programas[0].unidades.map((u) => u.id)).toEqual([21, 22]);
   });
 
-  it('rechaza participantes del nivel central o inexistentes sin guardar nada', async () => {
+  it('rechaza participantes inexistentes o dados de baja sin guardar nada', async () => {
     const db = createFakeDb();
+    db.unidades.get('13')!.deletedAt = new Date();
     const service = buildService(db);
-    await expectBusiness(
-      service.addPrograma(21, programa(ACADEMICO, 'x', { unidadIds: [2] })),
-      ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA,
-    );
-    await expectBusiness(
-      service.addPrograma(21, programa(ACADEMICO, 'x', { unidadIds: [999] })),
-      ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA,
-    );
+    for (const otra of [999, 13]) {
+      await expectBusiness(
+        service.addPrograma(
+          21,
+          programa(ACADEMICO, 'x', { unidadIds: [22, otra] }),
+        ),
+        ErrorCodes.PROGRAMA_UNIDAD_NO_EXISTE,
+      );
+    }
     expect(db.programas()).toEqual([]);
     expect(db.vinculos()).toEqual([]);
+  });
+
+  it('acepta como conjunta cualquier unidad; si no aplica, la ve en solo lectura', async () => {
+    const db = createFakeDb();
+    const service = buildService(db);
+    const { id } = await service.addPrograma(
+      21,
+      programa(ACADEMICO, 'x', { unidadIds: [2, 1] }),
+    );
+    expect(db.vinculos().map((v) => v.unidadId)).toEqual(['21', '2', '1']);
+
+    const secretaria = await service.findById(2);
+    expect(secretaria).toMatchObject({
+      aplicaProgramas: false,
+      programasCount: 1,
+    });
+    expect(secretaria.programas.map((p) => p.id)).toEqual([id]);
+    expect(secretaria.programasPorTipo).toHaveLength(1);
+    expect(await service.listProgramas(2)).toHaveLength(1);
+    expect(await service.getPrograma(2, id)).toMatchObject({ id });
+    const lista = await service.lista();
+    expect(lista.find((u) => u.id === 2)?.programasCount).toBe(1);
+
+    // Solo lectura: no puede crear, editar ni quitar programas.
+    await expectBusiness(
+      service.addPrograma(2, programa(ACADEMICO)),
+      ErrorCodes.PROGRAMAS_NO_APLICA,
+    );
+    await expectBusiness(
+      service.updatePrograma(2, id, programa(INTERACCION)),
+      ErrorCodes.PROGRAMAS_NO_APLICA,
+    );
+    await expectBusiness(
+      service.removePrograma(2, id),
+      ErrorCodes.PROGRAMAS_NO_APLICA,
+    );
+    // Guardar su formulario (sin el bloque de programas) no la desvincula.
+    await service.update(2, dto({ nombre: 'Secretaría', programas: [] }));
+    expect(await service.listProgramas(2)).toHaveLength(1);
+  });
+
+  it('guarda nombre y resolución recortados; la resolución es opcional', async () => {
+    const db = createFakeDb();
+    const service = buildService(db);
+    const creado = await service.addPrograma(
+      10,
+      programa(ACADEMICO, ' Detalle ', {
+        nombre: '  Brigadas de Salud  ',
+        resolucion: ' Res. HCF 123/2026 ',
+      }),
+    );
+    expect(creado).toMatchObject({
+      nombre: 'Brigadas de Salud',
+      detalle: 'Detalle',
+      resolucion: 'Res. HCF 123/2026',
+    });
+
+    const sinResolucion = await service.updatePrograma(
+      10,
+      creado.id,
+      programa(ACADEMICO, 'Detalle', { nombre: 'Brigadas' }),
+    );
+    expect(sinResolucion).toMatchObject({
+      nombre: 'Brigadas',
+      resolucion: null,
+    });
+    expect(db.programas()[0]).toMatchObject({
+      nombre: 'Brigadas',
+      resolucion: null,
+    });
   });
 
   it('quitar un programa conjunto lo desvincula y lo da de baja con la última unidad', async () => {
@@ -613,7 +703,7 @@ describe('UnidadesService - programas', () => {
         12,
         dto({
           programas: [
-            { id: a.id, tipoId: INTERACCION, detalle: 'editado' },
+            programa(INTERACCION, 'editado', { id: a.id }),
             programa(INTERACCION),
           ],
         }),
@@ -666,7 +756,7 @@ describe('UnidadesService - programas', () => {
         service.update(
           21,
           dto({
-            programas: [{ id: ajeno.id, tipoId: ACADEMICO, detalle: 'x' }],
+            programas: [programa(ACADEMICO, 'x', { id: ajeno.id })],
           }),
         ),
         ErrorCodes.PROGRAMA_NO_PERTENECE_UNIDAD,
@@ -676,8 +766,8 @@ describe('UnidadesService - programas', () => {
           21,
           dto({
             programas: [
-              { id: propio.id, tipoId: ACADEMICO, detalle: 'x' },
-              { id: propio.id, tipoId: ACADEMICO, detalle: 'y' },
+              programa(ACADEMICO, 'x', { id: propio.id }),
+              programa(ACADEMICO, 'y', { id: propio.id }),
             ],
           }),
         ),
@@ -688,12 +778,12 @@ describe('UnidadesService - programas', () => {
           21,
           dto({
             programas: [
-              { id: propio.id, tipoId: INTERACCION, detalle: 'cambiado' },
-              programa(ACADEMICO, 'x', { unidadIds: [1] }),
+              programa(INTERACCION, 'cambiado', { id: propio.id }),
+              programa(ACADEMICO, 'x', { unidadIds: [999] }),
             ],
           }),
         ),
-        ErrorCodes.PROGRAMA_UNIDAD_NO_APLICA,
+        ErrorCodes.PROGRAMA_UNIDAD_NO_EXISTE,
       );
       expect({ programas: db.programas(), vinculos: db.vinculos() }).toEqual(
         antes,
@@ -710,20 +800,24 @@ describe('UnidadesService - programas', () => {
       expect(await service.listProgramas(2)).toHaveLength(1);
     });
 
-    it('si la unidad deja de depender de un Decanato, sus programas se ocultan y no cuentan', async () => {
+    it('si la unidad deja de depender de un Decanato, sus programas quedan en solo lectura', async () => {
       const db = createFakeDb();
       const service = buildService(db);
-      await service.addPrograma(12, programa(ACADEMICO));
+      const { id } = await service.addPrograma(12, programa(ACADEMICO));
       await service.update(12, dto({ parentId: 1 }));
 
-      expect(await service.findById(12)).toMatchObject({
+      const detalle = await service.findById(12);
+      expect(detalle).toMatchObject({
         aplicaProgramas: false,
-        programasCount: 0,
-        programas: [],
+        programasCount: 1,
       });
+      expect(detalle.programas.map((p) => p.id)).toEqual([id]);
       const lista = await service.lista();
-      expect(lista.find((u) => u.id === 12)?.programasCount).toBe(0);
-      expect(db.programas()).toHaveLength(1);
+      expect(lista.find((u) => u.id === 12)?.programasCount).toBe(1);
+      await expectBusiness(
+        service.updatePrograma(12, id, programa(INTERACCION)),
+        ErrorCodes.PROGRAMAS_NO_APLICA,
+      );
     });
   });
 
