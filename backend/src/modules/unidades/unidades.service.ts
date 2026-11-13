@@ -670,11 +670,12 @@ export class UnidadesService {
     });
 
     const aplican = aplicanProgramas(rows);
-    const conteos = await this.contarProgramasPorUnidad();
+    const { totales, porTipo } = await this.contarProgramasPorUnidad();
     return rows.map((u): Record<string, unknown> => ({
       ...this.mapListItem(u, u.parent?.nombre ?? null),
       aplicaProgramas: aplican.get(String(u.id)) ?? false,
-      programasCount: conteos.get(String(u.id)) ?? 0,
+      programasCount: totales.get(String(u.id)) ?? 0,
+      programasPorTipo: porTipo.get(String(u.id)) ?? [],
     }));
   }
 
@@ -1959,17 +1960,75 @@ export class UnidadesService {
     }
   }
 
-  /** Programas vigentes por unidad (todo vínculo apunta a un programa vigente). */
-  private async contarProgramasPorUnidad(): Promise<Map<string, number>> {
+  /** Programas vigentes por unidad (totales y desglose por tipo). */
+  private async contarProgramasPorUnidad(): Promise<{
+    totales: Map<string, number>;
+    porTipo: Map<string, { tipo: string; cantidad: number }[]>;
+  }> {
     const vinculos = await this.programaUnidadRepo.find({
-      select: { unidadId: true },
+      select: { unidadId: true, programaId: true },
     });
-    const conteos = new Map<string, number>();
+    if (!vinculos.length) {
+      return { totales: new Map(), porTipo: new Map() };
+    }
+    const totales = new Map<string, number>();
     for (const v of vinculos) {
       const id = String(v.unidadId);
-      conteos.set(id, (conteos.get(id) ?? 0) + 1);
+      totales.set(id, (totales.get(id) ?? 0) + 1);
     }
-    return conteos;
+
+    const programaIds = [...new Set(vinculos.map((v) => v.programaId))];
+    const programas = await this.findProgramasPorId(programaIds);
+    const progMap = new Map<string, { tipo: string; nombre: string }>();
+    for (const p of programas) {
+      if (p.tipoPrograma?.descripcion) {
+        progMap.set(String(p.id), {
+          tipo: p.tipoPrograma.descripcion,
+          nombre: p.nombre,
+        });
+      }
+    }
+
+    const agrupado = new Map<
+      string,
+      Map<string, { cantidad: number; nombres: string[] }>
+    >();
+    for (const v of vinculos) {
+      const uId = String(v.unidadId);
+      const info = progMap.get(String(v.programaId));
+      if (!info) continue;
+      let mapaUnidad = agrupado.get(uId);
+      if (!mapaUnidad) {
+        mapaUnidad = new Map();
+        agrupado.set(uId, mapaUnidad);
+      }
+      let grupo = mapaUnidad.get(info.tipo);
+      if (!grupo) {
+        grupo = { cantidad: 0, nombres: [] };
+        mapaUnidad.set(info.tipo, grupo);
+      }
+      grupo.cantidad++;
+      if (info.nombre && !grupo.nombres.includes(info.nombre)) {
+        grupo.nombres.push(info.nombre);
+      }
+    }
+
+    const porTipo = new Map<
+      string,
+      { tipo: string; cantidad: number; nombres: string[] }[]
+    >();
+    for (const [uId, mapa] of agrupado.entries()) {
+      porTipo.set(
+        uId,
+        [...mapa.entries()].map(([tipo, { cantidad, nombres }]) => ({
+          tipo,
+          cantidad,
+          nombres,
+        })),
+      );
+    }
+
+    return { totales, porTipo };
   }
 
   private mapPrograma(p: Programa) {
