@@ -1355,9 +1355,9 @@ async function exportarOrganigrama() {
         });
       }
 
-      // 4. Medición y cálculo de dimensiones del Footer (Código, Sigla, Nivel, Tipo)
+      // 4. Medición y cálculo de dimensiones de la Cabecera (Código y Sigla)
       const codigoStr = cleanPdfText(n.data?.codigo || "-");
-      const codeFontSize = Math.max(3.3, scale * 50);
+      const codeFontSize = Math.max(3.2, scale * 48);
       pdf.setFontSize(codeFontSize);
       pdf.setFont("helvetica", "bold");
 
@@ -1372,70 +1372,25 @@ async function exportarOrganigrama() {
       const hasSigla = Boolean(n.data?.sigla && n.data.sigla !== "-");
       const hasNivel = Boolean(n.data?.nivel && n.data.nivel !== "---");
       const hasTipo = Boolean(n.data?.tipo && n.data.tipo !== "---");
+      const progsVisibles = programasVisibles(n.data?.programasPorTipo);
 
-      const detailFontSize = Math.max(2.8, scale * 44);
-      const detailLineSpacing = detailFontSize * 0.4;
+      const detailFontSize = Math.max(2.6, scale * 40);
+      const detailLineSpacing = detailFontSize * 0.42;
       const iconW = Math.max(1.0, 2.2 * scale);
       const iconH = Math.max(0.8, 1.8 * scale);
       const textOffsetX = iconW + Math.max(0.6, 1.0 * scale);
       const maxDetailTextW = nodeWidthMm - padX * 2 - textOffsetX - 8;
 
-      let detailLinesCount = (hasNivel ? 1 : 0) + (hasTipo ? 1 : 0);
-      const footerH = pillH + detailLinesCount * detailLineSpacing + 1.2;
+      let detailLinesCount =
+        (hasTipo ? 1 : 0) + (hasNivel ? 1 : 0) + progsVisibles.length;
+      const footerH = detailLinesCount * detailLineSpacing + 1.2;
       const footerY = ny + nodeHeightMm - footerH - padY;
 
-      // 5. Título de la Unidad en el Área Central (Hero, escalado adaptativo al largo del texto)
-      const titleLen = cleanPdfText(n.data?.nombre || "").length;
-      let titleFontSize;
-      if (titleLen <= 28) {
-        titleFontSize = Math.max(4.8, scale * 78);
-      } else if (titleLen <= 52) {
-        titleFontSize = Math.max(4.2, scale * 68);
-      } else if (titleLen <= 74) {
-        titleFontSize = Math.max(3.8, scale * 60);
-      } else {
-        titleFontSize = Math.max(3.3, scale * 53);
-      }
-      pdf.setFontSize(titleFontSize);
-      pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
-
-      const titleText = cleanPdfText(n.data?.nombre || "").toUpperCase();
-      const maxTitleW = nodeWidthMm - padX * 2;
-      let titleLines = pdf.splitTextToSize(titleText, maxTitleW);
-
-      if (titleLines.length > 5) {
-        titleFontSize = Math.max(2.8, titleFontSize * 0.82);
-        pdf.setFontSize(titleFontSize);
-        titleLines = pdf.splitTextToSize(titleText, maxTitleW);
-      }
-
-      const maxLines = Math.min(5, titleLines.length);
-      const titleLineSpacing = titleFontSize * 0.38;
-      const titleBlockH = maxLines * titleLineSpacing;
-      const titleTopBound = ny + topBadgeHeight + padY + 1.0;
-      const titleAvailableH = Math.max(titleBlockH, footerY - titleTopBound);
-      const titleStartY =
-        titleTopBound +
-        (titleAvailableH - titleBlockH) / 2 +
-        titleLineSpacing * 0.8;
-
-      for (let i = 0; i < maxLines; i++) {
-        let lineStr = titleLines[i];
-        if (i === 4 && titleLines.length > 5) {
-          lineStr = lineStr.slice(0, Math.max(6, lineStr.length - 3)) + "...";
-        }
-        pdf.text(
-          lineStr,
-          nx + nodeWidthMm / 2,
-          titleStartY + i * titleLineSpacing,
-          { align: "center" },
-        );
-      }
-
-      // 6. Dibujo del Footer en la parte inferior (Código + Sigla + Nivel + Tipo)
+      // 4.1 Pastillas superiores de Código y Sigla (Top Bar)
       const pillX = nx + padX;
-      const pillY = footerY;
+      const pillY = ny + topBadgeHeight + padY;
+      const pillRadius = Math.max(0.4, 1.5 * scale);
+
       if (isDarkCard) {
         pdf.setFillColor(
           Math.round(bgRgb.r * 0.7),
@@ -1451,22 +1406,20 @@ async function exportarOrganigrama() {
         );
         pdf.setTextColor(15, 23, 42);
       }
-      const pillRadius = Math.max(0.4, 1.5 * scale);
       pdf.roundedRect(pillX, pillY, pillW, pillH, pillRadius, pillRadius, "F");
-
       pdf.setFontSize(codeFontSize);
       pdf.setFont("helvetica", "bold");
       pdf.text(codigoStr, pillX + pillW / 2, pillY + pillH * 0.74, {
         align: "center",
       });
 
-      // Si tiene sigla, dibujar pastilla de sigla al lado del código
+      // Si tiene sigla, dibujar pastilla de sigla a la derecha
       if (hasSigla) {
         const siglaStr = cleanPdfText(n.data.sigla);
         pdf.setFontSize(codeFontSize * 0.95);
         const measuredSiglaW = pdf.getTextWidth(siglaStr);
         const siglaPillW = measuredSiglaW + pillPaddingX * 2;
-        const siglaPillX = pillX + pillW + 1.2;
+        const siglaPillX = nx + nodeWidthMm - padX - siglaPillW;
 
         if (isDarkCard) {
           pdf.setFillColor(
@@ -1498,10 +1451,59 @@ async function exportarOrganigrama() {
         });
       }
 
-      // Detalles: Nivel y Tipo
+      // 5. Título de la Unidad en el Área Central (Hero, escalado adaptativo al largo del texto)
+      const titleLen = cleanPdfText(n.data?.nombre || "").length;
+      let titleFontSize;
+      if (titleLen <= 28) {
+        titleFontSize = Math.max(4.8, scale * 78);
+      } else if (titleLen <= 52) {
+        titleFontSize = Math.max(4.2, scale * 68);
+      } else if (titleLen <= 74) {
+        titleFontSize = Math.max(3.8, scale * 60);
+      } else {
+        titleFontSize = Math.max(3.3, scale * 53);
+      }
+      pdf.setFontSize(titleFontSize);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
+
+      const titleText = cleanPdfText(n.data?.nombre || "").toUpperCase();
+      const maxTitleW = nodeWidthMm - padX * 2;
+      let titleLines = pdf.splitTextToSize(titleText, maxTitleW);
+
+      if (titleLines.length > 5) {
+        titleFontSize = Math.max(2.8, titleFontSize * 0.82);
+        pdf.setFontSize(titleFontSize);
+        titleLines = pdf.splitTextToSize(titleText, maxTitleW);
+      }
+
+      const maxLines = Math.min(5, titleLines.length);
+      const titleLineSpacing = titleFontSize * 0.38;
+      const titleBlockH = maxLines * titleLineSpacing;
+      const titleTopBound = pillY + pillH + 1.0;
+      const titleAvailableH = Math.max(titleBlockH, footerY - titleTopBound);
+      const titleStartY =
+        titleTopBound +
+        (titleAvailableH - titleBlockH) / 2 +
+        titleLineSpacing * 0.8;
+
+      for (let i = 0; i < maxLines; i++) {
+        let lineStr = titleLines[i];
+        if (i === 4 && titleLines.length > 5) {
+          lineStr = lineStr.slice(0, Math.max(6, lineStr.length - 3)) + "...";
+        }
+        pdf.text(
+          lineStr,
+          nx + nodeWidthMm / 2,
+          titleStartY + i * titleLineSpacing,
+          { align: "center" },
+        );
+      }
+
+      // 6. Dibujo del Footer en la parte inferior (Metadatos y Programas)
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(textRgb.r, textRgb.g, textRgb.b);
-      let detailY = pillY + pillH + detailLineSpacing * 0.9;
+      let detailY = footerY + detailLineSpacing * 0.9;
 
       // Función que garantiza que el texto de detalle quepa completo en una sola línea
       function drawDetailText(text, x, y, maxW, baseFontSize) {
@@ -1526,7 +1528,32 @@ async function exportarOrganigrama() {
         pdf.text(outText, x, y);
       }
 
-      // 6.1 Nivel Jerárquico (icono mdi-layers-outline)
+      // 6.1 Tipo de Unidad (icono mdi-tag-outline)
+      if (hasTipo) {
+        const tipoStr = cleanPdfText(n.data.tipo);
+        pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
+        pdf.setLineWidth(Math.max(0.12, 0.4 * scale));
+        const ix = nx + padX;
+        const ty = detailY - iconH * 0.7;
+        pdf.roundedRect(ix, ty, iconW, iconH, 0.2, 0.2, "S");
+        pdf.setFillColor(textRgb.r, textRgb.g, textRgb.b);
+        pdf.circle(
+          ix + iconW * 0.3,
+          ty + iconH * 0.5,
+          Math.max(0.12, 0.35 * scale),
+          "F",
+        );
+        drawDetailText(
+          tipoStr,
+          nx + padX + textOffsetX,
+          detailY,
+          maxDetailTextW,
+          detailFontSize,
+        );
+        detailY += detailLineSpacing;
+      }
+
+      // 6.2 Nivel Jerárquico (icono mdi-layers-outline / rombo)
       if (hasNivel) {
         const nivelStr = cleanPdfText(n.data.nivel);
         pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
@@ -1563,28 +1590,37 @@ async function exportarOrganigrama() {
         detailY += detailLineSpacing;
       }
 
-      // 6.2 Tipo de Unidad (icono mdi-tag-outline)
-      if (hasTipo) {
-        const tipoStr = cleanPdfText(n.data.tipo);
-        pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
-        pdf.setLineWidth(Math.max(0.12, 0.4 * scale));
-        const ix = nx + padX;
-        const ty = detailY - iconH * 0.7;
-        pdf.roundedRect(ix, ty, iconW, iconH, 0.2, 0.2, "S");
-        pdf.setFillColor(textRgb.r, textRgb.g, textRgb.b);
-        pdf.circle(
-          ix + iconW * 0.3,
-          ty + iconH * 0.5,
-          Math.max(0.12, 0.35 * scale),
-          "F",
-        );
-        drawDetailText(
-          tipoStr,
-          nx + padX + textOffsetX,
-          detailY,
-          maxDetailTextW,
-          detailFontSize,
-        );
+      // 6.3 Programas dinámicos (solo si cantidad > 0)
+      if (progsVisibles.length > 0) {
+        for (const prog of progsVisibles) {
+          const rawName =
+            Array.isArray(prog.nombres) && prog.nombres.length > 0
+              ? `${prog.tipo}: ${prog.nombres.join(", ")}`
+              : (prog.tipo || "Programa");
+          const progName = cleanPdfText(rawName);
+          const countStr = String(prog.cantidad || 0);
+          const measuredCountW = pdf.getTextWidth(countStr);
+
+          pdf.setFillColor(textRgb.r, textRgb.g, textRgb.b);
+          pdf.circle(
+            nx + padX + iconW * 0.3,
+            detailY - iconH * 0.3,
+            Math.max(0.12, 0.35 * scale),
+            "F",
+          );
+
+          drawDetailText(
+            progName,
+            nx + padX + textOffsetX,
+            detailY,
+            maxDetailTextW - measuredCountW - 2,
+            detailFontSize,
+          );
+          pdf.setFont("helvetica", "bold");
+          pdf.text(countStr, nx + nodeWidthMm - padX - measuredCountW - 1, detailY);
+          pdf.setFont("helvetica", "normal");
+          detailY += detailLineSpacing;
+        }
       }
 
       // 6.4 Menú de 3 puntos (UnidadActionsMenu en esquina inferior derecha)
@@ -1860,6 +1896,40 @@ function getTitleClass(nombre) {
   return "title-xlong";
 }
 
+function programasVisibles(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((p) => Number(p?.cantidad || 0) > 0);
+}
+
+function getProgramaIcon(tipo) {
+  const t = String(tipo || "").toLowerCase();
+  if (t.includes("académ") || t.includes("academ")) return "mdi-school-outline";
+  if (t.includes("investig")) return "mdi-microscope";
+  if (t.includes("interacc") || t.includes("social") || t.includes("extens"))
+    return "mdi-account-group-outline";
+  if (t.includes("ambient")) return "mdi-leaf";
+  return "mdi-folder-outline";
+}
+
+function formatProgramaTexto(prog) {
+  if (!prog) return "";
+  const tipo = prog.tipo || "Programa";
+  if (Array.isArray(prog.nombres) && prog.nombres.length > 0) {
+    return `${tipo}: ${prog.nombres.join(", ")}`;
+  }
+  return tipo;
+}
+
+function progTooltip(prog) {
+  if (!prog) return "";
+  const tipo = prog.tipo || "Programa";
+  const cant = prog.cantidad || 0;
+  if (Array.isArray(prog.nombres) && prog.nombres.length > 0) {
+    return `${tipo} (${cant}): ${prog.nombres.join(", ")}`;
+  }
+  return `${tipo} (${cant})`;
+}
+
 const updateGraph = () => {
   if (isMobilePortrait.value) {
     return;
@@ -1979,6 +2049,7 @@ const updateGraph = () => {
       node.data.visualReinforcement = visualReinforcement;
       node.data.childrenCount = contarHijosDirectos(node.id);
       node.data.programasCount = u.programasCount ?? u.programas_count ?? 0;
+      node.data.programasPorTipo = u.programasPorTipo || u.programas_por_tipo || [];
       node.data.aplicaProgramas = Boolean(u.aplicaProgramas || u.aplica_programas);
       node.data.isNavSelected = isNavSelected;
       node.data.isNavChild = isNavChild;
@@ -2110,6 +2181,7 @@ const updateGraph = () => {
         lado: u.lado || "AUTOMATICO",
         childrenCount: contarHijosDirectos(u.id),
         programasCount: u.programasCount ?? u.programas_count ?? 0,
+        programasPorTipo: u.programasPorTipo || u.programas_por_tipo || [],
         aplicaProgramas: Boolean(u.aplicaProgramas || u.aplica_programas),
         isNavSelected,
         isNavChild,
@@ -3346,8 +3418,39 @@ function resetFilters() {
                 <span>{{ data.visualReinforcement.badgeText }}</span>
               </div>
               <div class="node-content" @click.stop="manejarClickNodo(id)">
+                <!-- Cabecera Superior: Código (izq) y Sigla (der) -->
+                <div class="node-top-bar d-flex justify-space-between align-center mb-1">
+                  <span
+                    class="node-code-chip text-truncate"
+                    :style="{
+                      backgroundColor:
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'rgba(0, 0, 0, 0.35)'
+                          : 'rgba(255, 255, 255, 0.5)',
+                      color: getContrastingTextColor(data.color),
+                    }"
+                    :title="data.codigo"
+                  >
+                    {{ data.codigo }}
+                  </span>
+                  <span
+                    v-if="data.sigla && data.sigla !== '-'"
+                    class="node-sigla-chip ml-1"
+                    :style="{
+                      backgroundColor:
+                        getContrastingTextColor(data.color) === '#FFFFFF'
+                          ? 'rgba(0, 0, 0, 0.35)'
+                          : 'rgba(255, 255, 255, 0.5)',
+                      color: getContrastingTextColor(data.color),
+                    }"
+                    :title="data.sigla"
+                  >
+                    {{ data.sigla }}
+                  </span>
+                </div>
+
                 <!-- Zona Central Hero: Nombre de la Unidad -->
-                <div class="node-center">
+                <div class="node-center my-1">
                   <div
                     :class="['node-line', 'title-line', getTitleClass(data.nombre)]"
                     :style="{ color: getContrastingTextColor(data.color) }"
@@ -3356,62 +3459,17 @@ function resetFilters() {
                   </div>
                 </div>
 
-                <!-- Zona Inferior: Metadatos (Código, Sigla, Nivel, Tipo) -->
+                <!-- Zona Inferior: Metadatos y Programas Dinámicos -->
                 <div class="node-footer">
+                  <!-- 1. Tipo / Naturaleza -->
                   <div
-                    class="node-line code-line d-flex align-center flex-wrap"
-                    :style="{ color: getContrastingTextColor(data.color) }"
-                  >
-                    <span
-                      class="code-badge mr-1"
-                      :style="{
-                        backgroundColor:
-                          getContrastingTextColor(data.color) === '#FFFFFF'
-                            ? 'rgba(0, 0, 0, 0.22)'
-                            : 'rgba(255, 255, 255, 0.45)',
-                        color: getContrastingTextColor(data.color),
-                      }"
-                    >
-                      {{ data.codigo }}
-                    </span>
-                    <span
-                      v-if="data.sigla && data.sigla !== '-'"
-                      class="sigla-badge"
-                      :style="{
-                        backgroundColor:
-                          getContrastingTextColor(data.color) === '#FFFFFF'
-                            ? 'rgba(0, 0, 0, 0.16)'
-                            : 'rgba(255, 255, 255, 0.35)',
-                        color: getContrastingTextColor(data.color),
-                      }"
-                    >
-                      {{ data.sigla }}
-                    </span>
-                  </div>
-                  <div
+                    v-if="data.tipo"
                     class="node-line detail-line"
                     :style="{ color: getContrastingTextColor(data.color) }"
                   >
                     <v-icon
-                      size="15"
-                      class="mr-1"
-                      :color="
-                        getContrastingTextColor(data.color) === '#FFFFFF'
-                          ? 'white'
-                          : '#0F172A'
-                      "
-                    >
-                      mdi-layers-outline
-                    </v-icon>
-                    <span>{{ data.nivel }}</span>
-                  </div>
-                  <div
-                    class="node-line detail-line"
-                    :style="{ color: getContrastingTextColor(data.color) }"
-                  >
-                    <v-icon
-                      size="15"
-                      class="mr-1"
+                      size="14"
+                      class="mr-1 flex-shrink-0"
                       :color="
                         getContrastingTextColor(data.color) === '#FFFFFF'
                           ? 'white'
@@ -3420,66 +3478,81 @@ function resetFilters() {
                     >
                       mdi-tag-outline
                     </v-icon>
-                    <span>{{ data.tipo }}</span>
+                    <span class="text-truncate">{{ data.tipo }}</span>
                   </div>
 
-                  <!-- Indicador de subunidades dependientes directas (MOF-068) -->
+                  <!-- 2. Nivel Jerárquico -->
                   <div
-                    v-if="data.childrenCount > 0"
-                    class="node-line detail-line children-badge mt-1"
+                    v-if="data.nivel"
+                    class="node-line detail-line"
                     :style="{ color: getContrastingTextColor(data.color) }"
                   >
                     <v-icon
-                      size="13"
-                      class="mr-1"
-                      :color="
-                        getContrastingTextColor(data.color) === '#FFFFFF'
-                          ? 'white'
-                          : '#0F172A'
-                      "
-                    >
-                      mdi-account-tree-outline
-                    </v-icon>
-                    <span class="font-weight-bold">
-                      {{ data.childrenCount }} {{ data.childrenCount === 1 ? 'subunidad' : 'subunidades' }}
-                      <template v-if="data.isNavSelected"> (seleccionado)</template>
-                      <template v-else-if="data.isNavChild"> (hijo directo)</template>
-                    </span>
-                    <v-icon
-                      v-if="!data.isNavSelected && modoExploracion !== 'completo'"
                       size="14"
-                      class="ml-1"
+                      class="mr-1 flex-shrink-0"
                       :color="
                         getContrastingTextColor(data.color) === '#FFFFFF'
                           ? 'white'
                           : '#0F172A'
                       "
                     >
-                      mdi-chevron-down
+                      mdi-rhombus-outline
                     </v-icon>
+                    <span class="text-truncate">{{ data.nivel }}</span>
                   </div>
 
-                  <!-- Indicador de programas de la unidad (MOF-085) -->
-                  <div
-                    v-if="data.programasCount > 0"
-                    class="node-line detail-line children-badge mt-1"
-                    :style="{ color: getContrastingTextColor(data.color) }"
-                  >
-                    <v-icon
-                      size="13"
-                      class="mr-1"
-                      :color="
-                        getContrastingTextColor(data.color) === '#FFFFFF'
-                          ? 'white'
-                          : '#0F172A'
-                      "
+                  <!-- 3. Desglose Dinámico de Programas (solo si cantidad > 0) -->
+                  <template v-if="data.programasPorTipo && data.programasPorTipo.length">
+                    <div
+                      v-for="(prog, idx) in programasVisibles(data.programasPorTipo)"
+                      :key="idx"
+                      class="node-line detail-line programa-line d-flex justify-space-between align-center"
+                      :style="{ color: getContrastingTextColor(data.color) }"
+                      :title="progTooltip(prog)"
                     >
-                      mdi-folder-outline
-                    </v-icon>
-                    <span class="font-weight-bold">
-                      {{ data.programasCount }} {{ data.programasCount === 1 ? 'programa' : 'programas' }}
-                    </span>
-                  </div>
+                      <div class="d-flex align-center flex-grow-1 mr-2 overflow-hidden">
+                        <v-icon
+                          size="14"
+                          class="mr-1 flex-shrink-0"
+                          :color="
+                            getContrastingTextColor(data.color) === '#FFFFFF'
+                              ? 'white'
+                              : '#0F172A'
+                          "
+                        >
+                          {{ getProgramaIcon(prog.tipo) }}
+                        </v-icon>
+                        <span class="text-truncate">{{ formatProgramaTexto(prog) }}</span>
+                      </div>
+                      <span class="font-weight-bold flex-shrink-0">
+                        {{ prog.cantidad }}
+                      </span>
+                    </div>
+                  </template>
+                  <template v-else-if="data.programasCount > 0">
+                    <div
+                      class="node-line detail-line programa-line d-flex justify-space-between align-center"
+                      :style="{ color: getContrastingTextColor(data.color) }"
+                    >
+                      <div class="d-flex align-center flex-grow-1 mr-2 overflow-hidden">
+                        <v-icon
+                          size="14"
+                          class="mr-1 flex-shrink-0"
+                          :color="
+                            getContrastingTextColor(data.color) === '#FFFFFF'
+                              ? 'white'
+                              : '#0F172A'
+                          "
+                        >
+                          mdi-folder-outline
+                        </v-icon>
+                        <span class="text-truncate">Programas</span>
+                      </div>
+                      <span class="font-weight-bold flex-shrink-0">
+                        {{ data.programasCount }}
+                      </span>
+                    </div>
+                  </template>
                 </div>
                 <v-tooltip activator="parent" location="top" max-width="360">
                   <span class="text-uppercase">{{ (data.nombre || '').toUpperCase() }}</span>
@@ -3773,15 +3846,15 @@ function resetFilters() {
 }
 
 .custom-node {
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: none !important;
   width: 320px;
-  height: 225px;
-  max-height: 225px;
+  height: 235px;
+  max-height: 235px;
   position: relative;
   display: flex;
   flex-direction: column;
-  border: 2px solid rgba(15, 23, 42, 0.35);
+  border: 2.5px solid rgba(15, 23, 42, 0.45);
   transition:
     outline 0.15s ease,
     border-color 0.15s ease;
@@ -3896,6 +3969,29 @@ function resetFilters() {
   letter-spacing: 0.5px;
   border: none !important;
 }
+.node-top-bar {
+  flex-shrink: 0;
+  width: 100%;
+  margin-bottom: 2px;
+}
+.node-code-chip {
+  display: inline-block;
+  padding: 1.5px 7px;
+  border-radius: 6px;
+  font-weight: 850;
+  letter-spacing: 0.4px;
+  font-size: 11px;
+  max-width: 78%;
+}
+.node-sigla-chip {
+  display: inline-block;
+  padding: 1.5px 8px;
+  border-radius: 6px;
+  font-weight: 850;
+  letter-spacing: 0.5px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
 .code-badge {
   display: inline-block;
   padding: 1px 7px;
@@ -3913,7 +4009,7 @@ function resetFilters() {
   font-size: 11.5px;
 }
 .node-content {
-  padding: 18px 14px 10px 14px;
+  padding: 8px 12px 6px 12px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -3975,7 +4071,7 @@ function resetFilters() {
   margin-top: auto;
 }
 .detail-line {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 650;
   display: flex;
   align-items: center;
@@ -3984,6 +4080,9 @@ function resetFilters() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.programa-line {
+  font-size: 11px;
 }
 .node-actions {
   position: absolute;
