@@ -4,7 +4,7 @@ import {
   getSafeId, 
   getPesoReal,
   isClaseCarrera,
-  checkUnidadAplicaProyectos,
+  checkUnidadAplicaProgramas,
 } from "@/utils/mofHelpers";
 import {
   getEmptyFormData,
@@ -41,8 +41,8 @@ export function useUnidadForm(stores) {
   const loading = ref(false);
   const saving = ref(false);
   const isCarrera = computed(() => isClaseCarrera(formData.value?.clase, clasesStore?.clases));
-  const isAplicaProyectos = computed(() =>
-    checkUnidadAplicaProyectos({
+  const isAplicaProgramas = computed(() =>
+    checkUnidadAplicaProgramas({
       clase: formData.value?.clase,
       parentId: formData.value?.parentId,
       unidad: selectedNode.value,
@@ -186,7 +186,7 @@ export function useUnidadForm(stores) {
       }
     }
 
-    const isAplicaProy = checkUnidadAplicaProyectos({
+    const isAplicaProg = checkUnidadAplicaProgramas({
       clase: formData.value.clase,
       parentId: formData.value.parentId,
       unidad: selectedNode.value,
@@ -196,7 +196,7 @@ export function useUnidadForm(stores) {
 
     const dataToSend = mapFormToBackend(formData.value, {
       isCarrera: isCarrera.value,
-      aplicaProyectos: isAplicaProy,
+      aplicaProgramas: isAplicaProg,
       clasesCatalog: clasesStore?.clases,
     });
 
@@ -402,7 +402,7 @@ export function useUnidadForm(stores) {
     loading,
     saving,
     isCarrera,
-    isAplicaProyectos,
+    isAplicaProgramas,
     selectedNode,
     openForm,
     saveUnidad,

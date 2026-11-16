@@ -14,8 +14,8 @@ const props = defineProps({
   hint: {
     type: String,
     default: () =>
-      hints.unidadForm?.proyectos ||
-      "Proyectos académicos, de investigación o de interacción social y extensión universitaria gestionados por esta unidad",
+      hints.unidadForm?.programas ||
+      "Programas académicos, de investigación o de interacción social y extensión universitaria gestionados por esta unidad",
   },
   readonly: { type: Boolean, default: false },
 });
@@ -26,7 +26,7 @@ const { mostrar } = useSnackbar();
 const rows = computed(() => (Array.isArray(props.modelValue) ? props.modelValue : []));
 const saveAttempted = ref(false);
 
-/** Catálogo de tipos (`GET /mof/proyectos/tipos`): [{ id, tipo }]. */
+/** Catálogo de tipos (`GET /mof/programas/tipos`): [{ id, tipo }]. */
 const tipos = ref([]);
 
 /**
@@ -52,7 +52,7 @@ function normalizarTipo(item) {
 
 async function cargarTipos() {
   try {
-    const res = await apiFetch(ENDPOINTS.MOF.PROYECTOS_TIPOS);
+    const res = await apiFetch(ENDPOINTS.MOF.PROGRAMAS_TIPOS);
     if (!res.ok) return;
     const body = await res.json();
     const list = body?.data ?? body;
@@ -75,7 +75,15 @@ function tipoNombre(row) {
 function addRow() {
   emit("update:modelValue", [
     ...rows.value,
-    { id: null, tipoId: null, tipo: "", detalle: "", unidadIds: [] },
+    {
+      id: null,
+      tipoId: null,
+      tipo: "",
+      nombre: "",
+      detalle: "",
+      resolucion: "",
+      unidadIds: [],
+    },
   ]);
 }
 
@@ -88,17 +96,11 @@ function updateTipo(index, value) {
   );
 }
 
-function updateDetalle(index, value) {
+/** Reemplaza un campo de la fila `index` (nombre, detalle, resolucion, unidadIds). */
+function updateCampo(index, campo, value) {
   emit(
     "update:modelValue",
-    rows.value.map((r, i) => (i === index ? { ...r, detalle: value } : r)),
-  );
-}
-
-function updateUnidadIds(index, value) {
-  emit(
-    "update:modelValue",
-    rows.value.map((r, i) => (i === index ? { ...r, unidadIds: value } : r)),
+    rows.value.map((r, i) => (i === index ? { ...r, [campo]: value } : r)),
   );
 }
 
@@ -118,21 +120,32 @@ function isTipoInvalid(row) {
   return !tieneTipo(row);
 }
 
+function tieneTexto(value) {
+  return value != null && String(value).trim() !== "";
+}
+
+function isNombreInvalid(row) {
+  if (!saveAttempted.value) return false;
+  return !tieneTexto(row.nombre);
+}
+
 function isDetalleInvalid(row) {
   if (!saveAttempted.value) return false;
-  return !row.detalle || !String(row.detalle).trim();
+  return !tieneTexto(row.detalle);
+}
+
+function isRowInvalid(row) {
+  return isTipoInvalid(row) || isNombreInvalid(row) || isDetalleInvalid(row);
 }
 
 function validate() {
   saveAttempted.value = true;
-  for (const row of rows.value) {
-    if (!tieneTipo(row)) return false;
-    if (!row.detalle || !String(row.detalle).trim()) return false;
-  }
-  return true;
+  return rows.value.every(
+    (row) => tieneTipo(row) && tieneTexto(row.nombre) && tieneTexto(row.detalle),
+  );
 }
 
-// --- Alta de un tipo de proyecto nuevo ---
+// --- Alta de un tipo de programa nuevo ---
 const dialogNuevoTipo = ref(false);
 const nuevoTipo = ref("");
 const filaNuevoTipo = ref(null);
@@ -155,13 +168,13 @@ async function crearTipo() {
   if (!tipo || guardandoTipo.value) return;
   guardandoTipo.value = true;
   try {
-    const res = await apiFetch(ENDPOINTS.MOF.PROYECTOS_TIPOS, {
+    const res = await apiFetch(ENDPOINTS.MOF.PROGRAMAS_TIPOS, {
       method: "POST",
       body: JSON.stringify({ tipo }),
     });
     if (!res.ok) {
       const { message } = await getApiErrorMeta(res);
-      mostrar(message || "No se pudo añadir el tipo de proyecto", "error");
+      mostrar(message || "No se pudo añadir el tipo de programa", "error");
       return;
     }
     const body = await res.json();
@@ -176,7 +189,7 @@ async function crearTipo() {
     mostrar(`Tipo «${creado.tipo}» disponible`, "success");
     cerrarNuevoTipo();
   } catch (e) {
-    mostrar("No se pudo añadir el tipo de proyecto", "error");
+    mostrar("No se pudo añadir el tipo de programa", "error");
   } finally {
     guardandoTipo.value = false;
   }
@@ -193,13 +206,13 @@ defineExpose({
 </script>
 
 <template>
-  <div class="unidad-proyecto-table">
+  <div class="unidad-programa-table">
     <!-- Encabezado de la sección uniforme con inventarios/SIA -->
     <div class="d-flex align-center justify-space-between mb-2">
       <div>
         <div class="text-subtitle-2 font-weight-bold text-slate-800 d-flex align-center">
           <v-icon size="18" color="primary" class="mr-1">mdi-folder-multiple-outline</v-icon>
-          Proyectos de la Unidad
+          Programas de la Unidad
           <v-chip
             v-if="rows.length > 0"
             size="x-small"
@@ -222,10 +235,10 @@ defineExpose({
         size="small"
         prepend-icon="mdi-plus"
         class="font-weight-bold"
-        data-test="btn-add-proyecto-row"
+        data-test="btn-add-programa-row"
         @click="addRow"
       >
-        Añadir proyecto
+        Añadir programa
       </v-btn>
     </div>
 
@@ -235,20 +248,20 @@ defineExpose({
       class="pa-4 text-center rounded-lg border border-dashed bg-slate-50 text-caption text-medium-emphasis my-2"
     >
       <v-icon size="28" color="grey-lighten-1" class="mb-1 d-block mx-auto">mdi-folder-plus-outline</v-icon>
-      <span>No hay proyectos registrados para esta unidad.</span>
+      <span>No hay programas registrados para esta unidad.</span>
       <span v-if="!readonly" class="d-block text-slate-500 mt-1">
-        Presione <strong>«Añadir proyecto»</strong> para registrar uno.
+        Presione <strong>«Añadir programa»</strong> para registrar uno.
       </span>
     </div>
 
-    <!-- Lista de tarjetas de proyectos -->
+    <!-- Lista de tarjetas de programas -->
     <div v-else class="d-flex flex-column gap-3 mt-2">
       <v-card
         v-for="(row, idx) in rows"
         :key="row.id || idx"
         variant="outlined"
-        class="proyecto-card pa-3 pa-sm-4 rounded-lg bg-white"
-        :class="{ 'border-error': isTipoInvalid(row) || isDetalleInvalid(row) }"
+        class="programa-card pa-3 pa-sm-4 rounded-lg bg-white"
+        :class="{ 'border-error': isRowInvalid(row) }"
       >
         <!-- Encabezado de tarjeta -->
         <div class="d-flex align-center justify-space-between mb-3 pb-2 border-b">
@@ -257,7 +270,7 @@ defineExpose({
               #{{ idx + 1 }}
             </v-chip>
             <span class="text-caption font-weight-bold text-slate-700">
-              {{ tipoNombre(row) || 'NUEVO PROYECTO' }}
+              {{ row.nombre || tipoNombre(row) || 'NUEVO PROGRAMA' }}
             </span>
           </div>
 
@@ -268,29 +281,49 @@ defineExpose({
             variant="text"
             color="error"
             density="compact"
-            title="Quitar proyecto"
-            :data-test="`btn-remove-proyecto-${idx}`"
+            title="Quitar programa"
+            :data-test="`btn-remove-programa-${idx}`"
             @click="removeRow(idx)"
           />
         </div>
 
         <v-row dense>
+          <!-- Nombre del programa -->
+          <v-col cols="12" class="mb-2">
+            <v-text-field
+              :model-value="row.nombre"
+              label="Nombre del programa *"
+              density="compact"
+              variant="outlined"
+              hide-details="auto"
+              :readonly="readonly"
+              :error="isNombreInvalid(row)"
+              :error-messages="isNombreInvalid(row) ? ['El nombre del programa es requerido'] : []"
+              :data-test="`input-nombre-programa-${idx}`"
+              @update:model-value="updateCampo(idx, 'nombre', $event)"
+            >
+              <template #prepend-inner>
+                <v-icon size="16" color="primary">mdi-format-title</v-icon>
+              </template>
+            </v-text-field>
+          </v-col>
+
           <!-- Tipo (catálogo, con alta de tipos nuevos) -->
           <v-col cols="12" sm="5">
             <v-autocomplete
-              class="tipo-proyecto-select"
+              class="tipo-programa-select"
               :model-value="row.tipoId"
               :items="tiposItems"
               item-title="tipo"
               item-value="id"
-              label="Tipo de proyecto *"
+              label="Tipo de programa *"
               density="compact"
               variant="outlined"
               hide-details="auto"
               :readonly="readonly"
               :error="isTipoInvalid(row)"
-              :error-messages="isTipoInvalid(row) ? ['El tipo de proyecto es requerido'] : []"
-              :data-test="`select-tipo-proyecto-${idx}`"
+              :error-messages="isTipoInvalid(row) ? ['El tipo de programa es requerido'] : []"
+              :data-test="`select-tipo-programa-${idx}`"
               @update:model-value="updateTipo(idx, $event)"
             >
               <template #prepend-inner>
@@ -300,9 +333,9 @@ defineExpose({
                 <v-divider class="my-1" />
                 <v-list-item
                   prepend-icon="mdi-plus"
-                  title="Añadir tipo de proyecto"
+                  title="Añadir tipo de programa"
                   class="text-primary font-weight-bold"
-                  :data-test="`btn-nuevo-tipo-proyecto-${idx}`"
+                  :data-test="`btn-nuevo-tipo-programa-${idx}`"
                   @click="abrirNuevoTipo(idx)"
                 />
               </template>
@@ -324,7 +357,7 @@ defineExpose({
               closable-chips
               hide-details="auto"
               :readonly="readonly"
-              @update:model-value="updateUnidadIds(idx, $event)"
+              @update:model-value="updateCampo(idx, 'unidadIds', $event)"
             >
               <template #prepend-inner>
                 <v-icon size="16" color="primary">mdi-domain</v-icon>
@@ -343,11 +376,11 @@ defineExpose({
             </v-autocomplete>
           </v-col>
 
-          <!-- Detalle del proyecto -->
+          <!-- Detalle del programa -->
           <v-col cols="12" class="mt-2">
             <v-textarea
               :model-value="row.detalle"
-              label="Detalle / Descripción del proyecto *"
+              label="Detalle / Descripción del programa *"
               rows="2"
               auto-grow
               density="compact"
@@ -355,29 +388,48 @@ defineExpose({
               hide-details="auto"
               :readonly="readonly"
               :error="isDetalleInvalid(row)"
-              :error-messages="isDetalleInvalid(row) ? ['El detalle del proyecto es requerido'] : []"
-              @update:model-value="updateDetalle(idx, $event)"
+              :error-messages="isDetalleInvalid(row) ? ['El detalle del programa es requerido'] : []"
+              :data-test="`input-detalle-programa-${idx}`"
+              @update:model-value="updateCampo(idx, 'detalle', $event)"
             />
+          </v-col>
+
+          <!-- Resolución (texto libre, opcional) -->
+          <v-col cols="12" class="mt-2">
+            <v-text-field
+              :model-value="row.resolucion"
+              label="Resolución (opcional)"
+              density="compact"
+              variant="outlined"
+              hide-details="auto"
+              :readonly="readonly"
+              :data-test="`input-resolucion-programa-${idx}`"
+              @update:model-value="updateCampo(idx, 'resolucion', $event)"
+            >
+              <template #prepend-inner>
+                <v-icon size="16" color="primary">mdi-file-document-outline</v-icon>
+              </template>
+            </v-text-field>
           </v-col>
         </v-row>
       </v-card>
     </div>
 
-    <!-- Alta de un tipo de proyecto nuevo -->
+    <!-- Alta de un tipo de programa nuevo -->
     <v-dialog v-model="dialogNuevoTipo" max-width="440">
       <v-card class="pa-4 rounded-lg">
-        <div class="text-subtitle-1 font-weight-bold mb-1">Nuevo tipo de proyecto</div>
+        <div class="text-subtitle-1 font-weight-bold mb-1">Nuevo tipo de programa</div>
         <div class="text-caption text-slate-500 mb-3">
           Quedará disponible para todas las unidades.
         </div>
         <v-text-field
           v-model="nuevoTipo"
-          label="Tipo de proyecto *"
+          label="Tipo de programa *"
           density="compact"
           variant="outlined"
           hide-details="auto"
           autofocus
-          data-test="input-nuevo-tipo-proyecto"
+          data-test="input-nuevo-tipo-programa"
           @keydown.enter.prevent="crearTipo"
         />
         <div class="d-flex justify-end ga-2 mt-4">
@@ -387,7 +439,7 @@ defineExpose({
             variant="flat"
             :loading="guardandoTipo"
             :disabled="!nuevoTipo || !nuevoTipo.trim()"
-            data-test="btn-guardar-nuevo-tipo-proyecto"
+            data-test="btn-guardar-nuevo-tipo-programa"
             @click="crearTipo"
           >
             Añadir
@@ -399,17 +451,17 @@ defineExpose({
 </template>
 
 <style scoped>
-.unidad-proyecto-table :deep(.v-card.border-error) {
+.unidad-programa-table :deep(.v-card.border-error) {
   border-color: #ef4444 !important;
 }
 .gap-3 {
   gap: 12px;
 }
-.proyecto-card {
+.programa-card {
   border-color: #e2e8f0;
   transition: border-color 0.15s ease-in-out;
 }
-.proyecto-card:hover {
+.programa-card:hover {
   border-color: #cbd5e1;
 }
 </style>

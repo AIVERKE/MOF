@@ -8,9 +8,9 @@ import { UnidadRelacionExterna } from './entities/unidad-relacion-externa.entity
 import { UnidadCoordinacionInterna } from './entities/unidad-coordinacion-interna.entity';
 import { UnidadInventario } from './entities/unidad-inventario.entity';
 import { UnidadSia } from './entities/unidad-sia.entity';
-import { Proyecto } from './entities/proyecto.entity';
-import { ProyectoUnidad } from './entities/proyecto-unidad.entity';
-import { TipoProyecto } from './entities/tipo-proyecto.entity';
+import { Programa } from './entities/programa.entity';
+import { ProgramaUnidad } from './entities/programa-unidad.entity';
+import { TipoPrograma } from './entities/tipo-programa.entity';
 import { CatalogoTipo } from '../catalogos/entities/catalogo-tipo.entity';
 import { CatalogoNivel } from '../catalogos/entities/catalogo-nivel.entity';
 import { CatalogoRelacion } from '../catalogos/entities/catalogo-relacion.entity';
@@ -26,11 +26,11 @@ import {
   type MofConfigDefaults,
 } from './entities/mof-config.entity';
 import {
-  CrearTipoProyectoDto,
+  CrearTipoProgramaDto,
   DependenciaFuncionalDto,
   HEX_COLOR_REGEX,
-  ProyectoDto,
-  ProyectoItemDto,
+  ProgramaDto,
+  ProgramaItemDto,
   SIA_CAMPOS,
   SetParentDto,
   UnidadCoordinacionInternaDto,
@@ -117,8 +117,8 @@ function coloresUnidad(u: Unidad) {
   return { color: colorPropio ?? colorClase, colorPropio, colorClase };
 }
 
-/** Clave para agrupar tipos libres de proyecto: sin acentos, mayúsculas y espacios colapsados. */
-export function claveTipoProyecto(tipo: string): string {
+/** Clave para agrupar tipos libres de programa: sin acentos, mayúsculas y espacios colapsados. */
+export function claveTipoPrograma(tipo: string): string {
   return tipo
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
@@ -129,24 +129,24 @@ export function claveTipoProyecto(tipo: string): string {
 
 /**
  * Agrupa por tipo sin distinguir mayúsculas ni acentos. La etiqueta del grupo
- * es la grafía del primer proyecto; los grupos se ordenan alfabéticamente.
+ * es la grafía del primer programa; los grupos se ordenan alfabéticamente.
  */
-export function agruparProyectosPorTipo<T extends { tipo: string }>(
-  proyectos: readonly T[],
-): { tipo: string; cantidad: number; proyectos: T[] }[] {
+export function agruparProgramasPorTipo<T extends { tipo: string }>(
+  programas: readonly T[],
+): { tipo: string; cantidad: number; programas: T[] }[] {
   const grupos = new Map<
     string,
-    { tipo: string; cantidad: number; proyectos: T[] }
+    { tipo: string; cantidad: number; programas: T[] }
   >();
-  for (const p of proyectos) {
-    const clave = claveTipoProyecto(p.tipo);
+  for (const p of programas) {
+    const clave = claveTipoPrograma(p.tipo);
     let grupo = grupos.get(clave);
     if (!grupo) {
-      grupo = { tipo: p.tipo, cantidad: 0, proyectos: [] };
+      grupo = { tipo: p.tipo, cantidad: 0, programas: [] };
       grupos.set(clave, grupo);
     }
     grupo.cantidad++;
-    grupo.proyectos.push(p);
+    grupo.programas.push(p);
   }
   return [...grupos.values()].sort((a, b) =>
     a.tipo.localeCompare(b.tipo, 'es', { sensitivity: 'base' }),
@@ -154,10 +154,10 @@ export function agruparProyectosPorTipo<T extends { tipo: string }>(
 }
 
 /**
- * Para cada unidad cargada, si lleva Proyectos: su clase es Decanato o algún
- * ancestro lo es. Mismo criterio que `UnidadesService.aplicaProyectos`, sin consultas.
+ * Para cada unidad cargada, si lleva Programas: su clase es Decanato o algún
+ * ancestro lo es. Mismo criterio que `UnidadesService.aplicaProgramas`, sin consultas.
  */
-export function aplicanProyectos(
+export function aplicanProgramas(
   rows: readonly Unidad[],
 ): Map<string, boolean> {
   const porId = new Map(rows.map((r) => [String(r.id), r]));
@@ -253,14 +253,14 @@ export class UnidadesService {
     private readonly inventarioRepo: Repository<UnidadInventario>,
     @InjectRepository(UnidadSia)
     private readonly siaRepo: Repository<UnidadSia>,
-    @InjectRepository(Proyecto)
-    private readonly proyectoRepo: Repository<Proyecto>,
-    @InjectRepository(ProyectoUnidad)
-    private readonly proyectoUnidadRepo: Repository<ProyectoUnidad>,
+    @InjectRepository(Programa)
+    private readonly programaRepo: Repository<Programa>,
+    @InjectRepository(ProgramaUnidad)
+    private readonly programaUnidadRepo: Repository<ProgramaUnidad>,
     @InjectRepository(UnidadCoordinacionInterna)
     private readonly coordIntRepo: Repository<UnidadCoordinacionInterna>,
-    @InjectRepository(TipoProyecto)
-    private readonly tipoProyectoRepo: Repository<TipoProyecto>,
+    @InjectRepository(TipoPrograma)
+    private readonly tipoProgramaRepo: Repository<TipoPrograma>,
   ) {}
 
   private async resolveCatalogId(
@@ -504,12 +504,14 @@ export class UnidadesService {
     const esCarrera = esClaseCarrera(u.tipoUnidad?.descripcion);
     const sia = esCarrera ? await this.findSiaRows(u.id) : [];
 
-    // Igual que SIA: si la unidad deja de aplicar, sus proyectos se conservan pero no se exponen.
-    const aplicaProyectos = await this.aplicaProyectos(
+    // `aplicaProgramas` solo decide si la unidad puede editar programas. Los
+    // programas en los que participa se exponen siempre: una unidad fuera de
+    // Decanato que es conjunta de un programa lo ve en solo lectura.
+    const aplicaProgramas = await this.aplicaProgramas(
       u.tipoUnidad?.descripcion,
       u.parentId,
     );
-    const proyectos = aplicaProyectos ? await this.findProyectos(u.id) : [];
+    const programas = await this.findProgramas(u.id);
 
     return {
       id: Number(u.id),
@@ -587,10 +589,10 @@ export class UnidadesService {
       inventarios,
       esCarrera,
       sia,
-      aplicaProyectos,
-      proyectosCount: proyectos.length,
-      proyectos,
-      proyectosPorTipo: agruparProyectosPorTipo(proyectos),
+      aplicaProgramas,
+      programasCount: programas.length,
+      programas,
+      programasPorTipo: agruparProgramasPorTipo(programas),
       // 7 campos S-MAU
       tramitesAtendidos: u.tramitesAtendidos ?? null,
       tramites_atendidos: u.tramitesAtendidos ?? null,
@@ -667,16 +669,14 @@ export class UnidadesService {
       return String(a.codigo || '').localeCompare(String(b.codigo || ''));
     });
 
-    const aplican = aplicanProyectos(rows);
-    const conteos = await this.contarProyectosPorUnidad();
-    return rows.map((u): Record<string, unknown> => {
-      const aplica = aplican.get(String(u.id)) ?? false;
-      return {
-        ...this.mapListItem(u, u.parent?.nombre ?? null),
-        aplicaProyectos: aplica,
-        proyectosCount: aplica ? (conteos.get(String(u.id)) ?? 0) : 0,
-      };
-    });
+    const aplican = aplicanProgramas(rows);
+    const { totales, porTipo } = await this.contarProgramasPorUnidad();
+    return rows.map((u): Record<string, unknown> => ({
+      ...this.mapListItem(u, u.parent?.nombre ?? null),
+      aplicaProgramas: aplican.get(String(u.id)) ?? false,
+      programasCount: totales.get(String(u.id)) ?? 0,
+      programasPorTipo: porTipo.get(String(u.id)) ?? [],
+    }));
   }
 
   async findById(id: number) {
@@ -710,10 +710,10 @@ export class UnidadesService {
       throwBusiness(ErrorCodes.SIA_SOLO_CARRERA);
     }
     if (
-      dto.proyectos?.length &&
-      !(await this.aplicaProyectos(clase.descripcion, dto.parentId))
+      dto.programas?.length &&
+      !(await this.aplicaProgramas(clase.descripcion, dto.parentId))
     ) {
-      throwBusiness(ErrorCodes.PROYECTOS_NO_APLICA);
+      throwBusiness(ErrorCodes.PROGRAMAS_NO_APLICA);
     }
 
     let sigla = (dto.sigla || '').trim();
@@ -788,8 +788,8 @@ export class UnidadesService {
       if (dto.sia?.length) {
         await this.syncSia(m, row.id, dto.sia);
       }
-      if (dto.proyectos?.length) {
-        await this.syncProyectos(m, row.id, dto.proyectos);
+      if (dto.programas?.length) {
+        await this.syncProgramas(m, row.id, dto.programas);
       }
       return row;
     });
@@ -918,17 +918,17 @@ export class UnidadesService {
       u.parentId = dto.parentId != null ? String(dto.parentId) : null;
     }
     // Con la clase y el padre finales: ambos pueden cambiar en este mismo PUT.
-    let sincronizarProyectos = false;
-    if (dto.proyectos !== undefined) {
+    let sincronizarProgramas = false;
+    if (dto.programas !== undefined) {
       clase ??= await this.claseRepo.findOne({
         where: { id: u.tipoUnidadId },
       });
-      sincronizarProyectos = await this.aplicaProyectos(
+      sincronizarProgramas = await this.aplicaProgramas(
         clase?.descripcion,
         u.parentId,
       );
-      if (dto.proyectos.length && !sincronizarProyectos) {
-        throwBusiness(ErrorCodes.PROYECTOS_NO_APLICA);
+      if (dto.programas.length && !sincronizarProgramas) {
+        throwBusiness(ErrorCodes.PROGRAMAS_NO_APLICA);
       }
     }
 
@@ -956,8 +956,8 @@ export class UnidadesService {
       if (sincronizarSia) {
         await this.syncSia(m, id, dto.sia!);
       }
-      if (sincronizarProyectos) {
-        await this.syncProyectos(m, id, dto.proyectos!);
+      if (sincronizarProgramas) {
+        await this.syncProgramas(m, id, dto.programas!);
       }
     });
 
@@ -1137,118 +1137,123 @@ export class UnidadesService {
   }
 
   /**
-   * Deja los proyectos vigentes de la unidad iguales a `items`: actualiza los
+   * Deja los programas vigentes de la unidad iguales a `items`: actualiza los
    * que traen `id`, crea los que no lo traen y desvincula la unidad de los que
-   * no se enviaron (un proyecto que queda sin unidades se da de baja).
+   * no se enviaron (un programa que queda sin unidades se da de baja).
    * Un `id` que no es de la unidad aborta la transacción.
    */
-  private async syncProyectos(
+  private async syncProgramas(
     m: EntityManager,
     unidadId: number | string,
-    items: readonly ProyectoItemDto[],
+    items: readonly ProgramaItemDto[],
   ) {
     const uid = String(unidadId);
-    const vinculos = await m.find(ProyectoUnidad, { where: { unidadId: uid } });
-    const actuales = new Set(vinculos.map((v) => Number(v.proyectoId)));
+    const vinculos = await m.find(ProgramaUnidad, { where: { unidadId: uid } });
+    const actuales = new Set(vinculos.map((v) => Number(v.programaId)));
     const enviados = new Set<number>();
     for (const item of items) {
       if (item.id == null) continue;
       if (enviados.has(item.id)) {
-        throwBusiness(ErrorCodes.PROYECTO_ID_DUPLICADO, item.id);
+        throwBusiness(ErrorCodes.PROGRAMA_ID_DUPLICADO, item.id);
       }
       if (!actuales.has(item.id)) {
-        throwBusiness(ErrorCodes.PROYECTO_NO_PERTENECE_UNIDAD, item.id);
+        throwBusiness(ErrorCodes.PROGRAMA_NO_PERTENECE_UNIDAD, item.id);
       }
       enviados.add(item.id);
     }
 
     const bajas = [...actuales].filter((id) => !enviados.has(id));
-    await this.desvincularProyectos(m, uid, bajas);
+    await this.desvincularProgramas(m, uid, bajas);
 
     const existentes = enviados.size
-      ? await m.find(Proyecto, {
+      ? await m.find(Programa, {
           where: { id: In([...enviados].map(String)) },
         })
       : [];
     const porId = new Map(existentes.map((p) => [Number(p.id), p]));
-    const cache = new Map<string, boolean>();
     for (const item of items) {
-      const proyecto =
-        item.id != null ? porId.get(item.id)! : m.create(Proyecto, {});
-      await this.guardarProyecto(m, uid, item, proyecto, cache);
+      const programa =
+        item.id != null ? porId.get(item.id)! : m.create(Programa, {});
+      await this.guardarPrograma(m, uid, item, programa);
     }
   }
 
   /**
-   * Guarda tipo y detalle. Si el proyecto es nuevo o trae `unidadIds`, reemplaza
-   * sus participantes: la unidad `unidadId` más las enviadas. El tipo debe
-   * existir en el catálogo y estar activo.
+   * Guarda tipo, nombre, detalle y resolución (una resolución omitida queda en
+   * `null`). Si el programa es nuevo o trae `unidadIds`, reemplaza sus
+   * participantes: la unidad `unidadId` más las enviadas. El tipo debe existir
+   * en el catálogo y estar activo.
    */
-  private async guardarProyecto(
+  private async guardarPrograma(
     m: EntityManager,
     unidadId: string,
-    dto: ProyectoDto,
-    proyecto: Proyecto,
-    cache: Map<string, boolean>,
+    dto: ProgramaDto,
+    programa: Programa,
   ) {
     const participantes =
-      proyecto.id == null || dto.unidadIds !== undefined
-        ? await this.participantesProyecto(unidadId, dto.unidadIds ?? [], cache)
+      programa.id == null || dto.unidadIds !== undefined
+        ? await this.participantesPrograma(unidadId, dto.unidadIds ?? [])
         : null;
-    await this.assertTipoProyecto(dto.tipoId);
-    proyecto.tipoProyectoId = dto.tipoId;
-    proyecto.detalle = dto.detalle.trim();
-    const saved = await m.save(proyecto);
+    await this.assertTipoPrograma(dto.tipoId);
+    programa.tipoProgramaId = dto.tipoId;
+    programa.nombre = dto.nombre.trim();
+    programa.detalle = dto.detalle.trim();
+    programa.resolucion = dto.resolucion?.trim() || null;
+    const saved = await m.save(programa);
     if (participantes) {
-      await m.delete(ProyectoUnidad, { proyectoId: saved.id });
+      await m.delete(ProgramaUnidad, { programaId: saved.id });
       await m.insert(
-        ProyectoUnidad,
-        participantes.map((id) => ({ proyectoId: saved.id, unidadId: id })),
+        ProgramaUnidad,
+        participantes.map((id) => ({ programaId: saved.id, unidadId: id })),
       );
     }
     return saved;
   }
 
-  /** La unidad de la ruta primero, sin repetidos; cada otra debe existir y aplicar. */
-  private async participantesProyecto(
+  /**
+   * La unidad de la ruta primero, sin repetidos. Las otras pueden ser
+   * cualquier unidad vigente, sea o no de Decanato hacia abajo.
+   */
+  private async participantesPrograma(
     unidadId: string,
     unidadIds: readonly number[],
-    cache: Map<string, boolean>,
   ): Promise<string[]> {
-    const ids = [unidadId];
-    for (const raw of unidadIds) {
-      const id = String(raw);
-      if (ids.includes(id)) continue;
-      let aplica = cache.get(id);
-      if (aplica === undefined) {
-        aplica = (await this.aplicaProyectosUnidad(id)) ?? false;
-        cache.set(id, aplica);
+    const otras = [...new Set(unidadIds.map(String))].filter(
+      (id) => id !== unidadId,
+    );
+    if (otras.length) {
+      const existentes = await this.unidadRepo.find({
+        select: { id: true },
+        where: { id: In(otras) },
+      });
+      const vigentes = new Set(existentes.map((u) => String(u.id)));
+      const faltante = otras.find((id) => !vigentes.has(id));
+      if (faltante !== undefined) {
+        throwBusiness(ErrorCodes.PROGRAMA_UNIDAD_NO_EXISTE, Number(faltante));
       }
-      if (!aplica) throwBusiness(ErrorCodes.PROYECTO_UNIDAD_NO_APLICA, raw);
-      ids.push(id);
     }
-    return ids;
+    return [unidadId, ...otras];
   }
 
   /**
-   * Quita la unidad de esos proyectos. Los que quedan sin unidades se dan de
-   * baja: así todo vínculo apunta a un proyecto vigente y el conteo de
-   * `contarProyectosPorUnidad` no necesita cruzar con `proyecto`.
+   * Quita la unidad de esos programas. Los que quedan sin unidades se dan de
+   * baja: así todo vínculo apunta a un programa vigente y el conteo de
+   * `contarProgramasPorUnidad` no necesita cruzar con `programa`.
    */
-  private async desvincularProyectos(
+  private async desvincularProgramas(
     m: EntityManager,
     unidadId: string,
-    proyectoIds: readonly number[],
+    programaIds: readonly number[],
   ) {
-    if (!proyectoIds.length) return;
-    const ids = proyectoIds.map(String);
-    await m.delete(ProyectoUnidad, { unidadId, proyectoId: In(ids) });
-    const restantes = await m.find(ProyectoUnidad, {
-      where: { proyectoId: In(ids) },
+    if (!programaIds.length) return;
+    const ids = programaIds.map(String);
+    await m.delete(ProgramaUnidad, { unidadId, programaId: In(ids) });
+    const restantes = await m.find(ProgramaUnidad, {
+      where: { programaId: In(ids) },
     });
-    const conUnidades = new Set(restantes.map((v) => String(v.proyectoId)));
+    const conUnidades = new Set(restantes.map((v) => String(v.programaId)));
     const huerfanos = ids.filter((id) => !conUnidades.has(id));
-    if (huerfanos.length) await m.softDelete(Proyecto, { id: In(huerfanos) });
+    if (huerfanos.length) await m.softDelete(Programa, { id: In(huerfanos) });
   }
 
   async remove(id: number) {
@@ -1905,12 +1910,12 @@ export class UnidadesService {
     return true;
   }
 
-  // --- PROYECTOS (Decanato hacia abajo) ---
+  // --- PROGRAMAS (Decanato hacia abajo) ---
   /**
-   * Una unidad lleva Proyectos si su clase es Decanato o si algún ancestro por
+   * Una unidad lleva Programas si su clase es Decanato o si algún ancestro por
    * `parent_id` lo es. `parentId` puede ser el padre final de un PUT aún sin guardar.
    */
-  private async aplicaProyectos(
+  private async aplicaProgramas(
     claseDescripcion: string | null | undefined,
     parentId: string | number | null | undefined,
   ): Promise<boolean> {
@@ -1931,7 +1936,7 @@ export class UnidadesService {
   }
 
   /** `null` si la unidad no existe o fue dada de baja. */
-  private async aplicaProyectosUnidad(
+  private async aplicaProgramasUnidad(
     unidadId: number | string,
   ): Promise<boolean | null> {
     const u = await this.unidadRepo.findOne({
@@ -1939,36 +1944,94 @@ export class UnidadesService {
       relations: ['tipoUnidad'],
     });
     if (!u) return null;
-    return this.aplicaProyectos(u.tipoUnidad?.descripcion, u.parentId);
+    return this.aplicaProgramas(u.tipoUnidad?.descripcion, u.parentId);
   }
 
-  /** 404 si la unidad no existe; indica si lleva el bloque de Proyectos. */
-  private async unidadAplicaProyectos(unidadId: number) {
-    const aplica = await this.aplicaProyectosUnidad(unidadId);
+  /** 404 si la unidad no existe; indica si lleva el bloque de Programas. */
+  private async unidadAplicaProgramas(unidadId: number) {
+    const aplica = await this.aplicaProgramasUnidad(unidadId);
     if (aplica == null) notFound(unidadId);
     return aplica;
   }
 
-  private async assertUnidadAplicaProyectos(unidadId: number) {
-    if (!(await this.unidadAplicaProyectos(unidadId))) {
-      throwBusiness(ErrorCodes.PROYECTOS_NO_APLICA, unidadId);
+  private async assertUnidadAplicaProgramas(unidadId: number) {
+    if (!(await this.unidadAplicaProgramas(unidadId))) {
+      throwBusiness(ErrorCodes.PROGRAMAS_NO_APLICA, unidadId);
     }
   }
 
-  /** Proyectos vigentes por unidad (todo vínculo apunta a un proyecto vigente). */
-  private async contarProyectosPorUnidad(): Promise<Map<string, number>> {
-    const vinculos = await this.proyectoUnidadRepo.find({
-      select: { unidadId: true },
+  /** Programas vigentes por unidad (totales y desglose por tipo). */
+  private async contarProgramasPorUnidad(): Promise<{
+    totales: Map<string, number>;
+    porTipo: Map<string, { tipo: string; cantidad: number }[]>;
+  }> {
+    const vinculos = await this.programaUnidadRepo.find({
+      select: { unidadId: true, programaId: true },
     });
-    const conteos = new Map<string, number>();
+    if (!vinculos.length) {
+      return { totales: new Map(), porTipo: new Map() };
+    }
+    const totales = new Map<string, number>();
     for (const v of vinculos) {
       const id = String(v.unidadId);
-      conteos.set(id, (conteos.get(id) ?? 0) + 1);
+      totales.set(id, (totales.get(id) ?? 0) + 1);
     }
-    return conteos;
+
+    const programaIds = [...new Set(vinculos.map((v) => v.programaId))];
+    const programas = await this.findProgramasPorId(programaIds);
+    const progMap = new Map<string, { tipo: string; nombre: string }>();
+    for (const p of programas) {
+      if (p.tipoPrograma?.descripcion) {
+        progMap.set(String(p.id), {
+          tipo: p.tipoPrograma.descripcion,
+          nombre: p.nombre,
+        });
+      }
+    }
+
+    const agrupado = new Map<
+      string,
+      Map<string, { cantidad: number; nombres: string[] }>
+    >();
+    for (const v of vinculos) {
+      const uId = String(v.unidadId);
+      const info = progMap.get(String(v.programaId));
+      if (!info) continue;
+      let mapaUnidad = agrupado.get(uId);
+      if (!mapaUnidad) {
+        mapaUnidad = new Map();
+        agrupado.set(uId, mapaUnidad);
+      }
+      let grupo = mapaUnidad.get(info.tipo);
+      if (!grupo) {
+        grupo = { cantidad: 0, nombres: [] };
+        mapaUnidad.set(info.tipo, grupo);
+      }
+      grupo.cantidad++;
+      if (info.nombre && !grupo.nombres.includes(info.nombre)) {
+        grupo.nombres.push(info.nombre);
+      }
+    }
+
+    const porTipo = new Map<
+      string,
+      { tipo: string; cantidad: number; nombres: string[] }[]
+    >();
+    for (const [uId, mapa] of agrupado.entries()) {
+      porTipo.set(
+        uId,
+        [...mapa.entries()].map(([tipo, { cantidad, nombres }]) => ({
+          tipo,
+          cantidad,
+          nombres,
+        })),
+      );
+    }
+
+    return { totales, porTipo };
   }
 
-  private mapProyecto(p: Proyecto) {
+  private mapPrograma(p: Programa) {
     const unidades = (p.unidades ?? [])
       .filter((pu) => pu.unidad && !pu.unidad.deletedAt)
       .map((pu) => ({
@@ -1980,123 +2043,124 @@ export class UnidadesService {
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     return {
       id: Number(p.id),
-      tipoId: Number(p.tipoProyectoId),
-      tipo: p.tipoProyecto?.descripcion ?? '',
+      tipoId: Number(p.tipoProgramaId),
+      tipo: p.tipoPrograma?.descripcion ?? '',
+      nombre: p.nombre,
       detalle: p.detalle,
+      resolucion: p.resolucion ?? null,
       unidades,
     };
   }
 
-  private findProyectosPorId(ids: readonly (number | string)[]) {
-    return this.proyectoRepo.find({
+  private findProgramasPorId(ids: readonly (number | string)[]) {
+    return this.programaRepo.find({
       where: { id: In(ids.map(String)) },
-      relations: { tipoProyecto: true, unidades: { unidad: true } },
+      relations: { tipoPrograma: true, unidades: { unidad: true } },
       order: { id: 'ASC' },
     });
   }
 
-  /** Proyectos de la unidad en orden de alta, con todas sus unidades participantes. */
-  private async findProyectos(unidadId: number | string) {
-    const vinculos = await this.proyectoUnidadRepo.find({
+  /** Programas de la unidad en orden de alta, con todas sus unidades participantes. */
+  private async findProgramas(unidadId: number | string) {
+    const vinculos = await this.programaUnidadRepo.find({
       where: { unidadId: String(unidadId) },
     });
     if (!vinculos.length) return [];
-    const proyectos = await this.findProyectosPorId(
-      vinculos.map((v) => v.proyectoId),
+    const programas = await this.findProgramasPorId(
+      vinculos.map((v) => v.programaId),
     );
-    return proyectos.map((p) => this.mapProyecto(p));
+    return programas.map((p) => this.mapPrograma(p));
   }
 
-  /** Busca por (proyecto, unidad): un proyecto en el que no participa responde 404. */
-  private async findProyectoOrFail(unidadId: number, proyectoId: number) {
-    const vinculo = await this.proyectoUnidadRepo.findOne({
-      where: { proyectoId: String(proyectoId), unidadId: String(unidadId) },
+  /** Busca por (programa, unidad): un programa en el que no participa responde 404. */
+  private async findProgramaOrFail(unidadId: number, programaId: number) {
+    const vinculo = await this.programaUnidadRepo.findOne({
+      where: { programaId: String(programaId), unidadId: String(unidadId) },
     });
-    const [proyecto] = vinculo
-      ? await this.findProyectosPorId([proyectoId])
+    const [programa] = vinculo
+      ? await this.findProgramasPorId([programaId])
       : [];
-    if (!proyecto) notFound(proyectoId);
-    return proyecto;
+    if (!programa) notFound(programaId);
+    return programa;
   }
 
-  /** En una unidad que no aplica devuelve `[]` (proyectos ocultos). */
-  async listProyectos(unidadId: number) {
-    if (!(await this.unidadAplicaProyectos(unidadId))) return [];
-    return this.findProyectos(unidadId);
+  /**
+   * Lectura para cualquier unidad: una que no aplica solo participa como
+   * conjunta y ve sus programas en solo lectura. 404 si la unidad no existe.
+   */
+  async listProgramas(unidadId: number) {
+    await this.unidadAplicaProgramas(unidadId);
+    return this.findProgramas(unidadId);
   }
 
-  async getProyecto(unidadId: number, proyectoId: number) {
-    if (!(await this.unidadAplicaProyectos(unidadId))) notFound(proyectoId);
-    return this.mapProyecto(
-      await this.findProyectoOrFail(unidadId, proyectoId),
+  async getPrograma(unidadId: number, programaId: number) {
+    await this.unidadAplicaProgramas(unidadId);
+    return this.mapPrograma(
+      await this.findProgramaOrFail(unidadId, programaId),
     );
   }
 
-  async addProyecto(unidadId: number, dto: ProyectoDto) {
-    await this.assertUnidadAplicaProyectos(unidadId);
-    const saved = await this.proyectoRepo.manager.transaction((m) =>
-      this.guardarProyecto(
-        m,
-        String(unidadId),
-        dto,
-        m.create(Proyecto, {}),
-        new Map(),
-      ),
+  async addPrograma(unidadId: number, dto: ProgramaDto) {
+    await this.assertUnidadAplicaProgramas(unidadId);
+    const saved = await this.programaRepo.manager.transaction((m) =>
+      this.guardarPrograma(m, String(unidadId), dto, m.create(Programa, {})),
     );
-    return this.mapProyecto(
-      await this.findProyectoOrFail(unidadId, Number(saved.id)),
+    return this.mapPrograma(
+      await this.findProgramaOrFail(unidadId, Number(saved.id)),
     );
   }
 
-  async updateProyecto(unidadId: number, proyectoId: number, dto: ProyectoDto) {
-    await this.assertUnidadAplicaProyectos(unidadId);
-    const proyecto = await this.findProyectoOrFail(unidadId, proyectoId);
-    // Sin la relación cargada, `save` no toca los vínculos: los maneja guardarProyecto.
-    const row = this.proyectoRepo.create({
-      id: proyecto.id,
-      tipoProyectoId: proyecto.tipoProyectoId,
-      detalle: proyecto.detalle,
+  async updatePrograma(unidadId: number, programaId: number, dto: ProgramaDto) {
+    await this.assertUnidadAplicaProgramas(unidadId);
+    const programa = await this.findProgramaOrFail(unidadId, programaId);
+    // Sin la relación cargada, `save` no toca los vínculos: los maneja guardarPrograma.
+    const row = this.programaRepo.create({
+      id: programa.id,
+      tipoProgramaId: programa.tipoProgramaId,
+      nombre: programa.nombre,
+      detalle: programa.detalle,
+      resolucion: programa.resolucion,
     });
-    await this.proyectoRepo.manager.transaction((m) =>
-      this.guardarProyecto(m, String(unidadId), dto, row, new Map()),
+    await this.programaRepo.manager.transaction((m) =>
+      this.guardarPrograma(m, String(unidadId), dto, row),
     );
-    return this.mapProyecto(
-      await this.findProyectoOrFail(unidadId, proyectoId),
+    return this.mapPrograma(
+      await this.findProgramaOrFail(unidadId, programaId),
     );
   }
 
-  /** Desvincula la unidad; si el proyecto queda sin unidades, se da de baja. */
-  async removeProyecto(unidadId: number, proyectoId: number) {
-    await this.assertUnidadAplicaProyectos(unidadId);
-    await this.findProyectoOrFail(unidadId, proyectoId);
-    await this.proyectoRepo.manager.transaction((m) =>
-      this.desvincularProyectos(m, String(unidadId), [proyectoId]),
+  /** Desvincula la unidad; si el programa queda sin unidades, se da de baja. */
+  async removePrograma(unidadId: number, programaId: number) {
+    await this.assertUnidadAplicaProgramas(unidadId);
+    await this.findProgramaOrFail(unidadId, programaId);
+    await this.programaRepo.manager.transaction((m) =>
+      this.desvincularProgramas(m, String(unidadId), [programaId]),
     );
     return true;
   }
 
-  private async assertTipoProyecto(tipoId: number) {
-    const tipo = await this.tipoProyectoRepo.findOne({
+  private async assertTipoPrograma(tipoId: number) {
+    const tipo = await this.tipoProgramaRepo.findOne({
       where: { id: tipoId, activo: true },
     });
-    if (!tipo) throwBusiness(ErrorCodes.TIPO_PROYECTO_NO_EXISTE, tipoId);
+    if (!tipo) throwBusiness(ErrorCodes.TIPO_PROGRAMA_NO_EXISTE, tipoId);
   }
 
   /**
    * Catálogo de tipos activos en orden de alta (primero los tres programas
-   * oficiales), con la cantidad de proyectos vigentes de cada uno.
+   * oficiales), con la cantidad de programas vigentes de cada uno.
    */
-  async tiposProyecto() {
-    const [tipos, proyectos] = await Promise.all([
-      this.tipoProyectoRepo.find({
+  async tiposPrograma() {
+    const [tipos, programas] = await Promise.all([
+      this.tipoProgramaRepo.find({
         where: { activo: true },
         order: { id: 'ASC' },
       }),
-      this.proyectoRepo.find({ select: { id: true, tipoProyectoId: true } }),
+      this.programaRepo.find({ select: { id: true, tipoProgramaId: true } }),
     ]);
     const conteos = new Map<number, number>();
-    for (const p of proyectos) {
-      const id = Number(p.tipoProyectoId);
+    for (const p of programas) {
+      const id = Number(p.tipoProgramaId);
       conteos.set(id, (conteos.get(id) ?? 0) + 1);
     }
     return tipos.map((t) => ({
@@ -2107,30 +2171,30 @@ export class UnidadesService {
   }
 
   /**
-   * Alta de un tipo de proyecto. Si ya existe uno equivalente (sin distinguir
+   * Alta de un tipo de programa. Si ya existe uno equivalente (sin distinguir
    * mayúsculas, acentos ni espacios repetidos) devuelve ese, reactivándolo si
    * estaba inactivo, en lugar de duplicarlo.
    */
-  async crearTipoProyecto(dto: CrearTipoProyectoDto) {
+  async crearTipoPrograma(dto: CrearTipoProgramaDto) {
     const descripcion = dto.tipo.trim().replace(/\s+/g, ' ');
-    const clave = claveTipoProyecto(descripcion);
-    const existentes = await this.tipoProyectoRepo.find({
+    const clave = claveTipoPrograma(descripcion);
+    const existentes = await this.tipoProgramaRepo.find({
       order: { id: 'ASC' },
     });
     let tipo = existentes.find(
-      (t) => claveTipoProyecto(t.descripcion) === clave,
+      (t) => claveTipoPrograma(t.descripcion) === clave,
     );
     if (tipo && !tipo.activo) {
       tipo.activo = true;
-      tipo = await this.tipoProyectoRepo.save(tipo);
+      tipo = await this.tipoProgramaRepo.save(tipo);
     }
     if (!tipo) {
-      tipo = await this.tipoProyectoRepo.save(
-        this.tipoProyectoRepo.create({ descripcion, activo: true }),
+      tipo = await this.tipoProgramaRepo.save(
+        this.tipoProgramaRepo.create({ descripcion, activo: true }),
       );
     }
-    const cantidad = await this.proyectoRepo.count({
-      where: { tipoProyectoId: tipo.id },
+    const cantidad = await this.programaRepo.count({
+      where: { tipoProgramaId: tipo.id },
     });
     return { id: tipo.id, tipo: tipo.descripcion, cantidad };
   }

@@ -1,7 +1,7 @@
 import { compareCodigos } from "./mofHelpers.js";
 
 export const NODE_WIDTH = 320;
-export const NODE_HEIGHT = 210; // Altura fija garantizada para evitar cualquier solapamiento
+export const NODE_HEIGHT = 235; // Altura fija garantizada para evitar cualquier solapamiento
 export const H_GAP = 90; // Separación horizontal generosa entre ramas
 export const V_GAP = 140; // Separación vertical generosa tipo mapa conceptual para trazo ortogonal limpio
 export const FACULTADES_EXTRA_GAP = 700; // Separación vertical adicional para dar respiro al piso de Facultades

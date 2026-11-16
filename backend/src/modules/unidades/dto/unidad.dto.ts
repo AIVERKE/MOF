@@ -304,16 +304,16 @@ export class UnidadDto {
   sia?: UnidadSiaItemDto[];
 
   @ApiPropertyOptional({
-    type: () => [ProyectoItemDto],
+    type: () => [ProgramaItemDto],
     description:
-      'Proyectos de la unidad (solo Decanatos y unidades que dependen de uno). Misma convención que `inventarios`: filas con `id` se actualizan, filas sin `id` se crean y los proyectos vigentes que no se envían se desvinculan de la unidad (si quedan sin unidades, se dan de baja). Si se omite el campo, no se modifica. Enviar filas en una unidad que no aplica responde `PROYECTOS_NO_APLICA`; `[]` se ignora.',
+      'Programas de la unidad (solo Decanatos y unidades que dependen de uno). Misma convención que `inventarios`: filas con `id` se actualizan, filas sin `id` se crean y los programas vigentes que no se envían se desvinculan de la unidad (si quedan sin unidades, se dan de baja). Si se omite el campo, no se modifica. Enviar filas en una unidad que no aplica responde `PROGRAMAS_NO_APLICA`; `[]` se ignora.',
   })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(MAX_RELACIONES)
   @ValidateNested({ each: true })
-  @Type(() => ProyectoItemDto)
-  proyectos?: ProyectoItemDto[];
+  @Type(() => ProgramaItemDto)
+  programas?: ProgramaItemDto[];
 }
 
 export class SetParentDto {
@@ -522,30 +522,55 @@ export class UnidadSiaResponseDto {
 const normalizarTexto = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value;
 
-export class ProyectoDto {
+export class ProgramaDto {
   @ApiProperty({
     description:
-      'Tipo de proyecto en texto libre (no hay lista cerrada). Proyectos con el mismo tipo, sin distinguir mayúsculas ni acentos, se agrupan juntos.',
-    example: 'Interacción social',
+      'ID del tipo de programa (catálogo `GET /mof/programas/tipos`). Debe existir y estar activo (`TIPO_PROGRAMA_NO_EXISTE`).',
+    example: 3,
   })
-  @IsInt({ message: 'El tipo de proyecto es obligatorio' })
-  @IsPositive({ message: 'El tipo de proyecto es obligatorio' })
+  @IsInt({ message: 'El tipo de programa es obligatorio' })
+  @IsPositive({ message: 'El tipo de programa es obligatorio' })
   tipoId: number;
 
   @ApiProperty({
-    description: 'Detalle descriptivo del proyecto',
+    description: 'Nombre que identifica al programa',
+    example: 'Brigadas de Salud Comunitaria',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString({ message: 'El nombre del programa es obligatorio' })
+  @IsNotEmpty({ message: 'El nombre del programa es obligatorio' })
+  nombre: string;
+
+  @ApiProperty({
+    description: 'Detalle descriptivo del programa',
     example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
   })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
-  @IsNotEmpty({ message: 'El detalle del proyecto es obligatorio' })
+  @IsNotEmpty({ message: 'El detalle del programa es obligatorio' })
   detalle: string;
 
   @ApiPropertyOptional({
     description:
-      'Otras unidades que participan en el proyecto (proyecto conjunto). La unidad de la ruta siempre participa: no hace falta incluirla y se ignoran repetidos. Si se envía, reemplaza la lista de participantes; si se omite al actualizar, se conserva. Cada unidad debe ser un Decanato o depender de uno (`PROYECTO_UNIDAD_NO_APLICA`).',
+      'Resolución que respalda el programa (texto libre). Vacío o `null` la deja sin resolución; al actualizar, omitirla también la borra.',
+    example: 'Res. HCF N° 123/2026',
+    nullable: true,
+    type: String,
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
+  @IsOptional()
+  @IsString()
+  resolucion?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Otras unidades que participan en el programa (programa conjunto). La unidad de la ruta siempre participa: no hace falta incluirla y se ignoran repetidos. Si se envía, reemplaza la lista de participantes; si se omite al actualizar, se conserva. Puede ser cualquier unidad vigente (`PROGRAMA_UNIDAD_NO_EXISTE` si no existe); las que no son Decanato ni dependen de uno ven el programa en solo lectura.',
     example: [42],
     type: [Number],
   })
@@ -560,9 +585,9 @@ export class ProyectoDto {
   unidadIds?: number[];
 }
 
-export class ProyectoItemDto extends ProyectoDto {
+export class ProgramaItemDto extends ProgramaDto {
   @ApiPropertyOptional({
-    description: 'ID del proyecto existente; omitir para crear uno nuevo',
+    description: 'ID del programa existente; omitir para crear uno nuevo',
     example: 5,
   })
   @IsOptional()
@@ -571,7 +596,7 @@ export class ProyectoItemDto extends ProyectoDto {
   id?: number;
 }
 
-export class ProyectoUnidadRefDto {
+export class ProgramaUnidadRefDto {
   @ApiProperty({ example: 42 })
   id: number;
 
@@ -585,18 +610,21 @@ export class ProyectoUnidadRefDto {
   nombre: string;
 }
 
-export class ProyectoResponseDto {
+export class ProgramaResponseDto {
   @ApiProperty({ example: 5 })
   id: number;
 
-  @ApiProperty({ example: 3, description: 'ID del tipo de proyecto' })
+  @ApiProperty({ example: 3, description: 'ID del tipo de programa' })
   tipoId: number;
 
   @ApiProperty({
     example: 'Programa Interacción Social y Extensión Universitaria',
-    description: 'Descripción del tipo de proyecto',
+    description: 'Descripción del tipo de programa',
   })
   tipo: string;
+
+  @ApiProperty({ example: 'Brigadas de Salud Comunitaria' })
+  nombre: string;
 
   @ApiProperty({
     example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
@@ -604,28 +632,35 @@ export class ProyectoResponseDto {
   detalle: string;
 
   @ApiProperty({
-    type: () => [ProyectoUnidadRefDto],
-    description:
-      'Todas las unidades vigentes que participan, incluida la consultada. Más de una indica un proyecto conjunto.',
+    example: 'Res. HCF N° 123/2026',
+    nullable: true,
+    type: String,
   })
-  unidades: ProyectoUnidadRefDto[];
+  resolucion: string | null;
+
+  @ApiProperty({
+    type: () => [ProgramaUnidadRefDto],
+    description:
+      'Todas las unidades vigentes que participan, incluida la consultada. Más de una indica un programa conjunto.',
+  })
+  unidades: ProgramaUnidadRefDto[];
 }
 
-export class ProyectoGrupoResponseDto {
+export class ProgramaGrupoResponseDto {
   @ApiProperty({
     example: 'Programa Investigación',
-    description: 'Descripción del tipo de proyecto',
+    description: 'Descripción del tipo de programa',
   })
   tipo: string;
 
-  @ApiProperty({ example: 2, description: 'Proyectos del grupo' })
+  @ApiProperty({ example: 2, description: 'Programas del grupo' })
   cantidad: number;
 
-  @ApiProperty({ type: () => [ProyectoResponseDto] })
-  proyectos: ProyectoResponseDto[];
+  @ApiProperty({ type: () => [ProgramaResponseDto] })
+  programas: ProgramaResponseDto[];
 }
 
-export class CrearTipoProyectoDto {
+export class CrearTipoProgramaDto {
   @ApiProperty({
     description:
       'Descripción del tipo nuevo. Si ya existe uno igual (sin distinguir mayúsculas, acentos ni espacios repetidos), se devuelve ese.',
@@ -633,11 +668,11 @@ export class CrearTipoProyectoDto {
   })
   @Transform(normalizarTexto)
   @IsString()
-  @IsNotEmpty({ message: 'El tipo de proyecto es obligatorio' })
+  @IsNotEmpty({ message: 'El tipo de programa es obligatorio' })
   tipo: string;
 }
 
-export class ProyectoTipoResponseDto {
+export class ProgramaTipoResponseDto {
   @ApiProperty({ example: 2 })
   id: number;
 
@@ -646,7 +681,7 @@ export class ProyectoTipoResponseDto {
 
   @ApiProperty({
     example: 7,
-    description: 'Proyectos vigentes registrados con ese tipo',
+    description: 'Programas vigentes registrados con ese tipo',
   })
   cantidad: number;
 }

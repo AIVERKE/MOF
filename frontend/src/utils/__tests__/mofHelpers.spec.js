@@ -20,8 +20,8 @@ import {
   OKABE_ITO_PALETTE,
   INTENSE_NODE_PALETTE,
   esClaseDecanato,
-  checkUnidadAplicaProyectos,
-  agruparProyectosPorTipo,
+  checkUnidadAplicaProgramas,
+  agruparProgramasPorTipo,
   PROTANOPIA_PALETTE,
   DEUTERANOPIA_PALETTE,
   TRITANOPIA_PALETTE,
@@ -452,7 +452,7 @@ describe("mofHelpers - getContrastingTextColor y cumplimiento WCAG AA", () => {
 });
 
 
-describe("mofHelpers - Proyectos de unidad (Decanatos hacia abajo)", () => {
+describe("mofHelpers - Programas de unidad (Decanatos hacia abajo)", () => {
   const clasesCatalog = [
     { id: 1, descripcion: "RECTORADO", esDecanato: false },
     { id: 2, descripcion: "DECANATOS", esDecanato: true },
@@ -470,43 +470,43 @@ describe("mofHelpers - Proyectos de unidad (Decanatos hacia abajo)", () => {
     expect(esClaseDecanato("DIRECCIÓN ADMINISTRATIVA")).toBe(false);
   });
 
-  it("checkUnidadAplicaProyectos valida jerarquía de decanato hacia abajo", () => {
+  it("checkUnidadAplicaProgramas valida jerarquía de decanato hacia abajo", () => {
     const unidades = [
-      { id: 10, nombre: "RECTORADO", clase: 1, parentId: null, aplicaProyectos: false },
-      { id: 20, nombre: "FACULTAD DE CIENCIAS - DECANATO", clase: 2, parentId: 10, aplicaProyectos: true },
-      { id: 30, nombre: "CARRERA DE INFORMÁTICA", clase: 4, parentId: 20, aplicaProyectos: true },
-      { id: 40, nombre: "INSTITUTO DE INVESTIGACIONES", clase: 5, parentId: 30, aplicaProyectos: true },
-      { id: 50, nombre: "SECRETARÍA GENERAL", clase: 1, parentId: 10, aplicaProyectos: false },
+      { id: 10, nombre: "RECTORADO", clase: 1, parentId: null, aplicaProgramas: false },
+      { id: 20, nombre: "FACULTAD DE CIENCIAS - DECANATO", clase: 2, parentId: 10, aplicaProgramas: true },
+      { id: 30, nombre: "CARRERA DE INFORMÁTICA", clase: 4, parentId: 20, aplicaProgramas: true },
+      { id: 40, nombre: "INSTITUTO DE INVESTIGACIONES", clase: 5, parentId: 30, aplicaProgramas: true },
+      { id: 50, nombre: "SECRETARÍA GENERAL", clase: 1, parentId: 10, aplicaProgramas: false },
     ];
 
     // Decanato aplica
-    expect(checkUnidadAplicaProyectos({ clase: 2, parentId: 10, unidades, clases: clasesCatalog })).toBe(true);
+    expect(checkUnidadAplicaProgramas({ clase: 2, parentId: 10, unidades, clases: clasesCatalog })).toBe(true);
 
     // Carrera hija de Decanato aplica
-    expect(checkUnidadAplicaProyectos({ clase: 4, parentId: 20, unidades, clases: clasesCatalog })).toBe(true);
+    expect(checkUnidadAplicaProgramas({ clase: 4, parentId: 20, unidades, clases: clasesCatalog })).toBe(true);
 
     // Instituto hijo de Carrera (que desciende de Decanato) aplica
-    expect(checkUnidadAplicaProyectos({ clase: 5, parentId: 30, unidades, clases: clasesCatalog })).toBe(true);
+    expect(checkUnidadAplicaProgramas({ clase: 5, parentId: 30, unidades, clases: clasesCatalog })).toBe(true);
 
     // Rectorado o Secretaría Central NO aplican
-    expect(checkUnidadAplicaProyectos({ clase: 1, parentId: 10, unidades, clases: clasesCatalog })).toBe(false);
+    expect(checkUnidadAplicaProgramas({ clase: 1, parentId: 10, unidades, clases: clasesCatalog })).toBe(false);
   });
 
-  it("agruparProyectosPorTipo agrupa dinámicamente preservando grafía y contando", () => {
-    const proyectos = [
+  it("agruparProgramasPorTipo agrupa dinámicamente preservando grafía y contando", () => {
+    const programas = [
       { id: 1, tipo: "Investigación", detalle: "P1" },
       { id: 2, tipo: "Interacción social", detalle: "P2" },
       { id: 3, tipo: "investigacion", detalle: "P3" },
       { id: 4, tipo: "Académico abierto", detalle: "P4" },
     ];
 
-    const agrupados = agruparProyectosPorTipo(proyectos);
+    const agrupados = agruparProgramasPorTipo(programas);
     expect(agrupados).toHaveLength(3);
 
     const inv = agrupados.find((g) => g.tipo.toLowerCase().includes("investiga"));
     expect(inv).toBeDefined();
     expect(inv.cantidad).toBe(2);
-    expect(inv.proyectos).toHaveLength(2);
+    expect(inv.programas).toHaveLength(2);
 
     const inter = agrupados.find((g) => g.tipo.toLowerCase().includes("interac"));
     expect(inter).toBeDefined();
