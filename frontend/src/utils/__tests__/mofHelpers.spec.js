@@ -22,6 +22,10 @@ import {
   esClaseDecanato,
   checkUnidadAplicaProgramas,
   agruparProgramasPorTipo,
+  programasVisibles,
+  getProgramaIcon,
+  formatProgramaTexto,
+  progTooltip,
   PROTANOPIA_PALETTE,
   DEUTERANOPIA_PALETTE,
   TRITANOPIA_PALETTE,
@@ -511,5 +515,63 @@ describe("mofHelpers - Programas de unidad (Decanatos hacia abajo)", () => {
     const inter = agrupados.find((g) => g.tipo.toLowerCase().includes("interac"));
     expect(inter).toBeDefined();
     expect(inter.cantidad).toBe(1);
+  });
+
+  describe("MOF-095 - programasVisibles y getProgramaIcon", () => {
+    it("programasVisibles filtra estrictamente los tipos con cantidad > 0 y descarta filas con 0", () => {
+      const lista = [
+        { tipo: "Programa Académico", cantidad: 0 },
+        { tipo: "Programa Investigación", cantidad: 3, nombres: ["Inv1", "Inv2", "Inv3"] },
+        { tipo: "Programa Interacción", cantidad: "0" },
+        { tipo: "Otro", cantidad: null },
+      ];
+
+      const visibles = programasVisibles(lista);
+      expect(visibles).toHaveLength(1);
+      expect(visibles[0].tipo).toBe("Programa Investigación");
+      expect(visibles[0].cantidad).toBe(3);
+    });
+
+    it("programasVisibles devuelve arreglo vacío si no hay programas o lista no es arreglo", () => {
+      expect(programasVisibles(null)).toEqual([]);
+      expect(programasVisibles(undefined)).toEqual([]);
+      expect(programasVisibles([])).toEqual([]);
+      expect(programasVisibles([{ tipo: "A", cantidad: 0 }])).toEqual([]);
+    });
+
+    it("getProgramaIcon preserva los íconos institucionales para las 3 categorías oficiales", () => {
+      // Académico
+      expect(getProgramaIcon("Programa Académico")).toBe("mdi-school-outline");
+      expect(getProgramaIcon("académico")).toBe("mdi-school-outline");
+      expect(getProgramaIcon("Academico")).toBe("mdi-school-outline");
+
+      // Investigación
+      expect(getProgramaIcon("Programa Investigación")).toBe("mdi-microscope");
+      expect(getProgramaIcon("investigacion")).toBe("mdi-microscope");
+
+      // Interacción Social y Extensión
+      expect(getProgramaIcon("Programa Interacción Social y Extensión Universitaria")).toBe("mdi-account-group-outline");
+      expect(getProgramaIcon("Interacción")).toBe("mdi-account-group-outline");
+      expect(getProgramaIcon("extension universitaria")).toBe("mdi-account-group-outline");
+      expect(getProgramaIcon("social")).toBe("mdi-account-group-outline");
+
+      // Ambiental y Fallback
+      expect(getProgramaIcon("Gestión Ambiental")).toBe("mdi-leaf");
+      expect(getProgramaIcon("Cualquier otro")).toBe("mdi-folder-outline");
+    });
+
+    it("formatProgramaTexto y progTooltip formatean adecuadamente según nombres y cantidad", () => {
+      const progConNombres = {
+        tipo: "Académico",
+        cantidad: 2,
+        nombres: ["Maestría A", "Maestría B"],
+      };
+      expect(formatProgramaTexto(progConNombres)).toBe("Académico: Maestría A, Maestría B");
+      expect(progTooltip(progConNombres)).toBe("Académico (2): Maestría A, Maestría B");
+
+      const progSinNombres = { tipo: "Investigación", cantidad: 1 };
+      expect(formatProgramaTexto(progSinNombres)).toBe("Investigación");
+      expect(progTooltip(progSinNombres)).toBe("Investigación (1)");
+    });
   });
 });
