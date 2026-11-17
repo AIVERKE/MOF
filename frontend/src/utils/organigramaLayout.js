@@ -6,6 +6,14 @@ export const H_GAP = 90; // Separación horizontal generosa entre ramas
 export const V_GAP = 140; // Separación vertical generosa tipo mapa conceptual para trazo ortogonal limpio
 export const FACULTADES_EXTRA_GAP = 700; // Separación vertical adicional para dar respiro al piso de Facultades
 
+/**
+ * Retorna la altura estándar de nodo garantizada para estabilidad geométrica
+ * y conexión perfecta de conectores ortogonales (edges).
+ */
+export function getNodeHeight(unit = null) {
+  return NODE_HEIGHT;
+}
+
 export const LADO_RANK = {
   IZQUIERDA: 1,
   CENTRO: 2,

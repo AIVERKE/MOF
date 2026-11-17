@@ -7,14 +7,14 @@ import {
 const today = new Date(2026, 5, 15);
 
 describe('isFecCreacionInRange', () => {
-  it.each(['1825-01-01', '1990-05-10', '2026-12-31', '2026-12-31T00:00:00Z'])(
+  it.each(['1500-01-01', '1825-01-01', '1990-05-10', '2026-12-31', '2026-12-31T00:00:00Z'])(
     'accepts %p',
     (value) => {
       expect(isFecCreacionInRange(value, today)).toBe(true);
     },
   );
 
-  it.each(['1824-12-31', '1800-05-01', '2027-01-01', '4000-01-01'])(
+  it.each(['1499-12-31', '1400-05-01', '2027-01-01', '4000-01-01'])(
     'rejects %p',
     (value) => {
       expect(isFecCreacionInRange(value, today)).toBe(false);
@@ -45,7 +45,7 @@ describe('IsFecCreacionInRange', () => {
     const errors = await validate(build('4000-01-01'));
     expect(errors).toHaveLength(1);
     expect(errors[0].constraints?.isFecCreacionInRange).toMatch(
-      /^La fecha de creación debe estar entre 01\/01\/1825 y 31\/12\/\d{4}$/,
+      /^La fecha de creación debe estar entre 01\/01\/1500 y 31\/12\/\d{4}$/,
     );
   });
 });

@@ -1031,3 +1031,56 @@ export function agruparProgramasPorTipo(programas = []) {
   }
   return Array.from(map.values()).sort((a, b) => a.tipo.localeCompare(b.tipo));
 }
+
+/**
+ * Filtra estrictamente los tipos de programa que posean cantidad > 0.
+ * Evita renderizar filas con valor 0 o nulo.
+ */
+export function programasVisibles(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((p) => Number(p?.cantidad || 0) > 0);
+}
+
+/**
+ * Retorna el ícono institucional MDI según la categoría del programa:
+ * - Académico: mdi-school-outline
+ * - Investigación: mdi-microscope
+ * - Interacción Social / Extensión: mdi-account-group-outline
+ * - Ambiental: mdi-leaf
+ * - Fallback: mdi-folder-outline
+ */
+export function getProgramaIcon(tipo) {
+  const t = String(tipo || "").toLowerCase();
+  if (t.includes("académ") || t.includes("academ")) return "mdi-school-outline";
+  if (t.includes("investig")) return "mdi-microscope";
+  if (t.includes("interacc") || t.includes("social") || t.includes("extens"))
+    return "mdi-account-group-outline";
+  if (t.includes("ambient")) return "mdi-leaf";
+  return "mdi-folder-outline";
+}
+
+/**
+ * Formatea el texto descriptivo del programa en la pastilla/línea del nodo.
+ */
+export function formatProgramaTexto(prog) {
+  if (!prog) return "";
+  const tipo = prog.tipo || "Programa";
+  if (Array.isArray(prog.nombres) && prog.nombres.length > 0) {
+    return `${tipo}: ${prog.nombres.join(", ")}`;
+  }
+  return tipo;
+}
+
+/**
+ * Tooltip con el detalle de programas para el nodo.
+ */
+export function progTooltip(prog) {
+  if (!prog) return "";
+  const tipo = prog.tipo || "Programa";
+  const cant = prog.cantidad || 0;
+  if (Array.isArray(prog.nombres) && prog.nombres.length > 0) {
+    return `${tipo} (${cant}): ${prog.nombres.join(", ")}`;
+  }
+  return `${tipo} (${cant})`;
+}
+
