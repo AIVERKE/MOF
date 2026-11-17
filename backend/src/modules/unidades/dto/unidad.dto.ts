@@ -523,14 +523,17 @@ const normalizarTexto = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value;
 
 export class ProgramaDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
-      'ID del tipo de programa (catálogo `GET /mof/programas/tipos`). Debe existir y estar activo (`TIPO_PROGRAMA_NO_EXISTE`).',
+      'ID del tipo de programa (catálogo `GET /mof/programas/tipos`). Opcional: `null` u omitido deja el programa sin tipo. Si se envía, debe existir y estar activo (`TIPO_PROGRAMA_NO_EXISTE`).',
     example: 3,
+    nullable: true,
+    type: Number,
   })
-  @IsInt({ message: 'El tipo de programa es obligatorio' })
-  @IsPositive({ message: 'El tipo de programa es obligatorio' })
-  tipoId: number;
+  @IsOptional()
+  @IsInt({ message: 'El tipo de programa debe ser un id entero' })
+  @IsPositive({ message: 'El tipo de programa debe ser un id entero' })
+  tipoId?: number | null;
 
   @ApiProperty({
     description: 'Nombre que identifica al programa',
@@ -543,16 +546,19 @@ export class ProgramaDto {
   @IsNotEmpty({ message: 'El nombre del programa es obligatorio' })
   nombre: string;
 
-  @ApiProperty({
-    description: 'Detalle descriptivo del programa',
+  @ApiPropertyOptional({
+    description:
+      'Detalle descriptivo del programa (opcional). Vacío o `null` lo deja sin detalle.',
     example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
+    nullable: true,
+    type: String,
   })
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
+    typeof value === 'string' ? value.trim() || null : value,
   )
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'El detalle del programa es obligatorio' })
-  detalle: string;
+  detalle?: string | null;
 
   @ApiPropertyOptional({
     description:
@@ -614,12 +620,17 @@ export class ProgramaResponseDto {
   @ApiProperty({ example: 5 })
   id: number;
 
-  @ApiProperty({ example: 3, description: 'ID del tipo de programa' })
-  tipoId: number;
+  @ApiProperty({
+    example: 3,
+    description: 'ID del tipo de programa; `null` si no tiene tipo',
+    nullable: true,
+    type: Number,
+  })
+  tipoId: number | null;
 
   @ApiProperty({
     example: 'Programa Interacción Social y Extensión Universitaria',
-    description: 'Descripción del tipo de programa',
+    description: 'Descripción del tipo de programa; "Sin tipo" si no tiene',
   })
   tipo: string;
 
@@ -628,8 +639,10 @@ export class ProgramaResponseDto {
 
   @ApiProperty({
     example: 'Brigadas de salud comunitaria en municipios rurales de La Paz',
+    nullable: true,
+    type: String,
   })
-  detalle: string;
+  detalle: string | null;
 
   @ApiProperty({
     example: 'Res. HCF N° 123/2026',

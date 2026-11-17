@@ -113,7 +113,7 @@ describe('Textos libres en inventarios, programas, funciones y cargos', () => {
     ).toEqual(['descripcion']);
   });
 
-  it('programa: nombre, detalle y resolución sin tope; tipoId, nombre y detalle son obligatorios', async () => {
+  it('programa: nombre, detalle y resolución sin tope; solo el nombre es obligatorio', async () => {
     expect(
       await propiedadesConError(ProgramaDto, {
         tipoId: 1,
@@ -128,10 +128,16 @@ describe('Textos libres en inventarios, programas, funciones y cargos', () => {
         nombre: '   ',
         detalle: '',
       }),
-    ).toEqual(['detalle', 'nombre', 'tipoId']);
+    ).toEqual(['nombre']);
     expect(
       await propiedadesConError(ProgramaDto, { tipoId: 1, detalle: 'x' }),
     ).toEqual(['nombre']);
+    expect(
+      await propiedadesConError(ProgramaDto, { nombre: 'Solo nombre' }),
+    ).toEqual([]);
+    expect(
+      await propiedadesConError(ProgramaDto, { tipoId: 0, nombre: 'P' }),
+    ).toEqual(['tipoId']);
   });
 
   it('programa: la resolución es opcional y vacía equivale a null', async () => {

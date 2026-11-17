@@ -816,6 +816,29 @@ function openDeleteDialog(nodeId) {
   deleteDialog.value = true;
 }
 
+// --- Acciones disparadas desde la ficha (UnidadDetailsDrawer) ---
+function onDrawerEdit(id) {
+  detailsDrawer.value = false;
+  openForm(id, true);
+}
+
+function onDrawerAddChild(id) {
+  detailsDrawer.value = false;
+  openForm(id, false);
+}
+
+function onDrawerDependencias(id) {
+  detailsDrawer.value = false;
+  verDependencias(id);
+}
+
+function onDrawerDelete(id) {
+  detailsDrawer.value = false;
+  selectedNode.value =
+    unidadesByIdMap.value.get(String(id)) || detailData.value || null;
+  deleteDialog.value = true;
+}
+
 const { confirmAddItem, confirmDelete } = useUnidadActions({
   unidadesStore,
   saveUnidad,
@@ -3627,35 +3650,12 @@ function resetFilters() {
       :get-tipo-nombre="resolveTipo"
       :get-relacion-nombre="resolveRelacion"
       :get-clase-nombre="resolveClase"
-      @edit="
-        (id) => {
-          openForm(id, true);
-          detailsDrawer.value = false;
-        }
-      "
+      @edit="onDrawerEdit"
       @reporte="(id) => verReporte(id)"
       @pdf="(id) => verReporte(id)"
-      @dependencias="
-        (id) => {
-          detailsDrawer.value = false;
-          verDependencias(id);
-        }
-      "
-      @add-child="
-        (id) => {
-          openForm(id, false);
-          detailsDrawer.value = false;
-        }
-      "
-      @delete="
-        (id) => {
-          selectedNode =
-            unidadesList.value.find((u) => String(u.id) === String(id)) ||
-            detailData.value;
-          deleteDialog = true;
-          detailsDrawer.value = false;
-        }
-      "
+      @dependencias="onDrawerDependencias"
+      @add-child="onDrawerAddChild"
+      @delete="onDrawerDelete"
     />
 
     <UnidadDeleteDialog

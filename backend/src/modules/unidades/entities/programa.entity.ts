@@ -25,21 +25,21 @@ export class Programa extends AuditableEntity {
   })
   id: string;
 
-  @Column({ name: 'tipo_programa_id', type: 'integer' })
-  tipoProgramaId: number;
+  @Column({ name: 'tipo_programa_id', type: 'integer', nullable: true })
+  tipoProgramaId: number | null;
 
-  @ManyToOne(() => TipoPrograma, { nullable: false })
+  @ManyToOne(() => TipoPrograma, { nullable: true })
   @JoinColumn({
     name: 'tipo_programa_id',
     foreignKeyConstraintName: 'FK_programa_tipo_programa',
   })
-  tipoPrograma: TipoPrograma;
+  tipoPrograma: TipoPrograma | null;
 
   @Column({ type: 'text' })
   nombre: string;
 
-  @Column({ type: 'text' })
-  detalle: string;
+  @Column({ type: 'text', nullable: true })
+  detalle: string | null;
 
   @Column({ type: 'text', nullable: true })
   resolucion: string | null;
