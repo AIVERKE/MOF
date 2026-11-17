@@ -1,6 +1,6 @@
 import { registerDecorator, ValidationOptions } from 'class-validator';
 
-export const FEC_CREACION_MIN = '1825-01-01';
+export const FEC_CREACION_MIN = '1500-01-01';
 
 /** El tope se calcula en cada validación para que avance con el año. */
 export function fecCreacionMax(today: Date = new Date()): string {
@@ -8,7 +8,7 @@ export function fecCreacionMax(today: Date = new Date()): string {
 }
 
 export function fecCreacionRangeMessage(today: Date = new Date()): string {
-  return `La fecha de creación debe estar entre 01/01/1825 y 31/12/${today.getFullYear()}`;
+  return `La fecha de creación debe estar entre 01/01/1500 y 31/12/${today.getFullYear()}`;
 }
 
 /** Compara como texto `YYYY-MM-DD`, que equivale a comparar fechas. */

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { rules, FEC_CREACION_MIN, fecCreacionMax } from "../rules";
 
-const MENSAJE = "La fecha de creación debe estar entre 01/01/1825 y 31/12/2026";
+const MENSAJE = "La fecha de creación debe estar entre 01/01/1500 y 31/12/2026";
 
 describe("rules.fechaCreacionRango", () => {
   beforeEach(() => {
@@ -14,7 +14,7 @@ describe("rules.fechaCreacionRango", () => {
   });
 
   it("expone los límites del rango", () => {
-    expect(FEC_CREACION_MIN).toBe("1825-01-01");
+    expect(FEC_CREACION_MIN).toBe("1500-01-01");
     expect(fecCreacionMax()).toBe("2026-12-31");
   });
 
@@ -22,11 +22,11 @@ describe("rules.fechaCreacionRango", () => {
     expect(rules.fechaCreacionRango(value)).toBe(true);
   });
 
-  it.each(["1825-01-01", "1990-05-10", "2026-12-31"])("acepta %p", (value) => {
+  it.each(["1500-01-01", "1825-01-01", "1990-05-10", "2026-12-31"])("acepta %p", (value) => {
     expect(rules.fechaCreacionRango(new Date(`${value}T00:00:00`))).toBe(true);
   });
 
-  it.each(["1824-12-31", "1800-05-01", "2027-01-01", "4000-01-01"])("rechaza %p", (value) => {
+  it.each(["1499-12-31", "1400-05-01", "2027-01-01", "4000-01-01"])("rechaza %p", (value) => {
     expect(rules.fechaCreacionRango(new Date(`${value}T00:00:00`))).toBe(MENSAJE);
   });
 

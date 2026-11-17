@@ -1111,7 +1111,10 @@ const panels = computed(() => {
                       >
                         {{ prog.nombre }}
                       </div>
-                      <div class="text-caption text-slate-800 line-height-1-4">
+                      <div
+                        v-if="prog.detalle"
+                        class="text-caption text-slate-800 line-height-1-4"
+                      >
                         {{ prog.detalle }}
                       </div>
                       <div

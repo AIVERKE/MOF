@@ -111,37 +111,24 @@ function removeRow(index) {
   );
 }
 
-function tieneTipo(row) {
-  return row?.tipoId != null && Number(row.tipoId) > 0;
-}
-
-function isTipoInvalid(row) {
-  if (!saveAttempted.value) return false;
-  return !tieneTipo(row);
-}
-
 function tieneTexto(value) {
   return value != null && String(value).trim() !== "";
 }
 
+// Solo el nombre es obligatorio; tipo, detalle, resolución y unidades conjuntas son opcionales.
 function isNombreInvalid(row) {
   if (!saveAttempted.value) return false;
   return !tieneTexto(row.nombre);
 }
 
-function isDetalleInvalid(row) {
-  if (!saveAttempted.value) return false;
-  return !tieneTexto(row.detalle);
-}
-
 function isRowInvalid(row) {
-  return isTipoInvalid(row) || isNombreInvalid(row) || isDetalleInvalid(row);
+  return isNombreInvalid(row);
 }
 
 function validate() {
   saveAttempted.value = true;
   return rows.value.every(
-    (row) => tieneTipo(row) && tieneTexto(row.nombre) && tieneTexto(row.detalle),
+    (row) => tieneTexto(row.nombre),
   );
 }
 
@@ -316,13 +303,12 @@ defineExpose({
               :items="tiposItems"
               item-title="tipo"
               item-value="id"
-              label="Tipo de programa *"
+              label="Tipo de programa (opcional)"
               density="compact"
               variant="outlined"
               hide-details="auto"
+              clearable
               :readonly="readonly"
-              :error="isTipoInvalid(row)"
-              :error-messages="isTipoInvalid(row) ? ['El tipo de programa es requerido'] : []"
               :data-test="`select-tipo-programa-${idx}`"
               @update:model-value="updateTipo(idx, $event)"
             >
@@ -380,15 +366,13 @@ defineExpose({
           <v-col cols="12" class="mt-2">
             <v-textarea
               :model-value="row.detalle"
-              label="Detalle / Descripción del programa *"
+              label="Detalle / Descripción del programa (opcional)"
               rows="2"
               auto-grow
               density="compact"
               variant="outlined"
               hide-details="auto"
               :readonly="readonly"
-              :error="isDetalleInvalid(row)"
-              :error-messages="isDetalleInvalid(row) ? ['El detalle del programa es requerido'] : []"
               :data-test="`input-detalle-programa-${idx}`"
               @update:model-value="updateCampo(idx, 'detalle', $event)"
             />

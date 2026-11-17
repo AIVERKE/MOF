@@ -38,8 +38,12 @@ import {
   getIntenseNodeColor,
   INTENSE_NODE_PALETTE,
   toBoolean,
+  programasVisibles,
+  getProgramaIcon,
+  formatProgramaTexto,
+  progTooltip,
 } from "@/utils/mofHelpers";
-import { getLayoutedElements } from "@/utils/organigramaLayout";
+import { getLayoutedElements, NODE_HEIGHT, getNodeHeight } from "@/utils/organigramaLayout";
 import {
   getEffectiveParentId,
   getChildrenCountMap,
@@ -816,6 +820,29 @@ function openDeleteDialog(nodeId) {
   deleteDialog.value = true;
 }
 
+// --- Acciones disparadas desde la ficha (UnidadDetailsDrawer) ---
+function onDrawerEdit(id) {
+  detailsDrawer.value = false;
+  openForm(id, true);
+}
+
+function onDrawerAddChild(id) {
+  detailsDrawer.value = false;
+  openForm(id, false);
+}
+
+function onDrawerDependencias(id) {
+  detailsDrawer.value = false;
+  verDependencias(id);
+}
+
+function onDrawerDelete(id) {
+  detailsDrawer.value = false;
+  selectedNode.value =
+    unidadesByIdMap.value.get(String(id)) || detailData.value || null;
+  deleteDialog.value = true;
+}
+
 const { confirmAddItem, confirmDelete } = useUnidadActions({
   unidadesStore,
   saveUnidad,
@@ -894,6 +921,113 @@ function cleanPdfText(val) {
   return sanitizePdfText(str);
 }
 
+function drawPdfProgramaIcon(
+  pdf,
+  tipo,
+  ix,
+  iy,
+  iconW,
+  iconH,
+  scale,
+  textRgb,
+) {
+  const t = String(tipo || "").toLowerCase();
+  pdf.setDrawColor(textRgb.r, textRgb.g, textRgb.b);
+  pdf.setFillColor(textRgb.r, textRgb.g, textRgb.b);
+  const strokeW = Math.max(0.12, 0.35 * scale);
+  pdf.setLineWidth(strokeW);
+
+  if (t.includes("académ") || t.includes("academ")) {
+    // Birrete (mdi-school-outline)
+    const midX = ix + iconW * 0.45;
+    const topY = iy - iconH * 0.65;
+    const diamondH = iconH * 0.35;
+    pdf.lines(
+      [
+        [iconW * 0.45, diamondH * 0.5],
+        [-iconW * 0.45, diamondH * 0.5],
+        [-iconW * 0.45, -diamondH * 0.5],
+        [iconW * 0.45, -diamondH * 0.5],
+      ],
+      midX,
+      topY,
+      [1, 1],
+      "S",
+      true,
+    );
+    pdf.line(
+      ix + iconW * 0.15,
+      topY + diamondH * 0.5,
+      ix + iconW * 0.15,
+      topY + diamondH * 0.85,
+    );
+    pdf.line(
+      ix + iconW * 0.15,
+      topY + diamondH * 0.85,
+      ix + iconW * 0.75,
+      topY + diamondH * 0.85,
+    );
+    pdf.line(
+      ix + iconW * 0.75,
+      topY + diamondH * 0.85,
+      ix + iconW * 0.75,
+      topY + diamondH * 0.5,
+    );
+  } else if (t.includes("investig")) {
+    // Microscopio (mdi-microscope)
+    const baseY = iy - iconH * 0.15;
+    pdf.line(ix + iconW * 0.15, baseY, ix + iconW * 0.85, baseY);
+    pdf.line(ix + iconW * 0.65, baseY, ix + iconW * 0.65, iy - iconH * 0.65);
+    pdf.line(
+      ix + iconW * 0.65,
+      iy - iconH * 0.65,
+      ix + iconW * 0.45,
+      iy - iconH * 0.65,
+    );
+    pdf.line(
+      ix + iconW * 0.25,
+      iy - iconH * 0.8,
+      ix + iconW * 0.55,
+      iy - iconH * 0.35,
+    );
+  } else if (
+    t.includes("interacc") ||
+    t.includes("social") ||
+    t.includes("extens")
+  ) {
+    // Personas / Grupo (mdi-account-group-outline)
+    const r = Math.max(0.12, 0.26 * scale);
+    const head1X = ix + iconW * 0.32;
+    const head2X = ix + iconW * 0.68;
+    const headY = iy - iconH * 0.55;
+    pdf.circle(head1X, headY, r, "S");
+    pdf.circle(head2X, headY, r, "S");
+    pdf.line(
+      head1X - iconW * 0.18,
+      iy - iconH * 0.2,
+      head1X + iconW * 0.18,
+      iy - iconH * 0.2,
+    );
+    pdf.line(
+      head2X - iconW * 0.15,
+      iy - iconH * 0.2,
+      head2X + iconW * 0.2,
+      iy - iconH * 0.2,
+    );
+  } else {
+    // Carpeta / General (mdi-folder-outline)
+    const folderY = iy - iconH * 0.65;
+    const folderH = iconH * 0.55;
+    pdf.roundedRect(ix, folderY, iconW * 0.85, folderH, 0.15, 0.15, "S");
+    pdf.line(
+      ix + iconW * 0.15,
+      folderY,
+      ix + iconW * 0.4,
+      folderY - iconH * 0.1,
+    );
+  }
+}
+
 async function exportarOrganigrama() {
   isExportingPdf.value = true;
   try {
@@ -958,7 +1092,7 @@ async function exportarOrganigrama() {
     const diagramHeightMm = Math.round(rawGraphH * scale);
 
     const nodeWidthMm = 320 * scale;
-    const nodeHeightMm = 240 * scale;
+    const nodeHeightMm = 235 * scale;
 
     // Dimensiones de la página:
     // Mínimo formato A3 (420 x 297 mm), expandiéndose según el volumen de unidades
@@ -1373,6 +1507,8 @@ async function exportarOrganigrama() {
       const hasNivel = Boolean(n.data?.nivel && n.data.nivel !== "---");
       const hasTipo = Boolean(n.data?.tipo && n.data.tipo !== "---");
       const progsVisibles = programasVisibles(n.data?.programasPorTipo);
+      const hasProgramasFallback =
+        progsVisibles.length === 0 && Number(n.data?.programasCount || 0) > 0;
 
       const detailFontSize = Math.max(2.6, scale * 40);
       const detailLineSpacing = detailFontSize * 0.42;
@@ -1382,7 +1518,13 @@ async function exportarOrganigrama() {
       const maxDetailTextW = nodeWidthMm - padX * 2 - textOffsetX - 8;
 
       let detailLinesCount =
-        (hasTipo ? 1 : 0) + (hasNivel ? 1 : 0) + progsVisibles.length;
+        (hasTipo ? 1 : 0) +
+        (hasNivel ? 1 : 0) +
+        (progsVisibles.length > 0
+          ? progsVisibles.length
+          : hasProgramasFallback
+            ? 1
+            : 0);
       const footerH = detailLinesCount * detailLineSpacing + 1.2;
       const footerY = ny + nodeHeightMm - footerH - padY;
 
@@ -1601,12 +1743,15 @@ async function exportarOrganigrama() {
           const countStr = String(prog.cantidad || 0);
           const measuredCountW = pdf.getTextWidth(countStr);
 
-          pdf.setFillColor(textRgb.r, textRgb.g, textRgb.b);
-          pdf.circle(
-            nx + padX + iconW * 0.3,
-            detailY - iconH * 0.3,
-            Math.max(0.12, 0.35 * scale),
-            "F",
+          drawPdfProgramaIcon(
+            pdf,
+            prog.tipo,
+            nx + padX,
+            detailY,
+            iconW,
+            iconH,
+            scale,
+            textRgb,
           );
 
           drawDetailText(
@@ -1617,10 +1762,44 @@ async function exportarOrganigrama() {
             detailFontSize,
           );
           pdf.setFont("helvetica", "bold");
-          pdf.text(countStr, nx + nodeWidthMm - padX - measuredCountW - 1, detailY);
+          pdf.text(
+            countStr,
+            nx + nodeWidthMm - padX - measuredCountW - 1,
+            detailY,
+          );
           pdf.setFont("helvetica", "normal");
           detailY += detailLineSpacing;
         }
+      } else if (hasProgramasFallback) {
+        const countStr = String(n.data.programasCount || 0);
+        const measuredCountW = pdf.getTextWidth(countStr);
+
+        drawPdfProgramaIcon(
+          pdf,
+          "general",
+          nx + padX,
+          detailY,
+          iconW,
+          iconH,
+          scale,
+          textRgb,
+        );
+
+        drawDetailText(
+          "Programas",
+          nx + padX + textOffsetX,
+          detailY,
+          maxDetailTextW - measuredCountW - 2,
+          detailFontSize,
+        );
+        pdf.setFont("helvetica", "bold");
+        pdf.text(
+          countStr,
+          nx + nodeWidthMm - padX - measuredCountW - 1,
+          detailY,
+        );
+        pdf.setFont("helvetica", "normal");
+        detailY += detailLineSpacing;
       }
 
       // 6.4 Menú de 3 puntos (UnidadActionsMenu en esquina inferior derecha)
@@ -1896,39 +2075,6 @@ function getTitleClass(nombre) {
   return "title-xlong";
 }
 
-function programasVisibles(list) {
-  if (!Array.isArray(list)) return [];
-  return list.filter((p) => Number(p?.cantidad || 0) > 0);
-}
-
-function getProgramaIcon(tipo) {
-  const t = String(tipo || "").toLowerCase();
-  if (t.includes("académ") || t.includes("academ")) return "mdi-school-outline";
-  if (t.includes("investig")) return "mdi-microscope";
-  if (t.includes("interacc") || t.includes("social") || t.includes("extens"))
-    return "mdi-account-group-outline";
-  if (t.includes("ambient")) return "mdi-leaf";
-  return "mdi-folder-outline";
-}
-
-function formatProgramaTexto(prog) {
-  if (!prog) return "";
-  const tipo = prog.tipo || "Programa";
-  if (Array.isArray(prog.nombres) && prog.nombres.length > 0) {
-    return `${tipo}: ${prog.nombres.join(", ")}`;
-  }
-  return tipo;
-}
-
-function progTooltip(prog) {
-  if (!prog) return "";
-  const tipo = prog.tipo || "Programa";
-  const cant = prog.cantidad || 0;
-  if (Array.isArray(prog.nombres) && prog.nombres.length > 0) {
-    return `${tipo} (${cant}): ${prog.nombres.join(", ")}`;
-  }
-  return `${tipo} (${cant})`;
-}
 
 const updateGraph = () => {
   if (isMobilePortrait.value) {
@@ -3502,7 +3648,7 @@ function resetFilters() {
                   </div>
 
                   <!-- 3. Desglose Dinámico de Programas (solo si cantidad > 0) -->
-                  <template v-if="data.programasPorTipo && data.programasPorTipo.length">
+                  <template v-if="programasVisibles(data.programasPorTipo).length > 0">
                     <div
                       v-for="(prog, idx) in programasVisibles(data.programasPorTipo)"
                       :key="idx"
@@ -3529,7 +3675,7 @@ function resetFilters() {
                       </span>
                     </div>
                   </template>
-                  <template v-else-if="data.programasCount > 0">
+                  <template v-else-if="Number(data.programasCount || 0) > 0">
                     <div
                       class="node-line detail-line programa-line d-flex justify-space-between align-center"
                       :style="{ color: getContrastingTextColor(data.color) }"
@@ -3627,35 +3773,12 @@ function resetFilters() {
       :get-tipo-nombre="resolveTipo"
       :get-relacion-nombre="resolveRelacion"
       :get-clase-nombre="resolveClase"
-      @edit="
-        (id) => {
-          openForm(id, true);
-          detailsDrawer.value = false;
-        }
-      "
+      @edit="onDrawerEdit"
       @reporte="(id) => verReporte(id)"
       @pdf="(id) => verReporte(id)"
-      @dependencias="
-        (id) => {
-          detailsDrawer.value = false;
-          verDependencias(id);
-        }
-      "
-      @add-child="
-        (id) => {
-          openForm(id, false);
-          detailsDrawer.value = false;
-        }
-      "
-      @delete="
-        (id) => {
-          selectedNode =
-            unidadesList.value.find((u) => String(u.id) === String(id)) ||
-            detailData.value;
-          deleteDialog = true;
-          detailsDrawer.value = false;
-        }
-      "
+      @dependencias="onDrawerDependencias"
+      @add-child="onDrawerAddChild"
+      @delete="onDrawerDelete"
     />
 
     <UnidadDeleteDialog
@@ -4042,7 +4165,7 @@ function resetFilters() {
   text-transform: uppercase;
   text-align: center;
   display: -webkit-box;
-  -webkit-line-clamp: 5;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4075,7 +4198,7 @@ function resetFilters() {
   font-weight: 650;
   display: flex;
   align-items: center;
-  line-height: 1.2;
+  line-height: 1.25;
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -4083,6 +4206,7 @@ function resetFilters() {
 }
 .programa-line {
   font-size: 11px;
+  line-height: 1.25;
 }
 .node-actions {
   position: absolute;

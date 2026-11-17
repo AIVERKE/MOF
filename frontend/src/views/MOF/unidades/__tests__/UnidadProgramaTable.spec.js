@@ -190,15 +190,14 @@ describe("UnidadProgramaTable.vue", () => {
     expect(wrapper.emitted("update:modelValue")[0][0][0].id).toBe(2);
   });
 
-  it("valida que las filas tengan tipo, nombre y detalle; la resolución es opcional", async () => {
-    const wrapper = await montar([{ id: null, tipoId: null, nombre: "P", detalle: "Algo" }]);
-    expect(wrapper.vm.validate()).toBe(false);
-
+  it("solo el nombre es obligatorio; tipo, detalle y resolución son opcionales", async () => {
     const sinNombre = await montar([{ id: null, tipoId: 1, nombre: "  ", detalle: "Algo" }]);
     expect(sinNombre.vm.validate()).toBe(false);
 
-    const sinDetalle = await montar([{ id: null, tipoId: 1, nombre: "P", detalle: "  " }]);
-    expect(sinDetalle.vm.validate()).toBe(false);
+    const sinTipoNiDetalle = await montar([
+      { id: null, tipoId: null, nombre: "P", detalle: "  ", resolucion: "" },
+    ]);
+    expect(sinTipoNiDetalle.vm.validate()).toBe(true);
 
     const valido = await montar([
       { id: null, tipoId: 2, nombre: "IA", detalle: "Laboratorio de IA", resolucion: "" },

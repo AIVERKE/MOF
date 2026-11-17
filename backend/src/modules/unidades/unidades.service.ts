@@ -117,6 +117,9 @@ function coloresUnidad(u: Unidad) {
   return { color: colorPropio ?? colorClase, colorPropio, colorClase };
 }
 
+/** Etiqueta de grupo para los programas que no tienen tipo asignado. */
+export const SIN_TIPO_PROGRAMA = 'Sin tipo';
+
 /** Clave para agrupar tipos libres de programa: sin acentos, mayúsculas y espacios colapsados. */
 export function claveTipoPrograma(tipo: string): string {
   return tipo
@@ -1194,10 +1197,11 @@ export class UnidadesService {
       programa.id == null || dto.unidadIds !== undefined
         ? await this.participantesPrograma(unidadId, dto.unidadIds ?? [])
         : null;
-    await this.assertTipoPrograma(dto.tipoId);
-    programa.tipoProgramaId = dto.tipoId;
+    const tipoId = dto.tipoId ?? null;
+    if (tipoId != null) await this.assertTipoPrograma(tipoId);
+    programa.tipoProgramaId = tipoId;
     programa.nombre = dto.nombre.trim();
-    programa.detalle = dto.detalle.trim();
+    programa.detalle = dto.detalle?.trim() || null;
     programa.resolucion = dto.resolucion?.trim() || null;
     const saved = await m.save(programa);
     if (participantes) {
@@ -1981,12 +1985,10 @@ export class UnidadesService {
     const programas = await this.findProgramasPorId(programaIds);
     const progMap = new Map<string, { tipo: string; nombre: string }>();
     for (const p of programas) {
-      if (p.tipoPrograma?.descripcion) {
-        progMap.set(String(p.id), {
-          tipo: p.tipoPrograma.descripcion,
-          nombre: p.nombre,
-        });
-      }
+      progMap.set(String(p.id), {
+        tipo: p.tipoPrograma?.descripcion || SIN_TIPO_PROGRAMA,
+        nombre: p.nombre,
+      });
     }
 
     const agrupado = new Map<
@@ -2043,10 +2045,10 @@ export class UnidadesService {
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     return {
       id: Number(p.id),
-      tipoId: Number(p.tipoProgramaId),
-      tipo: p.tipoPrograma?.descripcion ?? '',
+      tipoId: p.tipoProgramaId != null ? Number(p.tipoProgramaId) : null,
+      tipo: p.tipoPrograma?.descripcion || SIN_TIPO_PROGRAMA,
       nombre: p.nombre,
-      detalle: p.detalle,
+      detalle: p.detalle ?? null,
       resolucion: p.resolucion ?? null,
       unidades,
     };
