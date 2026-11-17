@@ -7,6 +7,7 @@ import { TipoUnidad } from '../catalogos/entities/tipo-unidad.entity';
 import { ProgramaItemDto, UnidadDto } from './dto/unidad.dto';
 import {
   UnidadesService,
+  SIN_TIPO_PROGRAMA,
   agruparProgramasPorTipo,
   aplicanProgramas,
 } from './unidades.service';
@@ -58,9 +59,9 @@ const UNIDADES: FilaUnidad[] = [
 
 type FilaPrograma = {
   id?: string;
-  tipoProgramaId: number;
+  tipoProgramaId: number | null;
   nombre: string;
-  detalle: string;
+  detalle: string | null;
   resolucion?: string | null;
   deletedAt?: Date | null;
 };
@@ -431,6 +432,27 @@ describe('agruparProgramasPorTipo', () => {
 });
 
 describe('UnidadesService - programas', () => {
+  it('acepta programas sin tipo ni detalle y los agrupa como "Sin tipo"', async () => {
+    const db = createFakeDb();
+    const service = buildService(db);
+    await service.addPrograma(10, { nombre: 'Solo nombre', detalle: '  ' });
+    await service.addPrograma(10, programa(ACADEMICO));
+
+    const detalle = await service.findById(10);
+    expect(detalle.programas[0]).toMatchObject({
+      tipoId: null,
+      tipo: SIN_TIPO_PROGRAMA,
+      nombre: 'Solo nombre',
+      detalle: null,
+    });
+    expect(
+      detalle.programasPorTipo.map(({ tipo, cantidad }) => [tipo, cantidad]),
+    ).toEqual([
+      ['Programa Académico', 1],
+      [SIN_TIPO_PROGRAMA, 1],
+    ]);
+  });
+
   it('registra en un Decanato programas de los tres programas y los agrupa por tipo', async () => {
     const db = createFakeDb();
     const service = buildService(db);
