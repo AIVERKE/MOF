@@ -499,24 +499,13 @@ async function manejarClickNodo(nodeId) {
   // 3. Actualizar el grafo (en modo enfoque: actualiza clases visuales y edges instantáneamente)
   updateGraph();
 
-  // 4. Si el modo no es libre ('completo'), encuadra animadamente la cámara en el nodo y sus hijos directos
+  // 4. Si el modo no es libre ('completo'), encuadra animadamente la cámara directamente en el nodo seleccionado
   if (modoExploracion.value !== "completo") {
     await nextTick();
-    let source = unidadesList.value;
-    if (vistaModo.value === "estricto") {
-      source = source.filter((u) => checkOficial(u));
-    }
-    const directChildren = getDirectChildrenIds(
-      strId,
-      source,
-      vistaModo.value,
-      unidadesByIdMap.value,
-    );
-    const nodesToFrame = [strId, ...directChildren];
-    volarANodos(nodesToFrame, {
-      padding: nodesToFrame.length > 1 ? 0.25 : 0.4,
+    volarANodos([strId], {
+      padding: 0.18,
       duration: 650,
-      maxZoom: 1.25,
+      maxZoom: 1.35,
     });
   }
 }
@@ -557,9 +546,7 @@ function cambiarModoExploracion(nuevoModo) {
   updateGraph();
   nextTick(() => {
     if (nodoNavegacionActualId.value && nuevoModo !== "completo") {
-      const cluster = navigationCluster.value;
-      const nodesToFrame = [cluster.activeId, ...cluster.directChildrenIds].filter(Boolean);
-      volarANodos(nodesToFrame, { padding: 0.25, duration: 600 });
+      volarANodos([String(nodoNavegacionActualId.value)], { padding: 0.18, duration: 600, maxZoom: 1.35 });
     } else {
       fitView({ padding: 0.15, duration: 600 });
     }
@@ -1735,10 +1722,7 @@ async function exportarOrganigrama() {
       // 6.3 Programas dinámicos (solo si cantidad > 0)
       if (progsVisibles.length > 0) {
         for (const prog of progsVisibles) {
-          const rawName =
-            Array.isArray(prog.nombres) && prog.nombres.length > 0
-              ? `${prog.tipo}: ${prog.nombres.join(", ")}`
-              : (prog.tipo || "Programa");
+          const rawName = formatProgramaTexto(prog);
           const progName = cleanPdfText(rawName);
           const countStr = String(prog.cantidad || 0);
           const measuredCountW = pdf.getTextWidth(countStr);
@@ -2228,16 +2212,7 @@ const updateGraph = () => {
 
     // Control de cámara inteligente inmediato sin setTimeout
     nextTick(() => {
-      if (searchLower) {
-        const matchingIds = currentNodes
-          .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
-          .map((n) => String(n.id));
-        if (matchingIds.length > 0) {
-          volarANodos(matchingIds);
-        } else {
-          fitView({ padding: 0.15, duration: 800 });
-        }
-      } else if (pendingTargetNodeId.value) {
+      if (pendingTargetNodeId.value) {
         const targetId = String(pendingTargetNodeId.value);
         pendingTargetNodeId.value = null;
         const targetNode = currentNodes.find((n) => String(n.id) === targetId);
@@ -2245,7 +2220,22 @@ const updateGraph = () => {
           if (modoExploracion.value !== "completo") {
             nodoNavegacionActualId.value = targetId;
           }
-          volarANodos([targetId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
+          volarANodos([targetId], { padding: 0.18, duration: 650, maxZoom: 1.35 });
+        }
+      } else if (nodoNavegacionActualId.value) {
+        const navId = String(nodoNavegacionActualId.value);
+        const navNode = currentNodes.find((n) => String(n.id) === navId);
+        if (navNode && !navNode.data?.isInvisible) {
+          volarANodos([navId], { padding: 0.18, duration: 650, maxZoom: 1.35 });
+        }
+      } else if (searchLower) {
+        const matchingIds = currentNodes
+          .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
+          .map((n) => String(n.id));
+        if (matchingIds.length > 0) {
+          volarANodos(matchingIds);
+        } else {
+          fitView({ padding: 0.15, duration: 800 });
         }
       }
     });
@@ -2412,16 +2402,7 @@ const updateGraph = () => {
 
   // Control de cámara inteligente inmediato sin setTimeout
   nextTick(() => {
-    if (searchLower) {
-      const matchingIds = layoutedNodes
-        .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
-        .map((n) => String(n.id));
-      if (matchingIds.length > 0) {
-        volarANodos(matchingIds);
-      } else {
-        fitView({ padding: 0.15, duration: 800 });
-      }
-    } else if (pendingTargetNodeId.value) {
+    if (pendingTargetNodeId.value) {
       const targetId = String(pendingTargetNodeId.value);
       pendingTargetNodeId.value = null;
       // Buscar el nodo en su nueva posición tras el recálculo del layout (por si cambió de nivel, clase o padre, o recién se creó)
@@ -2430,7 +2411,7 @@ const updateGraph = () => {
         if (modoExploracion.value !== "completo") {
           nodoNavegacionActualId.value = targetId;
         }
-        volarANodos([targetId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
+        volarANodos([targetId], { padding: 0.18, duration: 650, maxZoom: 1.35 });
       } else {
         fitView({ padding: 0.15, duration: 800 });
       }
@@ -2438,24 +2419,16 @@ const updateGraph = () => {
       const navId = String(nodoNavegacionActualId.value);
       const navNode = layoutedNodes.find((n) => String(n.id) === navId);
       if (navNode && !navNode.data?.isInvisible) {
-        if (modoExploracion.value !== "completo") {
-          const currentCluster = navigationCluster.value;
-          const nodesToFrame = [
-            currentCluster.activeId,
-            ...currentCluster.directChildrenIds,
-          ].filter((id) =>
-            layoutedNodes.some(
-              (n) => String(n.id) === String(id) && !n.data?.isInvisible,
-            ),
-          );
-          volarANodos(nodesToFrame.length > 0 ? nodesToFrame : [navId], {
-            padding: nodesToFrame.length > 1 ? 0.25 : 0.4,
-            duration: 650,
-            maxZoom: 1.25,
-          });
-        } else {
-          volarANodos([navId], { padding: 0.35, duration: 650, maxZoom: 1.25 });
-        }
+        volarANodos([navId], { padding: 0.18, duration: 650, maxZoom: 1.35 });
+      } else {
+        fitView({ padding: 0.15, duration: 800 });
+      }
+    } else if (searchLower) {
+      const matchingIds = layoutedNodes
+        .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
+        .map((n) => String(n.id));
+      if (matchingIds.length > 0) {
+        volarANodos(matchingIds);
       } else {
         fitView({ padding: 0.15, duration: 800 });
       }
@@ -2509,8 +2482,8 @@ async function volarANodos(ids = [], options = {}) {
   }
 
   const duration = options.duration ?? 800;
-  const padding = options.padding ?? (ids.length === 1 ? 0.35 : 0.2);
-  const maxZoom = options.maxZoom ?? 1.25;
+  const padding = options.padding ?? (ids.length === 1 ? 0.18 : 0.2);
+  const maxZoom = options.maxZoom ?? (ids.length === 1 ? 1.35 : 1.25);
 
   if (!ids || ids.length === 0) {
     await fitView({ padding: 0.1, duration });
@@ -2556,8 +2529,8 @@ async function centrarNodo(unidadId, options = {}) {
   if (targetNode?.data?.isInvisible) return;
   return volarANodos([strId], {
     duration: options.duration ?? 450,
-    padding: options.padding ?? 0.35,
-    maxZoom: options.maxZoom ?? 1.15,
+    padding: options.padding ?? 0.18,
+    maxZoom: options.maxZoom ?? 1.35,
   });
 }
 
@@ -3904,16 +3877,20 @@ function resetFilters() {
 }
 
 .custom-node.nav-selected-node {
-  outline: 3.5px solid #2563eb !important;
-  outline-offset: 2px;
-  box-shadow: 0 0 18px rgba(37, 99, 235, 0.45) !important;
-  z-index: 20 !important;
+  outline: 4px solid #2563eb !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.4), 0 14px 30px rgba(0, 0, 0, 0.35) !important;
+  transform: scale(1.05);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
+  z-index: 35 !important;
 }
 .v-theme--dark .custom-node.nav-selected-node {
-  outline: 3.5px solid #60a5fa !important;
-  outline-offset: 2px;
-  box-shadow: 0 0 18px rgba(96, 165, 250, 0.5) !important;
-  z-index: 20 !important;
+  outline: 4px solid #60a5fa !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.45), 0 14px 30px rgba(0, 0, 0, 0.6) !important;
+  transform: scale(1.05);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
+  z-index: 35 !important;
 }
 
 .custom-node.nav-child-node {

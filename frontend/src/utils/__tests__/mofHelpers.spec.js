@@ -566,7 +566,7 @@ describe("mofHelpers - Programas de unidad (Decanatos hacia abajo)", () => {
         cantidad: 2,
         nombres: ["Maestría A", "Maestría B"],
       };
-      expect(formatProgramaTexto(progConNombres)).toBe("Académico: Maestría A, Maestría B");
+      expect(formatProgramaTexto(progConNombres)).toBe("Académico");
       expect(progTooltip(progConNombres)).toBe("Académico (2): Maestría A, Maestría B");
 
       const progSinNombres = { tipo: "Investigación", cantidad: 1 };
