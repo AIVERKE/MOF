@@ -43,7 +43,7 @@ describe("MOF-095: Programas en nodo solo si existen, íconos y layout", () => {
       expect(visibles[0].tipo).toBe("Programa Interacción Social y Extensión Universitaria");
       expect(visibles[0].cantidad).toBe(1);
       expect(getProgramaIcon(visibles[0].tipo)).toBe("mdi-account-group-outline");
-      expect(formatProgramaTexto(visibles[0])).toBe("Programa Interacción Social y Extensión Universitaria: Proyecto Comunitario");
+      expect(formatProgramaTexto(visibles[0])).toBe("Programa Interacción Social y Extensión Universitaria");
     });
 
     it("Soporta múltiples tipos con cantidad > 0 preservando orden y datos", () => {

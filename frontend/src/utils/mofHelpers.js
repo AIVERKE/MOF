@@ -1061,14 +1061,11 @@ export function getProgramaIcon(tipo) {
 
 /**
  * Formatea el texto descriptivo del programa en la pastilla/línea del nodo.
+ * Solo muestra la categoría/tipo de programa (sin los nombres de programas individuales).
  */
 export function formatProgramaTexto(prog) {
   if (!prog) return "";
-  const tipo = prog.tipo || "Programa";
-  if (Array.isArray(prog.nombres) && prog.nombres.length > 0) {
-    return `${tipo}: ${prog.nombres.join(", ")}`;
-  }
-  return tipo;
+  return prog.tipo || "Programa";
 }
 
 /**

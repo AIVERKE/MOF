@@ -64,17 +64,7 @@ describe("Persistencia de Vista y Nodo en OrganigramaVueFlow (Edición, Adición
     let nextPendingTargetId = pendingTargetNodeId;
     let nextIsFirstRender = isFirstRender;
 
-    if (searchLower) {
-      const matchingIds = layoutedNodes
-        .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
-        .map((n) => String(n.id));
-      if (matchingIds.length > 0) {
-        accion = "volarANodos";
-        targetNodes = matchingIds;
-      } else {
-        accion = "fitView";
-      }
-    } else if (pendingTargetNodeId) {
+    if (pendingTargetNodeId) {
       targetId = String(pendingTargetNodeId);
       nextPendingTargetId = null;
       // Buscar el nodo en su nueva posición tras el recálculo del layout (por cambio de nivel o adición)
@@ -85,7 +75,7 @@ describe("Persistencia de Vista y Nodo en OrganigramaVueFlow (Edición, Adición
         }
         accion = "volarANodos";
         targetNodes = [targetId];
-        options = { padding: 0.35, duration: 650, maxZoom: 1.25 };
+        options = { padding: 0.18, duration: 650, maxZoom: 1.35 };
       } else {
         accion = "fitView";
       }
@@ -93,28 +83,19 @@ describe("Persistencia de Vista y Nodo en OrganigramaVueFlow (Edición, Adición
       const navId = String(nodoNavegacionActualId);
       const navNode = layoutedNodes.find((n) => String(n.id) === navId);
       if (navNode && !navNode.data?.isInvisible) {
-        if (modoExploracion !== "completo") {
-          const currentCluster = navigationCluster;
-          const nodesToFrame = [
-            currentCluster.activeId,
-            ...currentCluster.directChildrenIds,
-          ].filter((id) =>
-            layoutedNodes.some(
-              (n) => String(n.id) === String(id) && !n.data?.isInvisible,
-            ),
-          );
-          accion = "volarANodos";
-          targetNodes = nodesToFrame.length > 0 ? nodesToFrame : [navId];
-          options = {
-            padding: nodesToFrame.length > 1 ? 0.25 : 0.4,
-            duration: 650,
-            maxZoom: 1.25,
-          };
-        } else {
-          accion = "volarANodos";
-          targetNodes = [navId];
-          options = { padding: 0.35, duration: 650, maxZoom: 1.25 };
-        }
+        accion = "volarANodos";
+        targetNodes = [navId];
+        options = { padding: 0.18, duration: 650, maxZoom: 1.35 };
+      } else {
+        accion = "fitView";
+      }
+    } else if (searchLower) {
+      const matchingIds = layoutedNodes
+        .filter((n) => n.data && n.data.isMatch && !n.data.isInvisible)
+        .map((n) => String(n.id));
+      if (matchingIds.length > 0) {
+        accion = "volarANodos";
+        targetNodes = matchingIds;
       } else {
         accion = "fitView";
       }
@@ -142,8 +123,8 @@ describe("Persistencia de Vista y Nodo en OrganigramaVueFlow (Edición, Adición
 
     expect(res.accion).toBe("volarANodos");
     expect(res.targetNodes).toEqual(["25"]);
-    expect(res.options.maxZoom).toBe(1.25);
-    expect(res.options.padding).toBe(0.35);
+    expect(res.options.maxZoom).toBe(1.35);
+    expect(res.options.padding).toBe(0.18);
     expect(res.nextNavId).toBe("25");
     expect(res.nextPendingTargetId).toBeNull();
   });
@@ -171,8 +152,9 @@ describe("Persistencia de Vista y Nodo en OrganigramaVueFlow (Edición, Adición
     });
 
     expect(res.accion).toBe("volarANodos");
-    expect(res.targetNodes).toEqual(["10", "99"]);
-    expect(res.options.maxZoom).toBe(1.25);
+    expect(res.targetNodes).toEqual(["10"]);
+    expect(res.options.maxZoom).toBe(1.35);
+    expect(res.options.padding).toBe(0.18);
   });
 
   it("ejecuta fitView únicamente en la carga inicial (isFirstRender)", () => {
