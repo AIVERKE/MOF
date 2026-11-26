@@ -8,7 +8,7 @@ const props = defineProps({
   cargo: { type: Object, default: null },
   initialName: { type: String, default: "" },
 });
-const emit = defineEmits(["update:modelValue", "saved"]);
+const emit = defineEmits(["update:modelValue", "saved", "delete"]);
 
 const cargosStore = useAllCargosMofStore();
 
@@ -57,8 +57,13 @@ async function saveCargo() {
 
   if (success) {
     dialog.value = false;
-    emit("saved", { nombre });
+    emit("saved", { id: props.cargo?.id, nombre, isNew: !props.cargo });
   }
+}
+
+function onDeleteClick() {
+  dialog.value = false;
+  emit("delete", props.cargo);
 }
 </script>
 
@@ -131,6 +136,16 @@ async function saveCargo() {
         </div>
       </v-card-text>
       <v-card-actions class="pa-4">
+        <v-btn
+          v-if="cargo"
+          color="error"
+          variant="text"
+          class="rounded-lg font-weight-medium"
+          @click="onDeleteClick"
+        >
+          <v-icon start size="18">mdi-delete</v-icon>
+          Eliminar
+        </v-btn>
         <v-spacer></v-spacer>
         <v-btn variant="text" class="rounded-lg font-weight-medium px-4" @click="dialog = false">Cancelar</v-btn>
         <v-btn
